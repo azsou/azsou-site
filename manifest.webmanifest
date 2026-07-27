@@ -1,0 +1,12 @@
+{
+  "name": "AZ Studio",
+  "short_name": "AZ Studio",
+  "description": "个人技术社区、产品档案与创作实验室",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#F5F5F7",
+  "theme_color": "#F5F5F7",
+  "lang": "zh-CN",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

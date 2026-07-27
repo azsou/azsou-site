@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>AZ Studio · 原创技术文章</title>
+  <link>https://azsou.com/</link>
+  <description>真实项目、版本记录与可复现结论</description>
+  <language>zh-cn</language>
+  <item>
+    <title>拼音首字母搜索：不引库的 30 行实现与取舍</title>
+    <link>https://azsou.com/#/article/pinyin-initial-search</link>
+    <guid isPermaLink="false">az-article-pinyin-initial-search</guid>
+    <pubDate>Sat, 25 Jul 2026 08:00:00 GMT</pubDate>
+    <description>站内搜索想支持 dwjgjx → 单文件工具箱 这种首拼命中。第一反应是引 pinyin 库，但最小的浏览器端拼音库也要几十 KB——为 30 个中文标题背一个词典，性价比不成立。 结论： 条目量小于几百时，手工标注 py 字段 + 一行匹配逻辑，比任何拼音库都便宜、可控、零依赖。 为什么不引拼音库 拼音库的成本不只是体积：多音字策略、繁简处理、构建链引入，</description>
+  </item>
+  <item>
+    <title>本地优先的评论与论坛：localStorage 数据模型设计</title>
+    <link>https://azsou.com/#/article/local-first-comments-forum</link>
+    <guid isPermaLink="false">az-article-local-first-comments-forum</guid>
+    <pubDate>Fri, 24 Jul 2026 08:00:00 GMT</pubDate>
+    <description>V62/V63 给站点加评论和论坛时还没有后端。当时的做法是本地优先：交互全量实现，数据落在访客自己的 localStorage，界面处处如实标注。 结论： 本地优先不是妥协，是把「数据模型设计」提前到后端存在之前——schema 对了，接后端只是换存储。 为什么本地优先 假后端（伪造别人的评论）违反站点的编辑原则；没有交互又验证不了设计。本地优先是第三条路</description>
+  </item>
+  <item>
+    <title>两键导航与帮助面板：个人站的键盘可达性</title>
+    <link>https://azsou.com/#/article/keyboard-reachability</link>
+    <guid isPermaLink="false">az-article-keyboard-reachability</guid>
+    <pubDate>Thu, 23 Jul 2026 08:00:00 GMT</pubDate>
+    <description>V63 给站点加了 Gmail 式两键导航：g 然后 h/a/g/t/w/f/n，八个视图一秒直达；? 呼出快捷键帮助。这篇记录实现里容易踩的四个坑。 结论： 两键序列的全部复杂度都在「什么时候不触发」：输入框里、修饰键按着、序列超时，三个否定条件比肯定逻辑更重要。 为什么是 g 前缀 单键直达会和浏览器/输入法抢按键；g 前缀把冲突面收敛到一个键，且 Gm</description>
+  </item>
+  <item>
+    <title>CSS @layer 迁移：从 3473 个 !important 到 0</title>
+    <link>https://azsou.com/#/article/layer-migration-zero-important</link>
+    <guid isPermaLink="false">az-article-layer-migration-zero-important</guid>
+    <pubDate>Wed, 22 Jul 2026 08:00:00 GMT</pubDate>
+    <description>V52 期站点样式膨胀到 28 个补丁层、3473 个 !important。V53 归并砍掉九成，V55 用 @layer 收编剩余，V60.1 清到 0。这篇复盘完整路径。 结论： !important 的本质是「没有层序管理时的最后手段」。@layer 把优先级变成结构问题：未分层覆盖区永远压过分层基线，重要性标记就失去了存在理由。 债是怎么欠下的 逐</description>
+  </item>
+  <item>
+    <title>Service Worker 离线外壳：缓存策略与更新提示实测</title>
+    <link>https://azsou.com/#/article/sw-offline-shell</link>
+    <guid isPermaLink="false">az-article-sw-offline-shell</guid>
+    <pubDate>Tue, 21 Jul 2026 08:00:00 GMT</pubDate>
+    <description>V58 给站点加了 Service Worker 离线外壳。单文件站点的缓存问题比多资源站简单得多，但「更新时机」的两难一点不少。这篇是部署套件里 az-sw.js 的设计说明与实测记录。 结论： 单文件 + SW 的正确形态：外壳 cache-first 保离线，版本号进缓存名保更新，升级提示交给页面而不是静默换血。 单文件站要什么缓存 整站就一个 HTM</description>
+  </item>
+  <item>
+    <title>生成式 SVG 素材：17 个母题的确定性视觉系统</title>
+    <link>https://azsou.com/#/article/generative-svg-assets</link>
+    <guid isPermaLink="false">az-article-generative-svg-assets</guid>
+    <pubDate>Mon, 20 Jul 2026 08:00:00 GMT</pubDate>
+    <description>站内 40 个视觉槽位——首页大图、游戏封面、作品图、论坛分类图——全部来自一个 Node 脚本：17 个母题函数，按调色板与种子组合出场景，输出 base64 SVG。 结论： 生成式素材换来的不是「好看」，是三件工程品质：零版权风险、逐字节可复现、主题风格强一致。 为什么自己画 占位图服务有版权与网络依赖；AI 生图不可复现且风格漂移。自绘 SVG 把素</description>
+  </item>
+  <item>
+    <title>FableMotion S3：从模块化到时间轴终版 UI</title>
+    <link>https://azsou.com/#/article/fablemotion-s3-timeline</link>
+    <guid isPermaLink="false">az-article-fablemotion-s3-timeline</guid>
+    <pubDate>Sun, 19 Jul 2026 08:00:00 GMT</pubDate>
+    <description></description>
+  </item>
+  <item>
+    <title>运动路径、洋葱皮与关键帧交互</title>
+    <link>https://azsou.com/#/article/motion-paths-onion-skin</link>
+    <guid isPermaLink="false">az-article-motion-paths-onion-skin</guid>
+    <pubDate>Sat, 18 Jul 2026 08:00:00 GMT</pubDate>
+    <description>S3 之前，运动路径只存在于数据里：想知道对象怎么走，要么按播放，要么读关键帧表。这次把路径直接画到舞台上，顺带把洋葱皮和关键帧拖拽也重做了一遍。 结论： 路径、洋葱皮、关键帧三者共享同一份采样缓存。分开实现时它们各自都对，叠在一起就互相矛盾。 为什么路径要画在舞台上 路径是位置属性的时间积分，画在舞台上才能一眼看出过冲和折返。实现上用 Graph Edit</description>
+  </item>
+  <item>
+    <title>Chrome MV3 动态域名授权与用户激活</title>
+    <link>https://azsou.com/#/article/chrome-mv3-domain-activation</link>
+    <guid isPermaLink="false">az-article-chrome-mv3-domain-activation</guid>
+    <pubDate>Sat, 18 Jul 2026 08:00:00 GMT</pubDate>
+    <description>Image Atlas 需要在用户点开陌生图床时请求该域名的读取权限。MV3 之下这件事只有一条合法路径： permissions.request 必须发生在用户手势的同步调用栈里。任何"提前想好"的设计都会碰壁。 结论： 把授权请求留在用户点击的那一帧，其余全部按"没有权限"设计。体验反而更稳定，审查也一次通过。 为什么不能预授权 host_permiss</description>
+  </item>
+  <item>
+    <title>跨域 frame 扫描如何避免拖垮主流程</title>
+    <link>https://azsou.com/#/article/cross-origin-frame-scan</link>
+    <guid isPermaLink="false">az-article-cross-origin-frame-scan</guid>
+    <pubDate>Fri, 17 Jul 2026 08:00:00 GMT</pubDate>
+    <description>Image Atlas 要在任意页面上找图，而真实页面平均带着十几个跨域 iframe——广告位、嵌入播放器、评论区。第一版把它们串行扫完，主页面的扫描结果要等 6 秒才出来。 结论： 把"扫得全"和"扫得快"拆成两个队列：主文档即时返回，frame 结果流式补充。用户 300ms 内看到第一批图，剩下的陆续到。 问题：一个页面几十个 frame 实测新闻站</description>
+  </item>
+  <item>
+    <title>职业技能树与旧存档迁移</title>
+    <link>https://azsou.com/#/article/emberdeep-skill-tree-migration</link>
+    <guid isPermaLink="false">az-article-emberdeep-skill-tree-migration</guid>
+    <pubDate>Fri, 17 Jul 2026 08:00:00 GMT</pubDate>
+    <description>EMBERDEEP 0.8 把四个职业的技能全部搬进一份数据表：节点、前置、互斥、成长曲线都是配置而不是代码。这不是为了优雅，是为了让 0.7 的旧存档能安全走进新系统。 结论： 先给旧存档做"翻译层"，再谈新系统。直接改存档结构的方案在第一晚就丢了两个测试玩家的进度，全部回滚。 数据驱动的职业系统 每个技能节点是一条记录： id、tier、requires</description>
+  </item>
+  <item>
+    <title>单文件 App 的零构建工作流与天花板</title>
+    <link>https://azsou.com/#/article/single-file-zero-build</link>
+    <guid isPermaLink="false">az-article-single-file-zero-build</guid>
+    <pubDate>Thu, 16 Jul 2026 08:00:00 GMT</pubDate>
+    <description>工具箱里的 12 个单文件 App 和这个站点本身共用同一套哲学：打开就是全部，复制就是部署。这篇复盘写清楚这条路的收益、纪律，和它真实的尽头。 结论： 单文件是发布物的极佳形态，但当样式层数、数据体量或协作人数越过阈值，它就不该再是开发介质。 为什么坚持单文件 零依赖、零构建、离线可用、拷贝即备份。对个人工具，这四条抵得上所有工程化收益：写完 double</description>
+  </item>
+</channel></rss>
