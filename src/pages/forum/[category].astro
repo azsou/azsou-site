@@ -26,7 +26,11 @@ const { c } = Astro.props as { c: ForumCategory };
     label="论坛分类"
     items={[
       { href: url.forum(), label: '全部' },
-      ...forum.categories.map((x) => ({ href: url.forumCategory(x.id), label: x.name, current: x.id === c.id })),
+      ...forum.categories.map((x) => ({
+        href: url.forumCategory(x.id),
+        label: x.name,
+        current: x.id === c.id,
+      })),
     ]}
   />
   <ForumThreadList category={c.id} />

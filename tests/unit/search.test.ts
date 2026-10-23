@@ -2,10 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { normalize, score, search, type SearchItem } from '@/lib/search';
 
 const items: SearchItem[] = [
-  { type: 'app', title: '单文件工具箱', url: '/apps/single-file-toolbox/', pinyin: 'dwjgjx', summary: '下载后直接运行的实用工具集合。' },
+  {
+    type: 'app',
+    title: '单文件工具箱',
+    url: '/apps/single-file-toolbox/',
+    pinyin: 'dwjgjx',
+    summary: '下载后直接运行的实用工具集合。',
+  },
   { type: 'game', title: '声波塔防', url: '/games/audio-tower-defense/', pinyin: 'sbtf' },
   { type: 'app', title: 'FableMotion', url: '/apps/fablemotion/', summary: '动画与视频编辑器' },
-  { type: 'article', title: '拼音首字母搜索：不引库的 30 行实现与取舍', url: '/articles/pinyin-initial-search/', pinyin: 'pyszmssbykd30hsxyqs' },
+  {
+    type: 'article',
+    title: '拼音首字母搜索：不引库的 30 行实现与取舍',
+    url: '/articles/pinyin-initial-search/',
+    pinyin: 'pyszmssbykd30hsxyqs',
+  },
 ];
 
 describe('search', () => {

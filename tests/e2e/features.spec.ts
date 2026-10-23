@@ -40,7 +40,9 @@ test.describe('路由与服务器行为', () => {
       expect(r.status()).toBe(200);
       expect(await r.text()).toContain('<rss');
     }
-    expect(await (await request.get('/robots.txt')).text()).toContain('Sitemap: https://azsou.com/sitemap-index.xml');
+    expect(await (await request.get('/robots.txt')).text()).toContain(
+      'Sitemap: https://azsou.com/sitemap-index.xml',
+    );
     const mf = await (await request.get('/manifest.webmanifest')).json();
     expect(mf.start_url).toBe('/');
     const og = await request.get('/og/art/game-4.png');
@@ -74,7 +76,9 @@ test.describe('只读数据 island', () => {
     await page.goto('/articles/pinyin-initial-search/');
     const box = page.locator('[data-comments]');
     await expect(box).toHaveAttribute('data-state', 'online');
-    await expect(box.locator('[data-source="db"]')).toContainText('<script>window.__xss=1</script>数据库评论');
+    await expect(box.locator('[data-source="db"]')).toContainText(
+      '<script>window.__xss=1</script>数据库评论',
+    );
     await expect(box.locator('[data-count]')).toHaveText('2 条');
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   });
@@ -108,7 +112,9 @@ test.describe('只读数据 island', () => {
   });
   test('种子主题页追加数据库回复', async ({ page }) => {
     await page.goto('/forum/t/t-announce/');
-    await expect(page.locator('[data-forum-replies] [data-source="db"]')).toContainText('种子主题下的数据库回复');
+    await expect(page.locator('[data-forum-replies] [data-source="db"]')).toContainText(
+      '种子主题下的数据库回复',
+    );
   });
 });
 
@@ -142,9 +148,13 @@ test.describe('导航与设计系统', () => {
   test('暗色模式跟随系统', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(0, 0, 0)');
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(
+      'rgb(0, 0, 0)',
+    );
     await page.emulateMedia({ colorScheme: 'light' });
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(245, 245, 247)');
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(
+      'rgb(245, 245, 247)',
+    );
   });
   test('减少动态效果时关闭过渡', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -178,10 +188,14 @@ test.describe('PWA', () => {
     await page.goto('/');
     const ok = await page.evaluate(async () => {
       if (!('serviceWorker' in navigator)) return 'unsupported';
-      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 8000))]);
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((r) => setTimeout(() => r(null), 8000)),
+      ]);
       if (!reg) return 'timeout';
       for (let i = 0; i < 20; i++) {
-        for (const k of await caches.keys()) if (await (await caches.open(k)).match('/offline/')) return 'cached';
+        for (const k of await caches.keys())
+          if (await (await caches.open(k)).match('/offline/')) return 'cached';
         await new Promise((r) => setTimeout(r, 250));
       }
       return 'no-offline';

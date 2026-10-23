@@ -15,7 +15,10 @@ for (const route of ROUTES) {
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
     expect(canonical).toMatch(/^https:\/\/azsou\.com\//);
     if (route !== '/404.html') expect(canonical).toBe(`https://azsou.com${route}`);
-    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /^https:\/\/azsou\.com\/.+\.png$/);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      'content',
+      /^https:\/\/azsou\.com\/.+\.png$/,
+    );
     const ld = await page.locator('script[type="application/ld+json"]').first().textContent();
     expect(() => JSON.parse(ld!)).not.toThrow();
     await expect(page.locator('main#main')).toHaveCount(1);
@@ -36,7 +39,9 @@ for (const route of ROUTES) {
               }),
         ),
       );
-      return imgs.filter((i) => !i.getAttribute('alt') || (i.loading !== 'lazy' && i.naturalWidth === 0)).map((i) => i.src);
+      return imgs
+        .filter((i) => !i.getAttribute('alt') || (i.loading !== 'lazy' && i.naturalWidth === 0))
+        .map((i) => i.src);
     });
     expect(broken, '缺 alt 或加载失败的图片').toEqual([]);
     await page.waitForLoadState('networkidle');

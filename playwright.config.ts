@@ -39,7 +39,9 @@ for (const [b, base] of Object.entries(BROWSERS)) {
         // Firefox 不支持 isMobile
         isMobile: cfg.mobile && b !== 'firefox',
         launchOptions:
-          b === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : undefined,
+          b === 'chromium' && process.env.CHROMIUM_PATH
+            ? { executablePath: process.env.CHROMIUM_PATH }
+            : undefined,
       },
     });
   }

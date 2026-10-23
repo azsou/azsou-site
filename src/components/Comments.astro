@@ -18,29 +18,31 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 <section class="discussion panel" data-comments data-page-key={pageKey} aria-labelledby={id}>
   <div class="section__head">
     <h2 id={id}>{title}</h2>
-    <span class="muted" data-count>{seeds.length} 条</span>
+    <span class="muted" data-count>
+      {seeds.length} 条
+    </span>
   </div>
   <p class="muted">评论公开可见。后端不可达时本区自动进入只读模式。</p>
   <ul class="list-reset" role="list" data-list>
-    {
-      seeds.map((c) => (
-        <li class="comment" data-source="seed">
-          <span class="avatar" aria-hidden="true">
-            {initials(c.author)}
-          </span>
-          <div>
-            <div class="comment__head">
-              <b>{c.author}</b>
-              {c.site && <span class="badge">站长</span>}
-              <time datetime={c.date}>{c.date}</time>
-            </div>
-            <div class="comment__body" set:html={textToHtml(c.body)} />
+    {seeds.map((c) => (
+      <li class="comment" data-source="seed">
+        <span class="avatar" aria-hidden="true">
+          {initials(c.author)}
+        </span>
+        <div>
+          <div class="comment__head">
+            <b>{c.author}</b>
+            {c.site && <span class="badge">站长</span>}
+            <time datetime={c.date}>{c.date}</time>
           </div>
-        </li>
-      ))
-    }
+          <div class="comment__body" set:html={textToHtml(c.body)} />
+        </div>
+      </li>
+    ))}
   </ul>
-  <p class="data-status" data-status role="status">正在加载讨论…</p>
+  <p class="data-status" data-status role="status">
+    正在加载讨论…
+  </p>
 </section>
 
 <script>

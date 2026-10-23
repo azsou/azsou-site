@@ -7,22 +7,30 @@ const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWi
 
 <header class="site-nav glass">
   <nav class="shell site-nav__inner" aria-label="主导航">
-    <a class="brand" href="/"><span class="brand__mark" aria-hidden="true">AZ</span><span>AZ Studio</span></a>
+    <a class="brand" href="/">
+      <span class="brand__mark" aria-hidden="true">
+        AZ
+      </span>
+      <span>AZ Studio</span>
+    </a>
     <ul class="nav-links">
-      {
-        NAV.map((n) => (
-          <li>
-            <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
-              {n.label}
-            </a>
-          </li>
-        ))
-      }
+      {NAV.map((n) => (
+        <li>
+          <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+            {n.label}
+          </a>
+        </li>
+      ))}
     </ul>
     <div class="nav-actions">
-      <a class="icon-btn" href="/search/" aria-label="搜索" aria-current={path.startsWith('/search/') ? 'page' : undefined}
-        ><Icon name="search" /></a
+      <a
+        class="icon-btn"
+        href="/search/"
+        aria-label="搜索"
+        aria-current={path.startsWith('/search/') ? 'page' : undefined}
       >
+        <Icon name="search" />
+      </a>
     </div>
   </nav>
 </header>

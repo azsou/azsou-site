@@ -21,29 +21,32 @@ import { url } from '@/lib/routes';
     </p>
   </PageHead>
   <section aria-labelledby="h-cats">
-    <h2 id="h-cats" class="visually-hidden">分类</h2>
+    <h2 id="h-cats" class="visually-hidden">
+      分类
+    </h2>
     <div class="grid">
-      {
-        forum.categories.map((c) => (
-          <article class="card">
-            <div class="card__media">
-              <Art slot={c.art} />
-            </div>
-            <div class="card__body">
-              <h3 class="card__title">
-                <a class="card__link" href={url.forumCategory(c.id)}>
-                  {c.name}
-                </a>
-              </h3>
-              <p class="card__text">{c.desc}</p>
-            </div>
-          </article>
-        ))
-      }
+      {forum.categories.map((c) => (
+        <article class="card">
+          <div class="card__media">
+            <Art slot={c.art} />
+          </div>
+          <div class="card__body">
+            <h3 class="card__title">
+              <a class="card__link" href={url.forumCategory(c.id)}>
+                {c.name}
+              </a>
+            </h3>
+            <p class="card__text">{c.desc}</p>
+          </div>
+        </article>
+      ))}
     </div>
   </section>
   <section class="section" aria-labelledby="h-latest">
-    <div class="section__head"><h2 id="h-latest">全部主题</h2><a href="/forum/rss.xml">RSS</a></div>
+    <div class="section__head">
+      <h2 id="h-latest">全部主题</h2>
+      <a href="/forum/rss.xml">RSS</a>
+    </div>
     <ForumThreadList />
   </section>
 </Base>

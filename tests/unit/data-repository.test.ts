@@ -8,14 +8,50 @@ import {
 } from '@/lib/data';
 
 const threads = [
-  { id: 'a', category: 'tech', title: 'A', body: 'x', author: { id: '1', name: 'u1' }, pinned: false, createdAt: '2026-07-20T00:00:00Z' },
-  { id: 'b', category: 'product', title: 'B', body: 'y', author: { id: '2', name: 'u2' }, pinned: false, createdAt: '2026-07-27T00:00:00Z' },
+  {
+    id: 'a',
+    category: 'tech',
+    title: 'A',
+    body: 'x',
+    author: { id: '1', name: 'u1' },
+    pinned: false,
+    createdAt: '2026-07-20T00:00:00Z',
+  },
+  {
+    id: 'b',
+    category: 'product',
+    title: 'B',
+    body: 'y',
+    author: { id: '2', name: 'u2' },
+    pinned: false,
+    createdAt: '2026-07-27T00:00:00Z',
+  },
 ];
 const replies = [
-  { id: 'r2', threadId: 'b', body: 'later', author: { id: '1', name: 'u1' }, createdAt: '2026-07-28T00:00:00Z' },
-  { id: 'r1', threadId: 'b', body: 'first', author: { id: '1', name: 'u1' }, createdAt: '2026-07-27T01:00:00Z' },
+  {
+    id: 'r2',
+    threadId: 'b',
+    body: 'later',
+    author: { id: '1', name: 'u1' },
+    createdAt: '2026-07-28T00:00:00Z',
+  },
+  {
+    id: 'r1',
+    threadId: 'b',
+    body: 'first',
+    author: { id: '1', name: 'u1' },
+    createdAt: '2026-07-27T01:00:00Z',
+  },
 ];
-const comments = [{ id: 'c1', pageKey: 'article:x', body: 'hi', author: { id: '1', name: 'u1' }, createdAt: '2026-07-27T00:00:00Z' }];
+const comments = [
+  {
+    id: 'c1',
+    pageKey: 'article:x',
+    body: 'hi',
+    author: { id: '1', name: 'u1' },
+    createdAt: '2026-07-27T00:00:00Z',
+  },
+];
 
 /** 契约测试：任何适配器（Supabase、内存、将来的 Neon/自建 PG）都应满足同样的行为 */
 async function contract(repo: DataRepository) {
@@ -40,8 +76,26 @@ describe('supabase adapter', () => {
     const prof = { profiles: { display_name: 'u1' } };
     if (path.startsWith('forum_threads')) {
       const list = [
-        { id: 'b', cat: '产品讨论', title: 'B', body: 'y', author: '2', pinned: false, created_at: '2026-07-27T00:00:00Z', ...prof },
-        { id: 'a', cat: '技术交流', title: 'A', body: 'x', author: '1', pinned: false, created_at: '2026-07-20T00:00:00Z', ...prof },
+        {
+          id: 'b',
+          cat: '产品讨论',
+          title: 'B',
+          body: 'y',
+          author: '2',
+          pinned: false,
+          created_at: '2026-07-27T00:00:00Z',
+          ...prof,
+        },
+        {
+          id: 'a',
+          cat: '技术交流',
+          title: 'A',
+          body: 'x',
+          author: '1',
+          pinned: false,
+          created_at: '2026-07-20T00:00:00Z',
+          ...prof,
+        },
       ];
       const id = /id=eq\.([^&]+)/.exec(path)?.[1];
       return id ? list.filter((t) => t.id === id) : list;
@@ -50,13 +104,36 @@ describe('supabase adapter', () => {
     if (path.startsWith('forum_replies')) {
       return /thread_id=eq\.b/.test(path)
         ? [
-            { id: 'r1', thread_id: 'b', body: 'first', author: '1', created_at: '2026-07-27T01:00:00Z', ...prof },
-            { id: 'r2', thread_id: 'b', body: 'later', author: '1', created_at: '2026-07-28T00:00:00Z', ...prof },
+            {
+              id: 'r1',
+              thread_id: 'b',
+              body: 'first',
+              author: '1',
+              created_at: '2026-07-27T01:00:00Z',
+              ...prof,
+            },
+            {
+              id: 'r2',
+              thread_id: 'b',
+              body: 'later',
+              author: '1',
+              created_at: '2026-07-28T00:00:00Z',
+              ...prof,
+            },
           ]
         : [];
     }
     if (path.startsWith('comments'))
-      return [{ id: 'c1', page_key: 'article:x', body: 'hi', author: '1', created_at: '2026-07-27T00:00:00Z', ...prof }];
+      return [
+        {
+          id: 'c1',
+          page_key: 'article:x',
+          body: 'hi',
+          author: '1',
+          created_at: '2026-07-27T00:00:00Z',
+          ...prof,
+        },
+      ];
     return [];
   };
   const fakeFetch = vi.fn(async (input: string | URL | Request) => {
@@ -65,7 +142,9 @@ describe('supabase adapter', () => {
   }) as unknown as typeof fetch;
 
   it('satisfies the repository contract against PostgREST-shaped rows', async () => {
-    await contract(createSupabaseRepository({ url: 'https://example.supabase.co', key: 'k', fetch: fakeFetch }));
+    await contract(
+      createSupabaseRepository({ url: 'https://example.supabase.co', key: 'k', fetch: fakeFetch }),
+    );
   });
 
   it('sends the publishable key and only requests published rows', async () => {
@@ -79,15 +158,15 @@ describe('supabase adapter', () => {
 
   it('throws DataUnavailableError on HTTP errors and network failures', async () => {
     const bad = (async () => new Response('x', { status: 503 })) as unknown as typeof fetch;
-    await expect(createSupabaseRepository({ url: 'https://e.co', key: 'k', fetch: bad }).forum.listThreads()).rejects.toBeInstanceOf(
-      DataUnavailableError,
-    );
+    await expect(
+      createSupabaseRepository({ url: 'https://e.co', key: 'k', fetch: bad }).forum.listThreads(),
+    ).rejects.toBeInstanceOf(DataUnavailableError);
     const down = (async () => {
       throw new TypeError('Failed to fetch');
     }) as unknown as typeof fetch;
-    await expect(createSupabaseRepository({ url: 'https://e.co', key: 'k', fetch: down }).comments.list('x')).rejects.toBeInstanceOf(
-      DataUnavailableError,
-    );
+    await expect(
+      createSupabaseRepository({ url: 'https://e.co', key: 'k', fetch: down }).comments.list('x'),
+    ).rejects.toBeInstanceOf(DataUnavailableError);
   });
 
   it('maps legacy Chinese category names to ids', () => {

@@ -19,5 +19,9 @@ const games = await getGames();
     title="游戏与可玩 Demo"
     lede="浏览器里的 Roguelike、Web 3D 与物理小品。不包装成商业发行，版本号如实反映完成度。"
   />
-  <div class="grid">{games.map((g, i) => <GameCard game={g} eager={i < 2} />)}</div>
+  <div class="grid">
+    {games.map((g, i) => (
+      <GameCard game={g} eager={i < 2} />
+    ))}
+  </div>
 </Base>

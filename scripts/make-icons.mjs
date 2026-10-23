@@ -6,7 +6,10 @@ const dir = 'public/icons';
 fs.mkdirSync(dir, { recursive: true });
 // resvg 不支持 oklch，换成等价 sRGB；文字用系统无衬线字体
 const base = fs.readFileSync('public/favicon.svg', 'utf8').replace('oklch(49% .14 145)', '#2f7d4f');
-const full = base.replace('<rect x="2" y="2" width="60" height="60" rx="14"', '<rect x="0" y="0" width="64" height="64" rx="14"');
+const full = base.replace(
+  '<rect x="2" y="2" width="60" height="60" rx="14"',
+  '<rect x="0" y="0" width="64" height="64" rx="14"',
+);
 const maskable = base
   .replace(/<rect[^>]*\/>/, '<rect x="0" y="0" width="64" height="64" fill="#2f7d4f"/>')
   .replace('font-size="24"', 'font-size="18"')

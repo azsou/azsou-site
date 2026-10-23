@@ -21,29 +21,27 @@ for (const a of articles) {
   ]}
 >
   <PageHead eyebrow="归档" title="文章归档" lede={`共 ${articles.length} 篇，按发布日期倒序。`} />
-  {
-    [...groups].map(([month, list]) => (
-      <section class="section" aria-label={month}>
-        <h2>{month.replace('-', ' 年 ')} 月</h2>
-        <ul class="list-group mt-4" role="list">
-          {list.map((a) => (
-            <li>
-              <a class="list-row" href={url.article(a.id)}>
-                <span class="list-row__main">
-                  <span class="list-row__title">{a.data.title}</span>
-                  <br />
-                  <span class="list-row__sub">
-                    {a.data.category} · {a.data.readingMinutes} 分钟
-                  </span>
+  {[...groups].map(([month, list]) => (
+    <section class="section" aria-label={month}>
+      <h2>{month.replace('-', ' 年 ')} 月</h2>
+      <ul class="list-group mt-4" role="list">
+        {list.map((a) => (
+          <li>
+            <a class="list-row" href={url.article(a.id)}>
+              <span class="list-row__main">
+                <span class="list-row__title">{a.data.title}</span>
+                <br />
+                <span class="list-row__sub">
+                  {a.data.category} · {a.data.readingMinutes} 分钟
                 </span>
-                <time class="list-row__aside" datetime={a.data.date}>
-                  {a.data.date.slice(5)}
-                </time>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    ))
-  }
+              </span>
+              <time class="list-row__aside" datetime={a.data.date}>
+                {a.data.date.slice(5)}
+              </time>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
 </Base>

@@ -36,7 +36,9 @@ function extractLinks(html) {
     else links.push(val);
   }
   // og:image / twitter:image 也必须存在
-  for (const m of html.matchAll(/<meta[^>]+(?:property|name)="(?:og:image|twitter:image)"[^>]+content="([^"]+)"/g))
+  for (const m of html.matchAll(
+    /<meta[^>]+(?:property|name)="(?:og:image|twitter:image)"[^>]+content="([^"]+)"/g,
+  ))
     links.push(m[1]);
   return links;
 }

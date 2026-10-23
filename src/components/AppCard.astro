@@ -12,12 +12,20 @@ const d = app.data;
 ---
 
 <article class="card card--row">
-  <span class="app-icon" data-hue={d.hue} aria-hidden="true">{d.icon}</span>
+  <span class="app-icon" data-hue={d.hue} aria-hidden="true">
+    {d.icon}
+  </span>
   <div class="card__body">
-    <H class="card__title"><a class="card__link" href={url.app(app.id)}>{d.title}</a></H>
+    <H class="card__title">
+      <a class="card__link" href={url.app(app.id)}>
+        {d.title}
+      </a>
+    </H>
     <p class="card__text">{d.summary}</p>
     <div class="card__meta">
-      <span>{d.kind}</span><span aria-hidden="true">·</span><span>{d.version}</span>
+      <span>{d.kind}</span>
+      <span aria-hidden="true">·</span>
+      <span>{d.version}</span>
       <Status cls={d.statusClass} text={d.status} />
     </div>
   </div>

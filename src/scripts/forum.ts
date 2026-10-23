@@ -2,7 +2,12 @@ import { getRepository, type Thread } from '@/lib/data';
 import { url } from '@/lib/routes';
 import { commentNode, paragraphs, setStatus, shortDate } from './render';
 
-const CAT_NAMES: Record<string, string> = { announce: '公告', product: '产品讨论', tech: '技术交流', meta: '站务反馈' };
+const CAT_NAMES: Record<string, string> = {
+  announce: '公告',
+  product: '产品讨论',
+  tech: '技术交流',
+  meta: '站务反馈',
+};
 
 function threadRow(t: Thread, replies: number): HTMLLIElement {
   const li = document.createElement('li');
@@ -33,7 +38,10 @@ async function hydrateList(root: HTMLElement) {
   const category = root.dataset.category || undefined;
   const repo = getRepository();
   try {
-    const [threads, counts] = await Promise.all([repo.forum.listThreads({ category }), repo.forum.replyCounts()]);
+    const [threads, counts] = await Promise.all([
+      repo.forum.listThreads({ category }),
+      repo.forum.replyCounts(),
+    ]);
     // 种子主题的回复数 = 预置回复 + 数据库回复
     list.querySelectorAll<HTMLElement>('[data-seed-id]').forEach((li) => {
       const n = counts[li.dataset.seedId!] ?? 0;

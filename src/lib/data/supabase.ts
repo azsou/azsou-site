@@ -60,7 +60,9 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
         return rows.map(toThread).filter((t) => !opts.category || t.category === opts.category);
       },
       async getThread(id) {
-        const rows = await rest(`forum_threads?select=${THREAD_COLS}&id=eq.${enc(id)}&published=eq.true&limit=1`);
+        const rows = await rest(
+          `forum_threads?select=${THREAD_COLS}&id=eq.${enc(id)}&published=eq.true&limit=1`,
+        );
         return rows[0] ? toThread(rows[0]) : null;
       },
       async listReplies(threadId) {

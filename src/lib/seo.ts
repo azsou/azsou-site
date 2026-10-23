@@ -37,7 +37,12 @@ export const website = (): Json => ({
 
 export const breadcrumbs = (items: Crumb[]): Json => ({
   '@type': 'BreadcrumbList',
-  itemListElement: items.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: abs(c.path) })),
+  itemListElement: items.map((c, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: c.name,
+    item: abs(c.path),
+  })),
 });
 
 export function article(a: {

@@ -27,5 +27,9 @@ const t = TAGS[tag];
   ]}
 >
   <PageHead eyebrow="标签" title={`#${t.name}`} lede={t.description} />
-  <div class="grid grid--wide">{list.map((a) => <ArticleCard article={a} />)}</div>
+  <div class="grid grid--wide">
+    {list.map((a) => (
+      <ArticleCard article={a} />
+    ))}
+  </div>
 </Base>

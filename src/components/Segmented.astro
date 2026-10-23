@@ -7,11 +7,9 @@ const { label, items } = Astro.props;
 ---
 
 <nav class="segmented" aria-label={label}>
-  {
-    items.map((i) => (
-      <a href={i.href} aria-current={i.current ? 'page' : undefined}>
-        {i.label}
-      </a>
-    ))
-  }
+  {items.map((i) => (
+    <a href={i.href} aria-current={i.current ? 'page' : undefined}>
+      {i.label}
+    </a>
+  ))}
 </nav>

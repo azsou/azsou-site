@@ -54,7 +54,8 @@ export async function mockSupabase(page: Page, mode: 'ok' | 'down' = 'ok') {
     const eq = (k: string) => q.get(k)?.replace(/^eq\./, '');
     let rows: Record<string, unknown>[] = [];
     if (table === 'forum_threads') rows = DB.threads.filter((t) => !eq('id') || t.id === eq('id'));
-    if (table === 'forum_replies') rows = DB.replies.filter((r) => !eq('thread_id') || r.thread_id === eq('thread_id'));
+    if (table === 'forum_replies')
+      rows = DB.replies.filter((r) => !eq('thread_id') || r.thread_id === eq('thread_id'));
     if (table === 'comments') rows = DB.comments.filter((c) => c.page_key === eq('page_key'));
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
   });

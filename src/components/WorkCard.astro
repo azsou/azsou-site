@@ -12,9 +12,19 @@ const d = work.data;
 ---
 
 <article class="card">
-  <div class="card__media"><Art slot={d.art} /></div>
+  <div class="card__media">
+    <Art slot={d.art} />
+  </div>
   <div class="card__body">
-    <H class="card__title"><a class="card__link" href={url.work(work.id)}>{d.title}</a></H>
-    <div class="card__meta"><span class="badge">{d.kind}</span><span>{d.date}</span><span>{d.status}</span></div>
+    <H class="card__title">
+      <a class="card__link" href={url.work(work.id)}>
+        {d.title}
+      </a>
+    </H>
+    <div class="card__meta">
+      <span class="badge">{d.kind}</span>
+      <span>{d.date}</span>
+      <span>{d.status}</span>
+    </div>
   </div>
 </article>

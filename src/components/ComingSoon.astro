@@ -9,15 +9,29 @@ interface Props {
 const { title, path, phase, what } = Astro.props;
 ---
 
-<Base title={title} description={`${title}：将在 v2 ${phase} 上线。`} noindex crumbs={[{ name: '首页', path: '/' }, { name: title, path }]}>
+<Base
+  title={title}
+  description={`${title}：将在 v2 ${phase} 上线。`}
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: title, path },
+  ]}
+>
   <header class="page-head">
     <p class="eyebrow">v2 {phase}</p>
     <h1>{title}</h1>
     <p>{what}</p>
   </header>
-  <p class="notice notice--info" role="note">这是 v2 预览分支。该功能会在 {phase} 阶段接入，届时沿用现有账户与数据（Supabase）。</p>
+  <p class="notice notice--info" role="note">
+    这是 v2 预览分支。该功能会在 {phase} 阶段接入，届时沿用现有账户与数据（Supabase）。
+  </p>
   <div class="btn-row mt-8">
-    <a class="btn btn--primary" href="/">回到首页</a>
-    <a class="btn" href="/forum/">浏览论坛（只读）</a>
+    <a class="btn btn--primary" href="/">
+      回到首页
+    </a>
+    <a class="btn" href="/forum/">
+      浏览论坛（只读）
+    </a>
   </div>
 </Base>

@@ -18,12 +18,25 @@ const used = [...new Set(articles.flatMap((a) => a.data.tags))];
     { name: '文章', path: '/articles/' },
   ]}
 >
-  <PageHead eyebrow="文章" title="原创技术文章" lede="真实项目、实测结论和可复现教程。每篇都标注最后核对日期。">
-    <p><a href="/articles/rss.xml">订阅 RSS</a> · <a href={url.archive()}>按月归档</a></p>
+  <PageHead
+    eyebrow="文章"
+    title="原创技术文章"
+    lede="真实项目、实测结论和可复现教程。每篇都标注最后核对日期。"
+  >
+    <p>
+      <a href="/articles/rss.xml">订阅 RSS</a> · <a href={url.archive()}>按月归档</a>
+    </p>
   </PageHead>
   <Segmented
     label="按标签筛选"
-    items={[{ href: url.articles(), label: '全部', current: true }, ...used.map((t) => ({ href: url.tag(t), label: TAGS[t]?.name ?? t }))]}
+    items={[
+      { href: url.articles(), label: '全部', current: true },
+      ...used.map((t) => ({ href: url.tag(t), label: TAGS[t]?.name ?? t })),
+    ]}
   />
-  <div class="grid grid--wide">{articles.map((a) => <ArticleCard article={a} />)}</div>
+  <div class="grid grid--wide">
+    {articles.map((a) => (
+      <ArticleCard article={a} />
+    ))}
+  </div>
 </Base>

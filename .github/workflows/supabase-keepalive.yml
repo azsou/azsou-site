@@ -2,7 +2,7 @@ name: Supabase keepalive
 # Free Supabase projects pause after a week without activity; ping every 3 days.
 on:
   schedule:
-    - cron: "17 3 */3 * *"
+    - cron: '17 3 */3 * *'
   workflow_dispatch:
 jobs:
   ping:

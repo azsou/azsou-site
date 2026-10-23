@@ -6,8 +6,10 @@ export interface MemorySeed {
   comments?: Comment[];
 }
 
-const byDateDesc = (a: { createdAt: string }, b: { createdAt: string }) => b.createdAt.localeCompare(a.createdAt);
-const byDateAsc = (a: { createdAt: string }, b: { createdAt: string }) => a.createdAt.localeCompare(b.createdAt);
+const byDateDesc = (a: { createdAt: string }, b: { createdAt: string }) =>
+  b.createdAt.localeCompare(a.createdAt);
+const byDateAsc = (a: { createdAt: string }, b: { createdAt: string }) =>
+  a.createdAt.localeCompare(b.createdAt);
 
 /** 内存适配器：单元测试、离线开发、以及换库前的契约基准。 */
 export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {

@@ -33,31 +33,47 @@ const description = excerpt(bodyHtml, 110);
     { name: d.title, path },
   ]}
   schema={[
-    videoGame({ name: d.title, description, path, genre: d.genre, version: d.version, image: ogArt(d.art), date: d.date }),
+    videoGame({
+      name: d.title,
+      description,
+      path,
+      genre: d.genre,
+      version: d.version,
+      image: ogArt(d.art),
+      date: d.date,
+    }),
   ]}
 >
   <header class="page-head">
-    <p class="eyebrow">{d.kind} · {d.genre}</p>
+    <p class="eyebrow">
+      {d.kind} · {d.genre}
+    </p>
     <h1>{d.title}</h1>
     <div class="article-meta">
-      <span>版本 {d.version}</span><span>{d.status}</span><span>最后核对 <time datetime={d.date}>{d.date}</time></span>
+      <span>版本 {d.version}</span>
+      <span>{d.status}</span>
+      <span>
+        最后核对 <time datetime={d.date}>{d.date}</time>
+      </span>
     </div>
   </header>
   <div class="split">
     <div>
-      <div class="hero-media"><Art slot={d.art} eager /></div>
-      <section class="prose" aria-label="简介"><Fragment set:html={bodyHtml} /></section>
+      <div class="hero-media">
+        <Art slot={d.art} eager />
+      </div>
+      <section class="prose" aria-label="简介">
+        <Fragment set:html={bodyHtml} />
+      </section>
       <section class="section" aria-labelledby="h-log">
         <h2 id="h-log">开发日志</h2>
         <ol class="timeline mt-4">
-          {
-            d.log.map((l) => (
-              <li>
-                <time datetime={l.date}>{l.date}</time> <b>{l.version}</b>
-                <p>{l.note}</p>
-              </li>
-            ))
-          }
+          {d.log.map((l) => (
+            <li>
+              <time datetime={l.date}>{l.date}</time> <b>{l.version}</b>
+              <p>{l.note}</p>
+            </li>
+          ))}
         </ol>
       </section>
       <section class="section" aria-labelledby="h-issues">
@@ -65,22 +81,18 @@ const description = excerpt(bodyHtml, 110);
         <p class="mt-4">{d.issues}</p>
       </section>
       <nav class="pager" aria-label="上下一个游戏">
-        {
-          prev && (
-            <a href={url.game(prev.id)}>
-              <small>上一个</small>
-              {prev.data.title}
-            </a>
-          )
-        }
-        {
-          next && (
-            <a href={url.game(next.id)}>
-              <small>下一个</small>
-              {next.data.title}
-            </a>
-          )
-        }
+        {prev && (
+          <a href={url.game(prev.id)}>
+            <small>上一个</small>
+            {prev.data.title}
+          </a>
+        )}
+        {next && (
+          <a href={url.game(next.id)}>
+            <small>下一个</small>
+            {next.data.title}
+          </a>
+        )}
       </nav>
       <Comments pageKey={`game:${game.id}`} />
     </div>
@@ -88,14 +100,12 @@ const description = excerpt(bodyHtml, 110);
       <section class="panel">
         <h2>游戏事实</h2>
         <dl class="facts">
-          {
-            d.facts.map((f) => (
-              <>
-                <dt>{f.label}</dt>
-                <dd>{f.value}</dd>
-              </>
-            ))
-          }
+          {d.facts.map((f) => (
+            <>
+              <dt>{f.label}</dt>
+              <dd>{f.value}</dd>
+            </>
+          ))}
         </dl>
       </section>
       <section class="panel">

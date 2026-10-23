@@ -20,19 +20,17 @@ const counts = Object.keys(TAGS)
 >
   <PageHead eyebrow="标签" title="按主题浏览" />
   <ul class="list-group" role="list">
-    {
-      counts.map(({ t, n }) => (
-        <li>
-          <a class="list-row" href={url.tag(t)}>
-            <span class="list-row__main">
-              <span class="list-row__title">{TAGS[t].name}</span>
-              <br />
-              <span class="list-row__sub">{TAGS[t].description}</span>
-            </span>
-            <span class="list-row__aside">{n} 篇</span>
-          </a>
-        </li>
-      ))
-    }
+    {counts.map(({ t, n }) => (
+      <li>
+        <a class="list-row" href={url.tag(t)}>
+          <span class="list-row__main">
+            <span class="list-row__title">{TAGS[t].name}</span>
+            <br />
+            <span class="list-row__sub">{TAGS[t].description}</span>
+          </span>
+          <span class="list-row__aside">{n} 篇</span>
+        </a>
+      </li>
+    ))}
   </ul>
 </Base>

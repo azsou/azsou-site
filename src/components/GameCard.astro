@@ -13,10 +13,20 @@ const d = game.data;
 ---
 
 <article class="card">
-  <div class="card__media"><Art slot={d.art} eager={eager} /></div>
+  <div class="card__media">
+    <Art slot={d.art} eager={eager} />
+  </div>
   <div class="card__body">
-    <H class="card__title"><a class="card__link" href={url.game(game.id)}>{d.title}</a></H>
+    <H class="card__title">
+      <a class="card__link" href={url.game(game.id)}>
+        {d.title}
+      </a>
+    </H>
     <p class="card__text">{d.genre}</p>
-    <div class="card__meta"><span class="badge">{d.kind}</span><span>版本 {d.version}</span><span>{d.status}</span></div>
+    <div class="card__meta">
+      <span class="badge">{d.kind}</span>
+      <span>版本 {d.version}</span>
+      <span>{d.status}</span>
+    </div>
   </div>
 </article>

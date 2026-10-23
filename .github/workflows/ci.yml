@@ -1,0 +1,69 @@
+name: CI
+# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 → E2E（3 引擎 × 4 视口 + axe）→ Lighthouse
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check
+      - run: npm run test:unit
+      - run: npm run build
+      - run: npm run test:links
+      - run: npm run test:html
+      - run: npm run size
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist, retention-days: 3 }
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npx playwright test
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report
+          retention-days: 7
+
+  lighthouse:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with: { name: lighthouse, path: .lighthouseci, retention-days: 7 }

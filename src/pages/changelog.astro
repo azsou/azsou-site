@@ -10,9 +10,18 @@ const site: { date: string; title: string; note: string; thread?: string }[] = [
     title: 'v2 P1：Astro 静态站骨架（预览分支）',
     note: '真实 URL、每页独立 SEO、sitemap / RSS、macOS / iOS 风格设计系统、亮暗自动切换；论坛与评论暂为只读。尚未上线到 azsou.com。',
   },
-  { date: '2026-07', title: 'V72', note: '单文件站点最终版：Supabase 后端、论坛与评论、后台编辑。（V72 文件保留在仓库 legacy/ 供参考）' },
+  {
+    date: '2026-07',
+    title: 'V72',
+    note: '单文件站点最终版：Supabase 后端、论坛与评论、后台编辑。（V72 文件保留在仓库 legacy/ 供参考）',
+  },
   { date: '2026-07', title: 'V68', note: '论坛与评论从本地演示接入真实后端（Supabase + 行级安全策略）。' },
-  { date: '2026-07-24', title: 'V63', note: '论坛上线、拼音首字母搜索、g 系列两键导航与 ? 帮助面板。', thread: 't-v63-changelog' },
+  {
+    date: '2026-07-24',
+    title: 'V63',
+    note: '论坛上线、拼音首字母搜索、g 系列两键导航与 ? 帮助面板。',
+    thread: 't-v63-changelog',
+  },
 ];
 ---
 
@@ -24,45 +33,45 @@ const site: { date: string; title: string; note: string; thread?: string }[] = [
     { name: '更新日志', path: '/changelog/' },
   ]}
 >
-  <PageHead eyebrow="站点与项目" title="更新日志" lede="站点版本与项目版本分开记录。项目条目与 V72 首页「最近更新」一致。" />
+  <PageHead
+    eyebrow="站点与项目"
+    title="更新日志"
+    lede="站点版本与项目版本分开记录。项目条目与 V72 首页「最近更新」一致。"
+  />
   <div class="split">
     <section aria-labelledby="h-site">
       <h2 id="h-site">站点</h2>
       <ol class="timeline mt-4">
-        {
-          site.map((s) => (
-            <li>
-              <time datetime={s.date}>{s.date}</time> <b>{s.title}</b>
-              <p>
-                {s.note} {s.thread && <a href={url.forumThread(s.thread)}>论坛公告</a>}
-              </p>
-            </li>
-          ))
-        }
+        {site.map((s) => (
+          <li>
+            <time datetime={s.date}>{s.date}</time> <b>{s.title}</b>
+            <p>
+              {s.note} {s.thread && <a href={url.forumThread(s.thread)}>论坛公告</a>}
+            </p>
+          </li>
+        ))}
       </ol>
     </section>
     <section aria-labelledby="h-projects">
       <h2 id="h-projects">项目</h2>
       <ul class="list-group mt-4" role="list">
-        {
-          updates.map((u) => (
-            <li class="list-row">
-              <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
-                {u.icon}
+        {updates.map((u) => (
+          <li class="list-row">
+            <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
+              {u.icon}
+            </span>
+            <span class="list-row__main">
+              <span class="list-row__title">{u.title}</span>
+              <br />
+              <span class="list-row__sub">
+                {u.change} · {u.note}
               </span>
-              <span class="list-row__main">
-                <span class="list-row__title">{u.title}</span>
-                <br />
-                <span class="list-row__sub">
-                  {u.change} · {u.note}
-                </span>
-              </span>
-              <time class="list-row__aside" datetime={u.date}>
-                {u.date}
-              </time>
-            </li>
-          ))
-        }
+            </span>
+            <time class="list-row__aside" datetime={u.date}>
+              {u.date}
+            </time>
+          </li>
+        ))}
       </ul>
     </section>
   </div>

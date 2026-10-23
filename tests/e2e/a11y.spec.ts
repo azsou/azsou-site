@@ -11,12 +11,15 @@ for (const route of ROUTES) {
     test.skip(!process.env.A11Y_ALL && !/-(desktop|iphone)$/.test(info.project.name), '仅桌面与 iPhone 视口');
     await page.goto(route);
     await page.waitForLoadState('networkidle');
-    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
     const summary = results.violations.map(
-      (v) => `${v.id} (${v.impact}): ${v.nodes
-        .slice(0, 3)
-        .map((n) => n.target.join(' '))
-        .join(' | ')}`,
+      (v) =>
+        `${v.id} (${v.impact}): ${v.nodes
+          .slice(0, 3)
+          .map((n) => n.target.join(' '))
+          .join(' | ')}`,
     );
     expect(summary).toEqual([]);
   });

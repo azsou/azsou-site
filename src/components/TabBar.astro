@@ -8,15 +8,13 @@ const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWi
 
 <nav class="tabbar glass" aria-label="底部导航">
   <ul>
-    {
-      tabs.map((n) => (
-        <li>
-          <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
-            <Icon name={n.icon as 'home'} />
-            <span>{n.tab}</span>
-          </a>
-        </li>
-      ))
-    }
+    {tabs.map((n) => (
+      <li>
+        <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+          <Icon name={n.icon as 'home'} />
+          <span>{n.tab}</span>
+        </a>
+      </li>
+    ))}
   </ul>
 </nav>

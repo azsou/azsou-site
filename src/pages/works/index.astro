@@ -20,20 +20,18 @@ const kinds = [...new Set(works.map((w) => w.data.kind))];
     title="作品与视频"
     lede="动画、游戏画面与 AI 图像实验。当前配图由站内生成式 SVG 系统绘制，未来逐项替换为实机截图。"
   />
-  {
-    kinds.map((k) => (
-      <section class="section" aria-label={k}>
-        <div class="section__head">
-          <h2>{k}</h2>
-        </div>
-        <div class="work-grid">
-          {works
-            .filter((w) => w.data.kind === k)
-            .map((w) => (
-              <WorkCard work={w} headingLevel="h3" />
-            ))}
-        </div>
-      </section>
-    ))
-  }
+  {kinds.map((k) => (
+    <section class="section" aria-label={k}>
+      <div class="section__head">
+        <h2>{k}</h2>
+      </div>
+      <div class="work-grid">
+        {works
+          .filter((w) => w.data.kind === k)
+          .map((w) => (
+            <WorkCard work={w} headingLevel="h3" />
+          ))}
+      </div>
+    </section>
+  ))}
 </Base>

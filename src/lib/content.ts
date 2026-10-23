@@ -10,7 +10,8 @@ export type Game = CollectionEntry<'games'>;
 export type Article = CollectionEntry<'articles'>;
 export type Work = CollectionEntry<'works'>;
 
-const byOrder = (a: { data: { order: number } }, b: { data: { order: number } }) => a.data.order - b.data.order;
+const byOrder = (a: { data: { order: number } }, b: { data: { order: number } }) =>
+  a.data.order - b.data.order;
 
 export const getApps = async () => (await getCollection('apps')).sort(byOrder);
 export const getGames = async () => (await getCollection('games')).sort(byOrder);
@@ -26,7 +27,12 @@ export type ForumSeed = (typeof forumData.seeds)[number];
 export type ForumCategory = (typeof forumData.categories)[number];
 
 export async function buildSearchIndex(): Promise<SearchItem[]> {
-  const [apps, games, articles, works] = await Promise.all([getApps(), getGames(), getArticles(), getWorks()]);
+  const [apps, games, articles, works] = await Promise.all([
+    getApps(),
+    getGames(),
+    getArticles(),
+    getWorks(),
+  ]);
   return [
     ...apps.map((a) => ({
       type: 'app' as const,
