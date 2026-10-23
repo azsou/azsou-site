@@ -1,0 +1,89 @@
+---
+import Base from '@/layouts/Base.astro';
+import Art from '@/components/Art.astro';
+import Comments from '@/components/Comments.astro';
+import { getApps, getArticles, getGames, getWorks, type Work } from '@/lib/content';
+import { relatedUrl, ogArt, url } from '@/lib/routes';
+import { creativeWork } from '@/lib/seo';
+import { excerpt } from '@/lib/escape';
+
+export async function getStaticPaths() {
+  return (await getWorks()).map((work) => ({ params: { slug: work.id }, props: { work } }));
+}
+const { work } = Astro.props as { work: Work };
+const d = work.data;
+// 正文是迁移来的可信 HTML（仓库内容），原样输出
+const bodyHtml = work.body ?? '';
+const path = url.work(work.id);
+const description = excerpt(bodyHtml, 110);
+
+const [apps, games, articles, works] = await Promise.all([getApps(), getGames(), getArticles(), getWorks()]);
+const TYPE = { app: '应用', game: '游戏', article: '文章', work: '作品' } as const;
+const titleOf = (type: keyof typeof TYPE, slug: string) => {
+  const list = { app: apps, game: games, article: articles, work: works }[type] as { id: string; data: { title: string } }[];
+  const hit = list.find((x) => x.id === slug);
+  if (!hit) throw new Error(`作品 ${work.id} 的关联项不存在：${type}/${slug}`);
+  return hit.data.title;
+};
+// 关联项标题取目标条目的当前标题（V72 里这里写死了旧版本号，与详情页不一致）
+const related = d.related.map((r) => ({ ...r, title: titleOf(r.type, r.slug), href: relatedUrl(r.type, r.slug) }));
+---
+
+<Base
+  title={`${d.title} · ${d.kind}`}
+  description={description}
+  image={ogArt(d.art)}
+  imageAlt={d.title}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '作品', path: '/works/' },
+    { name: d.title, path },
+  ]}
+  schema={[creativeWork({ name: d.title, description, path, genre: d.kind, image: ogArt(d.art), date: d.date })]}
+>
+  <header class="page-head">
+    <p class="eyebrow">{d.kind}</p>
+    <h1>{d.title}</h1>
+    <div class="article-meta"><span>{d.date}</span><span>{d.status}</span></div>
+  </header>
+  <div class="split">
+    <div>
+      <div class="hero-media"><Art slot={d.art} eager /></div>
+      <section class="prose" aria-label="作品说明"><Fragment set:html={bodyHtml} /></section>
+      <Comments pageKey={`work:${work.id}`} />
+    </div>
+    <aside aria-label="作品信息">
+      <section class="panel">
+        <h2>制作信息</h2>
+        <dl class="facts">
+          {
+            d.facts.map((f) => (
+              <>
+                <dt>{f.label}</dt>
+                <dd>{f.value}</dd>
+              </>
+            ))
+          }
+        </dl>
+      </section>
+      <section class="panel">
+        <h2>关联内容</h2>
+        <ul class="list-reset" role="list">
+          {
+            related.map((r) => (
+              <li>
+                <a class="list-row" href={r.href}>
+                  <span class="list-row__main">
+                    {r.title}
+                    <br />
+                    <span class="list-row__sub">{TYPE[r.type]}</span>
+                  </span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+    </aside>
+  </div>
+</Base>

@@ -1,0 +1,29 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import Icon from '@/components/Icon.astro';
+---
+
+<Base
+  title="搜索"
+  description="搜索 AZ Studio 的应用、游戏、文章、作品与论坛主题，支持拼音首字母。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '搜索', path: '/search/' },
+  ]}
+>
+  <PageHead title="搜索" lede="支持中文、英文与拼音首字母（例：dwjgjx → 单文件工具箱）。" />
+  <form class="search-field" role="search" action="/search/" method="get" data-search-form>
+    <Icon name="search" />
+    <label class="visually-hidden" for="q">搜索关键词</label>
+    <input id="q" name="q" type="search" autocomplete="off" enterkeyhint="search" placeholder="搜索应用、游戏、文章…" />
+    <button class="btn btn--primary search-field__submit" type="submit">搜索</button>
+  </form>
+  <p class="data-status" data-status role="status" aria-live="polite"></p>
+  <ul class="list-group mt-4" role="list" data-results hidden></ul>
+</Base>
+
+<script>
+  import '@/scripts/search-page';
+</script>

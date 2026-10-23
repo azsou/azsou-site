@@ -1,0 +1,41 @@
+---
+import { forum } from '@/lib/content';
+import { url } from '@/lib/routes';
+interface Props {
+  category?: string;
+}
+const { category } = Astro.props;
+const catName = Object.fromEntries(forum.categories.map((c) => [c.id, c.name]));
+const seeds = forum.seeds
+  .filter((t) => !category || t.category === category)
+  .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.date.localeCompare(a.date));
+---
+
+<section data-forum-list data-category={category ?? ''} aria-label="主题列表">
+  <ul class="list-group" role="list" data-list>
+    {
+      seeds.map((t) => (
+        <li data-seed-id={t.id} data-seed-replies={t.replies.length}>
+          <a class="list-row" href={url.forumThread(t.id)}>
+            <span class="list-row__main">
+              <span class="list-row__title">
+                {t.pinned && <span class="badge">置顶</span>} {t.title}
+              </span>
+              <br />
+              <span class="list-row__sub">
+                {catName[t.category]} · {t.author} · {t.date}
+              </span>
+            </span>
+            <span class="list-row__aside">{t.replies.length} 回复</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+  {seeds.length === 0 && <p class="muted mt-4" data-empty>这个分类还没有站点预置主题。</p>}
+  <p class="data-status" data-status role="status">正在加载用户主题…</p>
+</section>
+
+<script>
+  import '@/scripts/forum';
+</script>

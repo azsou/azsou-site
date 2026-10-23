@@ -1,0 +1,173 @@
+---
+import Base from '@/layouts/Base.astro';
+import Art from '@/components/Art.astro';
+import Status from '@/components/Status.astro';
+import Comments from '@/components/Comments.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import { getApps, getArticles, type App } from '@/lib/content';
+import { url, ogArt } from '@/lib/routes';
+import { softwareApp } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  return (await getApps()).map((app) => ({ params: { slug: app.id }, props: { app } }));
+}
+const { app } = Astro.props as { app: App };
+const d = app.data;
+// 正文是迁移来的可信 HTML（仓库内容），原样输出，不经 Markdown 二次处理
+const bodyHtml = app.body ?? '';
+const articles = (await getArticles()).filter((a) => d.relatedArticles.includes(a.id));
+const image = d.art ? ogArt(d.art) : undefined;
+const path = url.app(app.id);
+const description = `${d.title}：${d.summary}当前 ${d.version} · ${d.status}。`;
+---
+
+<Base
+  title={`${d.title} · ${d.kind}`}
+  description={description}
+  image={image}
+  imageAlt={d.title}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '应用', path: '/apps/' },
+    { name: d.title, path },
+  ]}
+  schema={[softwareApp({ name: d.title, description: d.summary, path, category: d.kind, version: d.version, image, os: d.platform })]}
+>
+  <header class="page-head">
+    <div class="app-head">
+      <span class="app-icon app-icon--lg" data-hue={d.hue} aria-hidden="true">{d.icon}</span>
+      <div>
+        <p class="eyebrow">{d.kind}</p>
+        <h1>{d.title}</h1>
+      </div>
+    </div>
+    <p>{d.summary}</p>
+    <div class="article-meta">
+      <span>版本 {d.version}</span>
+      <Status cls={d.statusClass} text={d.status} />
+      {d.lastChecked && <span>最后核对 <time datetime={d.lastChecked}>{d.lastChecked}</time></span>}
+      <span>开发者 Randy Hopkins</span>
+    </div>
+  </header>
+
+  {
+    d.ownerReview && (
+      <p class="notice" role="note">
+        本页是 v2 迁移时根据 V72「应用目录」已有信息补建的最小档案，详细介绍、版本历史与已知问题由作者补充中。
+      </p>
+    )
+  }
+
+  <div class="split mt-8">
+    <div>
+      {
+        d.art && (
+          <div class="hero-media">
+            <Art slot={d.art} eager />
+          </div>
+        )
+      }
+      <section class="prose" aria-label="概览"><Fragment set:html={bodyHtml} /></section>
+
+      {
+        d.history.length > 0 && (
+          <section class="section" aria-labelledby="h-history">
+            <h2 id="h-history">版本历史</h2>
+            <ol class="timeline mt-4">
+              {d.history.map((h) => (
+                <li>
+                  <time datetime={h.date}>{h.date}</time> <b>{h.version}</b>
+                  <p>{h.note}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )
+      }
+
+      {
+        d.verification.length > 0 && (
+          <section class="section" aria-labelledby="h-verify">
+            <h2 id="h-verify">验证与来源</h2>
+            <ul class="list-group mt-4" role="list">
+              {d.verification.map((v) => (
+                <li class="list-row">
+                  <span class="list-row__main">
+                    <span class="list-row__title">{v.label}</span>
+                    <br />
+                    <span class="list-row__sub">{v.note}</span>
+                  </span>
+                  <span class="list-row__aside">{v.value}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+
+      {
+        d.issues && (
+          <section class="section" aria-labelledby="h-issues">
+            <h2 id="h-issues">已知问题</h2>
+            <p class="mt-4">{d.issues}</p>
+          </section>
+        )
+      }
+
+      <Comments pageKey={`project:${app.id}`} />
+    </div>
+
+    <aside aria-label="项目信息">
+      <section class="panel">
+        <h2>项目事实</h2>
+        <dl class="facts">
+          <dt>类型</dt><dd>{d.kind}</dd>
+          <dt>版本</dt><dd>{d.version}</dd>
+          <dt>状态</dt><dd>{d.status}</dd>
+          {
+            d.platform && (
+              <>
+                <dt>平台</dt>
+                <dd>{d.platform}</dd>
+              </>
+            )
+          }
+          {
+            d.testEnv && (
+              <>
+                <dt>测试环境</dt>
+                <dd>{d.testEnv}</dd>
+              </>
+            )
+          }
+        </dl>
+      </section>
+      {
+        d.updates.length > 0 && (
+          <section class="panel">
+            <h2>最近更新</h2>
+            <ul class="list-reset" role="list">
+              {d.updates.map((u) => (
+                <li>
+                  <span class="badge">{u.kind}</span> {u.change} · {u.note} <span class="muted">（{u.date}）</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+      {
+        articles.length > 0 && (
+          <section class="panel">
+            <h2>相关文章</h2>
+            <div class="stack">
+              {articles.map((a) => (
+                <ArticleCard article={a} headingLevel="h3" />
+              ))}
+            </div>
+          </section>
+        )
+      }
+    </aside>
+  </div>
+</Base>

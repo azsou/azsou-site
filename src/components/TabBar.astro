@@ -1,0 +1,22 @@
+---
+import { NAV } from '@/lib/site';
+import Icon from './Icon.astro';
+const path = Astro.url.pathname;
+const tabs = NAV.filter((n) => n.tab);
+const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+---
+
+<nav class="tabbar glass" aria-label="底部导航">
+  <ul>
+    {
+      tabs.map((n) => (
+        <li>
+          <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+            <Icon name={n.icon as 'home'} />
+            <span>{n.tab}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>

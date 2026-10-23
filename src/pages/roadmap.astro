@@ -1,0 +1,66 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import OwnerNote from '@/components/OwnerNote.astro';
+const v2 = [
+  { phase: 'P1', title: '静态站骨架', state: '预览中', note: '真实 URL、内容集合、全部内容页、SEO、PWA 外壳、多端测试。' },
+  { phase: 'P2', title: '数据层与账户', state: '计划中', note: '数据库迁移脚本、RLS 审计、登录 / 注册 / 找回密码、真实 Turnstile 与限流。' },
+  { phase: 'P3', title: '论坛与评论', state: '计划中', note: '可被收录的论坛页、发帖回帖、点赞、举报、通知、搜索。' },
+  { phase: 'P4', title: '管理后台', state: '计划中', note: '内容管理、审核队列、用户与角色、站点设置与审计日志。' },
+  { phase: 'P5', title: '上线与交付', state: '计划中', note: '全量回归、性能与 SEO 验收、备份与迁移手册、切换生产。' },
+];
+const products = [
+  { date: '07/22', title: 'FableMotion S3 Candidate', note: '最终合并、Hermes 验收与版本标记', state: '候选版' },
+  { date: '07/25', title: 'EMBERDEEP 职业系统', note: '四职业、技能树、资源与旧存档迁移', state: '开发中' },
+  { date: '07/28', title: 'Capture Kit 0.7', note: '录制流程、帧扫描与素材整理增强', state: '计划中' },
+];
+---
+
+<Base
+  title="路线图"
+  description="AZ Studio 站点 v2 重构与各项目的计划。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '路线图', path: '/roadmap/' },
+  ]}
+>
+  <PageHead eyebrow="计划" title="路线图" />
+  <OwnerNote />
+  <section class="section" aria-labelledby="h-v2">
+    <h2 id="h-v2">站点 v2 重构</h2>
+    <ul class="list-group mt-4" role="list">
+      {
+        v2.map((p) => (
+          <li class="list-row">
+            <span class="badge">{p.phase}</span>
+            <span class="list-row__main">
+              <span class="list-row__title">{p.title}</span>
+              <br />
+              <span class="list-row__sub">{p.note}</span>
+            </span>
+            <span class="list-row__aside">{p.state}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+  <section class="section" aria-labelledby="h-products">
+    <h2 id="h-products">项目计划（V72 首页记录，2026 年 7 月）</h2>
+    <p class="muted mt-4">以下为 V72 当时记录的计划与状态，最新进展待作者更新。</p>
+    <ul class="list-group mt-4" role="list">
+      {
+        products.map((p) => (
+          <li class="list-row">
+            <span class="list-row__aside">{p.date}</span>
+            <span class="list-row__main">
+              <span class="list-row__title">{p.title}</span>
+              <br />
+              <span class="list-row__sub">{p.note}</span>
+            </span>
+            <span class="badge">{p.state}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</Base>

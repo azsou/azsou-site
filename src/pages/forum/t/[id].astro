@@ -1,0 +1,68 @@
+---
+import Base from '@/layouts/Base.astro';
+import { forum, type ForumSeed } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { forumPosting } from '@/lib/seo';
+import { excerpt, textToHtml } from '@/lib/escape';
+import { initials } from '@/scripts/render';
+
+export function getStaticPaths() {
+  return forum.seeds.map((t) => ({ params: { id: t.id }, props: { t } }));
+}
+const { t } = Astro.props as { t: ForumSeed };
+const cat = forum.categories.find((c) => c.id === t.category)!;
+const path = url.forumThread(t.id);
+---
+
+<Base
+  title={`${t.title} · 论坛`}
+  description={excerpt(t.body, 120)}
+  type="article"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+    { name: cat.name, path: url.forumCategory(cat.id) },
+    { name: t.title, path },
+  ]}
+  schema={[forumPosting({ title: t.title, body: t.body, path, date: t.date, author: t.author, replies: t.replies })]}
+>
+  <article>
+    <header class="page-head">
+      <p class="eyebrow">{cat.name}{t.pinned && ' · 置顶'}</p>
+      <h1>{t.title}</h1>
+      <div class="article-meta">
+        <span>{t.author}</span>{t.site && <span class="badge">站长</span>}<time datetime={t.date}>{t.date}</time>
+      </div>
+    </header>
+    <div class="panel prose" set:html={textToHtml(t.body)} />
+    <section class="discussion panel" data-forum-replies data-thread-id={t.id} aria-labelledby="h-replies">
+      <div class="section__head">
+        <h2 id="h-replies">回复</h2><span class="muted" data-count>{t.replies.length} 条回复</span>
+      </div>
+      <ul class="list-reset" role="list" data-list>
+        {
+          t.replies.map((r) => (
+            <li class="comment" data-source="seed">
+              <span class="avatar" aria-hidden="true">
+                {initials(r.author)}
+              </span>
+              <div>
+                <div class="comment__head">
+                  <b>{r.author}</b>
+                  {r.site && <span class="badge">站长</span>}
+                  <time datetime={r.date}>{r.date}</time>
+                </div>
+                <div class="comment__body" set:html={textToHtml(r.body)} />
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="data-status" data-status role="status">正在加载回复…</p>
+    </section>
+  </article>
+</Base>
+
+<script>
+  import '@/scripts/forum';
+</script>

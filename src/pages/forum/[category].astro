@@ -1,0 +1,33 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import Segmented from '@/components/Segmented.astro';
+import ForumThreadList from '@/components/ForumThreadList.astro';
+import { forum, type ForumCategory } from '@/lib/content';
+import { url } from '@/lib/routes';
+
+export function getStaticPaths() {
+  return forum.categories.map((c) => ({ params: { category: c.id }, props: { c } }));
+}
+const { c } = Astro.props as { c: ForumCategory };
+---
+
+<Base
+  title={`${c.name} · 论坛`}
+  description={`AZ Studio 论坛「${c.name}」分类：${c.desc}。`}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+    { name: c.name, path: url.forumCategory(c.id) },
+  ]}
+>
+  <PageHead eyebrow="论坛" title={c.name} lede={c.desc} />
+  <Segmented
+    label="论坛分类"
+    items={[
+      { href: url.forum(), label: '全部' },
+      ...forum.categories.map((x) => ({ href: url.forumCategory(x.id), label: x.name, current: x.id === c.id })),
+    ]}
+  />
+  <ForumThreadList category={c.id} />
+</Base>

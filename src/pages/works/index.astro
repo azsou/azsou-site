@@ -1,0 +1,39 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import WorkCard from '@/components/WorkCard.astro';
+import { getWorks } from '@/lib/content';
+const works = await getWorks();
+const kinds = [...new Set(works.map((w) => w.data.kind))];
+---
+
+<Base
+  title="作品与视频"
+  description="动画、游戏画面与 AI 图像实验：每件作品附工具、参数与验证记录。视觉素材由站内确定性生成器绘制。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '作品', path: '/works/' },
+  ]}
+>
+  <PageHead
+    eyebrow="作品"
+    title="作品与视频"
+    lede="动画、游戏画面与 AI 图像实验。当前配图由站内生成式 SVG 系统绘制，未来逐项替换为实机截图。"
+  />
+  {
+    kinds.map((k) => (
+      <section class="section" aria-label={k}>
+        <div class="section__head">
+          <h2>{k}</h2>
+        </div>
+        <div class="work-grid">
+          {works
+            .filter((w) => w.data.kind === k)
+            .map((w) => (
+              <WorkCard work={w} headingLevel="h3" />
+            ))}
+        </div>
+      </section>
+    ))
+  }
+</Base>

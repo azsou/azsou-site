@@ -1,0 +1,111 @@
+---
+import Base from '@/layouts/Base.astro';
+import AppCard from '@/components/AppCard.astro';
+import GameCard from '@/components/GameCard.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import WorkCard from '@/components/WorkCard.astro';
+import Art from '@/components/Art.astro';
+import Status from '@/components/Status.astro';
+import { getApps, getArticles, getGames, getWorks, forum } from '@/lib/content';
+import { SITE } from '@/lib/site';
+import { url } from '@/lib/routes';
+import updates from '@/data/updates.json';
+
+const [apps, games, articles, works] = await Promise.all([getApps(), getGames(), getArticles(), getWorks()]);
+const flagship = apps.find((a) => a.id === 'fablemotion')!;
+const homeGames = ['emberdeep', 'threejs-rubik', 'pixel-dungeon-lab'].map((s) => games.find((g) => g.id === s)!);
+const latestThreads = [...forum.seeds].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
+---
+
+<Base title={SITE.title} description={SITE.description}>
+  <section class="hero" aria-labelledby="hero-title">
+    <div>
+      <p class="eyebrow">旗舰项目 · {flagship.data.version}</p>
+      <h1 id="hero-title">AZ Studio</h1>
+      <p class="hero__lede">
+        个人技术社区、产品档案与创作实验室。这里记录 FableMotion、EMBERDEEP
+        等真实项目的版本、测试环境与最后核对日期——不伪造评分、下载量和用户数。
+      </p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href={url.app('fablemotion')}>查看 FableMotion 档案</a>
+        <a class="btn" href={url.article('fablemotion-s3-timeline')}>阅读开发复盘</a>
+      </div>
+      <p class="mt-4">
+        <Status cls={flagship.data.statusClass} text={`${flagship.data.status} · 最后核对 ${flagship.data.lastChecked}`} />
+      </p>
+    </div>
+    <div class="hero-media"><Art slot="hero-1" eager /></div>
+  </section>
+
+  <section class="section" aria-labelledby="h-apps">
+    <div class="section__head"><h2 id="h-apps">应用与工具</h2><a href={url.apps()}>应用目录 →</a></div>
+    <div class="grid grid--wide">{apps.slice(0, 4).map((a) => <AppCard app={a} headingLevel="h3" />)}</div>
+  </section>
+
+  <section class="section" aria-labelledby="h-games">
+    <div class="section__head"><h2 id="h-games">游戏与可玩 Demo</h2><a href={url.games()}>游戏目录 →</a></div>
+    <div class="grid">{homeGames.map((g) => <GameCard game={g} headingLevel="h3" />)}</div>
+  </section>
+
+  <section class="section" aria-labelledby="h-articles">
+    <div class="section__head"><h2 id="h-articles">最新文章</h2><a href={url.articles()}>文章中心 →</a></div>
+    <div class="grid grid--wide">{articles.slice(0, 4).map((a) => <ArticleCard article={a} headingLevel="h3" />)}</div>
+  </section>
+
+  <div class="split section">
+    <section aria-labelledby="h-updates">
+      <div class="section__head"><h2 id="h-updates">最近更新</h2><a href="/changelog/">更新日志 →</a></div>
+      <ul class="list-group" role="list">
+        {
+          updates.map((u) => (
+            <li class="list-row">
+              <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
+                {u.icon}
+              </span>
+              <span class="list-row__main">
+                <span class="list-row__title">{u.title}</span>
+                <br />
+                <span class="list-row__sub">
+                  {u.change} · {u.note}
+                </span>
+              </span>
+              <span class="list-row__aside">
+                <span class="badge">{u.kind}</span> <time datetime={u.date}>{u.date.slice(5)}</time>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+    <section aria-labelledby="h-forum">
+      <div class="section__head"><h2 id="h-forum">论坛</h2><a href={url.forum()}>进入论坛 →</a></div>
+      <ul class="list-group" role="list">
+        {
+          latestThreads.map((t) => (
+            <li>
+              <a class="list-row" href={url.forumThread(t.id)}>
+                <span class="list-row__main">
+                  <span class="list-row__title">{t.title}</span>
+                  <br />
+                  <span class="list-row__sub">{t.date}</span>
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </div>
+
+  <section class="section" aria-labelledby="h-works">
+    <div class="section__head"><h2 id="h-works">作品与视频</h2><a href={url.works()}>全部作品 →</a></div>
+    <div class="work-grid">{works.slice(0, 4).map((w) => <WorkCard work={w} headingLevel="h3" />)}</div>
+  </section>
+</Base>
+
+<script>
+  // 旧版 hash 路由（#/article/xxx、#project …）→ 新的真实 URL
+  import { mapLegacyHash } from '@/lib/hash-redirect';
+  const target = mapLegacyHash(location.hash);
+  if (target) location.replace(target);
+</script>

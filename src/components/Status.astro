@@ -1,0 +1,9 @@
+---
+interface Props {
+  cls?: 'active' | 'review' | 'stable' | 'experiment';
+  text: string;
+}
+const { cls = 'active', text } = Astro.props;
+---
+
+<span class={`badge status status--${cls}`}>{text}</span>

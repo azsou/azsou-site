@@ -1,0 +1,22 @@
+---
+import type { Game } from '@/lib/content';
+import { url } from '@/lib/routes';
+import Art from './Art.astro';
+interface Props {
+  game: Game;
+  eager?: boolean;
+  headingLevel?: 'h2' | 'h3';
+}
+const { game, eager, headingLevel = 'h2' } = Astro.props;
+const H = headingLevel;
+const d = game.data;
+---
+
+<article class="card">
+  <div class="card__media"><Art slot={d.art} eager={eager} /></div>
+  <div class="card__body">
+    <H class="card__title"><a class="card__link" href={url.game(game.id)}>{d.title}</a></H>
+    <p class="card__text">{d.genre}</p>
+    <div class="card__meta"><span class="badge">{d.kind}</span><span>版本 {d.version}</span><span>{d.status}</span></div>
+  </div>
+</article>

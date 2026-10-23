@@ -1,0 +1,31 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import { getArticles, type Article } from '@/lib/content';
+import { TAGS } from '@/lib/tags';
+import { url } from '@/lib/routes';
+
+export async function getStaticPaths() {
+  const articles = await getArticles();
+  return Object.keys(TAGS)
+    .map((tag) => ({ params: { tag }, props: { list: articles.filter((a) => a.data.tags.includes(tag)) } }))
+    .filter((p) => p.props.list.length > 0);
+}
+const { tag } = Astro.params as { tag: string };
+const { list } = Astro.props as { list: Article[] };
+const t = TAGS[tag];
+---
+
+<Base
+  title={`#${t.name} 文章`}
+  description={`${t.description}共 ${list.length} 篇。`}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '标签', path: '/tags/' },
+    { name: t.name, path: url.tag(tag) },
+  ]}
+>
+  <PageHead eyebrow="标签" title={`#${t.name}`} lede={t.description} />
+  <div class="grid grid--wide">{list.map((a) => <ArticleCard article={a} />)}</div>
+</Base>

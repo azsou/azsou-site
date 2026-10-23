@@ -1,0 +1,21 @@
+---
+import art from '@/data/art.json';
+interface Props {
+  slot: string;
+  eager?: boolean;
+  alt?: string;
+}
+const { slot, eager = false, alt } = Astro.props;
+const a = (art as Record<string, { src: string; alt: string }>)[slot];
+if (!a) throw new Error(`未知素材槽位：${slot}`);
+---
+
+<img
+  src={a.src}
+  alt={alt ?? a.alt}
+  width="960"
+  height="540"
+  loading={eager ? 'eager' : 'lazy'}
+  decoding="async"
+  fetchpriority={eager ? 'high' : undefined}
+/>

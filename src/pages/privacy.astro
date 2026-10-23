@@ -1,0 +1,36 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import OwnerNote from '@/components/OwnerNote.astro';
+---
+
+<Base
+  title="隐私政策"
+  description="AZ Studio 收集哪些数据、存放在哪里、如何删除。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '隐私政策', path: '/privacy/' },
+  ]}
+>
+  <PageHead eyebrow="站点与合规" title="隐私政策" lede="最后更新：2026-10-24" />
+  <OwnerNote />
+  <div class="prose mt-8">
+    <p>本页说明 azsou.com（AZ Studio）如何处理访客数据。本页为站长自拟的说明，不构成法律意见。</p>
+    <h2>浏览网站</h2>
+    <ul>
+      <li>网站托管在 Vercel。与所有网站一样，托管方会在服务器日志中记录 IP 地址、浏览器类型、访问时间等技术信息，用于安全与运维，适用 Vercel 的隐私政策。</li>
+      <li>本站不使用广告追踪，也没有接入第三方统计脚本。</li>
+      <li>为了离线访问，浏览器可能通过 Service Worker 在本地缓存页面；你可以在浏览器设置中随时清除。</li>
+    </ul>
+    <h2>账户、评论与论坛</h2>
+    <ul>
+      <li>注册账户、发表评论或论坛内容时，相关数据（邮箱、显示名、你发布的内容及时间）存储在 Supabase 托管的数据库中，并受行级安全策略保护。</li>
+      <li>评论与论坛内容公开可见，请不要在其中发布敏感个人信息。</li>
+      <li>你可以随时删除自己发布的内容。需要注销账户或删除全部数据，请通过<a href="/contact/">联系页</a>所列渠道告知。</li>
+    </ul>
+    <h2>Cookie 与本地存储</h2>
+    <p>登录功能会在浏览器本地存储会话凭据，仅用于保持登录状态。本站不出于广告目的使用 Cookie。</p>
+    <h2>变更</h2>
+    <p>本政策更新时会修改页首日期，并在<a href="/changelog/">更新日志</a>中注明。</p>
+  </div>
+</Base>

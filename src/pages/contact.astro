@@ -1,0 +1,28 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import OwnerNote from '@/components/OwnerNote.astro';
+import { url } from '@/lib/routes';
+---
+
+<Base
+  title="联系"
+  description="如何联系 AZ Studio：问题反馈、合作与勘误。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '联系', path: '/contact/' },
+  ]}
+>
+  <PageHead eyebrow="联系" title="联系 AZ Studio" />
+  <OwnerNote />
+  <div class="prose mt-8">
+    <h2>问题反馈与勘误</h2>
+    <p>
+      发现排版错位、链接失效、文字错误或过期信息，最直接的渠道是论坛的<a href={url.forumThread('t-feedback')}>站点问题与建议收集帖</a>。作者会在版本日志里逐条回应处理结果。
+    </p>
+    <h2>文章与项目讨论</h2>
+    <p>每篇文章、每个项目和游戏的页面底部都有讨论区；跨主题的话题欢迎到<a href={url.forum()}>论坛</a>开帖。</p>
+    <h2>合作与其他事务</h2>
+    <p>公开联系邮箱待作者补充。在此之前，请通过论坛「站务反馈」分类留言。</p>
+  </div>
+</Base>

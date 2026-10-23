@@ -1,0 +1,32 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import OwnerNote from '@/components/OwnerNote.astro';
+---
+
+<Base
+  title="使用条款"
+  description="使用 AZ Studio 网站、下载工具与参与社区讨论的条款。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '使用条款', path: '/terms/' },
+  ]}
+>
+  <PageHead eyebrow="站点与合规" title="使用条款" lede="最后更新：2026-10-24" />
+  <OwnerNote />
+  <div class="prose mt-8">
+    <h2>内容与版权</h2>
+    <p>除特别说明外，站内文章、项目档案与作品由 Randy Hopkins 原创，版权归作者所有。转载请注明出处并链接原文。</p>
+    <h2>工具、Demo 与实验项目</h2>
+    <p>站内的应用、扩展、单文件工具与游戏 Demo 按「现状」提供，版本号如实反映完成度。实验性项目可能随时变更或停止维护，使用前请自行评估风险。</p>
+    <h2>社区规则</h2>
+    <ul>
+      <li>讨论围绕站内项目与技术。</li>
+      <li>尊重每一位真实署名的参与者，不要发布敏感个人信息。</li>
+      <li>不得发布违法、侵权、骚扰或广告内容；站长可删除违规内容并限制账户。</li>
+    </ul>
+    <p>你对自己发布的内容负责，并授权本站在站内展示这些内容。你可以随时删除自己发布的内容。</p>
+    <h2>免责声明</h2>
+    <p>文章中的实测数据来自作者的测试环境，不保证在所有环境下可复现。因使用本站内容或工具造成的损失，作者不承担责任。</p>
+  </div>
+</Base>

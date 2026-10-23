@@ -1,0 +1,23 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import GameCard from '@/components/GameCard.astro';
+import { getGames } from '@/lib/content';
+const games = await getGames();
+---
+
+<Base
+  title="游戏与可玩 Demo"
+  description="EMBERDEEP、Three.js 魔方、声波塔防等浏览器游戏与原型：版本号如实反映完成度，附开发日志与已知问题。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '游戏', path: '/games/' },
+  ]}
+>
+  <PageHead
+    eyebrow="游戏"
+    title="游戏与可玩 Demo"
+    lede="浏览器里的 Roguelike、Web 3D 与物理小品。不包装成商业发行，版本号如实反映完成度。"
+  />
+  <div class="grid">{games.map((g, i) => <GameCard game={g} eager={i < 2} />)}</div>
+</Base>

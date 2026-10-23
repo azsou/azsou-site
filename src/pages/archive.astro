@@ -1,0 +1,49 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { getArticles } from '@/lib/content';
+import { monthKey } from '@/lib/dates';
+import { url } from '@/lib/routes';
+const articles = await getArticles();
+const groups = new Map<string, typeof articles>();
+for (const a of articles) {
+  const k = monthKey(a.data.date);
+  groups.set(k, [...(groups.get(k) ?? []), a]);
+}
+---
+
+<Base
+  title="文章归档"
+  description="AZ Studio 全部原创文章按月份归档。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '归档', path: '/archive/' },
+  ]}
+>
+  <PageHead eyebrow="归档" title="文章归档" lede={`共 ${articles.length} 篇，按发布日期倒序。`} />
+  {
+    [...groups].map(([month, list]) => (
+      <section class="section" aria-label={month}>
+        <h2>{month.replace('-', ' 年 ')} 月</h2>
+        <ul class="list-group mt-4" role="list">
+          {list.map((a) => (
+            <li>
+              <a class="list-row" href={url.article(a.id)}>
+                <span class="list-row__main">
+                  <span class="list-row__title">{a.data.title}</span>
+                  <br />
+                  <span class="list-row__sub">
+                    {a.data.category} · {a.data.readingMinutes} 分钟
+                  </span>
+                </span>
+                <time class="list-row__aside" datetime={a.data.date}>
+                  {a.data.date.slice(5)}
+                </time>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+</Base>

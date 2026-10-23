@@ -1,0 +1,151 @@
+---
+import Base from '@/layouts/Base.astro';
+import Art from '@/components/Art.astro';
+import Comments from '@/components/Comments.astro';
+import { getApps, getArticles, forum, type Article } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { article as articleLd } from '@/lib/seo';
+import { excerpt } from '@/lib/escape';
+import { tagName } from '@/lib/tags';
+import { toDate } from '@/lib/dates';
+
+export async function getStaticPaths() {
+  const list = await getArticles();
+  return list.map((a, i) => ({ params: { slug: a.id }, props: { a, newer: list[i - 1] ?? null, older: list[i + 1] ?? null } }));
+}
+const { a, newer, older } = Astro.props as { a: Article; newer: Article | null; older: Article | null };
+const d = a.data;
+// 正文是迁移来的可信 HTML（仓库内容），原样输出，不经 Markdown 二次处理
+const bodyHtml = a.body ?? '';
+const path = url.article(a.id);
+const description = excerpt(bodyHtml, 120);
+const thread = d.forumThread ? forum.seeds.find((t) => t.id === d.forumThread) : null;
+const apps = (await getApps()).filter((x) => x.data.relatedArticles.includes(a.id));
+// 二级标题 id 固定为 a-sec-N，与 frontmatter.toc 一一对应（单元测试保证）
+const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
+---
+
+<Base
+  title={d.title}
+  description={description}
+  type="article"
+  image={d.ogImage}
+  imageAlt={d.title}
+  published={toDate(d.date).toISOString()}
+  modified={toDate(d.lastChecked).toISOString()}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '文章', path: '/articles/' },
+    { name: d.category, path: url.tag(d.tags[0]) },
+    { name: d.title, path },
+  ]}
+  schema={[
+    articleLd({
+      title: d.title,
+      description,
+      path,
+      date: d.date,
+      modified: d.lastChecked,
+      image: d.ogImage,
+      section: d.category,
+      keywords: d.tags.map(tagName),
+    }),
+  ]}
+>
+  <div class="split">
+    <article>
+      <header class="page-head">
+        <p class="eyebrow">{d.category} · {d.badge}</p>
+        <h1>{d.title}</h1>
+        <div class="article-meta">
+          <span>{d.author}</span>
+          <time datetime={d.date}>{d.date}</time>
+          <span>{d.readingMinutes} 分钟</span>
+          <span>最后核对：<time datetime={d.lastChecked}>{d.lastChecked}</time></span>
+        </div>
+      </header>
+      {
+        d.art && (
+          <div class="hero-media">
+            <Art slot={d.art} eager />
+          </div>
+        )
+      }
+      <div class="prose"><Fragment set:html={bodyHtml} /></div>
+      <p class="mt-8">
+        {
+          d.tags.map((t) => (
+            <a class="badge" href={url.tag(t)}>
+              #{tagName(t)}
+            </a>
+          ))
+        }
+      </p>
+      {
+        thread && (
+          <p class="notice notice--info mt-4">
+            这篇文章有对应的论坛讨论串：<a href={url.forumThread(thread.id)}>{thread.title}</a>
+          </p>
+        )
+      }
+      <nav class="pager" aria-label="上下篇导航">
+        {
+          newer && (
+            <a href={url.article(newer.id)} rel="prev">
+              <small>上一篇（较新）</small>
+              {newer.data.title}
+            </a>
+          )
+        }
+        {
+          older && (
+            <a href={url.article(older.id)} rel="next">
+              <small>下一篇（较早）</small>
+              {older.data.title}
+            </a>
+          )
+        }
+      </nav>
+      <Comments pageKey={`article:${a.id}`} />
+    </article>
+    <aside aria-label="文章侧栏">
+      {
+        toc.length > 0 && (
+          <nav class="panel toc" aria-labelledby="h-toc">
+            <h2 id="h-toc">本文目录</h2>
+            <ol>
+              {toc.map((h) => (
+                <li>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )
+      }
+      {
+        apps.length > 0 && (
+          <section class="panel">
+            <h2>关联项目</h2>
+            <ul class="list-reset" role="list">
+              {apps.map((x) => (
+                <li>
+                  <a class="list-row" href={url.app(x.id)}>
+                    <span class="app-icon app-icon--sm" data-hue={x.data.hue} aria-hidden="true">
+                      {x.data.icon}
+                    </span>
+                    <span class="list-row__main">
+                      {x.data.title}
+                      <br />
+                      <span class="list-row__sub">{x.data.status}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </aside>
+  </div>
+</Base>
