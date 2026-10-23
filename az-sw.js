@@ -3,7 +3,7 @@
    the network copy refreshes the cache in the background, and when it
    differs the page is told so it can offer a one-tap refresh.
    Bump CACHE on every release. */
-const CACHE = 'az-studio-v72-1';
+const CACHE = 'az-studio-v72-2';
 const SHELL = ['./'];
 
 self.addEventListener('install', e => {
