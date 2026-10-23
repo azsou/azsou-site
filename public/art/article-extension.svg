@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151A38"/><stop offset="1" stop-color="#0A0D22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2DD4BF" stop-opacity="0.32"/>
+      <stop offset="0.55" stop-color="#2DD4BF" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#2DD4BF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.62" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.42"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+    
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+  <circle cx="600" cy="160" r="420" fill="url(#glow)"/><rect x="96.0" y="76.0" width="768.0" height="386.0" rx="18" fill="#FFFFFF" opacity="0.05"/><rect x="96.0" y="76.0" width="768.0" height="58.0" rx="18" fill="#FFFFFF" opacity="0.07"/><circle cx="128" cy="105" r="7" fill="#F87171"/><circle cx="154" cy="105" r="7" fill="#FBBF24"/><circle cx="180" cy="105" r="7" fill="#2DD4BF"/><rect x="226.0" y="90.0" width="430.0" height="30.0" rx="15" fill="#0A0D22" opacity="0.7"/><text x="246" y="111" font-family="ui-monospace,Menlo,monospace" font-size="16" fill="#AAB3DD">https://cdn.example-img.host/…</text><circle cx="690" cy="105" r="13" fill="#2DD4BF"/><path d="M685 105 l4 4 l7 -9" stroke="#04211B" stroke-width="2.5" fill="none"/><rect x="516.0" y="168.0" width="320.0" height="216.0" rx="16" fill="#F4F6FF" opacity="0.97"/><path d="M556 208 l22 -10 l22 10 v20 c0 16 -10 26 -22 32 c-12 -6 -22 -16 -22 -32 Z" fill="#2DD4BF"/><path d="M570 226 l6 7 l12 -14" stroke="#04211B" stroke-width="3.5" fill="none"/><rect x="612.0" y="196.0" width="190.0" height="11.0" rx="5.5" fill="#20264A" opacity="0.85"/><rect x="612.0" y="216.0" width="150.0" height="11.0" rx="5.5" fill="#20264A" opacity="0.5"/><rect x="548.0" y="260.0" width="250.0" height="11.0" rx="5.5" fill="#20264A" opacity="0.4"/><rect x="548.0" y="282.0" width="210.0" height="11.0" rx="5.5" fill="#20264A" opacity="0.4"/><rect x="548.0" y="322.0" width="116.0" height="40.0" rx="10" fill="#2DD4BF" /><text x="566" y="348" font-size="17" font-weight="700" fill="#04211B">允许本次</text><rect x="676.0" y="322.0" width="116.0" height="40.0" rx="10" fill="#20264A" opacity="0.14"/><text x="700" y="348" font-size="17" fill="#20264A" opacity="0.8">拒绝</text><circle cx="420" cy="300" r="26" fill="#5EEAD4" opacity="0.25"/><circle cx="420" cy="300" r="12" fill="#5EEAD4"/><path d="M436 306 C 470 320, 490 250, 516 250" fill="none" stroke="#5EEAD4" stroke-width="3" stroke-dasharray="6 7"/><rect x="128.0" y="180.0" width="236.0" height="44.0" rx="12" fill="#FFFFFF" opacity="0.13"/><circle cx="152" cy="202" r="8" fill="#2DD4BF"/><text x="172" y="208" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#C8CFF0">img-a.example</text><rect x="128.0" y="242.0" width="236.0" height="44.0" rx="12" fill="#FFFFFF" opacity="0.07"/><circle cx="152" cy="264" r="8" fill="#8A93C4"/><text x="172" y="270" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#C8CFF0">cdn-b.example</text><rect x="128.0" y="304.0" width="236.0" height="44.0" rx="12" fill="#FFFFFF" opacity="0.07"/><circle cx="152" cy="326" r="8" fill="#8A93C4"/><text x="172" y="332" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#C8CFF0">pic-c.example</text><rect width="960" height="540" fill="url(#vig)"/></svg>

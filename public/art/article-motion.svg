@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151A38"/><stop offset="1" stop-color="#0A0D22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#60A5FA" stop-opacity="0.32"/>
+      <stop offset="0.55" stop-color="#60A5FA" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#60A5FA" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.62" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.42"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+    
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+  <circle cx="620" cy="170" r="420" fill="url(#glow)"/><rect x="72.0" y="64.0" width="816.0" height="412.0" rx="16" fill="#FFFFFF" opacity="0.045"/><line x1="72" y1="64" x2="72" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="140" y1="64" x2="140" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="208" y1="64" x2="208" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="276" y1="64" x2="276" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="344" y1="64" x2="344" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="412" y1="64" x2="412" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="480" y1="64" x2="480" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="548" y1="64" x2="548" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="616" y1="64" x2="616" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="684" y1="64" x2="684" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="752" y1="64" x2="752" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="820" y1="64" x2="820" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="888" y1="64" x2="888" y2="476" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="64" x2="888" y2="64" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="123" x2="888" y2="123" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="182" x2="888" y2="182" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="241" x2="888" y2="241" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="300" x2="888" y2="300" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="359" x2="888" y2="359" stroke="#FFF" stroke-opacity="0.05"/><line x1="72" y1="418" x2="888" y2="418" stroke="#FFF" stroke-opacity="0.05"/><path d="M110 430 C 300 430, 420 120, 850 116" fill="none" stroke="#93C5FD" stroke-width="4.5" opacity="1" stroke-linecap="round"/><path d="M110 400 C 360 390, 300 180, 850 190" fill="none" stroke="#60A5FA" stroke-width="3" opacity="0.55" stroke-linecap="round"/><path d="M110 360 C 420 360, 500 260, 850 268" fill="none" stroke="#FBBF24" stroke-width="3" opacity="0.55" stroke-linecap="round"/><line x1="300" y1="430" x2="196" y2="430" stroke="#FFF" stroke-opacity="0.7" stroke-width="2"/><line x1="420" y1="120" x2="560" y2="118" stroke="#FFF" stroke-opacity="0.7" stroke-width="2"/><rect x="102" y="422" width="16" height="16" rx="3" fill="#93C5FD"/><rect x="842" y="108" width="16" height="16" rx="3" fill="#93C5FD"/><circle cx="196" cy="430" r="7.5" fill="#FFF"/><circle cx="560" cy="118" r="7.5" fill="#FFF"/><rect x="700.0" y="396.0" width="172.0" height="56.0" rx="12" fill="#FFFFFF" opacity="0.08"/><text x="720" y="430" font-family="ui-monospace,Menlo,monospace" font-size="19" fill="#93C5FD">ease-out · 5 帧</text><rect width="960" height="540" fill="url(#vig)"/></svg>

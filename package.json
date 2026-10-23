@@ -1,0 +1,47 @@
+{
+  "name": "azsou-site",
+  "version": "2.0.0-p1",
+  "private": true,
+  "type": "module",
+  "description": "AZ Studio · azsou.com v2（Astro 静态站）",
+  "engines": {
+    "node": ">=20.3"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "check": "astro check",
+    "serve": "node scripts/serve.mjs",
+    "migrate:content": "node scripts/migrate-content.mjs",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "npm run test:unit && npm run test:links && npm run test:html && npm run test:e2e",
+    "test:unit": "vitest run",
+    "test:links": "node scripts/check-links.mjs",
+    "test:html": "html-validate \"dist/**/*.html\"",
+    "test:e2e": "playwright test",
+    "test:lhci": "lhci autorun --config=lighthouserc.cjs",
+    "size": "node scripts/size-report.mjs"
+  },
+  "dependencies": {
+    "@astrojs/rss": "^4.0.19",
+    "@astrojs/sitemap": "3.6.0",
+    "@astrojs/vercel": "^8.2.11",
+    "astro": "^5.18.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^10.0.0",
+    "@playwright/test": "1.64.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "eslint": "^10.0.0",
+    "eslint-plugin-astro": "^3.2.1",
+    "html-validate": "^11.17.0",
+    "prettier": "^3.6.0",
+    "prettier-plugin-astro": "^1.1.2",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^3.2.4"
+  }
+}

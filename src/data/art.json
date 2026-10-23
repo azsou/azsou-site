@@ -1,0 +1,162 @@
+{
+  "hero-1": {
+    "src": "/art/hero-1.svg",
+    "alt": "FableMotion 时间轴与曲线编辑器界面构成"
+  },
+  "hero-2": {
+    "src": "/art/hero-2.svg",
+    "alt": "EMBERDEEP 体素地牢场景，火把光点缀"
+  },
+  "hero-3": {
+    "src": "/art/hero-3.svg",
+    "alt": "Image Atlas 图片扫描与来源证据链界面构成"
+  },
+  "game-1": {
+    "src": "/art/game-1.svg",
+    "alt": "EMBERDEEP 体素地牢俯瞰"
+  },
+  "game-2": {
+    "src": "/art/game-2.svg",
+    "alt": "Three.js 魔方三维视图"
+  },
+  "game-3": {
+    "src": "/art/game-3.svg",
+    "alt": "像素地牢实验房间与火把"
+  },
+  "game-4": {
+    "src": "/art/game-4.svg",
+    "alt": "EMBERDEEP 体素地牢另一视角"
+  },
+  "game-5": {
+    "src": "/art/game-5.svg",
+    "alt": "Three.js 魔方旋转演示"
+  },
+  "game-6": {
+    "src": "/art/game-6.svg",
+    "alt": "像素地牢实验第二层"
+  },
+  "game-7": {
+    "src": "/art/game-7.svg",
+    "alt": "声波塔防：波形地形与塔防单位"
+  },
+  "game-8": {
+    "src": "/art/game-8.svg",
+    "alt": "Boids 星群沙盒群体运动轨迹"
+  },
+  "game-9": {
+    "src": "/art/game-9.svg",
+    "alt": "重力高尔夫弹道与旗杆"
+  },
+  "game-10": {
+    "src": "/art/game-10.svg",
+    "alt": "地牢生成可视化房间连通图"
+  },
+  "game-11": {
+    "src": "/art/game-11.svg",
+    "alt": "回合制战棋原型棋盘与行动范围"
+  },
+  "game-12": {
+    "src": "/art/game-12.svg",
+    "alt": "体素雕刻台半成品胸像"
+  },
+  "work-1": {
+    "src": "/art/work-1.svg",
+    "alt": "FableMotion 动态排版动画帧"
+  },
+  "work-2": {
+    "src": "/art/work-2.svg",
+    "alt": "EMBERDEEP Voxel 场景截帧"
+  },
+  "work-3": {
+    "src": "/art/work-3.svg",
+    "alt": "AI 头像一致性实验样本网格"
+  },
+  "work-4": {
+    "src": "/art/work-4.svg",
+    "alt": "粒子声场可视化的粒子束"
+  },
+  "work-5": {
+    "src": "/art/work-5.svg",
+    "alt": "FableMotion 动态排版主视觉"
+  },
+  "work-6": {
+    "src": "/art/work-6.svg",
+    "alt": "EMBERDEEP Voxel 场景第三层"
+  },
+  "work-7": {
+    "src": "/art/work-7.svg",
+    "alt": "AI 头像一致性对照表"
+  },
+  "work-8": {
+    "src": "/art/work-8.svg",
+    "alt": "声场驱动的粒子可视化"
+  },
+  "work-9": {
+    "src": "/art/work-9.svg",
+    "alt": "Graph Editor 缓动曲线研究"
+  },
+  "work-10": {
+    "src": "/art/work-10.svg",
+    "alt": "程序化地牢材质三轴测试"
+  },
+  "article-featured": {
+    "src": "/art/article-featured.svg",
+    "alt": "FableMotion S3 时间轴终版界面"
+  },
+  "article-motion": {
+    "src": "/art/article-motion.svg",
+    "alt": "运动路径与 Graph Editor 曲线"
+  },
+  "article-extension": {
+    "src": "/art/article-extension.svg",
+    "alt": "Chrome MV3 域名授权弹窗构成"
+  },
+  "article-game": {
+    "src": "/art/article-game.svg",
+    "alt": "EMBERDEEP 职业技能树"
+  },
+  "work-11": {
+    "src": "/art/work-11.svg",
+    "alt": "战棋棋盘布局设计稿"
+  },
+  "work-12": {
+    "src": "/art/work-12.svg",
+    "alt": "Boids 轨迹长曝光记录"
+  },
+  "work-13": {
+    "src": "/art/work-13.svg",
+    "alt": "地牢生成时间序列对照"
+  },
+  "work-14": {
+    "src": "/art/work-14.svg",
+    "alt": "体素雕刻过程记录"
+  },
+  "work-15": {
+    "src": "/art/work-15.svg",
+    "alt": "AI 头像风格迁移矩阵"
+  },
+  "work-16": {
+    "src": "/art/work-16.svg",
+    "alt": "材质 AI 上采样对照台"
+  },
+  "editorial-2": {
+    "src": "/art/editorial-2.svg",
+    "alt": "本周编辑推荐：时间轴合流复盘"
+  },
+  "forum-announce": {
+    "src": "/art/forum-announce.svg",
+    "alt": "公告分类主题图：文档与核对清单构成"
+  },
+  "forum-product": {
+    "src": "/art/forum-product.svg",
+    "alt": "产品讨论分类主题图：时间轴界面构成"
+  },
+  "forum-tech": {
+    "src": "/art/forum-tech.svg",
+    "alt": "技术交流分类主题图：节点连通图"
+  },
+  "forum-meta": {
+    "src": "/art/forum-meta.svg",
+    "alt": "站务反馈分类主题图：对照测试网格"
+  }
+}

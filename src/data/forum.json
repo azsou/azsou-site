@@ -1,0 +1,128 @@
+{
+  "categories": [
+    {
+      "id": "announce",
+      "name": "公告",
+      "desc": "站点与论坛的官方说明",
+      "art": "forum-announce"
+    },
+    {
+      "id": "product",
+      "name": "产品讨论",
+      "desc": "FableMotion、扩展与工具的使用交流",
+      "art": "forum-product"
+    },
+    {
+      "id": "tech",
+      "name": "技术交流",
+      "desc": "实现细节、工程方法与实测数据",
+      "art": "forum-tech"
+    },
+    {
+      "id": "meta",
+      "name": "站务反馈",
+      "desc": "问题报告与改进建议",
+      "art": "forum-meta"
+    }
+  ],
+  "seeds": [
+    {
+      "id": "t-announce",
+      "category": "announce",
+      "pinned": true,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-21",
+      "title": "论坛使用说明与版规",
+      "pinyin": "ltsysmybg",
+      "body": "欢迎来到论坛。注册并登录后即可发主题与回帖，内容公开可见，你可以随时删除自己发布的内容。\n\n版规两条：讨论围绕站内项目与技术；尊重每一位真实署名的参与者，不要发布敏感个人信息。\n\n技术说明：论坛数据存储在站点后端（Supabase + 行级安全策略），后端不可达时论坛自动进入只读模式——历史内容照常可读，发帖入口暂时收起。计数一律真实，不伪造用户与热度。",
+      "replies": []
+    },
+    {
+      "id": "t-v63-changelog",
+      "category": "announce",
+      "pinned": false,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-24",
+      "title": "V63 更新日志：论坛上线、拼音首字母搜索与键盘导航",
+      "pinyin": "gxrzltsxpyszmsjypdh",
+      "body": "本版三件事：① 论坛上线（就是你现在所在的地方——上线之初为本地演示，V68 起已接入真实后端）；② 搜索支持拼音首字母，如 dwjgjx → 单文件工具箱；③ g 系列两键导航与 ? 帮助面板。完整变更与验收数据见「单文件 App 的零构建工作流与天花板」一文的方法论——每一版都过几何矩阵与功能清单两道验收。",
+      "replies": []
+    },
+    {
+      "id": "t-fm-timeline",
+      "category": "product",
+      "pinned": false,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-21",
+      "title": "FableMotion S3 时间轴：你的工作流还缺什么？",
+      "pinyin": "sjzndgzlhqsm",
+      "body": "S3 的时间轴终版 UI 定稿了（对应文章《从模块化到时间轴终版 UI》）。关键帧吸附按 8px 定稿、洋葱皮默认三帧。下一轮迭代我在排这些候选：曲线预设库、音频波形对齐、多轨道折叠。你的动画工作流里最缺哪个？直接回在这帖里当备忘。",
+      "replies": [
+        {
+          "author": "Randy Hopkins",
+          "date": "2026-07-22",
+          "body": "补充一条：曲线预设库已经进了草稿分支，Graph Editor 曲线研究那件作品就是它的视觉预研。",
+          "site": true
+        }
+      ]
+    },
+    {
+      "id": "t-svg-assets",
+      "category": "tech",
+      "pinned": false,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-23",
+      "title": "生成式 SVG 素材系统：40 个槽位的做法与局限",
+      "pinyin": "scsssclxtdzfyjx",
+      "body": "站内全部视觉素材来自一个确定性生成器：17 个母题函数 × 调色板 × 种子，输出 base64 SVG 进 data 映射。收益是零版权风险、体积可控、主题统一；局限也明确——它画不了实机截图，所以每个槽位都保留 data-asset-slot，未来逐项换成真图不动结构。这帖聊聊生成式素材在个人站的边界。",
+      "replies": []
+    },
+    {
+      "id": "t-regression",
+      "category": "tech",
+      "pinned": false,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-22",
+      "title": "单文件站点的回归验收方法交流",
+      "pinyin": "dwjzddhgysffjl",
+      "body": "这个站每个版本都过两道验收：几何矩阵比对（10 断点 × 3 密度 × 全视图 × 明暗 × 面板态，逐元素 rect + 计算样式哈希）和功能清单（路由、面板、键盘、离线）。方法和脚本在《单文件 App 的零构建工作流与天花板》里有复盘。你们给纯前端项目做回归用什么思路？欢迎交流。",
+      "replies": []
+    },
+    {
+      "id": "t-mv3-ux",
+      "category": "tech",
+      "pinned": false,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-20",
+      "title": "MV3 动态域名授权弹窗，怎么做才不打断用户？",
+      "pinyin": "dtymsqtczmzcbdcyh",
+      "body": "Image Atlas Pro 的授权流程重做过三版：从「装扩展时全量申请」改成「首次用到某域名时按需申请」。实测通过率上去了，但弹窗时机还是有争议——用户正在框选时弹授权最伤。文章《Chrome MV3 动态域名授权与用户激活》记录了取舍，这帖收集更好的时机方案。",
+      "replies": []
+    },
+    {
+      "id": "t-feedback",
+      "category": "meta",
+      "pinned": false,
+      "site": true,
+      "author": "Randy Hopkins",
+      "date": "2026-07-19",
+      "title": "站点问题与建议收集帖",
+      "pinyin": "zdwtyjysjt",
+      "body": "发现排版错位、链接失效、文字错误，或者想要的功能，登录后直接记在这帖下面——它现在就是真正的反馈通道，我会在版本日志里逐条回应处理结果。",
+      "replies": [
+        {
+          "author": "Randy Hopkins",
+          "date": "2026-07-23",
+          "body": "自己先记一条：移动端 390px 以下，作品页瀑布流的列宽还可以再收 10px。下版处理。",
+          "site": true
+        }
+      ]
+    }
+  ]
+}
