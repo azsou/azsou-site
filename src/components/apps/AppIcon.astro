@@ -1,23 +1,48 @@
 ---
 import '@/styles/apps.css';
-/** 应用图标（iOS squircle 圆角由 CSS 裁切）。alt 写「<名称> 图标」。 */
+import { ICON_PX, iconSrcset, type IconSize } from '@/lib/icons';
+/**
+ * 应用图标（iOS squircle 圆角由 CSS 裁切）。alt 写「<名称> 图标」。
+ * variants = true：用 <picture> 输出 AVIF / WebP 的 1x / 2x 版本（母版 PNG 只作兜底，不会被现代浏览器下载）。
+ */
 interface Props {
   src: string;
   alt: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: IconSize;
   eager?: boolean;
+  variants?: boolean;
 }
-const { src, alt, size = 'md', eager = false } = Astro.props;
-const px = { sm: 40, md: 64, lg: 120 }[size];
+const { src, alt, size = 'md', eager = false, variants = false } = Astro.props;
+const px = ICON_PX[size];
+const loading = eager ? 'eager' : 'lazy';
+const decoding = eager ? 'sync' : 'async';
+const fetchpriority = eager ? 'high' : undefined;
 ---
 
-<img
-  class={`app-icon-img app-icon-img--${size}`}
-  src={src}
-  alt={alt}
-  width={px}
-  height={px}
-  loading={eager ? 'eager' : 'lazy'}
-  decoding={eager ? 'sync' : 'async'}
-  fetchpriority={eager ? 'high' : undefined}
-/>
+{variants ? (
+  <picture class="app-icon-pic">
+    <source type="image/avif" srcset={iconSrcset(src, size, 'avif')} />
+    <img
+      class={`app-icon-img app-icon-img--${size}`}
+      src={src.replace(/\.(png|svg|webp)$/, `-${size === 'lg' ? 128 : 64}.webp`)}
+      srcset={iconSrcset(src, size, 'webp')}
+      alt={alt}
+      width={px}
+      height={px}
+      loading={loading}
+      decoding={decoding}
+      fetchpriority={fetchpriority}
+    />
+  </picture>
+) : (
+  <img
+    class={`app-icon-img app-icon-img--${size}`}
+    src={src}
+    alt={alt}
+    width={px}
+    height={px}
+    loading={loading}
+    decoding={decoding}
+    fetchpriority={fetchpriority}
+  />
+)}

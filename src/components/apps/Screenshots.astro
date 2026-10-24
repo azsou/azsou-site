@@ -16,6 +16,8 @@ interface Props {
   shots: Shot[];
 }
 const { title, shots } = Astro.props;
+/** 概念图在替代文字里也注明（alt 已写「概念图」的不重复） */
+const label = (s: Shot) => (s.illustrative && !s.alt.includes('概念图') ? `${s.alt}（概念图）` : s.alt);
 ---
 
 <div class="shots" data-shots>
@@ -29,17 +31,17 @@ const { title, shots } = Astro.props;
           data-src={s.src}
           data-w={s.width}
           data-h={s.height}
-          aria-label={`放大查看第 ${i + 1} 张截图：${s.alt}${s.illustrative ? '（示意图）' : ''}`}
+          aria-label={`放大查看第 ${i + 1} 张截图：${label(s)}`}
         >
           <img
             src={s.src}
-            alt={`${s.alt}${s.illustrative ? '（示意图）' : ''}`}
+            alt={label(s)}
             width={s.width}
             height={s.height}
             loading={i === 0 ? 'eager' : 'lazy'}
             decoding="async"
           />
-          {s.illustrative && <span class="shot__tag">示意</span>}
+          {s.illustrative && <span class="shot__tag">概念图</span>}
         </button>
       </li>
     ))}

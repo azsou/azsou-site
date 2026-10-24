@@ -4,8 +4,9 @@
   "subtitle": "时间轴与关键帧动画编辑器",
   "summary": "动画与视频编辑器，面向时间轴和关键帧创作。",
   "icon": {
-    "src": "/apps/icons/fablemotion.svg",
-    "placeholder": true
+    "src": "/apps/icons/fablemotion.png",
+    "placeholder": false,
+    "variants": true
   },
   "hue": "accent",
   "developer": {
@@ -24,46 +25,52 @@
       "os": "web",
       "version": "S3 Candidate",
       "linkType": "official",
-      "requirements": "Chrome / Edge（作者测试环境）"
+      "requirements": "Chrome / Edge（作者测试环境）",
+      "availability": "coming-soon"
     },
     {
       "os": "windows",
       "version": "S3 Candidate",
       "linkType": "official",
-      "requirements": "Windows 11（作者测试环境：Win11 Chrome / Edge）"
+      "requirements": "Windows 11（作者测试环境：Win11 Chrome / Edge）",
+      "availability": "coming-soon"
     }
   ],
   "screenshots": [
     {
-      "src": "/apps/screens/fablemotion/timeline.svg",
-      "alt": "FableMotion 界面示意：舞台、时间轴与关键帧轨道",
+      "src": "/apps/screens/fablemotion/timeline.webp",
+      "alt": "FableMotion 概念图：舞台、图层面板、属性检查器与带关键帧的时间轴",
       "device": "desktop",
-      "width": 1600,
-      "height": 1000,
+      "width": 1312,
+      "height": 816,
       "illustrative": true
     },
     {
-      "src": "/apps/screens/fablemotion/graph-editor.svg",
-      "alt": "FableMotion 界面示意：Graph Editor 曲线编辑",
+      "src": "/apps/screens/fablemotion/graph-editor.webp",
+      "alt": "FableMotion 概念图：Graph Editor 中的贝塞尔动画曲线",
       "device": "desktop",
-      "width": 1600,
-      "height": 1000,
+      "width": 1312,
+      "height": 816,
       "illustrative": true
     },
     {
-      "src": "/apps/screens/fablemotion/motion-path.svg",
-      "alt": "FableMotion 界面示意：运动路径与洋葱皮",
+      "src": "/apps/screens/fablemotion/export.webp",
+      "alt": "FableMotion 概念图：视频导出对话框与进度",
       "device": "desktop",
-      "width": 1600,
-      "height": 1000,
+      "width": 1312,
+      "height": 816,
       "illustrative": true
     }
   ],
   "price": {
-    "model": "tbd"
+    "model": "free"
   },
-  "license": "未声明（待作者补充）",
+  "license": "保留所有权利（免费使用）",
   "openSource": false,
+  "privacy": {
+    "collects": [],
+    "note": "本应用不收集个人数据，所有处理在本地完成。（默认说明，作者可更正）"
+  },
   "changelog": [
     {
       "version": "S3 Candidate",
@@ -99,7 +106,7 @@
     },
     {
       "q": "现在能下载吗？",
-      "a": "S3 仍处于最终验收（Candidate）阶段，本页暂未提供下载地址；作者公布后会在这里更新。"
+      "a": "S3 仍处于最终验收（Candidate）阶段，下载按钮暂时显示「即将推出」。点按钮旁的「上线通知」订阅本站 RSS，或在页面底部留言，安装包公布后会第一时间更新。"
     }
   ],
   "featured": true,
@@ -135,10 +142,9 @@
   "issues": "真实媒体导出、复杂时间轴压力测试和移动端编辑仍需继续验证。所有状态以实际测试记录为准。",
   "ownerReview": false,
   "ownerTodo": [
-    "下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链需附 SHA-256）",
-    "真实应用图标（1024×1024 PNG/SVG，替换 /apps/icons/fablemotion.svg 占位图）",
-    "真实截图（替换或补充示意图）",
-    "许可协议、价格、是否开源、隐私说明"
+    "真实下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链附 SHA-256）",
+    "可选：真实截图（替换当前的概念图）",
+    "核对默认值：价格「免费」、许可「保留所有权利（免费使用）」、不开源、隐私说明、平台"
   ]
 }
 ---

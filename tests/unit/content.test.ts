@@ -21,6 +21,7 @@ const apps = read('apps');
 const games = read('games');
 const articles = read('articles');
 const works = read('works');
+const tools = read('tools');
 const art = JSON.parse(fs.readFileSync(path.join(root, 'src/data/art.json'), 'utf8'));
 
 describe('content migration', () => {
@@ -65,7 +66,7 @@ describe('content migration', () => {
       for (const s of a.data.relatedArticles) expect(articles[s]).toBeTruthy();
   });
   it('does not introduce fake metrics (ratings, downloads, user counts)', () => {
-    const blob = JSON.stringify([apps, games, articles, works]);
+    const blob = JSON.stringify([apps, tools, games, articles, works]);
     for (const k of ['rating', 'downloads', 'installs', 'userCount', 'views', 'likes', 'stars'])
       expect(blob).not.toContain(`"${k}"`);
   });
@@ -130,5 +131,114 @@ describe('content migration', () => {
   it('keeps the E2E fixture app out of the real content directory', () => {
     expect(Object.keys(apps)).not.toContain('e2e-fixture');
     expect(fs.existsSync(path.join(root, 'src/content/apps/_e2e/e2e-fixture.md'))).toBe(true);
+  });
+});
+
+describe('自研应用：图标、概念图与默认档案（2026-10-25 站长授权代填）', () => {
+  it('每个应用都有真实图标家族：1024 PNG 母版 + 512/256/128/64 的 AVIF 与 WebP，且不再是临时图标', () => {
+    for (const [slug, a] of Object.entries(apps)) {
+      const { icon } = a.data;
+      expect(icon.placeholder, slug).toBe(false);
+      expect(icon.variants, slug).toBe(true);
+      expect(icon.src, slug).toBe(`/apps/icons/${slug}.png`);
+      const png = fs.readFileSync(path.join(root, 'public', icon.src));
+      expect(png.readUInt32BE(16), `${slug} 宽`).toBe(1024);
+      expect(png.readUInt32BE(20), `${slug} 高`).toBe(1024);
+      for (const n of [512, 256, 128, 64])
+        for (const ext of ['avif', 'webp'])
+          expect(
+            fs.existsSync(path.join(root, `public/apps/icons/${slug}-${n}.${ext}`)),
+            `${slug}-${n}.${ext}`,
+          ).toBe(true);
+    }
+  });
+  it('截图是 2–4 张 WebP 概念图：标注 illustrative，alt 写明「概念图」，尺寸与文件一致、单张 ≤ 300 KB', () => {
+    for (const [slug, a] of Object.entries(apps)) {
+      const shots = a.data.screenshots;
+      expect(shots.length, slug).toBeGreaterThanOrEqual(2);
+      expect(shots.length, slug).toBeLessThanOrEqual(4);
+      for (const s of shots) {
+        expect(s.src, slug).toMatch(new RegExp(`^/apps/screens/${slug}/[a-z0-9-]+\\.webp$`));
+        expect(s.illustrative, s.src).toBe(true);
+        expect(s.alt, s.src).toContain('概念图');
+        const buf = fs.readFileSync(path.join(root, 'public', s.src));
+        expect(buf.length, s.src).toBeLessThanOrEqual(300 * 1024);
+        // WebP VP8/VP8L/VP8X 头里的尺寸
+        const kind = buf.toString('ascii', 12, 16);
+        const [w, h] =
+          kind === 'VP8X'
+            ? [buf.readUIntLE(24, 3) + 1, buf.readUIntLE(27, 3) + 1]
+            : kind === 'VP8 '
+              ? [buf.readUInt16LE(26) & 0x3fff, buf.readUInt16LE(28) & 0x3fff]
+              : [(buf.readUInt32LE(21) & 0x3fff) + 1, ((buf.readUInt32LE(21) >> 14) & 0x3fff) + 1];
+        expect([w, h], s.src).toEqual([s.width, s.height]);
+        if (s.device === 'phone') expect(s.height / s.width, s.src).toBeGreaterThan(2);
+        else expect(s.width / s.height, s.src).toBeCloseTo(1.6, 1);
+      }
+    }
+  });
+  it('默认档案：免费、保留所有权利、不开源、本地处理的隐私说明；没有下载地址的平台都是「即将推出」', () => {
+    for (const [slug, a] of Object.entries(apps)) {
+      const d = a.data;
+      expect(d.price.model, slug).toBe('free');
+      expect(d.license, slug).toBe('保留所有权利（免费使用）');
+      expect(d.openSource, slug).toBe(false);
+      expect(d.privacy.collects, slug).toEqual([]);
+      expect(d.privacy.note, slug).toContain(slug === 'sub2api' ? '仅在本机转发请求' : '所有处理在本地完成');
+      for (const p of d.platforms) if (!p.url) expect(p.availability, `${slug}/${p.os}`).toBe('coming-soon');
+      // 站长待办只剩：真实下载地址、可选真实截图、核对默认值
+      expect(d.ownerTodo.join(), slug).not.toContain('图标');
+      expect(d.ownerTodo.join(), slug).toContain('核对默认值');
+    }
+  });
+});
+
+describe('AI 工具（/ai/，第三方）', () => {
+  const CATS = ['agent', 'vibe-coding', 'cli', 'ai-bot', 'mcp'];
+  it('收录 30 个工具，五个分类都有内容', () => {
+    expect(Object.keys(tools)).toHaveLength(30);
+    for (const c of CATS)
+      expect(Object.values(tools).filter((t) => t.data.categories.includes(c)).length, c).toBeGreaterThan(2);
+  });
+  it('slug 不与自研应用重名（共用评价、下载计数与 /go/ 中转页），也不与 /ai/ 下的路由冲突', () => {
+    for (const slug of Object.keys(tools)) {
+      expect(apps[slug], slug).toBeUndefined();
+      expect(['category', 'icons', 'page'], slug).not.toContain(slug);
+    }
+  });
+  it('只链官方渠道：每个平台都有 https 地址，没有直链、没有本站托管的安装包', () => {
+    for (const [slug, t] of Object.entries(tools)) {
+      expect(t.data.developer.type, slug).toBe('third-party');
+      expect(t.data.website, slug).toMatch(/^https:\/\//);
+      for (const p of t.data.platforms) {
+        expect(p.url, `${slug}/${p.os}`).toMatch(/^https:\/\//);
+        expect(['official', 'github', 'store', 'web'], `${slug}/${p.os}`).toContain(p.linkType);
+        expect(p.url, `${slug}/${p.os}`).not.toMatch(/azsou\.com/);
+        if (p.linkType === 'github') expect(p.url, `${slug}/${p.os}`).toMatch(/^https:\/\/github\.com\//);
+      }
+      if (t.data.openSource) expect(t.data.sourceRepo, slug).toMatch(/^https:\/\/github\.com\//);
+    }
+  });
+  it('原创介绍：一句话简介 40–140 字，正文 3 段以上，注明核对日期与「图标版权归各自所有者」', () => {
+    for (const [slug, t] of Object.entries(tools)) {
+      expect(t.data.summary.length, slug).toBeGreaterThanOrEqual(40);
+      expect(t.data.summary.length, slug).toBeLessThanOrEqual(140);
+      expect(t.data.subtitle.length, slug).toBeLessThanOrEqual(30);
+      expect((t.body.match(/<p>/g) ?? []).length, slug).toBeGreaterThanOrEqual(3);
+      expect(t.body, slug).toContain('图标版权归各自所有者');
+      expect(t.data.lastChecked, slug).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(['free', 'freemium', 'paid'], slug).toContain(t.data.price.model);
+    }
+  });
+  it('图标存在于本站（256 PNG + 64/128/256 的 AVIF / WebP），不热链外站', () => {
+    for (const [slug, t] of Object.entries(tools)) {
+      expect(t.data.icon.src, slug).toBe(`/ai/icons/${slug}.png`);
+      expect(t.data.icon.variants, slug).toBe(true);
+      for (const f of [
+        `${slug}.png`,
+        ...[64, 128, 256].flatMap((n) => [`${slug}-${n}.avif`, `${slug}-${n}.webp`]),
+      ])
+        expect(fs.existsSync(path.join(root, 'public/ai/icons', f)), f).toBe(true);
+    }
   });
 });

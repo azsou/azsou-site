@@ -3,7 +3,7 @@
   "title": "E2E 夹具应用",
   "subtitle": "只在测试构建中出现",
   "summary": "Playwright 端到端测试用的夹具应用：带直链（含 SHA-256）、在线使用与未提供地址三种平台。生产构建不包含本条目。",
-  "icon": { "src": "/apps/icons/hermes.svg", "placeholder": true },
+  "icon": { "src": "/apps/icons/placeholder.svg", "placeholder": true },
   "hue": "blue",
   "developer": { "name": "E2E Bot", "url": "https://example.com/", "type": "third-party" },
   "category": "dev-tools",

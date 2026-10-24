@@ -4,8 +4,9 @@
   "subtitle": "网页视频录制与帧扫描",
   "summary": "网页视频录制、帧扫描与素材整理。",
   "icon": {
-    "src": "/apps/icons/capture-kit.svg",
-    "placeholder": true
+    "src": "/apps/icons/capture-kit.png",
+    "placeholder": false,
+    "variants": true
   },
   "hue": "blue",
   "developer": {
@@ -23,14 +24,37 @@
     {
       "os": "browser-ext",
       "version": "0.6",
-      "linkType": "official"
+      "linkType": "official",
+      "availability": "coming-soon"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/apps/screens/capture-kit/recording.webp",
+      "alt": "Capture Kit 概念图：网页视频上方的录制工具条与录制选区",
+      "device": "desktop",
+      "width": 1312,
+      "height": 816,
+      "illustrative": true
+    },
+    {
+      "src": "/apps/screens/capture-kit/frame-library.webp",
+      "alt": "Capture Kit 概念图：视频帧扫描胶片条与素材整理网格",
+      "device": "desktop",
+      "width": 1312,
+      "height": 816,
+      "illustrative": true
     }
   ],
   "price": {
-    "model": "tbd"
+    "model": "free"
   },
-  "license": "未声明（待作者补充）",
+  "license": "保留所有权利（免费使用）",
   "openSource": false,
+  "privacy": {
+    "collects": [],
+    "note": "本应用不收集个人数据，所有处理在本地完成。（默认说明，作者可更正）"
+  },
   "changelog": [
     {
       "version": "0.6",
@@ -51,14 +75,12 @@
   "relatedArticles": [],
   "ownerReview": true,
   "ownerTodo": [
-    "下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链需附 SHA-256）",
-    "确认支持的平台与发布渠道（迁移时按 V72 类型推断）",
-    "真实应用图标（1024×1024 PNG/SVG，替换 /apps/icons/capture-kit.svg 占位图）",
-    "真实截图（桌面 / 手机）",
-    "许可协议、价格、是否开源、隐私说明"
+    "真实下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链附 SHA-256）",
+    "可选：真实截图（替换当前的概念图）",
+    "核对默认值：价格「免费」、许可「保留所有权利（免费使用）」、不开源、隐私说明、平台与发布渠道"
   ]
 }
 ---
 
 <p>网页视频录制、帧扫描与素材整理。</p>
-<p>当前状态：<strong>0.6 · 开发中</strong>。以上信息与 V72 站点「应用目录」一致；本页是 v2 迁移时补建的最小档案，版本历史、运行环境与已知问题待作者补充，未核实的信息不会写进来。</p>
+<p>当前状态：<strong>0.6 · 开发中</strong>。以上信息与 V72 站点「应用目录」一致；本页截图为概念图（不是真实界面截图），安装包公布后会在这里提供下载；版本历史、运行环境与已知问题待作者补充，未核实的信息不会写进来。</p>

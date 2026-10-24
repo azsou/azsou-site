@@ -22,6 +22,8 @@ interface Props {
   modified?: string;
   /** 首屏 LCP 图：在 <head> 里预加载，和 CSS 并行下载 */
   preloadImage?: string;
+  /** 首屏 LCP 图是 <picture>（AVIF srcset）时用这个预加载，与 <source> 的 srcset 一致才不会重复下载 */
+  preloadSrcset?: { srcset: string; type: string };
 }
 
 const {
@@ -37,6 +39,7 @@ const {
   published,
   modified,
   preloadImage,
+  preloadSrcset,
 } = Astro.props;
 
 const fullTitle = title === SITE.title ? title : `${title} · ${SITE.name}`;
@@ -68,6 +71,15 @@ const isProd = import.meta.env.PROD;
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="AZ Studio" />
     {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
+    {preloadSrcset && (
+      <link
+        rel="preload"
+        as="image"
+        imagesrcset={preloadSrcset.srcset}
+        type={preloadSrcset.type}
+        fetchpriority="high"
+      />
+    )}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />

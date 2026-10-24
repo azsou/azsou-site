@@ -130,7 +130,12 @@ const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
             {apps.map((x) => (
               <li>
                 <a class="list-row" href={url.app(x.id)}>
-                  <AppIcon src={x.data.icon.src} alt={`${x.data.title} 图标`} size="sm" />
+                  <AppIcon
+                    src={x.data.icon.src}
+                    variants={x.data.icon.variants}
+                    alt={`${x.data.title} 图标`}
+                    size="sm"
+                  />
                   <span class="list-row__main">
                     {x.data.title}
                     <br />
