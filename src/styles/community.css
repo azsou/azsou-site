@@ -212,6 +212,15 @@
   .ugc > * + * {
     margin-top: 0.7em;
   }
+  /* 用户图片：宽高来自文件名（width / height 属性），加载前就占好位置 */
+  .ugc img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-block: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--c-fill);
+  }
   .ugc :is(h3, h4, h5) {
     font-size: var(--text-ui);
     margin-top: 1.2em;
@@ -409,6 +418,42 @@
   }
   .composer__draft[hidden] {
     display: none;
+  }
+  .composer.is-dragging {
+    border-color: var(--c-blue);
+    border-style: dashed;
+  }
+  .composer__image {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--c-separator);
+    background: color-mix(in srgb, var(--c-blue) 8%, transparent);
+    font-size: var(--text-sm);
+  }
+  .composer__image[hidden],
+  .composer__image [hidden] {
+    display: none;
+  }
+  .composer__image[data-state='error'] {
+    background: color-mix(in srgb, var(--c-danger) 10%, transparent);
+  }
+  .composer__image-status {
+    margin: 0;
+  }
+  .composer__image-fields {
+    display: grid;
+    gap: var(--space-1);
+  }
+  .composer__image-alt {
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--c-separator);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg);
+    color: var(--c-label);
+    font: inherit;
+    font-size: 1rem;
   }
   .link-btn {
     min-height: var(--touch);

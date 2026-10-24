@@ -8,10 +8,11 @@
  *
  * 支持：段落与换行、**粗体**、*斜体*、~~删除线~~、`行内代码`、``` 代码块 ```、> 引用、
  * - / 1. 列表、# 标题（映射为 h3–h5，页面大纲里 h1/h2 属于页面本身）、--- 分隔线、
- * [文字](链接)、裸链接自动识别。不支持图片与原始 HTML。
+ * [文字](链接)、裸链接自动识别、![说明](图片地址)（只显示本站图片桶里的图，见 src/lib/images.ts）。不支持原始 HTML。
  */
 /* eslint-disable no-control-regex -- 行内占位符用 \u0000（输入里先剔除），安全 URL 判断要去掉控制字符 */
 import { escapeHtml } from './escape';
+import { parseImageUrl } from './images';
 
 export const ALLOWED_TAGS = [
   'p',
@@ -30,8 +31,19 @@ export const ALLOWED_TAGS = [
   'h5',
   'hr',
   'a',
+  'img',
 ] as const;
-export const ALLOWED_ATTR = ['href', 'rel', 'start'] as const;
+export const ALLOWED_ATTR = [
+  'href',
+  'rel',
+  'start',
+  'src',
+  'alt',
+  'width',
+  'height',
+  'loading',
+  'decoding',
+] as const;
 export const LINK_REL = 'nofollow ugc noopener';
 
 /** 允许的链接：http(s)、mailto、站内绝对路径（/…，不含 //）与页内锚点 */
@@ -60,6 +72,14 @@ function link(text: string, hrefEscaped: string): string {
   return `<a href="${escapeHtml(href)}" rel="${LINK_REL}">${text}</a>`;
 }
 
+/** ![说明](地址)：不在白名单里的地址退化为普通链接（或纯文字） */
+function image(altEscaped: string, srcEscaped: string): string {
+  const img = parseImageUrl(unescape(srcEscaped));
+  if (!img) return link(altEscaped || escapeHtml('图片'), srcEscaped);
+  const size = img.width && img.height ? ` width="${img.width}" height="${img.height}"` : '';
+  return `<img src="${escapeHtml(img.url)}" alt="${altEscaped}"${size} loading="lazy" decoding="async">`;
+}
+
 /** 行内标记。输入是「已转义」的文本。 */
 export function inline(escaped: string): string {
   const slots: string[] = [];
@@ -67,6 +87,8 @@ export function inline(escaped: string): string {
   let s = escaped;
   // 行内代码最先处理：里面的内容不再解析
   s = s.replace(/`([^`\n]+)`/g, (_, c: string) => hold(`<code>${c}</code>`));
+  // ![说明](图片)——要在链接之前，否则会被当成「!」+ 链接
+  s = s.replace(/!\[([^\]\n]{0,300})\]\(([^)\s]{1,2000})\)/g, (_, a: string, u: string) => hold(image(a, u)));
   // [文字](链接)
   s = s.replace(/\[([^\]\n]{1,300})\]\(([^)\s]{1,2000})\)/g, (_, t: string, h: string) => hold(link(t, h)));
   // 裸链接

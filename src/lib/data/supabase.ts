@@ -1,6 +1,7 @@
 import { createAdminApi } from './admin';
 import { localStore, type SessionStore } from './session';
 import { createSupabaseAuth } from './supabase-auth';
+import { IMAGE_BUCKET, objectPath, publicImageUrl } from '../images';
 import {
   categoryId,
   categoryName,
@@ -168,6 +169,37 @@ export function restError(status: number, body: Record<string, unknown> | null):
   return new Error(msg || `HTTP ${status}`);
 }
 
+const blobBytes = (b: Blob): Promise<ArrayBuffer> =>
+  typeof b.arrayBuffer === 'function'
+    ? b.arrayBuffer()
+    : new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as ArrayBuffer);
+        r.onerror = () => reject(r.error);
+        r.readAsArrayBuffer(b);
+      });
+
+/** Storage API 错误 → 中文错误（storage-api 返回 { statusCode, error, message }） */
+export function storageError(status: number, body: Record<string, unknown> | null): Error {
+  const msg = String(body?.message ?? body?.error ?? '');
+  const code = Number(body?.statusCode ?? status);
+  if (status === 413 || code === 413 || /size|too large|exceed/i.test(msg))
+    return new ValidationError('图片超过 2 MB，请换一张或缩小后再试');
+  if (status === 415 || code === 415 || /mime|content type/i.test(msg))
+    return new ValidationError('只支持 JPG、PNG、WebP、GIF 图片');
+  if (status === 429) return new RateLimitedError('上传太频繁，请稍后再试');
+  if (status === 401 && !/row-level security/i.test(msg))
+    return new NotSignedInError('登录已过期，请重新登录');
+  if (status === 401 || status === 403 || /row-level security|unauthori[sz]ed/i.test(msg))
+    return new ForbiddenError('无法上传：账户受限，或上传太频繁（10 分钟最多 10 张、每天最多 50 张）');
+  if (status === 409 || /duplicate|already exists/i.test(msg))
+    return new ValidationError('同名图片已存在，请重试');
+  if (status === 404 && /bucket/i.test(msg))
+    return new DataUnavailableError('图片存储还没有开通（缺少 ugc-images 桶）');
+  if (status >= 500) return new DataUnavailableError(`HTTP ${status}`);
+  return new Error(msg || `HTTP ${status}`);
+}
+
 export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
   const f = cfg.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const auth =
@@ -277,9 +309,62 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
   };
   const clampLimit = (n: number | undefined, d: number) => Math.min(Math.max(Math.trunc(n ?? d), 1), 100);
 
+  /** Storage API（/storage/v1/object/…）：与 REST 同一个网关与 JWT，RLS 见 0010 */
+  async function storage(
+    path: string,
+    init: { method: string; body?: Blob; headers?: Record<string, string> },
+  ) {
+    const token = await auth.accessToken().catch(() => null);
+    if (!token) throw new NotSignedInError();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), Math.max(cfg.timeoutMs ?? 8000, 30_000));
+    let res: Response;
+    try {
+      res = await f(`${cfg.url}/storage/v1/object/${path}`, {
+        method: init.method,
+        headers: { apikey: cfg.key, Authorization: `Bearer ${token}`, ...init.headers },
+        // ArrayBuffer 而不是 Blob：各引擎都会带上准确的 Content-Length（个别 WebKit 版本对 Blob 请求体处理不一致）
+        body: init.body ? await blobBytes(init.body) : undefined,
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      throw new DataUnavailableError((e as Error)?.message);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.ok) return res;
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    throw storageError(res.status, body);
+  }
+
   return {
     name: 'supabase',
     auth,
+    media: {
+      async uploadImage(blob, meta) {
+        const rand = Array.from(crypto.getRandomValues(new Uint8Array(9)), (b) =>
+          b.toString(36).padStart(2, '0'),
+        )
+          .join('')
+          .slice(0, 12);
+        const path = objectPath(uid(), meta, rand);
+        await storage(`${IMAGE_BUCKET}/${path}`, {
+          method: 'POST',
+          body: blob,
+          headers: {
+            'content-type': blob.type || 'application/octet-stream',
+            'cache-control': '31536000',
+            'x-upsert': 'false',
+          },
+        });
+        return { path, url: publicImageUrl(path, cfg.url) };
+      },
+      async deleteImage(path) {
+        if (!/^[0-9a-f-]{36}\/[a-z0-9][a-z0-9-]{0,79}\.(webp|png|jpe?g|gif)$/.test(path))
+          throw new ValidationError('图片路径不正确');
+        await storage(`${IMAGE_BUCKET}/${path}`, { method: 'DELETE' });
+      },
+    },
     admin: createAdminApi({
       rest: <T>(path: string, init?: Parameters<typeof rest>[1]) => rest<T>(path, init).catch(notMigrated),
       restCount: (path, init) => restCount(path, init).catch(notMigrated),

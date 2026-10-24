@@ -290,6 +290,17 @@ export interface BookmarkRepo {
   has(threadKeys: string[]): Promise<Set<string>>;
 }
 
+/** 用户图片存储（编辑器上传） */
+export interface MediaRepo {
+  /** 上传一张已压缩好的图片；返回公开 URL 与对象路径。超限 / 无权限 / 限流时抛中文错误。 */
+  uploadImage(
+    blob: Blob,
+    meta: { width: number; height: number; ext: import('../images').ImageExt },
+  ): Promise<{ url: string; path: string }>;
+  /** 删除对象（本人自己的图；版主任何图）——路径为 `<uid>/<文件名>` */
+  deleteImage(path: string): Promise<void>;
+}
+
 export interface DataRepository {
   readonly name: string;
   auth: AuthProvider;
@@ -299,6 +310,8 @@ export interface DataRepository {
   reports: ReportRepo;
   notifications: NotificationRepo;
   bookmarks: BookmarkRepo;
+  /** 用户图片（P5，Supabase Storage `ugc-images` 桶）；没有对象存储的适配器不提供 */
+  media?: MediaRepo;
   /** 管理后台（P4）；内存适配器不提供 */
   admin?: import('./admin').AdminRepo;
 }

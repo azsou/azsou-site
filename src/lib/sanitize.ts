@@ -4,6 +4,7 @@
  */
 import DOMPurify from 'dompurify';
 import { ALLOWED_ATTR, ALLOWED_TAGS, LINK_REL, renderMarkdown, safeUrl } from './markdown';
+import { parseImageUrl } from './images';
 
 type Purifier = ReturnType<typeof DOMPurify>;
 let purifier: Purifier | null = null;
@@ -18,6 +19,26 @@ export function getPurifier(win?: Window): Purifier {
       if (!href || !safeUrl(href)) node.removeAttribute('href');
       node.setAttribute('rel', LINK_REL);
     }
+    if (node.nodeName === 'IMG') {
+      // 只保留本站图片桶里的图；其余整个移除
+      const img = parseImageUrl(node.getAttribute('src') ?? '');
+      if (!img) {
+        node.remove();
+        return;
+      }
+      node.setAttribute('src', img.url);
+      node.setAttribute('loading', 'lazy');
+      node.setAttribute('decoding', 'async');
+      if (!node.hasAttribute('alt')) node.setAttribute('alt', '');
+      // 宽高只信文件名里的（与渲染器一致），其余一律去掉
+      if (img.width && img.height) {
+        node.setAttribute('width', String(img.width));
+        node.setAttribute('height', String(img.height));
+      } else {
+        node.removeAttribute('width');
+        node.removeAttribute('height');
+      }
+    }
   });
   if (!win) purifier = p;
   return p;
@@ -30,6 +51,8 @@ export function sanitize(html: string, win?: Window): string {
     ALLOW_DATA_ATTR: false,
     ALLOW_ARIA_ATTR: false,
     ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|\/(?!\/)|#)/i,
+    // 非 URI 属性默认也要匹配 ALLOWED_URI_REGEXP；这几个是数字 / 关键字，单独放行
+    ADD_URI_SAFE_ATTR: ['width', 'height', 'loading', 'decoding', 'start'],
     RETURN_TRUSTED_TYPE: false,
   }) as string;
 }

@@ -3,11 +3,15 @@
  *  - 宽屏（容器 ≥ 640px）编辑区与预览并排、边写边看；窄屏用「编辑 / 预览」切换。
  *  - 快捷键：⌘/Ctrl+B 粗体、⌘/Ctrl+I 斜体、⌘/Ctrl+K 链接、⌘/Ctrl+Enter 提交。
  *  - 草稿存 localStorage（az-draft:<key>），7 天过期；提交成功后清除。
+ *  - 图片（P5）：工具栏「图片」按钮 / 粘贴 / 拖放 → 浏览器端压缩为 WebP → 上传到 Storage →
+ *    填写替代文字 → 在光标处插入 `![说明](地址)`。
  */
 import { checkLength } from '@/lib/data/types';
 import { markdownHtml } from '@/lib/sanitize';
 import { friendlyError } from '@/lib/community-errors';
 import { busy, h } from './ui';
+import { ACCEPTED_TYPES, altFromFileName, checkImageFile, imageMarkdown } from '@/lib/images';
+import { defaultUploader, hasFiles, imageFromTransfer, type ImageUploader } from './image-upload';
 
 export const DRAFT_PREFIX = 'az-draft:';
 const DRAFT_TTL = 7 * 86400 * 1000;
@@ -97,6 +101,8 @@ export interface EditorOptions {
   initial?: string;
   /** ⌘/Ctrl+Enter */
   onSubmitShortcut?: () => void;
+  /** 图片上传：默认用数据仓储的 Storage；false 关闭 */
+  images?: ImageUploader | false;
 }
 
 export interface Editor {
@@ -181,10 +187,52 @@ export function mountEditor(ta: HTMLTextAreaElement, opts: EditorOptions): Edito
   });
   const draftNote = h('p', { class: 'composer__draft', hidden: true });
   const foot = h('div', { class: 'composer__foot' }, hint, counter);
+  const uploader = opts.images === false ? null : (opts.images ?? defaultUploader());
+  const imagePanel = uploader ? createImagePanel(ta, uploader, id) : null;
+  if (imagePanel) {
+    hint.textContent += '；可粘贴或拖入图片';
+    const b = h('button', {
+      type: 'button',
+      class: 'composer__tool',
+      'data-tool': 'image',
+      title: '插入图片',
+    });
+    b.append(
+      h('span', { 'aria-hidden': 'true', text: '🖼' }),
+      h('span', { class: 'visually-hidden', text: '插入图片' }),
+    );
+    b.addEventListener('click', () => imagePanel.pick());
+    bar.append(b, imagePanel.input);
+  }
 
   ta.parentNode?.insertBefore(root, ta);
   const panes = h('div', { class: 'composer__panes' }, ta, preview);
-  root.append(head, draftNote, panes, foot);
+  root.append(head, draftNote, ...(imagePanel ? [imagePanel.panel] : []), panes, foot);
+  if (imagePanel) {
+    ta.addEventListener('paste', (e) => {
+      const f = imageFromTransfer(e.clipboardData);
+      if (!f) return;
+      e.preventDefault();
+      imagePanel.start(f);
+    });
+    root.addEventListener('dragover', (e) => {
+      if (!hasFiles(e.dataTransfer)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      root.classList.add('is-dragging');
+    });
+    root.addEventListener('dragleave', (e) => {
+      if (!root.contains(e.relatedTarget as Node | null)) root.classList.remove('is-dragging');
+    });
+    root.addEventListener('drop', (e) => {
+      root.classList.remove('is-dragging');
+      if (!hasFiles(e.dataTransfer)) return;
+      e.preventDefault();
+      const f = imageFromTransfer(e.dataTransfer);
+      if (f) imagePanel.start(f);
+      else imagePanel.fail('只支持 JPG、PNG、WebP、GIF 图片');
+    });
+  }
   const describedBy = new Set((ta.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean));
   describedBy.add(hint.id);
   describedBy.add(counter.id);
@@ -281,6 +329,133 @@ export function mountEditor(ta: HTMLTextAreaElement, opts: EditorOptions): Edito
     },
     focus: () => ta.focus(),
   };
+}
+
+/**
+ * 「插入图片」面板：选择 / 粘贴 / 拖入后立即开始压缩上传，同时请用户填写替代文字；
+ * 上传完成并点「插入」后，在原光标处插入 Markdown。一次处理一张。
+ */
+function createImagePanel(ta: HTMLTextAreaElement, uploader: ImageUploader, id: string) {
+  const input = h('input', {
+    type: 'file',
+    accept: ACCEPTED_TYPES.join(','),
+    hidden: true,
+    'data-image-input': true,
+    'aria-label': '选择图片',
+  });
+  const status = h('p', { class: 'composer__image-status', role: 'status', 'aria-live': 'polite' });
+  const altId = `${id}-alt`;
+  const alt = h('input', {
+    id: altId,
+    type: 'text',
+    class: 'composer__image-alt',
+    maxlength: '120',
+    autocomplete: 'off',
+    placeholder: '例如：时间轴面板截图',
+  });
+  const altLabel = h('label', {
+    for: altId,
+    text: '图片说明（替代文字，读屏软件会朗读，图片加载失败时显示）',
+  });
+  const insert = h('button', { type: 'button', class: 'btn btn--primary', text: '插入到正文' });
+  const cancel = h('button', { type: 'button', class: 'btn', text: '取消' });
+  const fields = h('div', { class: 'composer__image-fields' }, altLabel, alt);
+  const panel = h(
+    'div',
+    {
+      class: 'composer__image',
+      role: 'group',
+      'aria-label': '插入图片',
+      hidden: true,
+      'data-image-panel': true,
+    },
+    status,
+    fields,
+    h('div', { class: 'btn-row' }, cancel, insert),
+  );
+  let job: Promise<{ url: string }> | null = null;
+  let pos = 0;
+  let token = 0;
+
+  const close = (focusEditor = true) => {
+    token += 1;
+    job = null;
+    panel.hidden = true;
+    panel.removeAttribute('data-state');
+    if (focusEditor) ta.focus();
+  };
+  const fail = (msg: string) => {
+    panel.hidden = false;
+    panel.dataset.state = 'error';
+    fields.hidden = true;
+    insert.hidden = true;
+    status.textContent = msg;
+    cancel.textContent = '关闭';
+    cancel.focus();
+  };
+  const start = (file: File) => {
+    const bad = checkImageFile(file.type, file.size);
+    if (bad) return fail(bad);
+    pos = ta.selectionEnd ?? ta.value.length;
+    const mine = ++token;
+    panel.hidden = false;
+    panel.dataset.state = 'uploading';
+    fields.hidden = false;
+    insert.hidden = false;
+    insert.disabled = false;
+    cancel.textContent = '取消';
+    alt.value = altFromFileName(file.name);
+    status.textContent = '正在压缩并上传图片……可以先填写图片说明。';
+    job = uploader.upload(file);
+    job.then(
+      () => {
+        if (mine !== token) return;
+        panel.dataset.state = 'ready';
+        status.textContent = '上传完成。填写图片说明后点「插入到正文」。';
+      },
+      (e) => {
+        if (mine !== token) return;
+        fail(`图片上传失败：${friendlyError(e)}`);
+      },
+    );
+    alt.focus();
+  };
+  const doInsert = async () => {
+    if (!job) return;
+    const mine = token;
+    insert.disabled = true;
+    let url: string;
+    try {
+      url = (await job).url;
+    } catch {
+      return; // 错误已由 fail() 显示
+    }
+    if (mine !== token) return;
+    const md = imageMarkdown(alt.value, url);
+    const before = ta.value.slice(0, pos);
+    const lead = before && !before.endsWith('\n') ? '\n' : '';
+    ta.setRangeText(`${lead}${md}\n`, pos, pos, 'end');
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    close();
+  };
+
+  input.addEventListener('change', () => {
+    const f = input.files?.[0];
+    input.value = '';
+    if (f) start(f);
+  });
+  insert.addEventListener('click', () => void doInsert());
+  cancel.addEventListener('click', () => close());
+  alt.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // 不要提交外层表单
+      void doInsert();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  });
+  return { input, panel, start, fail, pick: () => input.click() };
 }
 
 export interface ComposerOptions extends EditorOptions {
