@@ -20,15 +20,22 @@ const dir = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--url') 
 
 const vercelPath = 'vercel.json';
 const vercel = JSON.parse(fs.readFileSync(vercelPath, 'utf8'));
+// 其他安全头在 "/(.*)" 规则里（含 /_astro/ 静态资源，nosniff 对脚本有效）；
+// CSP 单独一条 "/((?!_astro/).*)"：CSP 只对文档与 Worker 生效，带哈希的 /_astro/ 脚本与样式不需要它，
+// 不下发能省下每个资源 ~700 字节响应头（Lighthouse 的 resource-summary 预算按含响应头的传输量计）。
+const CSP_SOURCE = '/((?!_astro/).*)';
 const globalRule = vercel.headers.find((h) => h.source === '/(.*)');
+const cspRule = vercel.headers.find((h) => h.source === CSP_SOURCE);
 const header = (k) => globalRule?.headers.find((h) => h.key.toLowerCase() === k.toLowerCase());
-const cspHeader = header('Content-Security-Policy');
+const cspHeader = cspRule?.headers.find((h) => h.key === 'Content-Security-Policy');
 const fail = [];
 
 if (!cspHeader) {
-  console.error('✗ vercel.json 的 "/(.*)" 规则里没有 Content-Security-Policy');
+  console.error(`✗ vercel.json 的 "${CSP_SOURCE}" 规则里没有 Content-Security-Policy`);
   process.exit(1);
 }
+if (header('Content-Security-Policy'))
+  fail.push('"/(.*)" 规则里不要再放 CSP（会和单独的 CSP 规则重复下发，也会加到 /_astro/ 资源上）');
 
 const parse = (csp) =>
   Object.fromEntries(

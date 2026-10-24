@@ -10,7 +10,7 @@ const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
   headers: { source: string; headers: { key: string; value: string }[] }[];
 };
 const CSP = vercel.headers
-  .find((h) => h.source === '/(.*)')!
+  .find((h) => h.source === '/((?!_astro/).*)')!
   .headers.find((h) => h.key === 'Content-Security-Policy')!.value;
 
 const PAGES = [
@@ -50,6 +50,20 @@ test.describe('CSP 与安全头', () => {
     expect(CSP).not.toMatch(/script-src [^;]*'unsafe-(inline|eval)'/);
     expect(CSP).toContain("object-src 'none'");
     expect(CSP).toContain("frame-ancestors 'self'");
+  });
+
+  test('CSP 只下发给文档与 Worker；/_astro/ 静态资源仍有 nosniff 等安全头', async ({ request }) => {
+    const html = await (await request.get('/')).text();
+    const asset = /\/_astro\/[^"']+\.js/.exec(html)![0];
+    const a = (await request.get(asset)).headers();
+    expect(a['content-security-policy']).toBeUndefined();
+    expect(a['x-content-type-options']).toBe('nosniff');
+    expect(a['cache-control']).toContain('immutable');
+    // Service Worker 脚本的 CSP 来自它自己的响应头，必须保留；404 文档也带 CSP
+    for (const p of ['/sw.js', '/no-such-page/']) {
+      const h = (await request.get(p)).headers();
+      expect(h['content-security-policy'], p).toBe(CSP.replace(/;\s*upgrade-insecure-requests/, ''));
+    }
   });
 
   for (const path of PAGES) {

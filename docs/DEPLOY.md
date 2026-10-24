@@ -69,11 +69,13 @@ curl -s  https://azsou.com/forum/sitemap-threads.xml | head
 
 ## 6. 内联脚本与 CSP
 
-CSP 的 `script-src` 不含 `'unsafe-inline'`，页面里仅有的两段内联脚本（Service Worker 注册、首页旧 hash 跳转）以 sha256 哈希放行。
-改了这两段脚本或新增内联脚本后：
+CSP 的 `script-src` 不含 `'unsafe-inline'`，页面里仅有的三段内联脚本（Service Worker 注册、首页旧 hash 跳转、视频详情页 facade——Astro 会把很小的脚本内联）以 sha256 哈希放行。
+改了这些脚本或新增内联脚本后：
 
 ```bash
 npm run build && npm run csp:update   # 重新计算哈希写入 vercel.json
 ```
 
 CI 的 `npm run test:csp` 会在哈希不匹配时失败，防止上线后脚本被拦。
+
+CSP 单独一条规则 `/((?!_astro/).*)`：只下发给页面、404 与 Service Worker 脚本，不加到 `/_astro/` 下带哈希的 JS / CSS 上（CSP 只对文档与 Worker 生效；省掉每个资源约 700 字节响应头）。其余安全头（nosniff 等）仍由 `/(.*)` 下发给所有响应。`test:csp` 与 `security.spec.ts` 会检查这个拆分。
