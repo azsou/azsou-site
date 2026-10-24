@@ -36,6 +36,7 @@ const TYPE: Record<ReportTarget, string> = {
   reply: '回复',
   comment: '评论',
   profile: '用户',
+  review: '应用评价',
 };
 const STATUS: Record<string, [string, string]> = {
   open: ['待处理', 'badge--warn'],

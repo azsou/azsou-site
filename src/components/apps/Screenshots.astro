@@ -1,0 +1,74 @@
+---
+/**
+ * 截图轮播：横向滚动吸附（无 JS 也能滑），按钮翻页；点击截图用 <dialog> 灯箱放大（src/scripts/apps/detail.ts）。
+ * 宽高写死在 <img> 上（来自内容 schema），加载前就占好位置，CLS 0。
+ */
+interface Shot {
+  src: string;
+  alt: string;
+  device: 'desktop' | 'tablet' | 'phone';
+  width: number;
+  height: number;
+  illustrative: boolean;
+}
+interface Props {
+  title: string;
+  shots: Shot[];
+}
+const { title, shots } = Astro.props;
+---
+
+<div class="shots" data-shots>
+  <ul class="shots__track" role="list" data-shots-track tabindex="-1">
+    {shots.map((s, i) => (
+      <li class={`shots__item shots__item--${s.device}`}>
+        <button
+          type="button"
+          class="shot"
+          data-shot={i}
+          data-src={s.src}
+          data-w={s.width}
+          data-h={s.height}
+          aria-label={`放大查看第 ${i + 1} 张截图：${s.alt}${s.illustrative ? '（示意图）' : ''}`}
+        >
+          <img
+            src={s.src}
+            alt={`${s.alt}${s.illustrative ? '（示意图）' : ''}`}
+            width={s.width}
+            height={s.height}
+            loading={i === 0 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+          {s.illustrative && <span class="shot__tag">示意</span>}
+        </button>
+      </li>
+    ))}
+  </ul>
+  {shots.length > 1 && (
+    <div class="shots__nav">
+      <button type="button" class="icon-btn" data-shots-prev aria-label={`${title} 上一张截图`}>
+        ‹
+      </button>
+      <button type="button" class="icon-btn" data-shots-next aria-label={`${title} 下一张截图`}>
+        ›
+      </button>
+    </div>
+  )}
+  <dialog class="lightbox" data-lightbox aria-label={`${title} 截图`}>
+    <figure class="lightbox__figure">
+      <figcaption data-lightbox-caption></figcaption>
+    </figure>
+    <div class="lightbox__bar">
+      <button type="button" class="btn" data-lightbox-prev>
+        上一张
+      </button>
+      <span data-lightbox-count aria-live="polite"></span>
+      <button type="button" class="btn" data-lightbox-next>
+        下一张
+      </button>
+      <button type="button" class="btn btn--primary" data-lightbox-close>
+        关闭
+      </button>
+    </div>
+  </dialog>
+</div>

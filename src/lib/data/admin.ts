@@ -415,7 +415,7 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
         name: r.profiles?.display_name || '已注销用户',
       });
       const clip = (s: unknown) => str(s).replace(/\s+/g, ' ').slice(0, 200);
-      const [threads, replies, comments, profiles] = await Promise.all([
+      const [threads, replies, comments, profiles, reviews] = await Promise.all([
         by('thread').length
           ? rest<Row[]>(
               `forum_threads?id=in.(${by('thread').join(',')})&select=id,title,body,author,published,locked,profiles(display_name)`,
@@ -438,6 +438,13 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
           ? rest<Row[]>(`profiles?id=in.(${by('profile').join(',')})&select=id,display_name,role,banned`, {
               requireAuth: true,
             })
+          : [],
+        // 应用评价（0012）；旧库没有这张表时当作「已删除」显示
+        by('review').length
+          ? rest<Row[]>(
+              `app_reviews?id=in.(${by('review').join(',')})&select=id,app,rating,title,body,author,published,profiles(display_name)`,
+              { requireAuth: true },
+            ).catch(() => [] as Row[])
           : [],
       ]);
       for (const r of threads)
@@ -487,6 +494,18 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
           published: true,
           locked: false,
           href: url.adminUser(str(r.id)),
+        };
+      for (const r of reviews)
+        out[`review:${r.id}`] = {
+          type: 'review',
+          id: str(r.id),
+          exists: true,
+          title: `${str(r.app)} · ${'★'.repeat(Math.min(5, Math.max(1, num(r.rating))))}`,
+          excerpt: clip([str(r.title), str(r.body)].filter(Boolean).join(' — ') || '（只打了星）'),
+          author: author(r),
+          published: r.published !== false,
+          locked: false,
+          href: `${url.app(str(r.app))}#review-${str(r.id)}`,
         };
       return out;
     },

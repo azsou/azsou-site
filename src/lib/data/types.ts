@@ -226,7 +226,7 @@ export interface CommentRepo {
 
 export type ReportReason = 'spam' | 'abuse' | 'illegal' | 'privacy' | 'other';
 export type ReportStatus = 'open' | 'resolved' | 'dismissed';
-export type ReportTarget = 'thread' | 'reply' | 'comment' | 'profile';
+export type ReportTarget = 'thread' | 'reply' | 'comment' | 'profile' | 'review';
 
 export interface Report {
   id: string;
