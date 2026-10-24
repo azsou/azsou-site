@@ -1,7 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 /** 数据库 RLS / 迁移测试：需要 DATABASE_URL 指向一个超级用户连接（CI 用 postgres 服务容器）。 */
 export default defineConfig({
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
     include: ['tests/db/**/*.test.ts'],
     environment: 'node',

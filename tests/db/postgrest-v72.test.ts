@@ -5,70 +5,14 @@
  *
  * 需要环境变量 POSTGREST_BIN（CI 会下载静态二进制）；没有时跳过并提示。
  */
-import { spawn, type ChildProcess } from 'node:child_process';
-import { createHmac, randomUUID } from 'node:crypto';
+import type { ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ADMIN_URL, MIGRATIONS_DIR, SHIM, dbUrl, migrationFiles } from './helpers';
+import { MIGRATIONS_DIR, SHIM, migrationFiles } from './helpers';
+import { ANON, BIN, ensureAuthenticator, freePort, startPostgrest, tok } from './postgrest';
 import { C, T, U } from './fixtures';
 import { freshDb } from './setup';
-
-const BIN = process.env.POSTGREST_BIN;
-const SECRET = 'test-secret-test-secret-test-secret-0123456789';
-
-const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
-function jwt(claims: Record<string, unknown>) {
-  const head = b64({ alg: 'HS256', typ: 'JWT' });
-  const body = b64({ exp: Math.floor(Date.now() / 1000) + 3600, ...claims });
-  const sig = createHmac('sha256', SECRET).update(`${head}.${body}`).digest('base64url');
-  return `${head}.${body}.${sig}`;
-}
-const ANON = jwt({ role: 'anon' });
-const tok = (uid: string) => jwt({ role: 'authenticated', sub: uid });
-
-async function ensureAuthenticator() {
-  const c = new pg.Client({ connectionString: ADMIN_URL });
-  await c.connect();
-  await c.query(`do $$ begin
-    if not exists (select 1 from pg_roles where rolname = 'authenticator') then
-      create role authenticator login noinherit password 'authenticator';
-    end if; end $$;`);
-  await c.query(`grant anon, authenticated, service_role to authenticator`);
-  await c.end();
-}
-
-async function startPostgrest(dbName: string, port: number): Promise<ChildProcess> {
-  const u = new URL(dbUrl(dbName));
-  u.username = 'authenticator';
-  u.password = 'authenticator';
-  const p = spawn(BIN!, [], {
-    env: {
-      ...process.env,
-      PGRST_DB_URI: u.toString(),
-      PGRST_DB_SCHEMAS: 'public',
-      PGRST_DB_ANON_ROLE: 'anon',
-      PGRST_JWT_SECRET: SECRET,
-      PGRST_SERVER_PORT: String(port),
-      PGRST_SERVER_HOST: '127.0.0.1',
-      PGRST_LOG_LEVEL: 'error',
-    },
-    stdio: ['ignore', 'inherit', 'inherit'],
-  });
-  for (let i = 0; i < 100; i++) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/forum_seed_threads?limit=1`, {
-        headers: { Authorization: `Bearer ${ANON}` },
-      });
-      if (r.status < 500) return p;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  p.kill();
-  throw new Error('PostgREST 未能启动');
-}
 
 function client(port: number) {
   return async (method: string, path: string, token: string, body?: unknown, prefer?: string) => {
@@ -107,7 +51,7 @@ describe.skipIf(!BIN)('PostgREST 重放 V72 请求', () => {
     let db: Awaited<ReturnType<typeof freshDb>>;
     let proc: ChildProcess;
     let api: ReturnType<typeof client>;
-    const port = 39000 + Math.floor(Math.random() * 2000) + (migrated ? 2000 : 0);
+    const port = freePort();
 
     beforeAll(async () => {
       db = await freshDb(migrated ? 'pgrst_new' : 'pgrst_old', { files });
