@@ -51,11 +51,11 @@
 - [x] T1.8 测试：Vitest + Playwright 多端 + axe + Lighthouse 预算 + CI
 
 ### P2 数据层与账户
-- [ ] T2.1 `db/migrations` 标准化建表（兼容现有表）+ 索引
-- [ ] T2.2 RLS 全量审计与重写 + 角色矩阵测试
-- [ ] T2.3 仓储接口 + Supabase 适配器 + 内存适配器（测试用）——只读部分已在 P1 完成（`src/lib/data/`），写入与 AuthProvider/UserRepo 待做
-- [ ] T2.4 登录 / 注册 / 找回密码 / 邮箱验证 / OAuth（GitHub、Google）
-- [ ] T2.5 真 Turnstile（Vercel Function 校验）+ 限流
+- [x] T2.1 `db/migrations` 标准化建表（兼容现有表）+ 索引（0001 baseline 精确还原生产结构，0002–0007 增量迁移；生产执行待站长批准）
+- [x] T2.2 RLS 全量审计与重写 + 角色矩阵测试（tests/db/rls-matrix，CI db 任务，PostgREST 重放 V72 请求）
+- [x] T2.3 仓储接口 + Supabase 适配器 + 内存适配器（测试用）——Auth/Profiles/Forum/Comments/Reports/Notifications（`src/lib/data/`），内存适配器不进生产包
+- [x] T2.4 登录 / 注册 / 找回密码 / 邮箱验证 / OAuth（GitHub、Google）——/login、/register、/reset-password、/settings、/auth/callback、顶栏用户菜单（OAuth 提供方需在 Supabase Dashboard 开启）
+- [x] T2.5 真 Turnstile（Vercel Function 校验）+ 限流——/api/auth/[action]；可选 before-user-created 钩子（0007，上线切换时启用）
 
 ### P3 论坛与评论
 - [ ] T3.1 论坛列表、分类、主题页（服务端渲染 + 缓存，可被收录）
