@@ -102,11 +102,11 @@ v2 原则不变：
 - **下载安全**：第三方软件只链官方 / 商店 / GitHub Release，不自行托管再分发；自研软件直链必须附 SHA-256；下载按钮附近不放广告。
 
 ### P6 应用商店核心
-- [ ] T6.1 应用数据模型升级——真实图标图片、副标题、开发者 {name, url, self | third-party}、分类 + 标签、`platforms[]`（每项 {os: ios | android | windows | macos | linux | web | cli | browser-ext | ai-bot | mcp, version, size, minOS / requirements, linkType: direct | official | store | github | web, url, sha256?, arch?}）、`screenshots[]`（按设备尺寸）、价格 / 许可 / 是否开源、官网 / 源码仓库、隐私说明、按版本的更新日志、FAQ、featured 推荐标记、releaseDate / updated
-- [ ] T6.2 App Store 风格详情页——头部（图标 + 名称 + 开发者 + 评分 + 下载按钮，自动识别访客平台）、截图轮播 + 灯箱、介绍、新功能（What's New）、信息表、版本历史、相关应用、评价
-- [ ] T6.3 下载中转 `/go/[app]/[platform]/`——外链提示中间页、SHA-256、真实下载计数（Supabase RPC）、限流、过滤爬虫、按钮附近不放广告
-- [ ] T6.4 评分与评论——迁移 0012：`app_reviews`（1–5 星 + 文字，每人每个应用一条，RLS，复用举报 / 审核）、聚合视图、`app_download_counts` 表 + 计数 RPC
-- [ ] T6.5 应用目录——按平台 / 分类 / 价格筛选，按热门 / 最新 / 评分排序，静态分页 `/apps/page/2/`，分类与平台落地页
+- [x] T6.1 应用数据模型升级——真实图标图片、副标题、开发者 {name, url, self | third-party}、分类 + 标签、`platforms[]`（每项 {os: ios | android | windows | macos | linux | web | cli | browser-ext | ai-bot | mcp, version, size, minOS / requirements, linkType: direct | official | store | github | web, url, sha256?, arch?}）、`screenshots[]`（按设备尺寸）、价格 / 许可 / 是否开源、官网 / 源码仓库、隐私说明、按版本的更新日志、FAQ、featured 推荐标记、releaseDate / updated
+- [x] T6.2 App Store 风格详情页——头部（图标 + 名称 + 开发者 + 评分 + 下载按钮，自动识别访客平台）、截图轮播 + 灯箱、介绍、新功能（What's New）、信息表、版本历史、相关应用、评价
+- [x] T6.3 下载中转 `/go/[app]/[platform]/`——外链提示中间页、SHA-256、真实下载计数（Supabase RPC）、限流、过滤爬虫、按钮附近不放广告
+- [x] T6.4 评分与评论——迁移 0012：`app_reviews`（1–5 星 + 文字，每人每个应用一条，RLS，复用举报 / 审核）、聚合视图、`app_download_counts` 表 + 计数 RPC
+- [x] T6.5 应用目录——按平台 / 分类 / 价格筛选，按热门 / 最新 / 评分排序，静态分页 `/apps/page/2/`，分类与平台落地页
 - [ ] T6.6 AI 工具栏目 `/ai/`——AI Agent、Vibe Coding、CLI、AI Bot、MCP；瀑布流卡片；只链官方地址
 - [ ] T6.7 视频栏目 `/videos/`——B 站 / YouTube 轻量嵌入（点击才加载播放器的 facade，保证性能）
 - [ ] T6.8 首页改版——轮播 Hero、搜索 + 热门词、平台快捷入口、编辑推荐、热门应用、排行榜、AI 工具、游戏、最新文章、视频、社区动态、最新留言、友情链接
