@@ -61,6 +61,9 @@ with c(step, item, ok) as (
      to_regclass('public.app_download_counts') is not null
      and to_regprocedure('public.app_count_download(text,text)') is not null
      and exists (select 1 from pg_constraint where conname = 'reports_target_type_check'
-                 and pg_get_constraintdef(oid) like '%review%'))
+                 and pg_get_constraintdef(oid) like '%review%')),
+  ('0013', '评论可以挂在 AI 工具页（page_key 允许 tool:）',
+     exists (select 1 from pg_constraint where conname = 'comments_page_key_check'
+             and pg_get_constraintdef(oid) like '%tool%'))
 )
 select step, item, ok from c order by step, item;
