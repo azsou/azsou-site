@@ -138,9 +138,61 @@ export interface LikeSummary {
   liked: boolean;
 }
 
+/** 游标分页：next 为 null 表示没有更多 */
+export interface Page<T> {
+  items: T[];
+  next: string | null;
+}
+
+export interface ThreadQuery {
+  category?: string;
+  /** 只看某个用户的主题（个人主页） */
+  author?: string;
+  limit?: number;
+  /** 上一页返回的 next */
+  cursor?: string | null;
+  /** true = 不含置顶（列表页另取置顶） */
+  excludePinned?: boolean;
+}
+
+export interface SearchHit {
+  id: string;
+  category: string;
+  title: string;
+  excerpt: string;
+  author: Author;
+  createdAt: string;
+}
+
+export interface SeedThreadState {
+  key: string;
+  locked: boolean;
+}
+
 export interface ForumRepo {
   listThreads(opts?: { category?: string; limit?: number }): Promise<Thread[]>;
+  /** 按时间倒序（created_at desc, id desc）的游标分页，只含已发布主题 */
+  pageThreads(q?: ThreadQuery): Promise<Page<Thread>>;
+  /** 置顶主题（已发布），列表页放在最前 */
+  pinnedThreads(opts?: { category?: string }): Promise<Thread[]>;
+  /** 回复：按时间正序分页。withHidden = 让数据库按 RLS 返回自己的/版主可见的隐藏回复 */
+  pageReplies(
+    threadId: string,
+    opts?: { limit?: number; cursor?: string | null; withHidden?: boolean },
+  ): Promise<Page<Reply>>;
+  /** 多条主题（uuid 或种子 t-…）的已发布回复数 */
+  replyCountsFor(threadIds: string[]): Promise<Record<string, number>>;
+  /** 论坛全文搜索（pg_trgm / ILIKE），只含已发布主题 */
+  search(q: string, opts?: { limit?: number; offset?: number }): Promise<SearchHit[]>;
+  /** 静态种子主题的状态（是否锁定）；表不存在（旧库）返回 null */
+  seedThread(key: string): Promise<SeedThreadState | null>;
+  /** 版主：锁定 / 解锁种子主题 */
+  setSeedLocked(key: string, locked: boolean): Promise<SeedThreadState>;
+  /** 版主：隐藏 / 恢复回复 */
+  setReplyPublished(id: string, published: boolean): Promise<Reply>;
   getThread(id: string): Promise<Thread | null>;
+  /** 批量取主题（收藏夹、通知）；不存在 / 不可见的直接缺省 */
+  getThreadsByIds(ids: string[]): Promise<Thread[]>;
   listReplies(threadId: string): Promise<Reply[]>;
   replyCounts(): Promise<Record<string, number>>;
   createThread(input: NewThread): Promise<Thread>;
@@ -161,7 +213,10 @@ export interface ForumRepo {
 }
 
 export interface CommentRepo {
-  list(pageKey: string): Promise<Comment[]>;
+  /** withHidden = 让数据库按 RLS 返回自己的/版主可见的隐藏评论 */
+  list(pageKey: string, opts?: { withHidden?: boolean }): Promise<Comment[]>;
+  /** 版主：隐藏 / 恢复评论 */
+  setPublished(id: string, published: boolean): Promise<Comment>;
   create(pageKey: string, body: string): Promise<Comment>;
   update(id: string, body: string): Promise<Comment>;
   remove(id: string): Promise<void>;
@@ -220,6 +275,21 @@ export interface NotificationRepo {
   markRead(ids?: number[]): Promise<number>;
 }
 
+export interface Bookmark {
+  /** 数据库主题 uuid 或种子主题 t-… */
+  threadKey: string;
+  createdAt: string;
+}
+
+export interface BookmarkRepo {
+  /** 我的收藏，按时间倒序 */
+  list(): Promise<Bookmark[]>;
+  add(threadKey: string): Promise<void>;
+  remove(threadKey: string): Promise<void>;
+  /** 给定主题里哪些被我收藏了 */
+  has(threadKeys: string[]): Promise<Set<string>>;
+}
+
 export interface DataRepository {
   readonly name: string;
   auth: AuthProvider;
@@ -228,6 +298,7 @@ export interface DataRepository {
   comments: CommentRepo;
   reports: ReportRepo;
   notifications: NotificationRepo;
+  bookmarks: BookmarkRepo;
 }
 
 // ------------------------------------------------------------------ 错误 ----
@@ -258,9 +329,12 @@ export class ForbiddenError extends Error {
 
 /** 限流：HTTP 429，SQLSTATE PT429 */
 export class RateLimitedError extends Error {
-  constructor(message = '操作太频繁，请稍后再试') {
+  /** 数据库 az_rate_limit() 的 detail，例如「thread: 最多 3 次 / 00:10:00」 */
+  detail: string;
+  constructor(message = '操作太频繁，请稍后再试', detail = '') {
     super(message);
     this.name = 'RateLimitedError';
+    this.detail = detail;
   }
 }
 

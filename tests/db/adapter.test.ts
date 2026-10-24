@@ -17,7 +17,9 @@ import {
 } from '@/lib/data/types';
 import { MIGRATIONS_DIR, SHIM } from './helpers';
 import { ANON, BIN, ensureAuthenticator, freePort, startPostgrest, tok } from './postgrest';
-import { T, U } from './fixtures';
+import { C, T, U } from './fixtures';
+
+const C_BOB = C.bob;
 import { freshDb } from './setup';
 
 /** 用测试 JWT 冒充 GoTrue 会话的最小 AuthProvider */
@@ -176,6 +178,77 @@ describe.skipIf(!BIN)('Supabase 适配器 × PostgREST', () => {
       err = e;
     }
     expect(err).toBeInstanceOf(RateLimitedError);
+    expect((err as RateLimitedError).detail).toMatch(/^comment: 最多 5 次/);
+  });
+
+  it('P3 读取：游标分页 / 置顶 / 作者过滤 / 回复分页 / 回复计数 RPC / 搜索 RPC / 批量取主题', async () => {
+    const anon = as(null);
+    const p1 = await anon.forum.pageThreads({ limit: 3, excludePinned: true });
+    const p2 = await anon.forum.pageThreads({ limit: 3, excludePinned: true, cursor: p1.next });
+    const ids = [...p1.items, ...p2.items].map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).not.toContain(T.announce); // 置顶另取
+    expect(ids).not.toContain(T.bobHidden);
+    expect((await anon.forum.pinnedThreads()).map((t) => t.id)).toContain(T.announce);
+    expect((await anon.forum.pageThreads({ author: U.bob })).items.every((t) => t.author.id === U.bob)).toBe(
+      true,
+    );
+    const r1 = await anon.forum.pageReplies(T.bob, { limit: 2 });
+    const r2 = await anon.forum.pageReplies(T.bob, { limit: 10, cursor: r1.next });
+    expect(r1.items.length + r2.items.length).toBe(5);
+    expect(r2.next).toBeNull();
+    const counts = await anon.forum.replyCountsFor([T.bob, 't-announce', T.alice]);
+    expect(counts[T.bob]).toBe(5);
+    expect(counts['t-announce']).toBeGreaterThanOrEqual(1); // 夹具 1 条 + 前面用例回的种子回复
+    expect(counts[T.alice]).toBe(0);
+    expect((await anon.forum.search('bob thread')).map((h) => h.id)).toContain(T.bob);
+    expect((await anon.forum.search('hidden')).map((h) => h.id)).not.toContain(T.bobHidden);
+    expect((await anon.forum.getThreadsByIds([T.bob, T.bobHidden])).map((t) => t.id)).toEqual([T.bob]);
+    expect(await anon.forum.seedThread('t-feedback')).toEqual({ key: 't-feedback', locked: true });
+  });
+
+  it('P3 写入：收藏 / 版主隐藏回复与评论 / 锁定种子主题；作者仍能看到自己被隐藏的回复', async () => {
+    const alice = as('alice');
+    await alice.bookmarks.add(T.ada);
+    await alice.bookmarks.add('t-announce');
+    await alice.bookmarks.add('t-announce');
+    expect((await alice.bookmarks.list()).map((b) => b.threadKey)).toEqual(
+      expect.arrayContaining([T.ada, 't-announce']),
+    );
+    expect([...(await alice.bookmarks.has([T.ada, T.carol]))]).toEqual([T.ada]);
+    await alice.bookmarks.remove(T.ada);
+    expect((await alice.bookmarks.has([T.ada])).size).toBe(0);
+    // bob 看不到 alice 的收藏
+    expect((await as('bob').bookmarks.list()).some((b) => b.threadKey === 't-announce')).toBe(false);
+
+    const r = await alice.forum.reply(T.ada, '将被隐藏');
+    await expect(alice.forum.setReplyPublished(r.id, false)).rejects.toBeInstanceOf(ForbiddenError);
+    const mia = as('mia');
+    expect((await mia.forum.setReplyPublished(r.id, false)).published).toBe(false);
+    expect((await as(null).forum.pageReplies(T.ada)).items.some((x) => x.id === r.id)).toBe(false);
+    expect(
+      (await alice.forum.pageReplies(T.ada, { withHidden: true })).items.some((x) => x.id === r.id),
+    ).toBe(true);
+    expect(
+      (await as('bob').forum.pageReplies(T.ada, { withHidden: true })).items.some((x) => x.id === r.id),
+    ).toBe(false);
+
+    expect((await mia.comments.setPublished(C_BOB, false)).published).toBe(false);
+    expect(
+      (await as('bob').comments.list('article:pinyin-initial-search', { withHidden: true })).some(
+        (c) => c.id === C_BOB,
+      ),
+    ).toBe(true);
+    expect(
+      (await as(null).comments.list('article:pinyin-initial-search', { withHidden: true })).some(
+        (c) => c.id === C_BOB,
+      ),
+    ).toBe(false);
+
+    await expect(alice.forum.setSeedLocked('t-announce', true)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await mia.forum.setSeedLocked('t-announce', true)).toEqual({ key: 't-announce', locked: true });
+    await expect(alice.forum.reply('t-announce', 'x')).rejects.toBeInstanceOf(ForbiddenError);
+    await mia.forum.setSeedLocked('t-announce', false);
   });
 });
 
@@ -203,5 +276,13 @@ describe.skipIf(!BIN)('Supabase 适配器 × 迁移前的生产库结构', () =>
     expect((await repo.forum.getThread(T.alice))?.title).toBe('alice thread');
     expect((await repo.forum.listReplies(T.bob)).length).toBe(5);
     expect((await repo.comments.list('article:pinyin-initial-search')).length).toBe(5);
+  });
+  it('P3 在旧库上降级：搜索退回 ILIKE、回复计数退回数行、种子主题表不存在返回 null、分页照常', async () => {
+    expect((await repo.forum.search('alice')).map((h) => h.id)).toContain(T.alice);
+    expect((await repo.forum.replyCountsFor([T.bob]))[T.bob]).toBe(5);
+    expect(await repo.forum.seedThread('t-announce')).toBeNull();
+    const p = await repo.forum.pageThreads({ limit: 2 });
+    expect(p.items).toHaveLength(2);
+    expect(p.next).toBeTruthy();
   });
 });

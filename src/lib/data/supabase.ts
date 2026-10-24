@@ -12,7 +12,10 @@ import {
   type AuthProvider,
   type Comment,
   type DataRepository,
+  type Bookmark,
   type LikeSummary,
+  type Page,
+  type SearchHit,
   type Notification,
   type Profile,
   type Reply,
@@ -119,6 +122,22 @@ const LEGACY = {
   comment: 'id,page_key,body,author,published,created_at,profiles(display_name)',
 };
 class MissingColumnError extends Error {}
+/** 旧库（生产迁移前）没有这个 RPC / 表：PGRST202 / PGRST205 */
+class MissingObjectError extends Error {}
+
+/** 游标：`<created_at>|<id>`（keyset 分页，新内容插入不会造成重复或漏项） */
+export const encodeCursor = (createdAt: string, id: string) => `${createdAt}|${id}`;
+export function decodeCursor(c: string | null | undefined): { at: string; id: string } | null {
+  if (!c) return null;
+  const i = c.lastIndexOf('|');
+  if (i <= 0) return null;
+  const at = c.slice(0, i);
+  const id = c.slice(i + 1);
+  if (Number.isNaN(Date.parse(at)) || !/^[0-9a-zA-Z-]{1,64}$/.test(id)) return null;
+  return { at, id };
+}
+/** PostgREST 逻辑树里的值加双引号（时间戳含 . : +） */
+const q = (v: string) => `"${v.replace(/["\\]/g, '')}"`;
 const THREAD_COLS =
   'id,cat,title,body,author,pinned,locked,featured,published,created_at,edited_at,profiles(display_name)';
 const REPLY_COLS = 'id,thread_id,body,author,published,created_at,edited_at,profiles(display_name)';
@@ -131,7 +150,8 @@ export function restError(status: number, body: Record<string, unknown> | null):
   const code = String(body?.code ?? '');
   const msg = String(body?.message ?? '');
   const hint = body?.hint ? String(body.hint) : '';
-  if (status === 429 || code === 'PT429') return new RateLimitedError(hint || undefined);
+  if (status === 429 || code === 'PT429')
+    return new RateLimitedError(hint || undefined, body?.details ? String(body.details) : '');
   if (code === '42501' || status === 401 || status === 403) {
     // 触发器给出的中文原因（az_forbid）直接展示；RLS 的英文提示换成通用中文
     return new ForbiddenError(/[\u4e00-\u9fff]/.test(msg) ? msg : undefined);
@@ -192,7 +212,10 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
       if (res.ok) throw new DataUnavailableError('响应不是 JSON');
     }
     if (!res.ok) {
-      if ((json as { code?: string } | null)?.code === '42703') throw new MissingColumnError();
+      const code = (json as { code?: string } | null)?.code;
+      if (code === '42703') throw new MissingColumnError();
+      if (code === 'PGRST202' || code === 'PGRST205' || code === '42883' || code === '42P01')
+        throw new MissingObjectError(code);
       throw restError(res.status, json as Record<string, unknown>);
     }
     return json as T;
@@ -219,6 +242,14 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
     if (!rows?.length) throw new ForbiddenError('没有权限，或内容已被删除');
     return map(rows[0]);
   };
+
+  /** 列表分页：多取一行判断是否还有下一页 */
+  const paged = <T extends { createdAt: string; id: string }>(rows: T[], limit: number): Page<T> => {
+    const items = rows.slice(0, limit);
+    const last = items.at(-1);
+    return { items, next: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null };
+  };
+  const clampLimit = (n: number | undefined, d: number) => Math.min(Math.max(Math.trunc(n ?? d), 1), 100);
 
   return {
     name: 'supabase',
@@ -264,6 +295,16 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
           LEGACY.thread,
         );
         return rows[0] ? toThread(rows[0]) : null;
+      },
+      async getThreadsByIds(ids) {
+        const list = [...new Set(ids)].filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 200);
+        if (!list.length) return [];
+        const rows = await read(
+          (c) => `forum_threads?select=${c}&id=in.(${list.join(',')})`,
+          THREAD_COLS,
+          LEGACY.thread,
+        );
+        return rows.map(toThread);
       },
       async listReplies(threadId) {
         const rows = await read(
@@ -384,11 +425,135 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
         for (const r of rows ?? []) out[r.target_id] = { likes: Number(r.likes) || 0, liked: !!r.liked };
         return out;
       },
+      async pageThreads(opts = {}) {
+        const limit = clampLimit(opts.limit, 20);
+        const f: string[] = ['published=eq.true'];
+        if (opts.category) f.push(`cat=eq.${enc(categoryName(opts.category))}`);
+        if (opts.author) f.push(`author=eq.${enc(opts.author)}`);
+        if (opts.excludePinned) f.push('pinned=eq.false');
+        const cur = decodeCursor(opts.cursor);
+        if (cur)
+          f.push(`or=(${enc(`created_at.lt.${q(cur.at)},and(created_at.eq.${q(cur.at)},id.lt.${cur.id})`)})`);
+        const rows = await read(
+          (c) => `forum_threads?select=${c}&${f.join('&')}&order=created_at.desc,id.desc&limit=${limit + 1}`,
+          THREAD_COLS,
+          LEGACY.thread,
+        );
+        return paged(rows.map(toThread), limit);
+      },
+      async pinnedThreads(opts = {}) {
+        const cat = opts.category ? `&cat=eq.${enc(categoryName(opts.category))}` : '';
+        const rows = await read(
+          (c) =>
+            `forum_threads?select=${c}&published=eq.true&pinned=eq.true${cat}&order=created_at.desc&limit=20`,
+          THREAD_COLS,
+          LEGACY.thread,
+        );
+        return rows.map(toThread);
+      },
+      async pageReplies(threadId, opts = {}) {
+        const limit = clampLimit(opts.limit, 30);
+        const f: string[] = [`thread_id=eq.${enc(threadId)}`];
+        if (!opts.withHidden) f.push('published=eq.true');
+        const cur = decodeCursor(opts.cursor);
+        if (cur)
+          f.push(`or=(${enc(`created_at.gt.${q(cur.at)},and(created_at.eq.${q(cur.at)},id.gt.${cur.id})`)})`);
+        const rows = await read(
+          (c) => `forum_replies?select=${c}&${f.join('&')}&order=created_at.asc,id.asc&limit=${limit + 1}`,
+          REPLY_COLS,
+          LEGACY.reply,
+        );
+        return paged(rows.map(toReply), limit);
+      },
+      async replyCountsFor(ids) {
+        const keys = [...new Set(ids)].slice(0, 200);
+        const out: Record<string, number> = Object.fromEntries(keys.map((k) => [k, 0]));
+        if (!keys.length) return out;
+        try {
+          const rows = await rest<{ thread_id: string; replies: number }[]>('rpc/thread_reply_counts', {
+            method: 'POST',
+            body: { p_keys: keys },
+          });
+          for (const r of rows ?? []) out[r.thread_id] = Number(r.replies) || 0;
+        } catch (e) {
+          if (!(e instanceof MissingObjectError)) throw e;
+          // 旧库：取回复行自己数
+          const list = keys.map((k) => q(k)).join(',');
+          const rows = await rest<{ thread_id: string }[]>(
+            `forum_replies?select=thread_id&published=eq.true&thread_id=in.(${enc(list)})&limit=5000`,
+          );
+          for (const r of rows) out[r.thread_id] = (out[r.thread_id] ?? 0) + 1;
+        }
+        return out;
+      },
+      async search(term, opts = {}) {
+        const t = term.trim().slice(0, 100);
+        if (!t) return [];
+        const limit = clampLimit(opts.limit, 20);
+        type Hit = Row & { author_name?: string | null; excerpt?: string };
+        const toHit = (r: Hit): SearchHit => ({
+          id: String(r.id),
+          category: categoryId(String(r.cat ?? '')),
+          title: String(r.title ?? ''),
+          excerpt: String(r.excerpt ?? r.body ?? '')
+            .replace(/\s+/g, ' ')
+            .slice(0, 160),
+          author: {
+            id: (r.author as string) ?? null,
+            name: r.author_name || r.profiles?.display_name || '匿名用户',
+          },
+          createdAt: String(r.created_at),
+        });
+        try {
+          const rows = await rest<Hit[]>('rpc/search_threads', {
+            method: 'POST',
+            body: { q: t, p_limit: limit, p_offset: opts.offset ?? 0 },
+          });
+          return (rows ?? []).map(toHit);
+        } catch (e) {
+          if (!(e instanceof MissingObjectError)) throw e;
+          // 旧库没有 RPC：退回 ILIKE（PostgREST 用 * 作通配符）
+          const pat = q(`*${t.replace(/[*%_,()"\\]/g, ' ').trim()}*`);
+          const rows = await rest<Hit[]>(
+            `forum_threads?select=${LEGACY.thread}&published=eq.true&or=(${enc(`title.ilike.${pat},body.ilike.${pat}`)})&order=created_at.desc&limit=${limit}&offset=${opts.offset ?? 0}`,
+          );
+          return rows.map(toHit);
+        }
+      },
+      async seedThread(key) {
+        try {
+          const rows = await rest(`forum_seed_threads?key=eq.${enc(key)}&select=key,locked`);
+          return rows[0] ? { key: String(rows[0].key), locked: !!rows[0].locked } : { key, locked: false };
+        } catch (e) {
+          if (e instanceof MissingObjectError) return null;
+          throw e;
+        }
+      },
+      async setSeedLocked(key, locked) {
+        const rows = await rest(`forum_seed_threads?key=eq.${enc(key)}&select=key,locked`, {
+          method: 'PATCH',
+          body: { locked },
+          prefer: RET,
+          requireAuth: true,
+        });
+        return one(rows, (r) => ({ key: String(r.key), locked: !!r.locked }));
+      },
+      async setReplyPublished(id, published) {
+        const rows = await rest(`forum_replies?id=eq.${enc(id)}&select=${REPLY_COLS}`, {
+          method: 'PATCH',
+          body: { published },
+          prefer: RET,
+          requireAuth: true,
+        });
+        return one(rows, toReply);
+      },
     },
     comments: {
-      async list(pageKey) {
+      async list(pageKey, opts = {}) {
+        const pub = opts.withHidden ? '' : '&published=eq.true';
         const rows = await read(
-          (c) => `comments?page_key=eq.${enc(pageKey)}&published=eq.true&select=${c}&order=created_at.asc`,
+          (c) =>
+            `comments?page_key=eq.${enc(pageKey)}${pub}&select=${c}&order=created_at.asc,id.asc&limit=500`,
           COMMENT_COLS,
           LEGACY.comment,
         );
@@ -407,6 +572,15 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
         const rows = await rest(`comments?id=eq.${enc(id)}&select=${COMMENT_COLS}`, {
           method: 'PATCH',
           body: { body: body.trim() },
+          prefer: RET,
+          requireAuth: true,
+        });
+        return one(rows, toComment);
+      },
+      async setPublished(id, published) {
+        const rows = await rest(`comments?id=eq.${enc(id)}&select=${COMMENT_COLS}`, {
+          method: 'PATCH',
+          body: { published },
           prefer: RET,
           requireAuth: true,
         });
@@ -485,6 +659,46 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
           requireAuth: true,
         });
         return Number(n) || 0;
+      },
+    },
+    bookmarks: {
+      async list() {
+        const rows = await rest<{ thread_key: string; created_at: string }[]>(
+          `bookmarks?user_id=eq.${enc(uid())}&select=thread_key,created_at&order=created_at.desc&limit=500`,
+          { requireAuth: true },
+        );
+        return rows.map((r): Bookmark => ({ threadKey: r.thread_key, createdAt: r.created_at }));
+      },
+      async add(threadKey) {
+        try {
+          await rest('bookmarks', {
+            method: 'POST',
+            body: { user_id: uid(), thread_key: threadKey },
+            prefer: 'return=minimal',
+            requireAuth: true,
+          });
+        } catch (e) {
+          if (!(e instanceof ValidationError && e.message === '已经提交过了')) throw e;
+        }
+      },
+      async remove(threadKey) {
+        await rest(`bookmarks?user_id=eq.${enc(uid())}&thread_key=eq.${enc(threadKey)}`, {
+          method: 'DELETE',
+          requireAuth: true,
+        });
+      },
+      async has(keys) {
+        const s = auth.getSession();
+        if (!s || !keys.length) return new Set();
+        const list = [...new Set(keys)]
+          .slice(0, 200)
+          .map((k) => q(k))
+          .join(',');
+        const rows = await rest<{ thread_key: string }[]>(
+          `bookmarks?user_id=eq.${enc(s.user.id)}&thread_key=in.(${enc(list)})&select=thread_key`,
+          { requireAuth: true },
+        );
+        return new Set(rows.map((r) => r.thread_key));
       },
     },
   };

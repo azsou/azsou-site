@@ -7,10 +7,13 @@ import {
   LIMITS,
   NotSignedInError,
   SEED_THREAD_RE,
+  UUID_RE,
   ValidationError,
   type Comment,
   type DataRepository,
   type Notification,
+  type Page,
+  type SearchHit,
   type Profile,
   type Reply,
   type Report,
@@ -48,6 +51,19 @@ const byDateDesc = (a: { createdAt: string }, b: { createdAt: string }) =>
   b.createdAt.localeCompare(a.createdAt);
 const byDateAsc = (a: { createdAt: string }, b: { createdAt: string }) =>
   a.createdAt.localeCompare(b.createdAt);
+/** (createdAt, id) 复合排序键，与数据库 keyset 分页一致 */
+const key = (x: { createdAt: string; id: string }) => `${x.createdAt}|${x.id}`;
+function pageOf<T extends { createdAt: string; id: string }>(
+  sorted: T[],
+  cursor: string | null | undefined,
+  limit: number,
+  dir: 'asc' | 'desc',
+): Page<T> {
+  const after = cursor ? sorted.filter((x) => (dir === 'desc' ? key(x) < cursor : key(x) > cursor)) : sorted;
+  const items = after.slice(0, limit);
+  return { items, next: after.length > limit ? key(items.at(-1)!) : null };
+}
+const clamp = (n: number | undefined, d: number) => Math.min(Math.max(Math.trunc(n ?? d), 1), 100);
 
 let counter = 0;
 const newId = () => {
@@ -88,6 +104,7 @@ export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
     });
   const seedThreads = new Map(Object.entries(seed.seedThreads ?? {}));
   const likes = new Set<string>();
+  const bookmarks: { userId: string; threadKey: string; createdAt: string }[] = [];
   const reports: Report[] = [];
   const notifications: (Notification & { userId: string })[] = [];
   const store = seed.store ?? memoryStore();
@@ -288,6 +305,9 @@ export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
         const t = threads.find((x) => x.id === id);
         return t && visible(t) ? t : null;
       },
+      async getThreadsByIds(ids) {
+        return threads.filter((t) => ids.includes(t.id) && visible(t));
+      },
       async listReplies(threadId) {
         return replies.filter((r) => r.threadId === threadId && r.published !== false).sort(byDateAsc);
       },
@@ -406,6 +426,71 @@ export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
         ownOrMod(replies[i].author.id);
         replies.splice(i, 1);
       },
+      async pageThreads(q = {}) {
+        const list = threads
+          .filter((t) => t.published !== false)
+          .filter((t) => !q.category || t.category === q.category)
+          .filter((t) => !q.author || t.author.id === q.author)
+          .filter((t) => !q.excludePinned || !t.pinned)
+          .sort((a, b) => key(b).localeCompare(key(a)));
+        return pageOf(list, q.cursor, clamp(q.limit, 20), 'desc');
+      },
+      async pinnedThreads(opts = {}) {
+        return threads
+          .filter((t) => t.published !== false && t.pinned)
+          .filter((t) => !opts.category || t.category === opts.category)
+          .sort(byDateDesc);
+      },
+      async pageReplies(threadId, opts = {}) {
+        const list = replies
+          .filter((r) => r.threadId === threadId)
+          .filter((r) => (opts.withHidden ? visible(r) : r.published !== false))
+          .sort((a, b) => key(a).localeCompare(key(b)));
+        return pageOf(list, opts.cursor, clamp(opts.limit, 30), 'asc');
+      },
+      async replyCountsFor(ids) {
+        const out: Record<string, number> = Object.fromEntries(ids.map((k) => [k, 0]));
+        for (const r of replies) if (r.published !== false && r.threadId in out) out[r.threadId] += 1;
+        return out;
+      },
+      async search(term, opts = {}) {
+        const t = term.trim().toLowerCase();
+        if (!t) return [];
+        const hits = threads
+          .filter((x) => x.published !== false)
+          .filter((x) => x.title.toLowerCase().includes(t) || x.body.toLowerCase().includes(t))
+          .sort(
+            (a, b) =>
+              Number(b.title.toLowerCase().includes(t)) - Number(a.title.toLowerCase().includes(t)) ||
+              byDateDesc(a, b),
+          );
+        const off = opts.offset ?? 0;
+        return hits.slice(off, off + clamp(opts.limit, 20)).map((x): SearchHit => ({
+          id: x.id,
+          category: x.category,
+          title: x.title,
+          excerpt: x.body.replace(/\s+/g, ' ').slice(0, 160),
+          author: x.author,
+          createdAt: x.createdAt,
+        }));
+      },
+      async seedThread(k) {
+        return seedThreads.has(k) ? { key: k, locked: !!seedThreads.get(k) } : null;
+      },
+      async setSeedLocked(k, locked) {
+        const p = requireUser();
+        if (!isMod(p)) throw new ForbiddenError('没有权限，或内容已被删除');
+        if (!seedThreads.has(k)) throw new ForbiddenError('没有权限，或内容已被删除');
+        seedThreads.set(k, locked);
+        return { key: k, locked };
+      },
+      async setReplyPublished(id, published) {
+        const p = requireUser();
+        const r = replies.find((x) => x.id === id);
+        if (!r || !isMod(p)) throw new ForbiddenError('没有权限，或内容已被删除');
+        r.published = published;
+        return r;
+      },
       async like(type, id) {
         const p = requireWriter();
         likes.add(`${p.id}|${type}|${id}`);
@@ -425,8 +510,17 @@ export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
       },
     },
     comments: {
-      async list(pageKey) {
-        return comments.filter((c) => c.pageKey === pageKey && c.published !== false).sort(byDateAsc);
+      async list(pageKey, opts = {}) {
+        return comments
+          .filter((c) => c.pageKey === pageKey && (opts.withHidden ? visible(c) : c.published !== false))
+          .sort(byDateAsc);
+      },
+      async setPublished(id, published) {
+        const p = requireUser();
+        const c = comments.find((x) => x.id === id);
+        if (!c || !isMod(p)) throw new ForbiddenError('没有权限，或内容已被删除');
+        c.published = published;
+        return c;
       },
       async create(pageKey, body) {
         const p = requireWriter();
@@ -547,6 +641,34 @@ export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
             n += 1;
           }
         return n;
+      },
+    },
+    bookmarks: {
+      async list() {
+        const p = requireUser();
+        return bookmarks
+          .filter((b) => b.userId === p.id)
+          .sort(byDateDesc)
+          .map((b) => ({ threadKey: b.threadKey, createdAt: b.createdAt }));
+      },
+      async add(threadKey) {
+        const p = requireUser();
+        if (!SEED_THREAD_RE.test(threadKey) && !UUID_RE.test(threadKey))
+          throw new ValidationError('内容长度或格式不符合要求');
+        if (!bookmarks.some((b) => b.userId === p.id && b.threadKey === threadKey))
+          bookmarks.push({ userId: p.id, threadKey, createdAt: now() });
+      },
+      async remove(threadKey) {
+        const p = requireUser();
+        const i = bookmarks.findIndex((b) => b.userId === p.id && b.threadKey === threadKey);
+        if (i >= 0) bookmarks.splice(i, 1);
+      },
+      async has(keys) {
+        const p = me();
+        if (!p) return new Set();
+        return new Set(
+          bookmarks.filter((b) => b.userId === p.id && keys.includes(b.threadKey)).map((b) => b.threadKey),
+        );
       },
     },
   };
