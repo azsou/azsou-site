@@ -1,4 +1,4 @@
-# 上线验收清单（P5）
+# 上线验收清单（P5 + P6 应用商店）
 
 每一项都写明**证据**（自动化测试 / CI 任务 / 文档）与**状态**。
 
@@ -46,7 +46,7 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 
 | #   | 检查项                                                               | 证据                                                                          | 状态 |
 | --- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ---- |
-| 3.1 | 迁移 0002–0011 在 0001 基线（生产现状）上可执行、可重复执行          | CI db：`npm run test:db`（`tests/db/baseline.test.ts`、`regression.test.ts`） | ✅   |
+| 3.1 | 迁移 0002–0012 在 0001 基线（生产现状）上可执行、可重复执行          | CI db：`npm run test:db`（`tests/db/baseline.test.ts`、`regression.test.ts`） | ✅   |
 | 3.2 | RLS 角色矩阵（匿名 / 用户 / 被封禁 / 版主 / 管理员 × 每张表的读写）  | `tests/db/rls-matrix.test.ts`（96 例），结果表作为 CI 产物 `rls-matrix` 上传  | ✅   |
 | 3.3 | V72 旧前端的全部请求在迁移后仍可用                                   | `tests/db/postgrest-v72.test.ts`（PostgREST 14 重放）                         | ✅   |
 | 3.4 | 图片存储 RLS：只能传到自己的目录、2 MB、类型、文件名、限流、删除权限 | `tests/db/p5.test.ts`（0010，含「没有 Storage 的纯 Postgres」场景）           | ✅   |
@@ -89,7 +89,7 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 备份 → db/shim/supabase.sql
      → 0002 → 0003 → 0004 → 0005 → 0006
      → 0007（注册钩子函数，先不启用）
-     → 0008 → 0009 → 0010 → 0011
+     → 0008 → 0009 → 0010 → 0011 → 0012（P6 应用商店）
      （每执行一个文件，跑一次 db/verify/status.sql）
      → 合并 PR #2 → check-csp --url
      → 写入 signup_ticket_secret，启用 Before User Created 钩子，开启邮箱确认
@@ -109,6 +109,7 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 | [OPERATIONS.md](OPERATIONS.md)   | 运维与管理员手册：角色、审核、封禁、备份、换密钥、监控            | ✅   |
 | [BACKUP.md](BACKUP.md)           | 备份、导出、恢复、恢复演练                                        | ✅   |
 | [PORTABILITY.md](PORTABILITY.md) | 离开 Supabase：换库、自建 PostgREST、认证、图片存储               | ✅   |
+| [CONTENT.md](CONTENT.md)         | 内容指南：添加 / 更新一个应用（字段、图标、截图、下载地址）       | ✅   |
 
 ## 9. 不在本期
 
@@ -118,3 +119,21 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 | 浏览历史                      | P3 标为可选，未做                                                                | ⚪   |
 | 数据库主题页服务端渲染（ISR） | 静态外壳 + 客户端渲染 + 主题 sitemap 已满足收录；主题量变大后再改（PLAN.md §4）  | ⚪   |
 | Storage 图片文件的自动备份    | 数据库备份只含图片元数据；文件可用 S3 兼容接口 `rclone sync`（OPERATIONS.md §4） | ⚪   |
+
+## 10. P6 应用商店（第一部分：T6.1–T6.5）
+
+| #     | 检查项                                                                                                                                                              | 证据                                                                                      | 状态 |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---- |
+| 10.1  | 应用数据模型（平台 / 链接类型 / 截图 / 价格 / 许可 / 隐私 / 更新日志 / FAQ）由 Zod 校验；直链必须附 SHA-256；示意图必须标注                                         | `src/content.config.ts`；`tests/unit/content.test.ts`                                     | ✅   |
+| 10.2  | 8 个应用迁移到新结构，只保留真实信息；缺的素材写进 `ownerTodo`，占位图标 / 示意截图有明确标注；不出现任何评分 / 下载数字段                                          | `tests/unit/content.test.ts`（含「不伪造指标」）                                          | ✅   |
+| 10.3  | 详情页：头部、平台识别推荐、截图轮播 + 灯箱（键盘、焦点归还）、新功能、评分分布、信息表、隐私、版本历史、FAQ、相关应用、结构化数据                                  | `tests/e2e/apps.spec.ts`（3 引擎 × 4 视口）+ `pages.spec.ts` / `a11y.spec.ts`（全部路由） | ✅   |
+| 10.4  | 下载中转 `/go/<应用>/<平台>/`：外链提示、SHA-256、先计数再跳转、计数不可达照常跳转、无地址时不出外链；noindex + robots Disallow + 不进 sitemap                      | `tests/e2e/apps.spec.ts`（模拟）、`tests/e2e/apps-db.spec.ts`（真实 PostgREST，去重）     | ✅   |
+| 10.5  | 0012：评价 RLS（匿名 / 用户 / 被封禁 / 版主）、一人一条、约束、限流、举报与「隐藏」处理、审计与通知；评分视图只统计已发布；下载计数去重 / 限流 / 爬虫过滤 / 不存 IP | `tests/db/p6.test.ts`（42 例），恢复演练也在恢复出的库上跑这一组                          | ✅   |
+| 10.6  | 评价 E2E：写 / 改（已编辑）/ 删、一人一条、举报 → 版主隐藏 → 作者看到「已隐藏」、被封禁不能写                                                                       | `tests/e2e/apps-db.spec.ts`（真实 Postgres + PostgREST）                                  | ✅   |
+| 10.7  | 目录：平台 / 分类 / 价格筛选、最新 / 热门 / 评分排序（真实统计；不可用时退回最新并提示）、静态分页 `/apps/page/N/`、分类页、平台页、查询串恢复                      | `tests/e2e/apps.spec.ts`；`tests/unit/app-store.test.ts`                                  | ✅   |
+| 10.8  | Lighthouse：`/apps/`、`/apps/fablemotion/` 四项 ≥ 95、LCP < 2.0 s、CLS < 0.05                                                                                       | CI lighthouse（`lighthouserc.cjs`）                                                       | ✅   |
+| 10.9  | 生产库执行 0012                                                                                                                                                     | MIGRATION.md §5A                                                                          | 🟡   |
+| 10.10 | 站长补齐素材：真实图标、真实截图、各平台下载地址（直链附 SHA-256）、许可 / 价格 / 隐私说明                                                                          | 每个应用的 `ownerTodo`；步骤见 [CONTENT.md](CONTENT.md)                                   | 🟡   |
+
+E2E 构建说明：CI 的 build 任务设置 `AZ_E2E_FIXTURES=1`，额外加载 `src/content/apps/_e2e/` 里的测试夹具应用（带真实格式的直链、SHA-256、在线使用与「暂未提供」三种平台），用来测下载中转与平台识别。
+Vercel 的生产 / 预览构建**不设**这个变量，夹具不会出现在线上（`tests/unit/content.test.ts` 也检查它不在正式内容目录里）。

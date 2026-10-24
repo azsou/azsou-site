@@ -7,10 +7,11 @@
 
 - 先备份，再动库。每个迁移文件自带 `begin … commit`：中途出错整文件回滚，库停在上一步的状态。
 - 每个文件都可以重复执行（`if not exists` / `create or replace` / `on conflict`）。执行失败修正后直接重跑。
-- 0002–0011 全部向后兼容 V72（CI 用 PostgREST 重放 V72 的全部请求验证）：迁移过程中和迁移之后，V72 都能正常读写。
+- 0002–0012 全部向后兼容 V72（CI 用 PostgREST 重放 V72 的全部请求验证）：迁移过程中和迁移之后，V72 都能正常读写。
 - **不要执行 `0001_baseline.sql`**——它是生产现状的精确还原，只用于本地 / CI 建库。
 
 当前状态（2026-10-24 只读核对）：`db/verify/status.sql` 的 17 项检查全部为 `false`，即 0002–0011 都还没有执行。
+P6 新增 0012（应用商店：评价 + 下载计数），核对项增加到 19 项。
 
 ---
 
@@ -125,6 +126,30 @@ select id, display_name, role from public.profiles where role in ('admin', 'mode
 
 Dashboard → Storage 里应能看到 `ugc-images` 桶（Public）。
 
+## 5A. 应用商店（0012，P6）
+
+```bash
+run db/migrations/0012_app_store.sql;             status   # app_reviews + app_review_stats + app_download_counts + app_count_download
+```
+
+0012 新增的对象（全部是新表 / 新函数，不改动 V72 用到的任何东西）：
+
+- `public.app_reviews`：应用评价（1–5 星 + 标题 / 正文，每人每个应用一条），RLS 与评论相同（公开读已发布；本人可改删；版主可隐藏 / 删除；被封禁不能写）；
+- `public.app_review_stats`：每个应用已发布评价的条数、平均分、1–5 星分布（视图，只统计 `published`）；
+- `public.app_download_counts` + `public.app_count_download(app, platform)`：真实下载计数（去重、限流、过滤爬虫，只存加盐哈希不存 IP）；
+- `private.app_download_events`（访客事件，保留 2 天）与 `private.app_settings` 里的 `download_salt`（随机生成，API 读不到）；
+- `reports.target_type` 允许 `review`；`mod_handle_reports` 的「隐藏」覆盖评价；`az_target_author` / `az_audit_moderation` 认识评价。
+
+**验证**：
+
+```sql
+select count(*) from public.app_reviews;                              -- 0（不预置任何评价）
+select * from public.app_review_stats;                                -- 0 行
+select public.app_count_download('fablemotion', 'web');               -- 直连（没有请求头）不计数，返回 0
+select count(*) from public.app_download_counts;                      -- 0
+select pg_get_constraintdef(oid) from pg_constraint where conname = 'reports_target_type_check';  -- 含 'review'
+```
+
 ## 6. 切换前端到 v2
 
 1. **合并 PR #2 到 `main`**（站长操作；合并即触发生产部署）。
@@ -195,7 +220,7 @@ Dashboard → Storage 里应能看到 `ugc-images` 桶（Public）。
 | 注册钩子误拦正常用户            | Dashboard → Authentication → Hooks → Before User Created → Disable（立即生效）；或清空 `private.app_settings` 里的密钥（钩子放行所有人）                                                                                                                                   |
 | 数据被误删 / 库损坏（灾难恢复） | 新建一个 Supabase 项目 → `bash scripts/db-restore.sh "<新库连接串>" azsou-public-*.dump azsou-auth-users-*.dump` → Vercel 改 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY` 指向新项目并 Redeploy；Auth / Storage 设置按 CONFIG.md 重配。脚本已在 CI 里演练（见 BACKUP.md） |
 
-0002–0011 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
+0002–0012 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
 需要回到迁移前的精确状态时，用第 1 步的备份恢复到新项目（上表最后一行），不要在生产库上手工删除对象。
 
 ## 附：最终执行顺序
@@ -205,6 +230,7 @@ Dashboard → Storage 里应能看到 `ugc-images` 桶（Public）。
      → 0002_roles_columns → 0003_social_tables → 0004_functions_triggers → 0005_privileges → 0006_rls
      → 0007_signup_guard（钩子先不启用）
      → 0008_forum_search → 0009_admin → 0010_ugc_images → 0011_forum_category_guard
+     → 0012_app_store（应用商店：评价 + 下载计数）
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

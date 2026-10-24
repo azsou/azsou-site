@@ -162,13 +162,13 @@ v2 原则不变：
 2. `db/shim/supabase.sql`（只做存在性检查）
 3. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
 4. `0007_signup_guard.sql`（钩子函数，**先不启用**）
-5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql`
+5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）
 6. 每执行完一个文件跑一次 `db/verify/status.sql`：该步及之前的行都为 true
 7. 合并 PR #2（合并即上线）→ `node scripts/check-csp.mjs --url https://azsou.com`
 8. 写入 `signup_ticket_secret`，在 Dashboard 启用 Before User Created 钩子，开启邮箱确认
 9. 上线检查（MIGRATION.md §7）→ 提交站点地图 `sitemap-index.xml` 与 `forum/sitemap-threads.xml`（Google / Bing / 百度）
 
-（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0011 均可重复执行、向后兼容 V72。）
+（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0012 均可重复执行、向后兼容 V72。）
 
 
 ## 5. P4 设计说明
