@@ -1,0 +1,1067 @@
+{
+  "columns": [
+    {
+      "t": "comments",
+      "c": "author",
+      "type": "uuid",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "comments",
+      "c": "body",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "comments",
+      "c": "created_at",
+      "type": "timestamp with time zone",
+      "null": "NO",
+      "def": "now()"
+    },
+    {
+      "t": "comments",
+      "c": "id",
+      "type": "uuid",
+      "null": "NO",
+      "def": "gen_random_uuid()"
+    },
+    {
+      "t": "comments",
+      "c": "page_key",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "comments",
+      "c": "published",
+      "type": "boolean",
+      "null": "NO",
+      "def": "true"
+    },
+    {
+      "t": "forum_replies",
+      "c": "author",
+      "type": "uuid",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "forum_replies",
+      "c": "body",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "forum_replies",
+      "c": "created_at",
+      "type": "timestamp with time zone",
+      "null": "NO",
+      "def": "now()"
+    },
+    {
+      "t": "forum_replies",
+      "c": "id",
+      "type": "uuid",
+      "null": "NO",
+      "def": "gen_random_uuid()"
+    },
+    {
+      "t": "forum_replies",
+      "c": "published",
+      "type": "boolean",
+      "null": "NO",
+      "def": "true"
+    },
+    {
+      "t": "forum_replies",
+      "c": "thread_id",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "forum_threads",
+      "c": "author",
+      "type": "uuid",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "forum_threads",
+      "c": "body",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "forum_threads",
+      "c": "cat",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "forum_threads",
+      "c": "created_at",
+      "type": "timestamp with time zone",
+      "null": "NO",
+      "def": "now()"
+    },
+    {
+      "t": "forum_threads",
+      "c": "id",
+      "type": "uuid",
+      "null": "NO",
+      "def": "gen_random_uuid()"
+    },
+    {
+      "t": "forum_threads",
+      "c": "pinned",
+      "type": "boolean",
+      "null": "NO",
+      "def": "false"
+    },
+    {
+      "t": "forum_threads",
+      "c": "published",
+      "type": "boolean",
+      "null": "NO",
+      "def": "true"
+    },
+    {
+      "t": "forum_threads",
+      "c": "title",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "profiles",
+      "c": "banned",
+      "type": "boolean",
+      "null": "NO",
+      "def": "false"
+    },
+    {
+      "t": "profiles",
+      "c": "created_at",
+      "type": "timestamp with time zone",
+      "null": "NO",
+      "def": "now()"
+    },
+    {
+      "t": "profiles",
+      "c": "display_name",
+      "type": "text",
+      "null": "NO",
+      "def": "'新用户'::text"
+    },
+    {
+      "t": "profiles",
+      "c": "id",
+      "type": "uuid",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "profiles",
+      "c": "role",
+      "type": "text",
+      "null": "NO",
+      "def": "'user'::text"
+    },
+    {
+      "t": "site_content",
+      "c": "data",
+      "type": "jsonb",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "site_content",
+      "c": "id",
+      "type": "uuid",
+      "null": "NO",
+      "def": "gen_random_uuid()"
+    },
+    {
+      "t": "site_content",
+      "c": "kind",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "site_content",
+      "c": "published",
+      "type": "boolean",
+      "null": "NO",
+      "def": "true"
+    },
+    {
+      "t": "site_content",
+      "c": "slug",
+      "type": "text",
+      "null": "NO",
+      "def": null
+    },
+    {
+      "t": "site_content",
+      "c": "updated_at",
+      "type": "timestamp with time zone",
+      "null": "NO",
+      "def": "now()"
+    }
+  ],
+  "constraints": [
+    {
+      "t": "comments",
+      "n": "comments_author_fkey",
+      "def": "FOREIGN KEY (author) REFERENCES profiles(id) ON DELETE CASCADE",
+      "valid": true
+    },
+    {
+      "t": "comments",
+      "n": "comments_body_check",
+      "def": "CHECK (((char_length(body) >= 1) AND (char_length(body) <= 600)))",
+      "valid": true
+    },
+    {
+      "t": "comments",
+      "n": "comments_page_key_check",
+      "def": "CHECK ((page_key ~ '^(article|game|work|project):[a-z0-9-]{1,60}$'::text))",
+      "valid": true
+    },
+    {
+      "t": "comments",
+      "n": "comments_pkey",
+      "def": "PRIMARY KEY (id)",
+      "valid": true
+    },
+    {
+      "t": "forum_replies",
+      "n": "forum_replies_author_fkey",
+      "def": "FOREIGN KEY (author) REFERENCES profiles(id) ON DELETE CASCADE",
+      "valid": true
+    },
+    {
+      "t": "forum_replies",
+      "n": "forum_replies_body_check",
+      "def": "CHECK (((char_length(body) >= 1) AND (char_length(body) <= 2000)))",
+      "valid": true
+    },
+    {
+      "t": "forum_replies",
+      "n": "forum_replies_pkey",
+      "def": "PRIMARY KEY (id)",
+      "valid": true
+    },
+    {
+      "t": "forum_replies",
+      "n": "forum_replies_thread_id_check",
+      "def": "CHECK (((char_length(thread_id) >= 1) AND (char_length(thread_id) <= 60)))",
+      "valid": true
+    },
+    {
+      "t": "forum_replies",
+      "n": "forum_replies_thread_id_shape",
+      "def": "CHECK (((thread_id ~ '^[0-9a-fA-F-]{36}$'::text) OR (thread_id ~ '^t-[a-z0-9-]{1,58}$'::text))) NOT VALID",
+      "valid": false
+    },
+    {
+      "t": "forum_threads",
+      "n": "forum_threads_author_fkey",
+      "def": "FOREIGN KEY (author) REFERENCES profiles(id) ON DELETE CASCADE",
+      "valid": true
+    },
+    {
+      "t": "forum_threads",
+      "n": "forum_threads_body_check",
+      "def": "CHECK (((char_length(body) >= 1) AND (char_length(body) <= 4000)))",
+      "valid": true
+    },
+    {
+      "t": "forum_threads",
+      "n": "forum_threads_cat_check",
+      "def": "CHECK (((char_length(cat) >= 1) AND (char_length(cat) <= 20)))",
+      "valid": true
+    },
+    {
+      "t": "forum_threads",
+      "n": "forum_threads_pkey",
+      "def": "PRIMARY KEY (id)",
+      "valid": true
+    },
+    {
+      "t": "forum_threads",
+      "n": "forum_threads_title_check",
+      "def": "CHECK (((char_length(title) >= 1) AND (char_length(title) <= 120)))",
+      "valid": true
+    },
+    {
+      "t": "profiles",
+      "n": "profiles_display_name_check",
+      "def": "CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 40)))",
+      "valid": true
+    },
+    {
+      "t": "profiles",
+      "n": "profiles_id_fkey",
+      "def": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+      "valid": true
+    },
+    {
+      "t": "profiles",
+      "n": "profiles_pkey",
+      "def": "PRIMARY KEY (id)",
+      "valid": true
+    },
+    {
+      "t": "profiles",
+      "n": "profiles_role_check",
+      "def": "CHECK ((role = ANY (ARRAY['user'::text, 'admin'::text])))",
+      "valid": true
+    },
+    {
+      "t": "site_content",
+      "n": "site_content_kind_check",
+      "def": "CHECK ((kind = ANY (ARRAY['game'::text, 'app'::text, 'article'::text, 'work'::text, 'forum_category'::text, 'setting'::text])))",
+      "valid": true
+    },
+    {
+      "t": "site_content",
+      "n": "site_content_kind_slug_key",
+      "def": "UNIQUE (kind, slug)",
+      "valid": true
+    },
+    {
+      "t": "site_content",
+      "n": "site_content_pkey",
+      "def": "PRIMARY KEY (id)",
+      "valid": true
+    },
+    {
+      "t": "site_content",
+      "n": "site_content_slug_check",
+      "def": "CHECK (((char_length(slug) >= 1) AND (char_length(slug) <= 80)))",
+      "valid": true
+    }
+  ],
+  "indexes": [
+    {
+      "n": "comments_page_idx",
+      "def": "CREATE INDEX comments_page_idx ON public.comments USING btree (page_key, created_at)"
+    },
+    {
+      "n": "comments_pkey",
+      "def": "CREATE UNIQUE INDEX comments_pkey ON public.comments USING btree (id)"
+    },
+    {
+      "n": "forum_replies_pkey",
+      "def": "CREATE UNIQUE INDEX forum_replies_pkey ON public.forum_replies USING btree (id)"
+    },
+    {
+      "n": "forum_replies_thread_idx",
+      "def": "CREATE INDEX forum_replies_thread_idx ON public.forum_replies USING btree (thread_id, created_at)"
+    },
+    {
+      "n": "forum_threads_list_idx",
+      "def": "CREATE INDEX forum_threads_list_idx ON public.forum_threads USING btree (published, created_at DESC)"
+    },
+    {
+      "n": "forum_threads_pkey",
+      "def": "CREATE UNIQUE INDEX forum_threads_pkey ON public.forum_threads USING btree (id)"
+    },
+    {
+      "n": "profiles_pkey",
+      "def": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)"
+    },
+    {
+      "n": "site_content_kind_idx",
+      "def": "CREATE INDEX site_content_kind_idx ON public.site_content USING btree (kind, published)"
+    },
+    {
+      "n": "site_content_kind_slug_key",
+      "def": "CREATE UNIQUE INDEX site_content_kind_slug_key ON public.site_content USING btree (kind, slug)"
+    },
+    {
+      "n": "site_content_pkey",
+      "def": "CREATE UNIQUE INDEX site_content_pkey ON public.site_content USING btree (id)"
+    }
+  ],
+  "policies": [
+    {
+      "t": "comments",
+      "n": "comments_delete",
+      "cmd": "DELETE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "((author = auth.uid()) OR is_admin())",
+      "check": null
+    },
+    {
+      "t": "comments",
+      "n": "comments_insert",
+      "cmd": "INSERT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": null,
+      "check": "((author = auth.uid()) AND can_write())"
+    },
+    {
+      "t": "comments",
+      "n": "comments_read",
+      "cmd": "SELECT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "(published OR (author = auth.uid()) OR is_admin())",
+      "check": null
+    },
+    {
+      "t": "comments",
+      "n": "comments_update",
+      "cmd": "UPDATE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "((author = auth.uid()) OR is_admin())",
+      "check": "(((author = auth.uid()) AND can_write()) OR is_admin())"
+    },
+    {
+      "t": "forum_replies",
+      "n": "replies_delete",
+      "cmd": "DELETE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "((author = auth.uid()) OR is_admin())",
+      "check": null
+    },
+    {
+      "t": "forum_replies",
+      "n": "replies_insert",
+      "cmd": "INSERT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": null,
+      "check": "((author = auth.uid()) AND can_write())"
+    },
+    {
+      "t": "forum_replies",
+      "n": "replies_read",
+      "cmd": "SELECT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "(published OR (author = auth.uid()) OR is_admin())",
+      "check": null
+    },
+    {
+      "t": "forum_replies",
+      "n": "replies_update",
+      "cmd": "UPDATE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "((author = auth.uid()) OR is_admin())",
+      "check": "(((author = auth.uid()) AND can_write()) OR is_admin())"
+    },
+    {
+      "t": "forum_threads",
+      "n": "threads_admin_insert",
+      "cmd": "INSERT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": null,
+      "check": "is_admin()"
+    },
+    {
+      "t": "forum_threads",
+      "n": "threads_delete",
+      "cmd": "DELETE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "((author = auth.uid()) OR is_admin())",
+      "check": null
+    },
+    {
+      "t": "forum_threads",
+      "n": "threads_insert",
+      "cmd": "INSERT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": null,
+      "check": "((author = auth.uid()) AND can_write() AND (cat <> '公告'::text))"
+    },
+    {
+      "t": "forum_threads",
+      "n": "threads_read",
+      "cmd": "SELECT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "(published OR (author = auth.uid()) OR is_admin())",
+      "check": null
+    },
+    {
+      "t": "forum_threads",
+      "n": "threads_update",
+      "cmd": "UPDATE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "((author = auth.uid()) OR is_admin())",
+      "check": "(((author = auth.uid()) AND can_write()) OR is_admin())"
+    },
+    {
+      "t": "profiles",
+      "n": "profiles_read",
+      "cmd": "SELECT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "true",
+      "check": null
+    },
+    {
+      "t": "profiles",
+      "n": "profiles_update_own",
+      "cmd": "UPDATE",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "(id = auth.uid())",
+      "check": "(id = auth.uid())"
+    },
+    {
+      "t": "site_content",
+      "n": "content_admin_write",
+      "cmd": "ALL",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "is_admin()",
+      "check": "is_admin()"
+    },
+    {
+      "t": "site_content",
+      "n": "content_read",
+      "cmd": "SELECT",
+      "perm": "PERMISSIVE",
+      "roles": "{public}",
+      "qual": "(published OR is_admin())",
+      "check": null
+    }
+  ],
+  "functions": [
+    {
+      "n": "admin_set_user",
+      "args": "target uuid, new_role text, new_banned boolean",
+      "ret": "void",
+      "secdef": true,
+      "vol": "v",
+      "cfg": "{search_path=public}",
+      "src": "begin\n  if not public.is_admin() then raise exception 'admin only'; end if;\n  if new_role not in ('user','admin') then raise exception 'bad role'; end if;\n  update public.profiles set role = new_role, banned = new_banned where id = target;\nend",
+      "acl": "=X/postgres,anon=X/postgres,authenticated=X/postgres,postgres=X/postgres,service_role=X/postgres"
+    },
+    {
+      "n": "can_write",
+      "args": "",
+      "ret": "boolean",
+      "secdef": true,
+      "vol": "s",
+      "cfg": "{search_path=public}",
+      "src": "select exists (select 1 from public.profiles\n                 where id = auth.uid() and not banned)",
+      "acl": "=X/postgres,anon=X/postgres,authenticated=X/postgres,postgres=X/postgres,service_role=X/postgres"
+    },
+    {
+      "n": "handle_new_user",
+      "args": "",
+      "ret": "trigger",
+      "secdef": true,
+      "vol": "v",
+      "cfg": "{search_path=public}",
+      "src": "begin\n  insert into public.profiles (id, display_name)\n  values (new.id,\n          coalesce(nullif(trim(new.raw_user_meta_data->>'name'), ''),\n                   split_part(new.email, '@', 1)));\n  return new;\nend",
+      "acl": "=X/postgres,anon=X/postgres,authenticated=X/postgres,postgres=X/postgres,service_role=X/postgres"
+    },
+    {
+      "n": "is_admin",
+      "args": "",
+      "ret": "boolean",
+      "secdef": true,
+      "vol": "s",
+      "cfg": "{search_path=public}",
+      "src": "select exists (select 1 from public.profiles\n                 where id = auth.uid() and role = 'admin' and not banned)",
+      "acl": "=X/postgres,anon=X/postgres,authenticated=X/postgres,postgres=X/postgres,service_role=X/postgres"
+    }
+  ],
+  "table_grants": [
+    {
+      "g": "anon",
+      "t": "comments",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "anon",
+      "t": "forum_replies",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "anon",
+      "t": "forum_threads",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "anon",
+      "t": "profiles",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "anon",
+      "t": "site_content",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "authenticated",
+      "t": "comments",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_replies",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_threads",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "authenticated",
+      "t": "profiles",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE"
+    },
+    {
+      "g": "authenticated",
+      "t": "site_content",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "service_role",
+      "t": "comments",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_replies",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_threads",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "service_role",
+      "t": "profiles",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    },
+    {
+      "g": "service_role",
+      "t": "site_content",
+      "p": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+    }
+  ],
+  "column_grants": [
+    {
+      "g": "anon",
+      "t": "comments",
+      "p": "INSERT",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "anon",
+      "t": "comments",
+      "p": "REFERENCES",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "anon",
+      "t": "comments",
+      "p": "SELECT",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "anon",
+      "t": "comments",
+      "p": "UPDATE",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "anon",
+      "t": "forum_replies",
+      "p": "INSERT",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "anon",
+      "t": "forum_replies",
+      "p": "REFERENCES",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "anon",
+      "t": "forum_replies",
+      "p": "SELECT",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "anon",
+      "t": "forum_replies",
+      "p": "UPDATE",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "anon",
+      "t": "forum_threads",
+      "p": "INSERT",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "anon",
+      "t": "forum_threads",
+      "p": "REFERENCES",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "anon",
+      "t": "forum_threads",
+      "p": "SELECT",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "anon",
+      "t": "forum_threads",
+      "p": "UPDATE",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "anon",
+      "t": "profiles",
+      "p": "INSERT",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "anon",
+      "t": "profiles",
+      "p": "REFERENCES",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "anon",
+      "t": "profiles",
+      "p": "SELECT",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "anon",
+      "t": "profiles",
+      "p": "UPDATE",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "anon",
+      "t": "site_content",
+      "p": "INSERT",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "anon",
+      "t": "site_content",
+      "p": "REFERENCES",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "anon",
+      "t": "site_content",
+      "p": "SELECT",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "anon",
+      "t": "site_content",
+      "p": "UPDATE",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "authenticated",
+      "t": "comments",
+      "p": "INSERT",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "authenticated",
+      "t": "comments",
+      "p": "REFERENCES",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "authenticated",
+      "t": "comments",
+      "p": "SELECT",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "authenticated",
+      "t": "comments",
+      "p": "UPDATE",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_replies",
+      "p": "INSERT",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_replies",
+      "p": "REFERENCES",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_replies",
+      "p": "SELECT",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_replies",
+      "p": "UPDATE",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_threads",
+      "p": "INSERT",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_threads",
+      "p": "REFERENCES",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_threads",
+      "p": "SELECT",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "authenticated",
+      "t": "forum_threads",
+      "p": "UPDATE",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "authenticated",
+      "t": "profiles",
+      "p": "INSERT",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "authenticated",
+      "t": "profiles",
+      "p": "REFERENCES",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "authenticated",
+      "t": "profiles",
+      "p": "SELECT",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "authenticated",
+      "t": "profiles",
+      "p": "UPDATE",
+      "cols": "display_name"
+    },
+    {
+      "g": "authenticated",
+      "t": "site_content",
+      "p": "INSERT",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "authenticated",
+      "t": "site_content",
+      "p": "REFERENCES",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "authenticated",
+      "t": "site_content",
+      "p": "SELECT",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "authenticated",
+      "t": "site_content",
+      "p": "UPDATE",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "service_role",
+      "t": "comments",
+      "p": "INSERT",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "service_role",
+      "t": "comments",
+      "p": "REFERENCES",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "service_role",
+      "t": "comments",
+      "p": "SELECT",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "service_role",
+      "t": "comments",
+      "p": "UPDATE",
+      "cols": "author,body,created_at,id,page_key,published"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_replies",
+      "p": "INSERT",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_replies",
+      "p": "REFERENCES",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_replies",
+      "p": "SELECT",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_replies",
+      "p": "UPDATE",
+      "cols": "author,body,created_at,id,published,thread_id"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_threads",
+      "p": "INSERT",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_threads",
+      "p": "REFERENCES",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_threads",
+      "p": "SELECT",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "service_role",
+      "t": "forum_threads",
+      "p": "UPDATE",
+      "cols": "author,body,cat,created_at,id,pinned,published,title"
+    },
+    {
+      "g": "service_role",
+      "t": "profiles",
+      "p": "INSERT",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "service_role",
+      "t": "profiles",
+      "p": "REFERENCES",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "service_role",
+      "t": "profiles",
+      "p": "SELECT",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "service_role",
+      "t": "profiles",
+      "p": "UPDATE",
+      "cols": "banned,created_at,display_name,id,role"
+    },
+    {
+      "g": "service_role",
+      "t": "site_content",
+      "p": "INSERT",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "service_role",
+      "t": "site_content",
+      "p": "REFERENCES",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "service_role",
+      "t": "site_content",
+      "p": "SELECT",
+      "cols": "data,id,kind,published,slug,updated_at"
+    },
+    {
+      "g": "service_role",
+      "t": "site_content",
+      "p": "UPDATE",
+      "cols": "data,id,kind,published,slug,updated_at"
+    }
+  ],
+  "rls": [
+    {
+      "t": "comments",
+      "rls": true,
+      "force": false
+    },
+    {
+      "t": "forum_replies",
+      "rls": true,
+      "force": false
+    },
+    {
+      "t": "forum_threads",
+      "rls": true,
+      "force": false
+    },
+    {
+      "t": "profiles",
+      "rls": true,
+      "force": false
+    },
+    {
+      "t": "site_content",
+      "rls": true,
+      "force": false
+    }
+  ],
+  "triggers": [
+    {
+      "n": "on_auth_user_created",
+      "rel": "auth.users",
+      "def": "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()"
+    }
+  ]
+}

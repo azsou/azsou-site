@@ -1,5 +1,6 @@
 name: CI
 # 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 → E2E（3 引擎 × 4 视口 + axe）→ Lighthouse
+# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + PostgREST 14 重放 V72 请求
 on:
   pull_request:
   push:
@@ -27,6 +28,34 @@ jobs:
       - run: npm run size
       - uses: actions/upload-artifact@v4
         with: { name: dist, path: dist, retention-days: 3 }
+
+  db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      POSTGREST_BIN: ${{ github.workspace }}/.bin/postgrest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: PostgREST 14（与生产同一大版本）
+        run: |
+          mkdir -p .bin
+          curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
+          .bin/postgrest --version
+      - run: npm run test:db
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
 
   e2e:
     needs: build
