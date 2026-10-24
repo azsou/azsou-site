@@ -46,7 +46,7 @@
 - [x] T1.3 内容集合 schema + 迁移脚本（8 应用、9 游戏、12 文章、12 作品）
 - [x] T1.4 全部内容页：首页、列表、详情、标签、归档、搜索（论坛/评论为只读 island）
 - [x] T1.5 补齐页面：关于、联系、隐私、条款、编辑规范、更新日志、路线图、404（初稿，待站长审阅）
-- [x] T1.6 SEO：meta、canonical、OG 图、JSON-LD、sitemap、RSS、robots（OG：文章用现有 og/*.png，游戏/作品用其 SVG 图，其余用站点默认图；带文字的构建期 OG 图生成留到 P5）
+- [x] T1.6 SEO：meta、canonical、OG 图、JSON-LD、sitemap、RSS、robots（OG：文章用现有 og/*.png；应用/游戏/作品在构建期把 SVG 素材栅格化为 PNG；其余页用站点默认图。带标题文字的 OG 卡片留到 P5）
 - [x] T1.7 旧 hash 链接跳转、PWA 与离线外壳（含旧 az-sw.js 自毁替身）
 - [x] T1.8 测试：Vitest + Playwright 多端 + axe + Lighthouse 预算 + CI
 
