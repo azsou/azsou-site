@@ -36,9 +36,15 @@ const redirects = (vercel.redirects || []).map((r) => ({
   code: r.permanent ? 308 : 307,
 }));
 
+// 线上是 https；本地 http 下 upgrade-insecure-requests 会把同源子资源升级成 https 而失败——本地去掉这一条，其余 CSP 原样生效
+const localValue = (h) =>
+  h.key.toLowerCase() === 'content-security-policy'
+    ? h.value.replace(/;\s*upgrade-insecure-requests\s*(?=;|$)/, '')
+    : h.value;
+
 function applyHeaders(res, pathname) {
   for (const rule of headerRules)
-    if (rule.re.test(pathname)) for (const h of rule.headers) res.setHeader(h.key, h.value);
+    if (rule.re.test(pathname)) for (const h of rule.headers) res.setHeader(h.key, localValue(h));
 }
 
 const server = http.createServer((req, res) => {
