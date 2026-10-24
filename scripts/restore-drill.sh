@@ -99,7 +99,7 @@ psql "$(db_url $FULL)" -XqAt -v ON_ERROR_STOP=1 -c "insert into auth.users (emai
 psql "$(db_url $FULL)" -Xq -c "delete from auth.users where email = 'after-restore@example.com'"
 [ $fail = 0 ] || exit 1
 
-echo "== 5. 以整库恢复的库（去掉演练数据，保留恢复出的结构 / 策略 / 授权）为模板跑 RLS 角色矩阵 / 后台 RPC / 回归 / P5 测试"
+echo "== 5. 以整库恢复的库（去掉演练数据，保留恢复出的结构 / 策略 / 授权）为模板跑 RLS 角色矩阵 / 后台 RPC / 回归 / P5 / P6 测试"
 TPL=azsou_drill_tpl
 psql "$ADMIN" -Xq -v ON_ERROR_STOP=1 -c "drop database if exists $TPL with (force)" -c "create database $TPL template $FULL"
 psql "$(db_url $TPL)" -Xq -v ON_ERROR_STOP=1 <<'SQL'
@@ -111,10 +111,12 @@ delete from auth.users where email like 'drill-%';
 delete from public.site_content where kind = 'setting';
 delete from public.audit_log;
 delete from public.rate_limit_events;
+delete from public.app_reviews;
+delete from public.app_download_counts;
 delete from storage.objects where name like 'd0000000-%';
 SQL
 DB_TEST_TEMPLATE=$TPL npx vitest run -c vitest.db.config.ts \
-  tests/db/rls-matrix.test.ts tests/db/admin.test.ts tests/db/regression.test.ts tests/db/p5.test.ts
+  tests/db/rls-matrix.test.ts tests/db/admin.test.ts tests/db/regression.test.ts tests/db/p5.test.ts tests/db/p6.test.ts
 
 psql "$ADMIN" -Xq -c "drop database if exists $SRC with (force)" -c "drop database if exists $DATA with (force)" -c "drop database if exists $FULL with (force)" -c "drop database if exists $TPL with (force)"
 echo "✓ 恢复演练通过"

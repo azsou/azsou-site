@@ -448,6 +448,8 @@ describe('(5)(6)(7) 结构约定', () => {
     expect(got).toEqual([
       'admin_set_user:authenticated',
       'admin_stats:authenticated',
+      'app_count_download:anon',
+      'app_count_download:authenticated',
       'az_ugc_image_upload_ok:authenticated',
       'can_write:anon',
       'can_write:authenticated',

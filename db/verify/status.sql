@@ -3,7 +3,7 @@
 --
 -- 每一行是一项检查：step = 对应的迁移文件，ok = 是否已生效。
 -- 生产切换时每执行完一个迁移文件就跑一次：该步及之前的所有行都应为 true，之后的行为 false。
--- 全部为 true = 0002…0011 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
+-- 全部为 true = 0002…0012 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
 -- =============================================================================
 with c(step, item, ok) as (
   values
@@ -53,6 +53,14 @@ with c(step, item, ok) as (
                      false, true, '')))[1]::text = '1'
      end),
   ('0011', '停用分类触发器存在',
-     exists (select 1 from pg_trigger where tgname = 'az_threads_category_guard' and not tgisinternal))
+     exists (select 1 from pg_trigger where tgname = 'az_threads_category_guard' and not tgisinternal)),
+  ('0012', '评价表（RLS 已开启）与评分统计视图存在',
+     coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.app_reviews')), false)
+     and to_regclass('public.app_review_stats') is not null),
+  ('0012', '下载计数表与计数 RPC 存在，举报可指向评价',
+     to_regclass('public.app_download_counts') is not null
+     and to_regprocedure('public.app_count_download(text,text)') is not null
+     and exists (select 1 from pg_constraint where conname = 'reports_target_type_check'
+                 and pg_get_constraintdef(oid) like '%review%'))
 )
 select step, item, ok from c order by step, item;
