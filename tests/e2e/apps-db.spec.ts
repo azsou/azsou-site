@@ -29,6 +29,7 @@ async function rate(page: Page, stars: number) {
 
 test.describe('评分及评价（真实数据库）', () => {
   test('写评价 → 列表与统计更新 → 修改（已编辑）→ 删除', async ({ page, db, makeUser, signIn, errors }) => {
+    test.slow();
     const u = await makeUser(uniq('评价者'));
     await signIn(page, u);
     await page.goto('/apps/skill-tree-tool/');
@@ -93,6 +94,7 @@ test.describe('评分及评价（真实数据库）', () => {
     makeUser,
     signIn,
   }) => {
+    test.slow(); // 三个身份、三个浏览器上下文
     const author = await makeUser(uniq('作者'));
     const text = uniq('可疑的评价 ');
     const ins = await db.query(

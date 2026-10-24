@@ -54,9 +54,17 @@ const third = d.developer.type === 'third-party';
       <>
         <p class="notice notice--info mt-6" role="note">
           你即将离开 AZ Studio，前往 <b>{host}</b>
-          {third ? `（第三方开发者 ${d.developer.name} 的官方渠道）` : '（作者发布的渠道）'}。 本站
-          {p.linkType === 'direct' ? '只提供跳转与校验值' : '不托管安装包'}，请确认地址后再下载。
+          {`${third ? `（第三方开发者 ${d.developer.name} 的官方渠道）` : '（作者发布的渠道）'}。本站${p.linkType === 'direct' ? '只提供跳转与校验值' : '不托管安装包'}，请确认地址后再下载。`}
         </p>
+        <div class="btn-row mt-4">
+          <a class="btn btn--primary" href={p.url} rel="nofollow noopener" data-go>
+            继续前往 {host}
+          </a>
+          <a class="btn" href={url.app(app.id)}>
+            返回应用页
+          </a>
+        </div>
+        <p class="data-status mt-4" data-go-status role="status"></p>
         <dl class="info-table mt-4">
           <div>
             <dt>目标地址</dt>
@@ -92,15 +100,6 @@ const third = d.developer.type === 'third-party';
             用<code>shasum -a 256 文件名</code>。
           </p>
         )}
-        <div class="btn-row mt-6">
-          <a class="btn btn--primary" href={p.url} rel="nofollow noopener" data-go>
-            继续前往 {host}
-          </a>
-          <a class="btn" href={url.app(app.id)}>
-            返回应用页
-          </a>
-        </div>
-        <p class="data-status mt-4" data-go-status role="status"></p>
       </>
     ) : (
       <>
