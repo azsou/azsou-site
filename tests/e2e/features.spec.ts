@@ -77,6 +77,7 @@ test.describe('数据 island（未登录 · 假数据）', () => {
   }) => {
     await page.goto('/articles/pinyin-initial-search/');
     const box = page.locator('[data-comments]');
+    await box.scrollIntoViewIfNeeded(); // 讨论区接近视口才加载
     await expect(box).toHaveAttribute('data-state', 'online');
     await expect(box.locator('[data-source="db"]')).toContainText(
       '<script>window.__xss=1</script>数据库评论',
@@ -91,6 +92,7 @@ test.describe('数据 island（未登录 · 假数据）', () => {
     await mockSupabase(page, 'down');
     await page.goto('/articles/pinyin-initial-search/');
     const box = page.locator('[data-comments]');
+    await box.scrollIntoViewIfNeeded(); // 讨论区接近视口才加载
     await expect(box).toHaveAttribute('data-state', 'offline');
     await expect(box.locator('[data-status]')).toContainText('只读模式');
     await expect(box.locator('[data-source="seed"]')).toHaveCount(1);

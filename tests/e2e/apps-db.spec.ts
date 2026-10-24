@@ -16,8 +16,11 @@ const CTX = {
   serviceWorkers: 'block' as const,
 };
 
-const reviewsOnline = (page: Page) =>
-  expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', 'online');
+// 评价区在首屏以下、接近视口才加载：先滚过去
+async function reviewsOnline(page: Page) {
+  await page.locator('[data-reviews]').scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', 'online');
+}
 
 async function rate(page: Page, stars: number) {
   await page
@@ -127,7 +130,7 @@ test.describe('评分及评价（真实数据库）', () => {
     await forwardRest(modPage);
     await signIn(modPage, mod);
     await modPage.goto('/apps/capture-kit/');
-    await expect(modPage.locator('[data-reviews]')).toHaveAttribute('data-state', 'online');
+    await reviewsOnline(modPage);
     await modPage.locator(`#review-${id}`).getByRole('button', { name: '隐藏' }).click();
     await expect(modPage.locator('.toast')).toContainText('已隐藏');
     await modCtx.close();
@@ -149,7 +152,7 @@ test.describe('评分及评价（真实数据库）', () => {
     await forwardRest(authorPage);
     await signIn(authorPage, author);
     await authorPage.goto('/apps/capture-kit/');
-    await expect(authorPage.locator('[data-reviews]')).toHaveAttribute('data-state', 'online');
+    await reviewsOnline(authorPage);
     await expect(authorPage.locator(`#review-${id}`)).toContainText('已隐藏');
     await expect(authorPage.locator('[data-reviews-compose]')).toContainText('已被版主隐藏');
     await authorCtx.close();

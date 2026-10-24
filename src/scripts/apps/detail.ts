@@ -5,6 +5,7 @@
 import { getAppStore } from '@/lib/data/app-store';
 import { PLATFORM_LABEL, formatCount, type PlatformOs } from '@/lib/app-store';
 import { paintRating } from './detail-paint';
+import { whenNear } from '../idle';
 
 const page = document.querySelector<HTMLElement>('[data-app-page]');
 
@@ -94,5 +95,6 @@ if (page) {
   if (shots) initShots(shots);
   const stats = initStats(page, app).catch(() => null);
   const reviews = page.querySelector<HTMLElement>('[data-reviews]');
-  if (reviews) void import('./reviews').then((m) => m.initReviews(reviews, stats));
+  // 评价区在首屏以下：接近视口时才加载（写评价的表单、列表、举报 / 审核）
+  if (reviews) whenNear(reviews, () => import('./reviews').then((m) => m.initReviews(reviews, stats)));
 }

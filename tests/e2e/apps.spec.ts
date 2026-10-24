@@ -67,6 +67,7 @@ test.describe('应用详情页', () => {
     await expect(page.locator('[data-downloads] a')).toHaveCount(0);
     await expect(page.locator('[data-dl-hint]')).toHaveText('开发者暂未提供下载地址。');
     // 评分 / 下载只显示真实数据：假 Supabase 返回空 → 暂无
+    await page.locator('[data-reviews]').scrollIntoViewIfNeeded(); // 评价区接近视口才加载
     await expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', 'online');
     await expect(page.locator('[data-rating-sub]')).toHaveText('暂无评分');
     await expect(page.locator('[data-downloads-total]')).toHaveText('0');
@@ -102,6 +103,7 @@ test.describe('应用详情页', () => {
     const shots = page.locator('[data-shot]');
     await expect(shots).toHaveCount(3);
     await expect(shots.first().locator('.shot__tag')).toHaveText('示意');
+    await page.locator('[data-reviews]').scrollIntoViewIfNeeded();
     await expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', /online|offline/); // island 已加载
     await shots.first().click();
     const dlg = page.locator('[data-lightbox]');
@@ -149,6 +151,7 @@ test.describe('应用详情页', () => {
     await expect(page.locator('[data-rating-sub]')).toHaveText('2 条评价');
     await expect(page.locator('[data-downloads-total]')).toHaveText('15');
     await expect(page.locator('[data-downloads-detail]')).toHaveText('共 15 次（Windows 12，网页版 3）');
+    await page.locator('[data-reviews]').scrollIntoViewIfNeeded(); // 评价区接近视口才加载
     await expect(page.locator('[data-reviews-avg]')).toHaveText('4.5');
     await expect(page.locator('[data-bar-n="5"]')).toHaveText('1');
     await expect(page.locator('[data-bar-n="1"]')).toHaveText('0');
@@ -162,6 +165,7 @@ test.describe('应用详情页', () => {
   test('数据库不可达：页面照常可读，评价区进入只读提示', async ({ page }) => {
     await mockSupabase(page, 'down');
     await page.goto('/apps/fablemotion/');
+    await page.locator('[data-reviews]').scrollIntoViewIfNeeded();
     await expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', 'offline');
     await expect(page.locator('[data-reviews] [data-status]')).toContainText('只读');
     await expect(page.locator('[data-rating-value]')).toHaveText('—');

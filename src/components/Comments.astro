@@ -48,6 +48,10 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 </section>
 
 <script>
-  import { whenIdle } from '@/scripts/idle';
-  whenIdle(() => import('@/scripts/community/comments'));
+  import { whenIdle, whenNear } from '@/scripts/idle';
+  // 讨论区在页面底部：页面空闲后开始观察，接近视口时才加载
+  whenIdle(() => {
+    const box = document.querySelector('[data-comments]');
+    if (box) whenNear(box, () => import('@/scripts/community/comments'));
+  });
 </script>

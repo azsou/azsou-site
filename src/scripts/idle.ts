@@ -31,3 +31,21 @@ export function whenIdle(fn: () => unknown, timeout = 1500) {
   if (document.readyState === 'complete') schedule();
   else addEventListener('load', schedule, { once: true });
 }
+
+/**
+ * 首屏以下的 island（评价区、评论区）：元素接近视口时才加载（提前约一屏）。
+ * 只看一眼头部就离开的访客不用下载这部分脚本；滚动、目录锚点跳转、键盘 Tab 进入时都会触发。
+ * 不支持 IntersectionObserver 的浏览器退回空闲时加载。
+ */
+export function whenNear(el: Element, fn: () => unknown, margin = '100% 0px') {
+  if (!('IntersectionObserver' in window)) return whenIdle(fn);
+  const io = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      void run(fn);
+    },
+    { rootMargin: margin },
+  );
+  io.observe(el);
+}

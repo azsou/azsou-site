@@ -369,6 +369,7 @@ test.describe('评论', () => {
     await page.goto('/articles/pinyin-initial-search/');
     const text = uniq('好文章 ');
     const box = page.locator('[data-comments]');
+    await box.scrollIntoViewIfNeeded(); // 讨论区接近视口才加载
     await box.getByLabel('写评论').fill(`${text} *赞*`);
     await box.getByRole('button', { name: '发表评论' }).click();
     const item = box.locator('li.post', { hasText: text });
@@ -390,6 +391,7 @@ test.describe('评论', () => {
     await forwardRest(p2);
     await signIn(p2, mod);
     await p2.goto('/articles/pinyin-initial-search/');
+    await p2.locator('[data-comments]').scrollIntoViewIfNeeded();
     await p2.locator(`#c-${cid}`).getByRole('button', { name: '隐藏' }).click();
     await expect(p2.locator(`#c-${cid}`)).toHaveClass(/is-hidden/);
     const r = await db.query(`select published from comments where id = $1`, [cid]);
@@ -397,6 +399,7 @@ test.describe('评论', () => {
     await ctx.close();
     // 作者仍能看到（标注已隐藏）并删除
     await page.reload();
+    await page.locator('[data-comments]').scrollIntoViewIfNeeded();
     const mine = page.locator(`#c-${cid}`);
     await expect(mine).toContainText('已隐藏');
     await mine.getByRole('button', { name: '删除' }).click();
