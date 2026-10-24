@@ -11,5 +11,7 @@ export default defineConfig({
     hookTimeout: 120_000,
     // 每个文件建自己的临时库，可以并行
     fileParallelism: true,
+    // 集群级角色在所有文件开始前一次建好（并行建库时避免竞争）
+    globalSetup: ['tests/db/global-setup.ts'],
   },
 });

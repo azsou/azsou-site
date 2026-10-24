@@ -14,17 +14,25 @@
 --   set local role authenticated;
 -- =============================================================================
 
+-- 角色是整个集群共享的：多个库并行执行本文件（测试并行建库）时，「先查再建」会撞上并发，
+-- 所以每个 create role 单独捕获「已存在」。
 do $$
+declare
+  r record;
 begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then
-    create role anon nologin noinherit;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    create role authenticated nologin noinherit;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then
-    create role service_role nologin noinherit bypassrls;
-  end if;
+  for r in select * from (values
+    ('anon', 'create role anon nologin noinherit'),
+    ('authenticated', 'create role authenticated nologin noinherit'),
+    ('service_role', 'create role service_role nologin noinherit bypassrls')
+  ) as t(name, ddl) loop
+    if not exists (select 1 from pg_roles where rolname = r.name) then
+      begin
+        execute r.ddl;
+      exception when duplicate_object or unique_violation then
+        null; -- 另一个会话刚建好
+      end;
+    end if;
+  end loop;
 end $$;
 
 create schema if not exists auth;
