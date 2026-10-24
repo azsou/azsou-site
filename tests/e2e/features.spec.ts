@@ -1,4 +1,4 @@
-import { test, expect, mockSupabase } from './fixtures';
+import { test, expect, mockSupabase, emulateColorScheme } from './fixtures';
 
 test.describe('旧 hash 链接跳转', () => {
   for (const [hash, target] of [
@@ -152,8 +152,9 @@ test.describe('导航与设计系统', () => {
     expect(small).toEqual([]);
   });
   test('暗色模式跟随系统', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'dark' });
+    await emulateColorScheme(page, 'dark');
     await page.goto('/');
+    expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(true);
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(
       'rgb(0, 0, 0)',
     );

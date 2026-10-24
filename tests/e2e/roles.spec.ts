@@ -102,9 +102,12 @@ for (const role of ROLES) {
     }
 
     // 5) 顶栏「管理后台」入口只给版主 / 管理员
+    // 顶栏菜单是空闲时才加载的 island：先等它画出登录态（按钮去掉 hidden），再判断入口
     await page.goto('/forum/');
+    if (role !== 'anon')
+      await expect(page.locator('[data-user-menu] [data-signed-in]')).not.toHaveAttribute('hidden', '');
+    await expect.poll(() => adminLinkVisible(page)).toBe(role === 'moderator' || role === 'admin');
     await page.waitForLoadState('networkidle');
-    expect(await adminLinkVisible(page)).toBe(role === 'moderator' || role === 'admin');
 
     // 无横向溢出
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

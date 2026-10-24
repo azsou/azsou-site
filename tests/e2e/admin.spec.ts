@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
+import { emulateColorScheme } from './fixtures';
 import {
   test,
   expect,
@@ -581,7 +582,7 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
     signIn,
   }) => {
     test.setTimeout(120_000);
-    await page.emulateMedia({ colorScheme: 'dark' });
+    await emulateColorScheme(page, 'dark');
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     const u = await makeUser(uniq('用户'));
     const tid = await seedThread(db, u.id);
@@ -598,6 +599,7 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
       await page.goto(path);
       await expect(body(page)).toBeVisible();
       await page.waitForLoadState('networkidle');
+      expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(true);
       await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
       expect(await axe(page), path).toEqual([]);
     }

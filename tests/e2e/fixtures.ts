@@ -94,6 +94,25 @@ export async function mockTurnstile(page: Page) {
   );
 }
 
+/**
+ * 模拟系统暗色 / 亮色。
+ * 站点响应带 `Cross-Origin-Opener-Policy: same-origin`（vercel.json）。Firefox 在导航到带 COOP 的页面时会换一个
+ * 浏览上下文组，Playwright 的 colorScheme 模拟丢失（prefers-color-scheme 永远是 light）——只影响自动化，真实用户不受影响。
+ * 所以这里只对本站的文档导航去掉 COOP 头，其余请求交给后面的路由（假 Supabase / 转发 PostgREST）。
+ * COOP 本身由 security.spec.ts 按 vercel.json 校验。
+ */
+export async function emulateColorScheme(page: Page, colorScheme: 'dark' | 'light') {
+  await page.route('**/*', async (route) => {
+    const req = route.request();
+    if (!req.isNavigationRequest() || new URL(req.url()).hostname !== '127.0.0.1') return route.fallback();
+    const response = await route.fetch();
+    const headers = { ...response.headers() };
+    delete headers['cross-origin-opener-policy'];
+    return route.fulfill({ response, headers });
+  });
+  await page.emulateMedia({ colorScheme });
+}
+
 type Fixtures = { errors: string[] };
 
 /** 每个测试自动挂上假数据，并收集控制台错误与未捕获异常 */
