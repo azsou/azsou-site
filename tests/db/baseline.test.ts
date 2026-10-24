@@ -15,8 +15,16 @@ const prod = JSON.parse(readFileSync(join(ROOT, 'db/audit/prod-schema.json'), 'u
   unknown[]
 >;
 const snapshotSql = readFileSync(join(ROOT, 'db/audit/snapshot.sql'), 'utf8');
+// ACL 项的顺序随 Postgres 版本不同（CI 与生产不同），比较前排序
+const sortAcl = (r: unknown) => {
+  const o = r as Record<string, unknown>;
+  return typeof o.acl === 'string' ? { ...o, acl: o.acl.split(',').sort().join(',') } : o;
+};
 const canon = (rows: unknown[] | null) =>
-  (rows ?? []).map((r) => JSON.stringify(r, Object.keys(r as object).sort())).sort();
+  (rows ?? [])
+    .map(sortAcl)
+    .map((r) => JSON.stringify(r, Object.keys(r).sort()))
+    .sort();
 
 let db: Awaited<ReturnType<typeof freshDb>>;
 beforeAll(async () => {

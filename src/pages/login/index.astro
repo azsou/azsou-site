@@ -22,14 +22,7 @@ import OAuthButtons from '@/components/OAuthButtons.astro';
       <form class="form" data-auth-form="login" novalidate>
         <div class="field">
           <label for="login-email">邮箱</label>
-          <input
-            id="login-email"
-            name="email"
-            type="email"
-            autocomplete="username email"
-            inputmode="email"
-            required
-          />
+          <input id="login-email" name="email" type="email" autocomplete="email" inputmode="email" required />
           <p class="field__error" data-error-for="email"></p>
         </div>
         <div class="field">
