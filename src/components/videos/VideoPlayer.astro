@@ -25,8 +25,20 @@ const host = new URL(embedUrl(provider, videoId)).host;
   data-embed={embedUrl(provider, videoId)}
   data-title={title}
 >
-  <a class="video-player__facade" href={watchUrl(provider, videoId)} rel="noopener" data-facade-link>
-    <VideoThumb slug={slug} sizes={PLAYER_SIZES} eager class="video-player__thumb" />
+  <a
+    class="video-player__facade"
+    href={watchUrl(provider, videoId)}
+    rel="noopener"
+    aria-label={`播放视频：${title}（点击后从 ${label} 加载播放器）`}
+    data-facade-link
+  >
+    <VideoThumb
+      slug={slug}
+      alt={`${title} 视频缩略图`}
+      sizes={PLAYER_SIZES}
+      eager
+      class="video-player__thumb"
+    />
     <span class="video-player__play" aria-hidden="true">
       <svg viewBox="0 0 68 48" width="68" height="48" focusable="false">
         <path

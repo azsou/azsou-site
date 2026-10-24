@@ -3,15 +3,16 @@ import '@/styles/videos.css';
 import { thumbPath, thumbSrcset } from '@/lib/videos';
 /**
  * 视频缩略图：本地 AVIF / WebP（480 与 960 宽，16:9），不热链平台图片——页面在点击播放之前不向第三方发任何请求。
- * alt 为空：缩略图旁边总有标题文字，读屏不必重复。
+ * alt 写「<标题> 视频缩略图」（站点约定：每张图片都有替代文字）。
  */
 interface Props {
   slug: string;
+  alt: string;
   sizes: string;
   eager?: boolean;
   class?: string;
 }
-const { slug, sizes, eager = false, class: cls = '' } = Astro.props;
+const { slug, alt, sizes, eager = false, class: cls = '' } = Astro.props;
 ---
 
 <picture class={`video-thumb ${cls}`}>
@@ -20,7 +21,7 @@ const { slug, sizes, eager = false, class: cls = '' } = Astro.props;
     src={thumbPath(slug, 480, 'webp')}
     srcset={thumbSrcset(slug, 'webp')}
     sizes={sizes}
-    alt=""
+    alt={alt}
     width="960"
     height="540"
     loading={eager ? 'eager' : 'lazy'}

@@ -22,7 +22,7 @@ const H = headingLevel;
   data-ch={item.channel}
 >
   <div class="video-card__media">
-    <VideoThumb slug={item.slug} sizes={CARD_SIZES} eager={eager} />
+    <VideoThumb slug={item.slug} alt={`${item.title} 视频缩略图`} sizes={CARD_SIZES} eager={eager} />
     {item.seconds != null && (
       <span class="video-card__dur">
         <span aria-hidden="true">{item.duration}</span>
