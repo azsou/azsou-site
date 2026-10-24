@@ -18,7 +18,8 @@ module.exports = {
       startServerCommand: 'node scripts/serve.mjs 4322 dist/client',
       startServerReadyPattern: 'serving',
       url: PAGES.map((p) => BASE + p),
-      numberOfRuns: 1,
+      // 每页 3 次取中位数，减少 CI 机器抖动导致的偶发失败
+      numberOfRuns: 3,
       settings: {
         formFactor: 'mobile',
         chromeFlags: '--no-sandbox --headless=new',
@@ -27,6 +28,7 @@ module.exports = {
       },
     },
     assert: {
+      aggregationMethod: 'median',
       assertions: {
         'categories:performance': ['error', { minScore: 0.9 }],
         'categories:accessibility': ['error', { minScore: 0.95 }],

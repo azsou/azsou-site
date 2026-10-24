@@ -4,11 +4,13 @@
  *  - 无扩展名路径补尾斜杠（308），带扩展名路径去尾斜杠
  *  - 目录 → index.html；不存在 → 404.html（状态码 404）
  *  - 应用 vercel.json 里的 headers 与 redirects
+ *  - 文本类资源按 Accept-Encoding 做 gzip（Vercel 默认压缩；不压缩会让 Lighthouse 高估 HTML 下载时间）
  * 用法：node scripts/serve.mjs [port] [dir]
  */
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 const port = Number(process.argv[2] || process.env.PORT || 4321);
 const root = path.resolve(process.argv[3] || 'dist/client');
@@ -25,6 +27,7 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json',
   '.ico': 'image/x-icon',
 };
+const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json)|image\/svg\+xml)/;
 const toRegex = (src) => new RegExp('^' + src.replace(/\(\.\*\)/g, '(.*)') + '$');
 const headerRules = vercel.headers.map((h) => ({ re: toRegex(h.source), headers: h.headers }));
 const redirects = (vercel.redirects || []).map((r) => ({
@@ -54,8 +57,13 @@ const server = http.createServer((req, res) => {
     file = path.join(root, '404.html');
     status = 404;
   }
-  res.writeHead(status, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
+  const type = TYPES[path.extname(file)] || 'application/octet-stream';
+  const gzip = COMPRESSIBLE.test(type) && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+  const headers = { 'Content-Type': type, Vary: 'Accept-Encoding' };
+  if (gzip) headers['Content-Encoding'] = 'gzip';
+  res.writeHead(status, headers);
   if (req.method === 'HEAD') return res.end();
-  fs.createReadStream(file).pipe(res);
+  const body = fs.readFileSync(file);
+  res.end(gzip ? zlib.gzipSync(body) : body);
 });
 server.listen(port, '127.0.0.1', () => console.log(`serving ${root} on http://127.0.0.1:${port}`));
