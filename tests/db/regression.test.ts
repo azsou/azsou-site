@@ -447,6 +447,7 @@ describe('(5)(6)(7) 结构约定', () => {
     const got = r.rows.map((x) => `${x.proname}:${x.rolname}`);
     expect(got).toEqual([
       'admin_set_user:authenticated',
+      'admin_stats:authenticated',
       'can_write:anon',
       'can_write:authenticated',
       'current_app_role:anon',
@@ -458,6 +459,13 @@ describe('(5)(6)(7) 结构约定', () => {
       'like_summary:anon',
       'like_summary:authenticated',
       'mark_notifications_read:authenticated',
+      'mod_ban_user:authenticated',
+      'mod_handle_reports:authenticated',
+      'mod_lift_expired_bans:authenticated',
+      'mod_list_content:authenticated',
+      'mod_list_users:authenticated',
+      'mod_unban_user:authenticated',
+      'mod_warn_user:authenticated',
       'search_threads:anon',
       'search_threads:authenticated',
       'thread_reply_counts:anon',

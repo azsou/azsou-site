@@ -473,6 +473,37 @@ const W: WriteCase[] = [
     sql: () => [`insert into audit_log (action) values ('x')`, []],
   },
   { table: 'audit_log', name: '删审计日志', expect: NOBODY, sql: () => [`delete from audit_log`, []] },
+  // ------------------------------------------------------- user_bans（0009）
+  {
+    table: 'user_bans',
+    name: '直接写封禁记录',
+    expect: NOBODY,
+    sql: (r) => [`insert into user_bans (user_id, reason) values ($1, 'x')`, [uid(r) ?? U.alice]],
+  },
+  {
+    table: 'user_bans',
+    name: '删除封禁记录',
+    expect: NOBODY,
+    sql: () => [`delete from user_bans`, []],
+  },
+  {
+    table: 'user_bans',
+    name: 'rpc mod_ban_user(普通用户)',
+    expect: MODS,
+    sql: () => [`select mod_ban_user($1, 'x')`, [U.bob]],
+  },
+  {
+    table: 'user_bans',
+    name: 'rpc mod_handle_reports(驳回)',
+    expect: MODS,
+    sql: () => [`select mod_handle_reports(array[$1]::uuid[], 'dismissed')`, [REP.alice]],
+  },
+  {
+    table: 'user_bans',
+    name: 'rpc admin_stats()',
+    expect: MODS,
+    sql: () => [`select admin_stats()`, []],
+  },
   // ------------------------------------------------------- rate_limit_events
   {
     table: 'rate_limit_events',
@@ -504,6 +535,11 @@ const READS: ReadSpec[] = [
   { table: 'notifications', expected: ownOnly('user_id') },
   { table: 'audit_log', expected: (r) => (r === 'anon' ? 'denied' : r === 'admin' ? 'true' : 'false') },
   { table: 'rate_limit_events', expected: () => 'denied' },
+  {
+    table: 'user_bans',
+    expected: (r) =>
+      r === 'anon' ? 'denied' : r === 'mod' || r === 'admin' ? 'true' : `user_id = '${uid(r)}'`,
+  },
 ];
 
 const ALL_TABLES = READS.map((r) => r.table);
