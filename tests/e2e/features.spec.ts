@@ -72,7 +72,9 @@ test.describe('搜索', () => {
 });
 
 test.describe('数据 island（未登录 · 假数据）', () => {
-  test('文章评论：种子 + 数据库评论，用户内容经 Markdown 净化渲染（原始 HTML 显示为文字）', async ({ page }) => {
+  test('文章评论：种子 + 数据库评论，用户内容经 Markdown 净化渲染（原始 HTML 显示为文字）', async ({
+    page,
+  }) => {
     await page.goto('/articles/pinyin-initial-search/');
     const box = page.locator('[data-comments]');
     await expect(box).toHaveAttribute('data-state', 'online');

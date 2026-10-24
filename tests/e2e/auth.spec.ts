@@ -140,7 +140,10 @@ test.describe('登录', () => {
     await expect(menuBtn).toHaveAccessibleName('账户菜单：Alice');
     await menuBtn.click();
     await expect(page.getByRole('menuitem', { name: '我的主页' })).toBeFocused();
-    await expect(page.getByRole('menuitem', { name: '我的主页' })).toHaveAttribute('href', /^\/u\/\?id=9b2c1a10-/);
+    await expect(page.getByRole('menuitem', { name: '我的主页' })).toHaveAttribute(
+      'href',
+      /^\/u\/\?id=9b2c1a10-/,
+    );
     await expect(page.getByRole('menuitem', { name: '通知' })).toHaveAttribute('href', '/notifications/');
     await expect(page.getByRole('menuitem', { name: '我的收藏' })).toHaveAttribute('href', '/bookmarks/');
     await expect(page.getByRole('menuitem', { name: '账户设置' })).toBeVisible();
