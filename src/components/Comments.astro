@@ -46,5 +46,6 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 </section>
 
 <script>
-  import '@/scripts/comments';
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/comments'));
 </script>

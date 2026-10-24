@@ -1,4 +1,5 @@
 ---
+import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
 import Comments from '@/components/Comments.astro';
@@ -29,6 +30,7 @@ const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
 ---
 
 <Base
+  preloadImage={d.art ? artSrc(d.art) : undefined}
   title={d.title}
   description={description}
   type="article"

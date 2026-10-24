@@ -1,4 +1,5 @@
 ---
+// 首屏图（eager）同步解码：和首帧文字一起绘制，LCP 不会被推迟到后面的脚本任务之后
 import art from '@/data/art.json';
 interface Props {
   slot: string;
@@ -16,6 +17,6 @@ if (!a) throw new Error(`未知素材槽位：${slot}`);
   width="960"
   height="540"
   loading={eager ? 'eager' : 'lazy'}
-  decoding="async"
+  decoding={eager ? 'sync' : 'async'}
   fetchpriority={eager ? 'high' : undefined}
 />

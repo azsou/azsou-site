@@ -41,5 +41,6 @@ const seeds = forum.seeds
 </section>
 
 <script>
-  import '@/scripts/forum';
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/forum'));
 </script>

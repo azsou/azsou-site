@@ -22,9 +22,9 @@ let cached: DataRepository | null = null;
 export function getRepository(): DataRepository {
   if (cached) return cached;
   const env = import.meta.env ?? {};
-  const adapter = env.PUBLIC_DATA_ADAPTER || 'supabase';
+  // 直接比较 import.meta.env.PUBLIC_DATA_ADAPTER：Vite 构建期替换成字面量，生产包里不含内存适配器
   cached =
-    adapter === 'memory'
+    import.meta.env.PUBLIC_DATA_ADAPTER === 'memory'
       ? createMemoryRepository({ seedThreads: {}, requireConfirmation: false })
       : createSupabaseRepository({
           url: env.PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE.url,

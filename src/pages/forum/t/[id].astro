@@ -74,5 +74,6 @@ const path = url.forumThread(t.id);
 </Base>
 
 <script>
-  import '@/scripts/forum';
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/forum'));
 </script>

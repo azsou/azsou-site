@@ -1,4 +1,5 @@
 ---
+import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
 import Comments from '@/components/Comments.astro';
@@ -23,6 +24,7 @@ const description = excerpt(bodyHtml, 110);
 ---
 
 <Base
+  preloadImage={artSrc(d.art)}
   title={`${d.title} · ${d.genre}`}
   description={description}
   image={ogArt(d.art)}

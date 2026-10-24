@@ -33,5 +33,6 @@ import Base from '@/layouts/Base.astro';
 </Base>
 
 <script>
-  import '@/scripts/forum';
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/forum'));
 </script>

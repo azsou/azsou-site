@@ -26,10 +26,10 @@ import { url } from '@/lib/routes';
       分类
     </h2>
     <div class="grid">
-      {forum.categories.map((c) => (
+      {forum.categories.map((c, i) => (
         <article class="card">
           <div class="card__media">
-            <Art slot={c.art} />
+            <Art slot={c.art} eager={i < 2} />
           </div>
           <div class="card__body">
             <h3 class="card__title">

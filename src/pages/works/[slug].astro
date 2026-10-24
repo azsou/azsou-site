@@ -1,4 +1,5 @@
 ---
+import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
 import Comments from '@/components/Comments.astro';
@@ -37,6 +38,7 @@ const related = d.related.map((r) => ({
 ---
 
 <Base
+  preloadImage={artSrc(d.art)}
   title={`${d.title} · ${d.kind}`}
   description={description}
   image={ogArt(d.art)}

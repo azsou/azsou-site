@@ -1,4 +1,5 @@
 ---
+import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import AppCard from '@/components/AppCard.astro';
 import GameCard from '@/components/GameCard.astro';
@@ -19,7 +20,7 @@ const homeGames = ['emberdeep', 'threejs-rubik', 'pixel-dungeon-lab'].map((s) =>
 const latestThreads = [...forum.seeds].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
 ---
 
-<Base title={SITE.title} description={SITE.description}>
+<Base title={SITE.title} description={SITE.description} preloadImage={artSrc('hero-1')}>
   <section class="hero" aria-labelledby="hero-title">
     <div>
       <p class="eyebrow">旗舰项目 · {flagship.data.version}</p>

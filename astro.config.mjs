@@ -28,9 +28,9 @@ export default defineConfig({
   output: 'static',
   adapter: vercel({ webAnalytics: { enabled: false } }),
   trailingSlash: 'always',
-  build: { format: 'directory', inlineStylesheets: 'auto' },
+  // 整站 CSS 内联（gzip 后约 6KB）：省掉一次阻塞渲染的往返，移动端 LCP 预算 < 2.0s 的关键
+  build: { format: 'directory', inlineStylesheets: 'always' },
   compressHTML: true,
-  prefetch: { prefetchAll: false, defaultStrategy: 'hover' },
   integrations: [
     sitemap({
       filter: (page) => !NOINDEX.some((p) => new URL(page).pathname.startsWith(p)),

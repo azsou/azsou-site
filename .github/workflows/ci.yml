@@ -95,4 +95,4 @@ jobs:
       - run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
-        with: { name: lighthouse, path: .lighthouseci, retention-days: 7 }
+        with: { name: lighthouse, path: .lighthouseci, retention-days: 7, include-hidden-files: true }
