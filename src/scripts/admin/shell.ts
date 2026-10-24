@@ -121,8 +121,8 @@ export interface Selection {
   bind(): void;
 }
 /**
- * 行内 `input[data-select]`（value=id）+ 表头 `input[data-select-all]`；
- * 选中行加 aria-selected，批量操作条显示已选数量。
+ * 行内 `input[data-select]`（value=id）+ 「全选本页」`input[data-select-all]`；
+ * 选中行加 data-selected（只是样式；复选框本身已表达选中状态），批量操作条显示已选数量。
  */
 export function createSelection(
   scope: HTMLElement,
@@ -134,7 +134,7 @@ export function createSelection(
   const paint = () => {
     const list = boxes();
     const n = list.filter((b) => b.checked).length;
-    for (const b of list) b.closest('[data-row]')?.setAttribute('aria-selected', String(b.checked));
+    for (const b of list) b.closest('[data-row]')?.setAttribute('data-selected', String(b.checked));
     const a = all();
     if (a) {
       a.checked = n > 0 && n === list.length;

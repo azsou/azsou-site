@@ -37,7 +37,7 @@ document.querySelector<HTMLButtonElement>('[data-export-json]')!.addEventListene
       source: location.origin,
     };
     for (const [t, label] of TABLES) out[t] = await exportTable(t, label);
-    download(`azsou-ugc-${stamp()}.json`, JSON.stringify(out, null, 2), 'application/json');
+    download(`azsou-ugc-${stamp()}.json`, JSON.stringify(out, null, 2), 'application/octet-stream');
     const counts = TABLES.map(([t, label]) => `${label} ${(out[t] as unknown[]).length}`).join('，');
     setStatusText(exportStatus, `已导出：${counts}。`);
   }),

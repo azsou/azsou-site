@@ -95,16 +95,18 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
                       href={githubEdit(`${g.dir}/${it.id}.md`)}
                       rel="noopener"
                       target="_blank"
+                      aria-label={`在 GitHub 编辑：${it.title}（新窗口）`}
                     >
-                      在 GitHub 编辑<span class="visually-hidden">：{it.title}（新窗口）</span>
+                      在 GitHub 编辑
                     </a>
                     <a
                       class="btn btn--sm"
                       href={githubHistory(`${g.dir}/${it.id}.md`)}
                       rel="noopener"
                       target="_blank"
+                      aria-label={`历史：${it.title}（新窗口）`}
                     >
-                      历史<span class="visually-hidden">：{it.title}（新窗口）</span>
+                      历史
                     </a>
                   </span>
                 </td>

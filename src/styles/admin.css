@@ -357,7 +357,7 @@
   .data-table tbody tr:hover {
     background: color-mix(in srgb, var(--c-fill) 50%, transparent);
   }
-  .data-table tr[aria-selected='true'] {
+  .data-table tr[data-selected='true'] {
     background: color-mix(in srgb, var(--c-blue) 10%, transparent);
   }
   .data-table .col-check {
@@ -488,7 +488,7 @@
     background: var(--c-bg-elevated);
     box-shadow: var(--shadow-1);
   }
-  .report[aria-selected='true'] {
+  .report[data-selected='true'] {
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--c-blue) 60%, transparent),
       var(--shadow-1);

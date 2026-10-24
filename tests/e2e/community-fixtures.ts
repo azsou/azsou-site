@@ -4,7 +4,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 import { test as base, expect } from './fixtures';
 import { ANON, tok } from '../db/postgrest';
 
@@ -26,32 +26,63 @@ interface CommunityFixtures {
 let pool: pg.Pool | null = null;
 const getPool = () => (pool ??= new pg.Pool({ connectionString: process.env.E2E_DB_URL, max: 3 }));
 
-/** 把页面对 Supabase /rest/v1 的请求转发到本地 PostgREST */
-export async function forwardRest(page: Page) {
+/** 把一个 /rest/v1 请求转发到本地 PostgREST */
+async function forward(route: Route) {
   const target = process.env.E2E_PGRST!;
-  await page.route('**/rest/v1/**', async (route) => {
-    const req = route.request();
-    const u = new URL(req.url());
-    const headers = { ...req.headers() };
-    delete headers.host;
-    delete headers.origin;
-    delete headers.referer;
-    // 未登录时浏览器带的是 Supabase publishable key（网关识别），本地 PostgREST 只认 JWT：换成 anon JWT
-    if (!/^Bearer [\w-]+\.[\w-]+\.[\w-]+$/.test(headers.authorization ?? ''))
-      headers.authorization = `Bearer ${ANON}`;
-    try {
-      const res = await route.fetch({
-        url: target + u.pathname.replace(/^\/rest\/v1/, '') + u.search,
-        headers,
-      });
-      await route.fulfill({ response: res });
-    } catch {
-      await route.abort('connectionrefused').catch(() => {});
-    }
-  });
+  const req = route.request();
+  const u = new URL(req.url());
+  const headers = { ...req.headers() };
+  delete headers.host;
+  delete headers.origin;
+  delete headers.referer;
+  // 未登录时浏览器带的是 Supabase publishable key（网关识别），本地 PostgREST 只认 JWT：换成 anon JWT
+  if (!/^Bearer [\w-]+\.[\w-]+\.[\w-]+$/.test(headers.authorization ?? ''))
+    headers.authorization = `Bearer ${ANON}`;
+  try {
+    const res = await route.fetch({
+      url: target + u.pathname.replace(/^\/rest\/v1/, '') + u.search,
+      headers,
+    });
+    // 与 Supabase 网关一致：跨域可读 Content-Range（count=exact 的总数）
+    await route.fulfill({
+      response: res,
+      headers: {
+        ...res.headers(),
+        'access-control-allow-origin': '*',
+        'access-control-expose-headers': 'Content-Range, Content-Location',
+      },
+    });
+  } catch {
+    await route.abort('connectionrefused').catch(() => {});
+  }
+}
+
+/** 公开页面读取站点设置的请求（公告条 / 注册开关 / 发帖分类） */
+const PUBLIC_SETTINGS = /\/rest\/v1\/site_content\?kind=eq\.setting&published=eq\.true/;
+
+/**
+ * 把页面对 Supabase /rest/v1 的请求转发到本地 PostgREST。
+ * 站点设置是全局的：为了不让「后台设置」用例影响并行的其他用例，公开页面读设置默认得到空（= 默认设置），
+ * 需要真实设置的用例调用 useRealSettings(page)。
+ */
+export async function forwardRest(page: Page) {
+  await page.route('**/rest/v1/**', forward);
+  await page.route(PUBLIC_SETTINGS, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: '[]',
+    }),
+  );
   await page.route('**/auth/v1/**', (route) =>
     route.fulfill({ status: 404, contentType: 'application/json', body: '{"msg":"not mocked"}' }),
   );
+}
+
+/** 本页面读真实的站点设置（后注册的路由优先） */
+export async function useRealSettings(page: Page) {
+  await page.route(PUBLIC_SETTINGS, forward);
 }
 
 export const uniq = (p = '') => `${p}${randomUUID().slice(0, 8)}`;

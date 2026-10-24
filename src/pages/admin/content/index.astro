@@ -74,6 +74,12 @@ import { forum } from '@/lib/content';
       删除
     </button>
   </div>
+  <div class="btn-row">
+    <label class="check">
+      <input type="checkbox" data-select-all />
+      <span>全选本页</span>
+    </label>
+  </div>
   <div class="table-wrap">
     <table class="data-table" data-table>
       <caption class="visually-hidden" data-caption>
@@ -82,7 +88,7 @@ import { forum } from '@/lib/content';
       <thead>
         <tr>
           <th scope="col" class="col-check">
-            <input type="checkbox" data-select-all aria-label="全选本页" />
+            <span class="visually-hidden">选择</span>
           </th>
           <th scope="col">内容</th>
           <th scope="col">作者</th>
