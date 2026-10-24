@@ -1,0 +1,41 @@
+---
+import AppCatalog from '@/components/apps/AppCatalog.astro';
+import { getCatalog } from '@/lib/content';
+import { CATEGORIES, CATEGORY_IDS, paginate, pageUrl, type Category } from '@/lib/app-store';
+import { url } from '@/lib/routes';
+
+export async function getStaticPaths() {
+  const all = await getCatalog();
+  return CATEGORY_IDS.flatMap((category) => {
+    const items = all.filter((a) => a.category === category);
+    if (!items.length) return [];
+    const { pages } = paginate(items, 1);
+    return Array.from({ length: pages }, (_, i) => ({
+      params: { category, page: i === 0 ? undefined : `page/${i + 1}` },
+      props: { all, items, page: i + 1 },
+    }));
+  });
+}
+const { all, items, page } = Astro.props;
+const category = Astro.params.category as Category;
+const name = CATEGORIES[category];
+const base = url.appCategory(category);
+---
+
+<AppCatalog
+  eyebrow="应用分类"
+  title={name}
+  description={`AZ Studio 应用商店的「${name}」分类：共 ${items.length} 个应用，标注版本、平台与状态；评分与下载数来自真实用户。`}
+  lede={`「${name}」分类下的全部应用。`}
+  all={all}
+  items={items}
+  page={page}
+  base={base}
+  fixedCategory={category}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '应用', path: '/apps/' },
+    { name, path: base },
+    ...(page > 1 ? [{ name: `第 ${page} 页`, path: pageUrl(base, page) }] : []),
+  ]}
+/>

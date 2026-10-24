@@ -1,37 +1,19 @@
 ---
-import Base from '@/layouts/Base.astro';
-import PageHead from '@/components/PageHead.astro';
-import AppCard from '@/components/AppCard.astro';
-import { getApps } from '@/lib/content';
-const apps = await getApps();
-const kinds = [...new Set(apps.map((a) => a.data.kind))];
+import AppCatalog from '@/components/apps/AppCatalog.astro';
+import { getCatalog } from '@/lib/content';
+const all = await getCatalog();
 ---
 
-<Base
-  title="应用目录"
-  description="AZ Studio 的应用、浏览器扩展、单文件 App 与 AI 工具：每个条目标注版本、状态与核对信息。"
+<AppCatalog
+  title="应用商店"
+  description="AZ Studio 的应用目录：创作工具、浏览器工具、效率工具、AI 工具与开发工具。按平台、分类、价格筛选，评分与下载数全部来自真实用户。"
+  lede="按平台、分类与价格筛选。评分来自真实用户评价，下载数是真实计数——没有就显示「暂无」。"
+  all={all}
+  items={all}
+  page={1}
+  base="/apps/"
   crumbs={[
     { name: '首页', path: '/' },
     { name: '应用', path: '/apps/' },
   ]}
->
-  <PageHead
-    eyebrow="应用"
-    title="应用目录"
-    lede="创作工具、浏览器扩展、单文件 App 与 AI 工具。状态以实际测试记录为准。"
-  />
-  {kinds.map((k) => (
-    <section class="section" aria-label={k}>
-      <div class="section__head">
-        <h2>{k}</h2>
-      </div>
-      <div class="grid grid--wide">
-        {apps
-          .filter((a) => a.data.kind === k)
-          .map((a) => (
-            <AppCard app={a} headingLevel="h3" />
-          ))}
-      </div>
-    </section>
-  ))}
-</Base>
+/>

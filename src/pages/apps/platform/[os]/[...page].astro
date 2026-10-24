@@ -1,0 +1,41 @@
+---
+import AppCatalog from '@/components/apps/AppCatalog.astro';
+import { getCatalog } from '@/lib/content';
+import { PLATFORMS, PLATFORM_LABEL, paginate, pageUrl, type PlatformOs } from '@/lib/app-store';
+import { url } from '@/lib/routes';
+
+export async function getStaticPaths() {
+  const all = await getCatalog();
+  return PLATFORMS.flatMap((os) => {
+    const items = all.filter((a) => a.platforms.includes(os));
+    if (!items.length) return [];
+    const { pages } = paginate(items, 1);
+    return Array.from({ length: pages }, (_, i) => ({
+      params: { os, page: i === 0 ? undefined : `page/${i + 1}` },
+      props: { all, items, page: i + 1 },
+    }));
+  });
+}
+const { all, items, page } = Astro.props;
+const os = Astro.params.os as PlatformOs;
+const name = PLATFORM_LABEL[os];
+const base = url.appPlatform(os);
+---
+
+<AppCatalog
+  eyebrow="按平台"
+  title={`${name}应用`}
+  description={`AZ Studio 应用商店里支持「${name}」的 ${items.length} 个应用：版本、系统要求与获取方式一目了然。`}
+  lede={`支持「${name}」的全部应用。`}
+  all={all}
+  items={items}
+  page={page}
+  base={base}
+  fixedPlatform={os}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '应用', path: '/apps/' },
+    { name, path: base },
+    ...(page > 1 ? [{ name: `第 ${page} 页`, path: pageUrl(base, page) }] : []),
+  ]}
+/>
