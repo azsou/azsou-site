@@ -15,6 +15,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # 加载 src/content/apps/_e2e/ 的测试夹具应用（下载中转 / 平台识别 E2E 用）；Vercel 的构建不设，线上没有夹具
+      AZ_E2E_FIXTURES: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
