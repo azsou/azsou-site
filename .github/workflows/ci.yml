@@ -1,6 +1,7 @@
 name: CI
-# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 → E2E（3 引擎 × 4 视口 + axe；社区流程连真实 Postgres + PostgREST）→ Lighthouse
-# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + PostgREST 14 重放 V72 请求
+# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
+# 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ Lighthouse（移动端，四项 ≥ 95）
+# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
 on:
   pull_request:
   push:
@@ -26,6 +27,7 @@ jobs:
       - run: npm run test:links
       - run: npm run test:html
       - run: npm run size
+      - run: npm run test:csp
       - uses: actions/upload-artifact@v4
         with: { name: dist, path: dist, retention-days: 3 }
 
@@ -53,6 +55,15 @@ jobs:
           curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
           .bin/postgrest --version
       - run: npm run test:db
+      - name: PostgreSQL 17 客户端（恢复演练用 pg_dump / pg_restore）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
+        run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
@@ -64,6 +75,7 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
+        shard: [1, 2]
     # 社区（P3）用例的真实后端：Postgres 17 跑全部迁移 + PostgREST 14，浏览器的 /rest/v1 请求转发过去
     services:
       postgres:
@@ -89,13 +101,13 @@ jobs:
           mkdir -p .bin
           curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
       - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - run: npx playwright test
+      - run: npx playwright test --shard=${{ matrix.shard }}/2
         env:
           PW_BROWSERS: ${{ matrix.browser }}
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.browser }}
+          name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
           path: playwright-report
           retention-days: 7
 

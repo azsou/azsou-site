@@ -28,9 +28,35 @@ let viewerPromise: Promise<Profile | null> | null = null;
 export function viewer(): Promise<Profile | null> {
   if (!viewerPromise) {
     const repo = getRepository();
-    viewerPromise = repo.auth.getSession() ? repo.profiles.me().catch(() => null) : Promise.resolve(null);
+    viewerPromise = repo.auth.getSession()
+      ? repo.profiles
+          .me()
+          .then((p) => {
+            syncProfileCache(p);
+            return p;
+          })
+          .catch(() => null)
+      : Promise.resolve(null);
   }
   return viewerPromise;
+}
+
+/**
+ * 顶栏菜单只读本地缓存的角色（不发请求）；拿到最新资料时顺手更新缓存，
+ * 这样被提升 / 撤销版主的用户不用重新登录，「管理后台」入口就会跟着变。
+ */
+function syncProfileCache(p: Profile | null) {
+  if (!p) return;
+  try {
+    const KEY = 'az-profile-v2';
+    const next = { id: p.id, displayName: p.displayName, role: p.banned ? 'user' : p.role };
+    const cur = localStorage.getItem(KEY);
+    if (cur === JSON.stringify(next)) return;
+    localStorage.setItem(KEY, JSON.stringify(next));
+    dispatchEvent(new CustomEvent('az:auth'));
+  } catch {
+    /* 隐私模式 */
+  }
 }
 export const isMod = (p: Profile | null) =>
   !!p && !p.banned && (p.role === 'moderator' || p.role === 'admin');

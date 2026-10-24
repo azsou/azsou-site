@@ -18,6 +18,8 @@ export interface TestUser {
 type Role = 'user' | 'moderator' | 'admin';
 
 interface CommunityFixtures {
+  /** true：在全部 4 个视口上跑（角色矩阵等），默认只跑桌面与 iPhone */
+  allViewports: boolean;
   db: pg.Pool;
   makeUser(name: string, opts?: { role?: Role; banned?: boolean }): Promise<TestUser>;
   signIn(page: Page, u: TestUser): Promise<void>;
@@ -88,11 +90,12 @@ export async function useRealSettings(page: Page) {
 export const uniq = (p = '') => `${p}${randomUUID().slice(0, 8)}`;
 
 export const test = base.extend<CommunityFixtures>({
-  db: async ({ page }, use, info) => {
+  allViewports: [false, { option: true }],
+  db: async ({ page, allViewports }, use, info) => {
     info.skip(!process.env.E2E_PGRST, '未配置本地 PostgREST（DATABASE_URL / POSTGREST_BIN）');
     // 控制时长：社区用例在每个引擎的桌面与 iPhone 视口上跑（平板/安卓与这两个共用断点）
     info.skip(
-      !process.env.COMMUNITY_ALL && !/-(desktop|iphone)$/.test(info.project.name),
+      !allViewports && !process.env.COMMUNITY_ALL && !/-(desktop|iphone)$/.test(info.project.name),
       '仅桌面与 iPhone 视口',
     );
     await forwardRest(page);
