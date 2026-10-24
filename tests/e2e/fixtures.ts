@@ -105,6 +105,8 @@ export const test = base.extend<Fixtures>({
         // Chromium 在脚本触发的跨文档跳转（登录后 location.assign）时偶发中断视图转场，
         // 抛出的是浏览器内部 promise，页面代码无法捕获，对用户只是「这次没有动画」。
         if (/Transition was aborted because of invalid state/.test(e.message)) return;
+        // WebKit 在跳转时取消进行中的跨域 fetch，会报「… due to access control checks.」——不是页面错误
+        if (/due to access control checks/.test(e.message)) return;
         errors.push(`pageerror: ${e.message}`);
       });
       page.on('console', (m) => {

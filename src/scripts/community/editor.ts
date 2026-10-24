@@ -119,6 +119,8 @@ export function mountEditor(ta: HTMLTextAreaElement, opts: EditorOptions): Edito
   const id = ta.id || `md-${seq}`;
   ta.id = id;
   ta.classList.add('composer__input');
+  // 草稿由我们自己保存；关掉浏览器的表单恢复，避免与草稿重复或冲突
+  ta.setAttribute('autocomplete', 'off');
   const [, max] = opts.limit;
 
   const root = h('div', { class: 'composer', 'data-mode': 'write' });
@@ -240,7 +242,8 @@ export function mountEditor(ta: HTMLTextAreaElement, opts: EditorOptions): Edito
   if (opts.initial != null) ta.value = opts.initial;
   else if (opts.draftKey) {
     const d = loadDraft(opts.draftKey);
-    if (d && !ta.value) {
+    // Firefox 刷新时会自己恢复表单值（与草稿相同），这种情况也提示「已恢复草稿」
+    if (d && (!ta.value || ta.value === d)) {
       ta.value = d;
       restored = true;
       const discard = h('button', { type: 'button', class: 'link-btn', text: '丢弃草稿' });

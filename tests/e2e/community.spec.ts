@@ -74,7 +74,8 @@ test.describe('发帖', () => {
     );
     const ld = await page.locator(`script[data-thread="${id}"]`).textContent();
     expect(JSON.parse(ld!)['@type']).toBe('DiscussionForumPosting');
-    // 出现在分类页的社区主题里
+    // 出现在分类页的社区主题里（先等主题页的请求结束，避免跳转取消请求）
+    await page.waitForLoadState('networkidle');
     await page.goto('/forum/tech/');
     await expect(page.locator('[data-db-list]').getByRole('link', { name: new RegExp(title) })).toBeVisible();
     expect(errors).toEqual([]);
@@ -351,6 +352,12 @@ test.describe('主题页', () => {
     expect(await axe(page)).toEqual([]);
     await page.locator('[data-thread-actions]').getByRole('button', { name: '举报' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+    // 等弹出动画结束再测对比度（动画中途 opacity < 1）
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .every((a) => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity),
+    );
     expect(await axe(page)).toEqual([]);
   });
 });
