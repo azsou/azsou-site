@@ -1,10 +1,47 @@
 ---
 {
   "title": "Capture Kit",
-  "kind": "浏览器扩展",
-  "icon": "REC",
-  "hue": "blue",
+  "subtitle": "网页视频录制与帧扫描",
   "summary": "网页视频录制、帧扫描与素材整理。",
+  "icon": {
+    "src": "/apps/icons/capture-kit.svg",
+    "placeholder": true
+  },
+  "hue": "blue",
+  "developer": {
+    "name": "Randy Hopkins",
+    "url": "/about/",
+    "type": "self"
+  },
+  "category": "browser-tools",
+  "tags": [
+    "browser-extension",
+    "video",
+    "recording"
+  ],
+  "platforms": [
+    {
+      "os": "browser-ext",
+      "version": "0.6",
+      "linkType": "official"
+    }
+  ],
+  "price": {
+    "model": "tbd"
+  },
+  "license": "未声明（待作者补充）",
+  "openSource": false,
+  "changelog": [
+    {
+      "version": "0.6",
+      "date": "2026-07-18",
+      "notes": [
+        "增强：录制与帧扫描增强（0.5 → 0.6）"
+      ]
+    }
+  ],
+  "featured": false,
+  "updated": "2026-07-18",
   "version": "0.6",
   "status": "开发中",
   "statusClass": "active",
@@ -12,15 +49,14 @@
   "pinyin": "",
   "art": null,
   "relatedArticles": [],
-  "updates": [
-    {
-      "change": "0.5 → 0.6",
-      "kind": "增强",
-      "note": "录制与帧扫描增强",
-      "date": "2026-07-18"
-    }
-  ],
-  "ownerReview": true
+  "ownerReview": true,
+  "ownerTodo": [
+    "下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链需附 SHA-256）",
+    "确认支持的平台与发布渠道（迁移时按 V72 类型推断）",
+    "真实应用图标（1024×1024 PNG/SVG，替换 /apps/icons/capture-kit.svg 占位图）",
+    "真实截图（桌面 / 手机）",
+    "许可协议、价格、是否开源、隐私说明"
+  ]
 }
 ---
 

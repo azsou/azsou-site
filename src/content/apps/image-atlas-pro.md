@@ -1,10 +1,47 @@
 ---
 {
   "title": "Image Atlas Pro",
-  "kind": "浏览器扩展",
-  "icon": "IA",
-  "hue": "teal",
+  "subtitle": "图片扫描与来源证据",
   "summary": "图片扫描、来源证据与相似内容识别。",
+  "icon": {
+    "src": "/apps/icons/image-atlas-pro.svg",
+    "placeholder": true
+  },
+  "hue": "teal",
+  "developer": {
+    "name": "Randy Hopkins",
+    "url": "/about/",
+    "type": "self"
+  },
+  "category": "browser-tools",
+  "tags": [
+    "browser-extension",
+    "image",
+    "chrome-mv3"
+  ],
+  "platforms": [
+    {
+      "os": "browser-ext",
+      "version": "4.2",
+      "linkType": "store"
+    }
+  ],
+  "price": {
+    "model": "tbd"
+  },
+  "license": "未声明（待作者补充）",
+  "openSource": false,
+  "changelog": [
+    {
+      "version": "4.2",
+      "date": "2026-07-18",
+      "notes": [
+        "权限：权限与识别引擎更新（4.1 → 4.2）"
+      ]
+    }
+  ],
+  "featured": false,
+  "updated": "2026-07-18",
   "version": "4.2",
   "status": "发布审查",
   "statusClass": "review",
@@ -15,15 +52,14 @@
     "chrome-mv3-domain-activation",
     "cross-origin-frame-scan"
   ],
-  "updates": [
-    {
-      "change": "4.1 → 4.2",
-      "kind": "权限",
-      "note": "权限与识别引擎更新",
-      "date": "2026-07-18"
-    }
-  ],
-  "ownerReview": true
+  "ownerReview": true,
+  "ownerTodo": [
+    "下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链需附 SHA-256）",
+    "确认支持的平台与发布渠道（迁移时按 V72 类型推断）",
+    "真实应用图标（1024×1024 PNG/SVG，替换 /apps/icons/image-atlas-pro.svg 占位图）",
+    "真实截图（桌面 / 手机）",
+    "许可协议、价格、是否开源、隐私说明"
+  ]
 }
 ---
 

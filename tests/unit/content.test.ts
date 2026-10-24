@@ -76,4 +76,59 @@ describe('content migration', () => {
     expect(flagged).toHaveLength(7);
     expect(flagged).not.toContain('fablemotion');
   });
+  it('apps use the P6 store schema with real assets on disk', () => {
+    const PLATFORMS = [
+      'ios',
+      'android',
+      'windows',
+      'macos',
+      'linux',
+      'web',
+      'cli',
+      'browser-ext',
+      'ai-bot',
+      'mcp',
+    ];
+    for (const [slug, a] of Object.entries(apps)) {
+      const d = a.data;
+      expect(fs.existsSync(path.join(root, 'public', d.icon.src)), `${slug} icon`).toBe(true);
+      expect(d.subtitle.length, slug).toBeLessThanOrEqual(30);
+      expect(d.platforms.length, slug).toBeGreaterThan(0);
+      for (const p of d.platforms) {
+        expect(PLATFORMS, slug).toContain(p.os);
+        if (p.url) expect(p.url, slug).toMatch(/^https:\/\//);
+        if (p.linkType === 'direct' && p.url)
+          expect(p.sha256, `${slug} direct link needs sha256`).toMatch(/^[0-9a-f]{64}$/i);
+      }
+      for (const s of d.screenshots ?? []) {
+        expect(fs.existsSync(path.join(root, 'public', s.src)), s.src).toBe(true);
+        // 生成的界面示意图必须标注 illustrative，文件里也写明「示意图」
+        if (
+          s.src.endsWith('.svg') &&
+          fs.readFileSync(path.join(root, 'public', s.src), 'utf8').includes('示意图')
+        )
+          expect(s.illustrative, s.src).toBe(true);
+      }
+    }
+  });
+  it('flags every placeholder icon and missing asset for the owner (ownerTodo)', () => {
+    for (const [slug, a] of Object.entries(apps)) {
+      if (a.data.icon.placeholder) {
+        expect(fs.readFileSync(path.join(root, 'public', a.data.icon.src), 'utf8'), slug).toContain(
+          '临时占位',
+        );
+        expect(a.data.ownerTodo.join(), slug).toContain('图标');
+      }
+      if (!a.data.platforms.some((p: { url?: string }) => p.url))
+        expect(a.data.ownerTodo.join(), slug).toContain('下载地址');
+    }
+  });
+  it('never uses an app slug that collides with a catalog route', () => {
+    for (const slug of Object.keys(apps))
+      expect(['page', 'category', 'platform', 'icons', 'screens', 'catalog.json']).not.toContain(slug);
+  });
+  it('keeps the E2E fixture app out of the real content directory', () => {
+    expect(Object.keys(apps)).not.toContain('e2e-fixture');
+    expect(fs.existsSync(path.join(root, 'src/content/apps/_e2e/e2e-fixture.md'))).toBe(true);
+  });
 });

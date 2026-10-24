@@ -3,6 +3,11 @@ export const url = {
   home: () => '/',
   apps: () => '/apps/',
   app: (slug: string) => `/apps/${slug}/`,
+  appsPage: (page: number) => (page <= 1 ? '/apps/' : `/apps/page/${page}/`),
+  appCategory: (cat: string) => `/apps/category/${cat}/`,
+  appPlatform: (os: string) => `/apps/platform/${os}/`,
+  /** 下载中转页（外链提示 + 计数）；不进 sitemap、noindex */
+  go: (slug: string, os: string) => `/go/${slug}/${os}/`,
   games: () => '/games/',
   game: (slug: string) => `/games/${slug}/`,
   articles: () => '/articles/',

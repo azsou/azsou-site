@@ -1,6 +1,7 @@
 ---
 import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
+import AppIcon from '@/components/apps/AppIcon.astro';
 import Art from '@/components/Art.astro';
 import Comments from '@/components/Comments.astro';
 import { getApps, getArticles, forum, type Article } from '@/lib/content';
@@ -129,9 +130,7 @@ const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
             {apps.map((x) => (
               <li>
                 <a class="list-row" href={url.app(x.id)}>
-                  <span class="app-icon app-icon--sm" data-hue={x.data.hue} aria-hidden="true">
-                    {x.data.icon}
-                  </span>
+                  <AppIcon src={x.data.icon.src} alt={`${x.data.title} 图标`} size="sm" />
                   <span class="list-row__main">
                     {x.data.title}
                     <br />

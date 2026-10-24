@@ -1484,8 +1484,14 @@
   .muted {
     color: var(--c-label-3);
   }
+  .mt-2 {
+    margin-top: var(--space-2);
+  }
   .mt-4 {
     margin-top: var(--space-4);
+  }
+  .mt-6 {
+    margin-top: var(--space-6);
   }
   .mt-8 {
     margin-top: var(--space-8);

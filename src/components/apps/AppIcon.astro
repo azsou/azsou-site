@@ -1,0 +1,23 @@
+---
+import '@/styles/apps.css';
+/** 应用图标（iOS squircle 圆角由 CSS 裁切）。alt 写「<名称> 图标」。 */
+interface Props {
+  src: string;
+  alt: string;
+  size?: 'sm' | 'md' | 'lg';
+  eager?: boolean;
+}
+const { src, alt, size = 'md', eager = false } = Astro.props;
+const px = { sm: 40, md: 64, lg: 120 }[size];
+---
+
+<img
+  class={`app-icon-img app-icon-img--${size}`}
+  src={src}
+  alt={alt}
+  width={px}
+  height={px}
+  loading={eager ? 'eager' : 'lazy'}
+  decoding={eager ? 'sync' : 'async'}
+  fetchpriority={eager ? 'high' : undefined}
+/>

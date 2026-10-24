@@ -7,7 +7,7 @@ import ArticleCard from '@/components/ArticleCard.astro';
 import WorkCard from '@/components/WorkCard.astro';
 import Art from '@/components/Art.astro';
 import Status from '@/components/Status.astro';
-import { getApps, getArticles, getGames, getWorks, forum } from '@/lib/content';
+import { catalogItem, getApps, getArticles, getGames, getWorks, forum } from '@/lib/content';
 import { SITE } from '@/lib/site';
 import { url } from '@/lib/routes';
 import updates from '@/data/updates.json';
@@ -52,11 +52,11 @@ const latestThreads = [...forum.seeds].sort((a, b) => b.date.localeCompare(a.dat
   <section class="section" aria-labelledby="h-apps">
     <div class="section__head">
       <h2 id="h-apps">应用与工具</h2>
-      <a href={url.apps()}>应用目录 →</a>
+      <a href={url.apps()}>应用商店 →</a>
     </div>
     <div class="grid grid--wide">
       {apps.slice(0, 4).map((a) => (
-        <AppCard app={a} headingLevel="h3" />
+        <AppCard item={catalogItem(a)} headingLevel="h3" />
       ))}
     </div>
   </section>

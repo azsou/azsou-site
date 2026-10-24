@@ -72,7 +72,10 @@ export function article(a: {
   };
 }
 
-/** 不写 aggregateRating / offers：站点原则是不伪造评分 */
+/**
+ * 应用的结构化数据。aggregateRating 不写进静态 HTML：评分来自数据库里的真实评价（页面加载后由 island 显示），
+ * 构建期拿不到，宁缺毋滥（站点原则：不伪造评分）。只在价格明确为免费时写 offers（price 0）。
+ */
 export function softwareApp(a: {
   name: string;
   description: string;
@@ -81,17 +84,40 @@ export function softwareApp(a: {
   version: string;
   image?: string;
   os?: string;
+  /** schema.org applicationCategory（如 MultimediaApplication） */
+  applicationCategory?: string;
+  screenshots?: string[];
+  free?: boolean;
+  datePublished?: string;
+  dateModified?: string;
+  license?: string;
+  codeRepository?: string;
+  /** 第三方开发者（不写 = 本站作者） */
+  developer?: { name: string; url?: string };
 }): Json {
   return {
     '@type': 'SoftwareApplication',
     name: a.name,
     description: a.description,
     url: abs(a.path),
-    applicationCategory: a.category,
+    applicationCategory: a.applicationCategory ?? a.category,
+    ...(a.applicationCategory ? { applicationSubCategory: a.category } : {}),
     softwareVersion: a.version,
     operatingSystem: a.os ?? 'Web',
     ...(a.image ? { image: abs(a.image) } : {}),
-    author: AUTHOR_REF,
+    ...(a.screenshots?.length ? { screenshot: a.screenshots.map((s) => abs(s)) } : {}),
+    ...(a.free ? { offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY' } } : {}),
+    ...(a.datePublished ? { datePublished: a.datePublished } : {}),
+    ...(a.dateModified ? { dateModified: a.dateModified } : {}),
+    ...(a.license && /^https:/.test(a.license) ? { license: a.license } : {}),
+    ...(a.codeRepository ? { sameAs: a.codeRepository } : {}),
+    author: a.developer
+      ? {
+          '@type': 'Organization',
+          name: a.developer.name,
+          ...(a.developer.url ? { url: a.developer.url } : {}),
+        }
+      : AUTHOR_REF,
   };
 }
 

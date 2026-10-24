@@ -1,32 +1,36 @@
 ---
-import type { App } from '@/lib/content';
-import { url } from '@/lib/routes';
+import type { CatalogItem } from '@/lib/app-store';
+import { PLATFORM_LABEL } from '@/lib/app-store';
+import AppIcon from './apps/AppIcon.astro';
 import Status from './Status.astro';
 interface Props {
-  app: App;
+  item: CatalogItem;
   headingLevel?: 'h2' | 'h3';
 }
-const { app, headingLevel = 'h2' } = Astro.props;
+/*
+ * 与 src/scripts/apps/card.ts 的 renderCard() 输出同一套结构（目录筛选在浏览器里重新渲染卡片）。
+ * 评分 / 下载数一行由 island 填入真实数据；没有数据时保持空行（预留高度，不推动布局）。
+ */
+const { item, headingLevel = 'h2' } = Astro.props;
 const H = headingLevel;
-const d = app.data;
 ---
 
-<article class="card card--row">
-  <span class="app-icon" data-hue={d.hue} aria-hidden="true">
-    {d.icon}
-  </span>
+<article class="card card--row app-card" data-app={item.slug}>
+  <AppIcon src={item.icon} alt={item.iconAlt} />
   <div class="card__body">
     <H class="card__title">
-      <a class="card__link" href={url.app(app.id)}>
-        {d.title}
+      <a class="card__link" href={item.url}>
+        {item.title}
       </a>
     </H>
-    <p class="card__text">{d.summary}</p>
+    <p class="card__text">{item.subtitle}</p>
     <div class="card__meta">
-      <span>{d.kind}</span>
+      <span>{item.categoryLabel}</span>
       <span aria-hidden="true">·</span>
-      <span>{d.version}</span>
-      <Status cls={d.statusClass} text={d.status} />
+      <span>{item.priceLabel}</span>
+      <Status cls={item.statusClass as 'active'} text={item.status} />
     </div>
+    <p class="app-card__platforms">{item.platforms.map((p) => PLATFORM_LABEL[p]).join(' · ')}</p>
+    <p class="app-card__stats" data-card-stats></p>
   </div>
 </article>

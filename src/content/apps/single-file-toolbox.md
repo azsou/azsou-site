@@ -1,10 +1,46 @@
 ---
 {
   "title": "单文件工具箱",
-  "kind": "单文件 App",
-  "icon": "1F",
-  "hue": "orange",
+  "subtitle": "下载即用的单文件工具集",
   "summary": "下载后直接运行的实用工具集合。",
+  "icon": {
+    "src": "/apps/icons/single-file-toolbox.svg",
+    "placeholder": true
+  },
+  "hue": "orange",
+  "developer": {
+    "name": "Randy Hopkins",
+    "url": "/about/",
+    "type": "self"
+  },
+  "category": "utilities",
+  "tags": [
+    "single-file",
+    "offline"
+  ],
+  "platforms": [
+    {
+      "os": "web",
+      "version": "12 Apps",
+      "linkType": "direct"
+    }
+  ],
+  "price": {
+    "model": "tbd"
+  },
+  "license": "未声明（待作者补充）",
+  "openSource": false,
+  "changelog": [
+    {
+      "version": "12 Apps",
+      "date": "2026-07-17",
+      "notes": [
+        "新增：新增 3 个工具（9 → 12 Apps）"
+      ]
+    }
+  ],
+  "featured": false,
+  "updated": "2026-07-17",
   "version": "12 Apps",
   "status": "可用",
   "statusClass": "stable",
@@ -14,15 +50,13 @@
   "relatedArticles": [
     "pinyin-initial-search"
   ],
-  "updates": [
-    {
-      "change": "9 → 12 Apps",
-      "kind": "新增",
-      "note": "新增 3 个工具",
-      "date": "2026-07-17"
-    }
-  ],
-  "ownerReview": true
+  "ownerReview": true,
+  "ownerTodo": [
+    "下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链需附 SHA-256）",
+    "真实应用图标（1024×1024 PNG/SVG，替换 /apps/icons/single-file-toolbox.svg 占位图）",
+    "真实截图（桌面 / 手机）",
+    "许可协议、价格、是否开源、隐私说明"
+  ]
 }
 ---
 
