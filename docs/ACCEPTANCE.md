@@ -67,12 +67,12 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 
 ## 5. 性能与 SEO
 
-| #   | 检查项                                                                                   | 证据                                                                   | 状态 |
-| --- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---- |
-| 5.1 | Lighthouse 移动端（慢速 4G + 4× CPU）16 个页面：性能 / 无障碍 / 最佳实践 / SEO 均 ≥ 95   | CI lighthouse（`lighthouserc.cjs`，每页 3 次取中位数），报告为 CI 产物 | ✅   |
-| 5.2 | LCP < 2.0 s、CLS < 0.05（同上，逐页断言）                                                | 同上                                                                   | ✅   |
-| 5.3 | 每页独立 title / description / canonical、OG 图、JSON-LD、sitemap-index、RSS、robots.txt | `tests/unit/dates-routes-seo.test.ts`、`features.spec.ts`              | ✅   |
-| 5.4 | 提交站点地图到 Google / Bing / 百度                                                      | MIGRATION.md §8                                                        | 🟡   |
+| #   | 检查项                                                                                                                                              | 证据                                                                   | 状态 |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---- |
+| 5.1 | Lighthouse 移动端（慢速 4G + 4× CPU）16 个页面：性能 / 无障碍 / 最佳实践 ≥ 95；可收录页面 SEO ≥ 95（发帖 / 搜索 / 登录 / 404 为 noindex，SEO 不计） | CI lighthouse（`lighthouserc.cjs`，每页 3 次取中位数），报告为 CI 产物 | ✅   |
+| 5.2 | LCP < 2.0 s、CLS < 0.05（同上，逐页断言）                                                                                                           | 同上                                                                   | ✅   |
+| 5.3 | 每页独立 title / description / canonical、OG 图、JSON-LD、sitemap-index、RSS、robots.txt                                                            | `tests/unit/dates-routes-seo.test.ts`、`features.spec.ts`              | ✅   |
+| 5.4 | 提交站点地图到 Google / Bing / 百度                                                                                                                 | MIGRATION.md §8                                                        | 🟡   |
 
 ## 6. 备份与恢复
 

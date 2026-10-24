@@ -28,7 +28,7 @@ npm run size         # 首屏 JS / CSS 体积与预算
 npx playwright install --with-deps
 npm run test:e2e     # Playwright：chromium / firefox / webkit × 1440 / 834 / 390 / 360，全部路由 + axe
 npm run test:csp     # CSP 内联脚本哈希与安全头（改了内联脚本后：npm run csp:update）
-npm run test:lhci    # Lighthouse CI：16 个页面，四项 ≥ 95
+npm run test:lhci    # Lighthouse CI：16 个页面，四项 ≥ 95（noindex 页面不计 SEO）
 ```
 
 - 社区（发帖/回帖/通知…）用例连真实后端：设置 `DATABASE_URL`（Postgres 超级用户，`npm run db:local` 可起一个）与

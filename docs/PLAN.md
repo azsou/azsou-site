@@ -82,7 +82,7 @@
 - [x] 编辑器图片上传——0010：Supabase Storage 公开读桶 `ugc-images`（2 MB，jpeg/png/webp/gif）+ 存储 RLS（只能传到自己的 `<uid>/` 目录、文件名白名单、10 分钟 10 张 / 24 小时 50 张限流、本人或版主删除）；编辑器工具栏选图 / 粘贴 / 拖入，客户端缩到最长边 1600 并转 WebP，填写替代文字（默认取文件名）；渲染与净化只放行本站桶的图。本地 / CI 用 `db/shim/plain.sql` 的 Storage 替身测 RLS，E2E 模拟 storage-api；**真实 Storage 需在 Vercel 预览上人工验证一次**（ACCEPTANCE 2.10）
 - [x] 0011：停用的论坛分类在数据库层拦截新主题 / 移入（版主除外，V72 兼容）
 - [x] T5.1 全量回归（所有端、所有角色）——角色矩阵 E2E（匿名 / 用户 / 被封禁 / 版主 / 管理员 × 3 引擎 × 4 视口）、图片上传 E2E、安全 E2E；CI 的 E2E 每个引擎分 2 片
-- [x] T5.2 性能与 SEO 最终验收（Lighthouse ≥ 95）——16 个页面移动端四项 ≥ 95、LCP < 2.0 s、CLS < 0.05；严格 CSP（内联脚本哈希，`scripts/check-csp.mjs` 校验构建产物与线上）
+- [x] T5.2 性能与 SEO 最终验收（Lighthouse ≥ 95）——16 个页面移动端性能 / 无障碍 / 最佳实践 ≥ 95、可收录页面 SEO ≥ 95（noindex 页面不计 SEO）、LCP < 2.0 s、CLS < 0.05；严格 CSP（内联脚本哈希，`scripts/check-csp.mjs` 校验构建产物与线上）
 - [x] T5.3 数据库备份 Action（pg_dump，每周一 03:30 北京时间，产物保留 30 天，可选 gpg 加密）、恢复脚本与每次 CI 的恢复演练、迁移状态核对 `db/verify/status.sql`、迁移手册（docs/MIGRATION.md、PORTABILITY.md）
 - [x] T5.4 运维文档、管理员手册、交付清单——docs/ACCEPTANCE.md、DEPLOY.md、CONFIG.md、OPERATIONS.md、BACKUP.md、README
 - [ ] T5.5 切换生产、提交 sitemap 到 Google / Bing / 百度——**站长执行**，步骤见 docs/MIGRATION.md（顺序见下方 §4）
