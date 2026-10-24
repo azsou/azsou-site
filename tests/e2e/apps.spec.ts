@@ -50,22 +50,36 @@ const catalogReady = (page: Page) =>
   expect(page.locator('[data-catalog-filter]')).toHaveAttribute('data-ready', 'yes');
 
 test.describe('应用详情页', () => {
-  test('FableMotion：头部、未提供下载地址时不出现下载链接、暂无评分、版本历史、结构化数据', async ({
+  test('FableMotion：头部（真实图标）、即将推出 + 上线通知、暂无评分、版本历史、结构化数据', async ({
     page,
     errors,
   }) => {
     await page.goto('/apps/fablemotion/');
     await expect(page.locator('h1')).toHaveText('FableMotion');
     await expect(page.locator('.app-hero__subtitle')).toHaveText('时间轴与关键帧动画编辑器');
-    await expect(page.locator('.app-hero .app-icon-img')).toHaveAttribute(
-      'src',
-      '/apps/icons/fablemotion.svg',
+    // 真实图标：<picture> 输出 AVIF / WebP 的 1x / 2x，不是临时图标
+    const icon = page.locator('.app-hero .app-icon-img');
+    await expect(icon).toHaveAttribute(
+      'srcset',
+      /fablemotion-128\.webp 1x, \/apps\/icons\/fablemotion-256\.webp 2x/,
     );
-    await expect(page.locator('.app-hero__icon-note')).toHaveText('临时图标');
-    // 没有下载地址：两个平台都显示「暂未提供」，没有去 /go/ 的链接
-    await expect(page.locator('[data-downloads] .dl-btn--off')).toHaveCount(2);
-    await expect(page.locator('[data-downloads] a')).toHaveCount(0);
-    await expect(page.locator('[data-dl-hint]')).toHaveText('开发者暂未提供下载地址。');
+    await expect(page.locator('.app-hero source[type="image/avif"]')).toHaveAttribute(
+      'srcset',
+      /fablemotion-256\.avif 2x/,
+    );
+    expect(await icon.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(page.locator('.app-hero__icon-note')).toHaveCount(0);
+    // 还没有安装包：两个平台都是禁用的「即将推出」，旁边是「上线通知」（RSS），没有去 /go/ 的链接
+    const soon = page.locator('[data-downloads] .dl-btn--soon');
+    await expect(soon).toHaveCount(2);
+    await expect(soon.first()).toHaveAttribute('aria-disabled', 'true');
+    await expect(soon.first()).toContainText('即将推出');
+    await expect(page.locator('[data-downloads] a[data-has-url]')).toHaveCount(0);
+    await expect(page.locator('[data-downloads] a[href^="/go/"]')).toHaveCount(0);
+    await expect(page.locator('[data-notify]')).toHaveAttribute('href', '/rss.xml');
+    await expect(page.locator('[data-dl-hint]')).toContainText('安装包即将推出');
+    await expect(page.locator('[data-dl-hint] a')).toHaveAttribute('href', '#discussion-project-fablemotion');
+    await expect(page.locator('#discussion-project-fablemotion')).toHaveCount(1);
     // 评分 / 下载只显示真实数据：假 Supabase 返回空 → 暂无
     await page.locator('[data-reviews]').scrollIntoViewIfNeeded(); // 评价区接近视口才加载
     await expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', 'online');
@@ -76,7 +90,7 @@ test.describe('应用详情页', () => {
     await expect(page.locator('#h-new')).toBeVisible();
     // 未登录：评价区是登录引导
     await expect(page.locator('[data-reviews-compose]')).toContainText('登录后即可评分和写评价');
-    // JSON-LD：SoftwareApplication，没有评分；示意图不作为 screenshot 写进结构化数据
+    // JSON-LD：SoftwareApplication，没有评分；概念图不作为 screenshot 写进结构化数据
     const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
     const app = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'SoftwareApplication');
     expect(app).toMatchObject({
@@ -86,7 +100,7 @@ test.describe('应用详情页', () => {
     });
     expect(app).not.toHaveProperty('aggregateRating');
     expect(app).not.toHaveProperty('screenshot');
-    expect(app).not.toHaveProperty('offers'); // 价格待定，不写 offers
+    expect(app.offers).toEqual({ '@type': 'Offer', price: '0', priceCurrency: 'CNY' }); // 免费
     const crumbs = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'BreadcrumbList');
     expect(crumbs.itemListElement.map((i: { name: string }) => i.name)).toEqual([
       '首页',
@@ -97,19 +111,27 @@ test.describe('应用详情页', () => {
     expect(errors).toEqual([]);
   });
 
-  test('截图轮播与灯箱：示意图有标注，键盘可翻页，关闭后焦点回到截图', async ({ page }) => {
+  test('截图轮播与灯箱：概念图有标注（角标、说明、alt），键盘可翻页，关闭后焦点回到截图', async ({
+    page,
+  }) => {
     await page.goto('/apps/fablemotion/');
-    await expect(page.locator('#h-shots ~ .badge, .section__head .badge--warn')).toContainText('示意图');
+    await expect(page.locator('.section__head .badge--warn')).toHaveText('概念图 · 非真实截图');
+    await expect(page.locator('.shots__caption')).toContainText('概念图');
+    const imgs = page.locator('[data-shot] img');
+    for (const alt of await imgs.evaluateAll((els) => els.map((e) => e.getAttribute('alt') ?? '')))
+      expect(alt).toContain('概念图');
+    // 第一张之后的截图懒加载
+    await expect(imgs.nth(1)).toHaveAttribute('loading', 'lazy');
     const shots = page.locator('[data-shot]');
     await expect(shots).toHaveCount(3);
-    await expect(shots.first().locator('.shot__tag')).toHaveText('示意');
+    await expect(shots.first().locator('.shot__tag')).toHaveText('概念图');
     await page.locator('[data-reviews]').scrollIntoViewIfNeeded();
     await expect(page.locator('[data-reviews]')).toHaveAttribute('data-state', /online|offline/); // island 已加载
     await shots.first().click();
     const dlg = page.locator('[data-lightbox]');
     await expect(dlg).toBeVisible();
     await expect(dlg.locator('[data-lightbox-count]')).toHaveText('1 / 3');
-    await expect(dlg.locator('figcaption')).toContainText('（示意图）');
+    await expect(dlg.locator('figcaption')).toContainText('概念图');
     await dlg.getByRole('button', { name: '下一张' }).click();
     await expect(dlg.locator('[data-lightbox-count]')).toHaveText('2 / 3');
     await page.keyboard.press('ArrowRight');
@@ -200,9 +222,13 @@ test.describe('应用目录', () => {
     await page.getByLabel('分类', { exact: true }).selectOption('browser-tools');
     await expect(cards(page)).toHaveCount(2);
     expect((await titles(page)).sort()).toEqual(['Capture Kit', 'Image Atlas Pro']);
+    // 自研应用默认都是免费：价格筛选保留这两个；再叠加「命令行」平台就没有结果
     await page.getByLabel('价格', { exact: true }).selectOption('free');
+    await expect(cards(page)).toHaveCount(2);
+    await page.getByLabel('平台', { exact: true }).selectOption('cli');
     await expect(cards(page)).toHaveCount(0);
     await expect(page.locator('[data-catalog-grid]')).toContainText('没有符合条件的应用');
+    await page.getByLabel('平台', { exact: true }).selectOption('');
     await page.getByLabel('价格', { exact: true }).selectOption('');
     await page.reload();
     await catalogReady(page);
@@ -312,7 +338,9 @@ test.describe('下载中转 /go/', () => {
     await page.waitForURL('https://example.com/e2e-web/');
   });
 
-  test('没有下载地址的平台：说明暂未提供，没有外链', async ({ page }) => {
+  test('没有下载地址的平台：说明暂未提供，没有外链；自研应用「即将推出」的平台说明上线通知', async ({
+    page,
+  }) => {
     await page.goto('/go/e2e-fixture/android/');
     await expect(page.locator('[role="note"]')).toContainText('暂未提供');
     await expect(page.locator('[data-go]')).toHaveCount(0);
@@ -320,6 +348,9 @@ test.describe('下载中转 /go/', () => {
       'href',
       '/apps/e2e-fixture/',
     );
+    await page.goto('/go/fablemotion/windows/');
+    await expect(page.locator('[role="note"]')).toContainText('即将推出');
+    await expect(page.locator('[data-go]')).toHaveCount(0);
   });
 
   test('/go/ 不进 sitemap，robots 禁止抓取', async ({ request }) => {

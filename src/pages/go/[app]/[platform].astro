@@ -7,17 +7,26 @@
 import '@/styles/community.css';
 import Base from '@/layouts/Base.astro';
 import AppIcon from '@/components/apps/AppIcon.astro';
-import { getApps, type App } from '@/lib/content';
+import { getApps, getTools, type App, type Tool } from '@/lib/content';
 import { LINK_TYPE_LABEL, PLATFORM_LABEL, hostOf } from '@/lib/app-store';
 import { url } from '@/lib/routes';
 
+/** 应用与 AI 工具共用一个中转页与计数（slug 在两个集合之间唯一，见 tests/unit/content.test.ts） */
 export async function getStaticPaths() {
-  return (await getApps()).flatMap((app) =>
-    app.data.platforms.map((p) => ({ params: { app: app.id, platform: p.os }, props: { app, os: p.os } })),
+  const entries: { entry: App | Tool; kind: 'app' | 'tool' }[] = [
+    ...(await getApps()).map((entry) => ({ entry, kind: 'app' as const })),
+    ...(await getTools()).map((entry) => ({ entry, kind: 'tool' as const })),
+  ];
+  return entries.flatMap(({ entry, kind }) =>
+    entry.data.platforms.map((p) => ({
+      params: { app: entry.id, platform: p.os },
+      props: { app: entry, kind, os: p.os },
+    })),
   );
 }
-const { app, os } = Astro.props as { app: App; os: string };
+const { app, kind, os } = Astro.props as { app: App | Tool; kind: 'app' | 'tool'; os: string };
 const d = app.data;
+const back = kind === 'app' ? url.app(app.id) : url.tool(app.id);
 const p = d.platforms.find((x) => x.os === os)!;
 const host = p.url ? hostOf(p.url) : '';
 const third = d.developer.type === 'third-party';
@@ -29,21 +38,21 @@ const third = d.developer.type === 'third-party';
   noindex
   crumbs={[
     { name: '首页', path: '/' },
-    { name: '应用', path: '/apps/' },
-    { name: d.title, path: url.app(app.id) },
+    kind === 'app' ? { name: '应用', path: url.apps() } : { name: 'AI 工具', path: url.ai() },
+    { name: d.title, path: back },
     { name: `下载 · ${PLATFORM_LABEL[p.os]}`, path: url.go(app.id, p.os) },
   ]}
 >
   <section class="go-page panel" data-go-page data-app={app.id} data-os={p.os}>
     <div class="go-page__head">
-      <AppIcon src={d.icon.src} alt={`${d.title} 图标`} size="md" eager />
+      <AppIcon src={d.icon.src} variants={d.icon.variants} alt={`${d.title} 图标`} size="md" eager />
       <div>
         <p class="eyebrow">
           {PLATFORM_LABEL[p.os]} · {LINK_TYPE_LABEL[p.linkType]}
         </p>
         <h1 class="go-page__title">{d.title}</h1>
         <p class="muted">
-          版本 {p.version}
+          {p.version ? `版本 ${p.version}` : '版本随官方更新'}
           {p.size && ` · ${p.size}`}
           {p.arch && ` · ${p.arch}`}
         </p>
@@ -60,8 +69,8 @@ const third = d.developer.type === 'third-party';
           <a class="btn btn--primary" href={p.url} rel="nofollow noopener" data-go>
             继续前往 {host}
           </a>
-          <a class="btn" href={url.app(app.id)}>
-            返回应用页
+          <a class="btn" href={back}>
+            {kind === 'app' ? '返回应用页' : '返回工具页'}
           </a>
         </div>
         <p class="data-status mt-4" data-go-status role="status"></p>
@@ -104,11 +113,13 @@ const third = d.developer.type === 'third-party';
     ) : (
       <>
         <p class="notice mt-6" role="note">
-          开发者暂未提供 {d.title} 的{PLATFORM_LABEL[p.os]}下载地址。地址公布后，这里会显示来源与校验值。
+          {p.availability === 'coming-soon'
+            ? `${d.title} 的${PLATFORM_LABEL[p.os]}版本即将推出。安装包公布后，这里会显示来源与校验值；可以订阅本站 RSS 获取上线通知。`
+            : `开发者暂未提供 ${d.title} 的${PLATFORM_LABEL[p.os]}下载地址。地址公布后，这里会显示来源与校验值。`}
         </p>
         <div class="btn-row mt-6">
-          <a class="btn btn--primary" href={url.app(app.id)}>
-            返回应用页
+          <a class="btn btn--primary" href={back}>
+            {kind === 'app' ? '返回应用页' : '返回工具页'}
           </a>
         </div>
       </>

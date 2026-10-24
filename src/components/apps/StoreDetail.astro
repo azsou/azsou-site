@@ -1,0 +1,428 @@
+---
+/**
+ * App Store 式详情页主体（/apps/<slug>/ 自研应用与 /ai/<slug>/ 第三方 AI 工具共用）。
+ * 头部（图标 + 名称 + 开发者 + 下载按钮）、统计条、截图、介绍、新功能、评价、信息表、隐私、版本历史、FAQ、相关条目、评论。
+ * 评分 / 下载数来自真实数据（app_review_stats / app_download_counts，slug 在应用与工具之间唯一）。
+ * 相关条目与相关文章由页面通过具名 slot 传入。
+ */
+import Comments from '@/components/Comments.astro';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import Screenshots from '@/components/apps/Screenshots.astro';
+import Reviews from '@/components/apps/Reviews.astro';
+import Status from '@/components/Status.astro';
+import { LINK_TYPE_LABEL, PLATFORM_LABEL, PRICE_LABEL, hostOf, type PlatformOs } from '@/lib/app-store';
+import { url } from '@/lib/routes';
+import type { App, Tool } from '@/lib/content';
+
+interface Props {
+  kind: 'app' | 'tool';
+  slug: string;
+  data: App['data'] | Tool['data'];
+  /** 仓库里的可信 HTML 正文 */
+  body: string;
+  categoryLabel: string;
+  categoryHref: string;
+  /** 平台链接（应用 → /apps/platform/<os>/；工具没有平台页，传 null 只显示文字） */
+  platformHref: ((os: PlatformOs) => string) | null;
+}
+const { kind, slug, data: d, body, categoryLabel, categoryHref, platformHref } = Astro.props;
+const app = kind === 'app' ? (d as App['data']) : null;
+const tool = kind === 'tool' ? (d as Tool['data']) : null;
+const third = d.developer.type === 'third-party';
+const latest = d.changelog[0];
+const priceText = d.price.model === 'paid' && d.price.amount ? d.price.amount : PRICE_LABEL[d.price.model];
+const usable = d.platforms.filter((p) => p.url);
+const comingSoon = d.platforms.some((p) => !p.url && p.availability === 'coming-soon');
+const devLink = d.developer.url;
+const sizes = d.platforms.filter((p) => p.size);
+const reqs = d.platforms.filter((p) => p.requirements);
+const shotsIllustrative = d.screenshots.some((s) => s.illustrative);
+const pageKey = `${kind === 'app' ? 'project' : 'tool'}:${slug}`;
+const commentsId = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
+const version = d.version ?? '随官方更新';
+const versionSub = d.updated ?? (tool ? `核对 ${tool.lastChecked}` : '　');
+const unavailable = (p: (typeof d.platforms)[number]) =>
+  p.availability === 'coming-soon' ? '即将推出' : '暂未提供';
+const hint = usable.length
+  ? third
+    ? '会先经过一个外链提示页，再前往官方渠道。本站不托管安装包。'
+    : '下载前会经过一个外链提示页，显示来源与校验值。'
+  : comingSoon
+    ? '安装包即将推出。'
+    : '开发者暂未提供下载地址。';
+---
+
+<article class="app-page" data-app-page data-app={slug} data-kind={kind}>
+  <header class="app-hero">
+    <div class="app-hero__icon">
+      <AppIcon src={d.icon.src} variants={d.icon.variants} alt={`${d.title} 图标`} size="lg" eager />
+      {d.icon.placeholder && <span class="app-hero__icon-note">临时图标</span>}
+    </div>
+    <div class="app-hero__main">
+      <h1 class="app-hero__title">{d.title}</h1>
+      <p class="app-hero__subtitle">{d.subtitle}</p>
+      <p class="app-hero__dev">
+        {devLink ? <a href={devLink}>{d.developer.name}</a> : <span>{d.developer.name}</span>}
+        {third ? <span class="badge">第三方开发者</span> : <span class="badge">本站作者</span>}
+        {app && <Status cls={app.statusClass} text={app.status} />}
+      </p>
+      <div class="app-downloads" data-downloads>
+        {d.platforms.map((p) =>
+          p.url ? (
+            <a
+              class:list={['btn', 'dl-btn', { 'btn--primary': p.os === usable[0]?.os }]}
+              href={url.go(slug, p.os)}
+              rel="nofollow"
+              data-os={p.os}
+              data-has-url
+            >
+              <span>{p.linkType === 'web' ? '打开' : '获取'}</span>
+              <span class="dl-btn__os">{PLATFORM_LABEL[p.os]}</span>
+            </a>
+          ) : (
+            <span
+              class:list={[
+                'btn',
+                'dl-btn',
+                'dl-btn--off',
+                { 'dl-btn--soon': p.availability === 'coming-soon' },
+              ]}
+              data-os={p.os}
+              aria-disabled="true"
+            >
+              <span class="dl-btn__os">{PLATFORM_LABEL[p.os]}</span>
+              <span>{unavailable(p)}</span>
+            </span>
+          ),
+        )}
+        {comingSoon && (
+          <a class="btn dl-btn dl-notify" href={url.rss()} data-notify>
+            <span>上线通知</span>
+            <span class="dl-btn__os">RSS 订阅</span>
+          </a>
+        )}
+      </div>
+      <p class="app-downloads__hint muted" data-dl-hint>
+        {hint}
+        {comingSoon && !usable.length && (
+          <>
+            {' '}
+            订阅 RSS 或 <a href={`#${commentsId}`}>在评论区留言</a>，上线后第一时间通知。
+          </>
+        )}
+      </p>
+    </div>
+  </header>
+
+  <dl class="app-stats" data-app-stats>
+    <div class="app-stat">
+      <dt>评分</dt>
+      <dd>
+        <span class="app-stat__value" data-rating-value>
+          —
+        </span>
+        <span class="app-stat__sub" data-rating-sub>
+          暂无评分
+        </span>
+      </dd>
+    </div>
+    <div class="app-stat">
+      <dt>{third ? '跳转' : '下载'}</dt>
+      <dd>
+        <span class="app-stat__value" data-downloads-total>
+          —
+        </span>
+        <span class="app-stat__sub">真实计数</span>
+      </dd>
+    </div>
+    <div class="app-stat">
+      <dt>分类</dt>
+      <dd>
+        <a class="app-stat__value" href={categoryHref}>
+          {categoryLabel}
+        </a>
+        <span class="app-stat__sub">{d.tags.length ? `#${d.tags[0]}` : '　'}</span>
+      </dd>
+    </div>
+    <div class="app-stat">
+      <dt>版本</dt>
+      <dd>
+        <span class="app-stat__value">{version}</span>
+        <span class="app-stat__sub">{versionSub}</span>
+      </dd>
+    </div>
+    <div class="app-stat">
+      <dt>价格</dt>
+      <dd>
+        <span class="app-stat__value">{priceText}</span>
+        <span class="app-stat__sub">{d.openSource ? '开源' : '　'}</span>
+      </dd>
+    </div>
+  </dl>
+
+  {app?.ownerReview && (
+    <p class="notice mt-6" role="note">
+      本页是 v2 迁移时根据
+      V72「应用目录」已有信息补建的档案，详细介绍、真实截图、下载地址与已知问题由作者补充中。
+    </p>
+  )}
+
+  {d.screenshots.length > 0 && (
+    <section class="section" aria-labelledby="h-shots">
+      <div class="section__head">
+        <h2 id="h-shots">截图</h2>
+        {shotsIllustrative && <span class="badge badge--warn">概念图 · 非真实截图</span>}
+      </div>
+      <Screenshots title={d.title} shots={d.screenshots} />
+      {shotsIllustrative && (
+        <p class="muted mt-2 shots__caption">
+          以上为界面概念图，用于说明功能方向，不代表最终界面；真实截图会在作者提供后替换。
+        </p>
+      )}
+    </section>
+  )}
+
+  <section class="section" aria-labelledby="h-about">
+    <h2 id="h-about">{third ? '介绍与点评' : '介绍'}</h2>
+    <div class="prose mt-4">
+      <Fragment set:html={body} />
+    </div>
+  </section>
+
+  {latest && (
+    <section class="section" aria-labelledby="h-new">
+      <div class="section__head">
+        <h2 id="h-new">新功能</h2>
+        {d.changelog.length > 1 && <a href="#h-history">版本历史</a>}
+      </div>
+      <div class="panel whats-new">
+        <p class="whats-new__head">
+          <b>{latest.version}</b> <time datetime={latest.date}>{latest.date}</time>
+        </p>
+        <ul>
+          {latest.notes.map((n) => (
+            <li>{n}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+
+  <Reviews app={slug} title={d.title} version={d.version ?? ''} />
+
+  <section class="section" aria-labelledby="h-info">
+    <h2 id="h-info">信息</h2>
+    <dl class="info-table mt-4">
+      <div>
+        <dt>开发者</dt>
+        <dd>
+          {devLink ? <a href={devLink}>{d.developer.name}</a> : d.developer.name}
+          {third ? '（第三方）' : '（本站作者）'}
+        </dd>
+      </div>
+      <div>
+        <dt>分类</dt>
+        <dd>
+          <a href={categoryHref}>{categoryLabel}</a>
+        </dd>
+      </div>
+      <div>
+        <dt>平台</dt>
+        <dd>
+          {d.platforms.map((p, i) => (
+            <>
+              {i > 0 && '、'}
+              {platformHref ? <a href={platformHref(p.os)}>{PLATFORM_LABEL[p.os]}</a> : PLATFORM_LABEL[p.os]}
+              {p.version && p.version !== d.version && <span class="muted">（{p.version}）</span>}
+            </>
+          ))}
+        </dd>
+      </div>
+      {!third && (
+        <div>
+          <dt>大小</dt>
+          <dd>
+            {sizes.length
+              ? sizes
+                  .map((p) => `${PLATFORM_LABEL[p.os]} ${p.size}${p.arch ? `（${p.arch}）` : ''}`)
+                  .join('；')
+              : '开发者未提供'}
+          </dd>
+        </div>
+      )}
+      <div>
+        <dt>兼容性</dt>
+        <dd>
+          {reqs.length
+            ? reqs.map((p) => `${PLATFORM_LABEL[p.os]}：${p.requirements}`).join('；')
+            : '开发者未提供'}
+        </dd>
+      </div>
+      <div>
+        <dt>获取方式</dt>
+        <dd>
+          {d.platforms
+            .map(
+              (p) =>
+                `${PLATFORM_LABEL[p.os]}：${LINK_TYPE_LABEL[p.linkType]}${p.url ? `（${hostOf(p.url)}）` : `（${unavailable(p)}）`}`,
+            )
+            .join('；')}
+        </dd>
+      </div>
+      <div>
+        <dt>价格</dt>
+        <dd>
+          {priceText}
+          {d.price.note && <span class="muted">（{d.price.note}）</span>}
+        </dd>
+      </div>
+      <div>
+        <dt>许可</dt>
+        <dd>
+          {d.license}
+          {d.openSource && '（开源）'}
+        </dd>
+      </div>
+      {d.sourceRepo && (
+        <div>
+          <dt>源代码</dt>
+          <dd>
+            <a href={d.sourceRepo} rel="noopener">
+              {hostOf(d.sourceRepo)}
+            </a>
+          </dd>
+        </div>
+      )}
+      {d.website && (
+        <div>
+          <dt>官网</dt>
+          <dd>
+            <a href={d.website} rel={d.website.startsWith('/') ? undefined : 'noopener'}>
+              {d.website.startsWith('/') ? '本站介绍页' : hostOf(d.website)}
+            </a>
+          </dd>
+        </div>
+      )}
+      {app?.releaseDate && (
+        <div>
+          <dt>首次发布</dt>
+          <dd>
+            <time datetime={app.releaseDate}>{app.releaseDate}</time>
+          </dd>
+        </div>
+      )}
+      {!third && (
+        <div>
+          <dt>最近更新</dt>
+          <dd>{d.updated ? <time datetime={d.updated}>{d.updated}</time> : '暂无记录'}</dd>
+        </div>
+      )}
+      {d.lastChecked && (
+        <div>
+          <dt>最后核对</dt>
+          <dd>
+            <time datetime={d.lastChecked}>{d.lastChecked}</time>
+          </dd>
+        </div>
+      )}
+      {third && (
+        <div>
+          <dt>图标</dt>
+          <dd>图标版权归各自所有者，取自官方网站或官方 GitHub 账号，仅用于识别。</dd>
+        </div>
+      )}
+      <div>
+        <dt>{third ? '跳转次数' : '下载次数'}</dt>
+        <dd data-downloads-detail>—</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="section" aria-labelledby="h-privacy">
+    <h2 id="h-privacy">隐私</h2>
+    <div class="panel mt-4">
+      {d.privacy ? (
+        <>
+          <p>
+            {d.privacy.collects.length
+              ? `开发者说明会收集：${d.privacy.collects.join('、')}。`
+              : '开发者说明：不收集任何数据。'}
+          </p>
+          {d.privacy.note && <p class="muted mt-2">{d.privacy.note}</p>}
+          {d.privacy.policyUrl && (
+            <p class="mt-2">
+              <a href={d.privacy.policyUrl}>查看隐私政策</a>
+            </p>
+          )}
+        </>
+      ) : third ? (
+        <p class="muted">
+          这是第三方服务，数据如何收集与使用请以 <a href={d.website}>{d.developer.name} 官方隐私政策</a>{' '}
+          为准。
+        </p>
+      ) : (
+        <p class="muted">开发者尚未提供隐私说明。</p>
+      )}
+      <p class="muted mt-2">
+        本站{third ? '跳转' : '下载'}中转只记录「某个{third ? '工具' : '应用'}的某个平台被
+        {third ? '打开' : '下载'}了一次」，不保存访客 IP（只存每日轮换的加盐哈希用于去重，2 天后删除）。
+      </p>
+    </div>
+  </section>
+
+  {d.changelog.length > 0 && (
+    <section class="section" aria-labelledby="h-history">
+      <h2 id="h-history">版本历史</h2>
+      <ol class="timeline mt-4">
+        {d.changelog.map((c) => (
+          <li>
+            <time datetime={c.date}>{c.date}</time> <b>{c.version}</b>
+            {c.notes.map((n) => (
+              <p>{n}</p>
+            ))}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
+
+  {d.faq.length > 0 && (
+    <section class="section" aria-labelledby="h-faq">
+      <h2 id="h-faq">常见问题</h2>
+      <div class="faq mt-4">
+        {d.faq.map((f) => (
+          <details>
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {app && (app.verification.length > 0 || app.issues) && (
+    <section class="section" aria-labelledby="h-verify">
+      <h2 id="h-verify">验证与已知问题</h2>
+      {app.verification.length > 0 && (
+        <ul class="list-group mt-4" role="list">
+          {app.verification.map((v) => (
+            <li class="list-row">
+              <span class="list-row__main">
+                <span class="list-row__title">{v.label}</span>
+                <br />
+                <span class="list-row__sub">{v.note}</span>
+              </span>
+              <span class="list-row__aside">{v.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {app.issues && <p class="mt-4">{app.issues}</p>}
+    </section>
+  )}
+
+  <slot name="related" />
+  <slot name="articles" />
+
+  <Comments pageKey={pageKey} />
+</article>

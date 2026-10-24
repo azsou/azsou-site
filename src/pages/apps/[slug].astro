@@ -1,24 +1,13 @@
 ---
 import Base from '@/layouts/Base.astro';
-import Comments from '@/components/Comments.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import AppCard from '@/components/AppCard.astro';
-import AppIcon from '@/components/apps/AppIcon.astro';
-import Screenshots from '@/components/apps/Screenshots.astro';
-import Reviews from '@/components/apps/Reviews.astro';
-import Status from '@/components/Status.astro';
+import StoreDetail from '@/components/apps/StoreDetail.astro';
 import { catalogItem, getApps, getArticles, platformText, relatedApps, type App } from '@/lib/content';
-import {
-  CATEGORIES,
-  CATEGORY_SCHEMA,
-  LINK_TYPE_LABEL,
-  PLATFORM_LABEL,
-  PLATFORM_SCHEMA,
-  PRICE_LABEL,
-  hostOf,
-} from '@/lib/app-store';
+import { CATEGORIES, CATEGORY_SCHEMA, PLATFORM_SCHEMA } from '@/lib/app-store';
 import { url, ogArt } from '@/lib/routes';
 import { softwareApp } from '@/lib/seo';
+import { iconSrcset } from '@/lib/icons';
 
 export async function getStaticPaths() {
   const apps = await getApps();
@@ -34,17 +23,13 @@ const image = d.art ? ogArt(d.art) : undefined;
 const path = url.app(app.id);
 const oses = d.platforms.map((p) => p.os);
 const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。当前 ${d.version} · ${d.status}。`;
-const latest = d.changelog[0];
-const priceText = d.price.model === 'paid' && d.price.amount ? d.price.amount : PRICE_LABEL[d.price.model];
-const usable = d.platforms.filter((p) => p.url);
-const devLink = d.developer.url;
-const sizes = d.platforms.filter((p) => p.size);
-const reqs = d.platforms.filter((p) => p.requirements);
-const shotsIllustrative = d.screenshots.some((s) => s.illustrative);
 ---
 
 <Base
-  preloadImage={d.icon.src}
+  preloadImage={d.icon.variants ? undefined : d.icon.src}
+  preloadSrcset={
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
+  }
   title={`${d.title} — ${d.subtitle}`}
   description={description}
   image={image}
@@ -75,335 +60,17 @@ const shotsIllustrative = d.screenshots.some((s) => s.illustrative);
     }),
   ]}
 >
-  <article class="app-page" data-app-page data-app={app.id}>
-    <header class="app-hero">
-      <div class="app-hero__icon">
-        <AppIcon src={d.icon.src} alt={`${d.title} 图标`} size="lg" eager />
-        {d.icon.placeholder && <span class="app-hero__icon-note">临时图标</span>}
-      </div>
-      <div class="app-hero__main">
-        <h1 class="app-hero__title">{d.title}</h1>
-        <p class="app-hero__subtitle">{d.subtitle}</p>
-        <p class="app-hero__dev">
-          {devLink ? <a href={devLink}>{d.developer.name}</a> : <span>{d.developer.name}</span>}
-          {d.developer.type === 'third-party' ? (
-            <span class="badge">第三方开发者</span>
-          ) : (
-            <span class="badge">本站作者</span>
-          )}
-          <Status cls={d.statusClass} text={d.status} />
-        </p>
-        <div class="app-downloads" data-downloads>
-          {d.platforms.map((p) =>
-            p.url ? (
-              <a
-                class:list={['btn', 'dl-btn', { 'btn--primary': p.os === usable[0]?.os }]}
-                href={url.go(app.id, p.os)}
-                rel="nofollow"
-                data-os={p.os}
-                data-has-url
-              >
-                <span>{p.linkType === 'web' ? '打开' : '获取'}</span>
-                <span class="dl-btn__os">{PLATFORM_LABEL[p.os]}</span>
-              </a>
-            ) : (
-              <span class="btn dl-btn dl-btn--off" data-os={p.os} aria-disabled="true">
-                <span class="dl-btn__os">{PLATFORM_LABEL[p.os]}</span>
-                <span>暂未提供</span>
-              </span>
-            ),
-          )}
-        </div>
-        <p class="app-downloads__hint muted" data-dl-hint>
-          {usable.length ? '下载前会经过一个外链提示页，显示来源与校验值。' : '开发者暂未提供下载地址。'}
-        </p>
-      </div>
-    </header>
-
-    <dl class="app-stats" data-app-stats>
-      <div class="app-stat">
-        <dt>评分</dt>
-        <dd>
-          <span class="app-stat__value" data-rating-value>
-            —
-          </span>
-          <span class="app-stat__sub" data-rating-sub>
-            暂无评分
-          </span>
-        </dd>
-      </div>
-      <div class="app-stat">
-        <dt>下载</dt>
-        <dd>
-          <span class="app-stat__value" data-downloads-total>
-            —
-          </span>
-          <span class="app-stat__sub">真实计数</span>
-        </dd>
-      </div>
-      <div class="app-stat">
-        <dt>分类</dt>
-        <dd>
-          <a class="app-stat__value" href={url.appCategory(d.category)}>
-            {CATEGORIES[d.category]}
-          </a>
-          <span class="app-stat__sub">{d.tags.length ? `#${d.tags[0]}` : '　'}</span>
-        </dd>
-      </div>
-      <div class="app-stat">
-        <dt>版本</dt>
-        <dd>
-          <span class="app-stat__value">{d.version}</span>
-          <span class="app-stat__sub">{d.updated ?? '　'}</span>
-        </dd>
-      </div>
-      <div class="app-stat">
-        <dt>价格</dt>
-        <dd>
-          <span class="app-stat__value">{priceText}</span>
-          <span class="app-stat__sub">{d.openSource ? '开源' : '　'}</span>
-        </dd>
-      </div>
-    </dl>
-
-    {d.ownerReview && (
-      <p class="notice mt-6" role="note">
-        本页是 v2 迁移时根据
-        V72「应用目录」已有信息补建的档案，详细介绍、截图、下载地址与已知问题由作者补充中。
-      </p>
-    )}
-
-    {d.screenshots.length > 0 && (
-      <section class="section" aria-labelledby="h-shots">
-        <div class="section__head">
-          <h2 id="h-shots">截图</h2>
-          {shotsIllustrative && <span class="badge badge--warn">示意图 · 非真实截图</span>}
-        </div>
-        <Screenshots title={d.title} shots={d.screenshots} />
-      </section>
-    )}
-
-    <section class="section" aria-labelledby="h-about">
-      <h2 id="h-about">介绍</h2>
-      <div class="prose mt-4">
-        <Fragment set:html={bodyHtml} />
-      </div>
-    </section>
-
-    {latest && (
-      <section class="section" aria-labelledby="h-new">
-        <div class="section__head">
-          <h2 id="h-new">新功能</h2>
-          {d.changelog.length > 1 && <a href="#h-history">版本历史</a>}
-        </div>
-        <div class="panel whats-new">
-          <p class="whats-new__head">
-            <b>{latest.version}</b> <time datetime={latest.date}>{latest.date}</time>
-          </p>
-          <ul>
-            {latest.notes.map((n) => (
-              <li>{n}</li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    )}
-
-    <Reviews app={app.id} title={d.title} version={d.version} />
-
-    <section class="section" aria-labelledby="h-info">
-      <h2 id="h-info">信息</h2>
-      <dl class="info-table mt-4">
-        <div>
-          <dt>开发者</dt>
-          <dd>
-            {devLink ? <a href={devLink}>{d.developer.name}</a> : d.developer.name}
-            {d.developer.type === 'third-party' ? '（第三方）' : '（本站作者）'}
-          </dd>
-        </div>
-        <div>
-          <dt>分类</dt>
-          <dd>
-            <a href={url.appCategory(d.category)}>{CATEGORIES[d.category]}</a>
-          </dd>
-        </div>
-        <div>
-          <dt>平台</dt>
-          <dd>
-            {d.platforms.map((p, i) => (
-              <>
-                {i > 0 && '、'}
-                <a href={url.appPlatform(p.os)}>{PLATFORM_LABEL[p.os]}</a>
-                {p.version !== d.version && <span class="muted">（{p.version}）</span>}
-              </>
-            ))}
-          </dd>
-        </div>
-        <div>
-          <dt>大小</dt>
-          <dd>
-            {sizes.length
-              ? sizes
-                  .map((p) => `${PLATFORM_LABEL[p.os]} ${p.size}${p.arch ? `（${p.arch}）` : ''}`)
-                  .join('；')
-              : '开发者未提供'}
-          </dd>
-        </div>
-        <div>
-          <dt>兼容性</dt>
-          <dd>
-            {reqs.length
-              ? reqs.map((p) => `${PLATFORM_LABEL[p.os]}：${p.requirements}`).join('；')
-              : '开发者未提供'}
-          </dd>
-        </div>
-        <div>
-          <dt>获取方式</dt>
-          <dd>
-            {d.platforms
-              .map(
-                (p) =>
-                  `${PLATFORM_LABEL[p.os]}：${LINK_TYPE_LABEL[p.linkType]}${p.url ? `（${hostOf(p.url)}）` : '（暂未提供）'}`,
-              )
-              .join('；')}
-          </dd>
-        </div>
-        <div>
-          <dt>价格</dt>
-          <dd>{priceText}</dd>
-        </div>
-        <div>
-          <dt>许可</dt>
-          <dd>
-            {d.license}
-            {d.openSource && '（开源）'}
-          </dd>
-        </div>
-        {d.sourceRepo && (
-          <div>
-            <dt>源代码</dt>
-            <dd>
-              <a href={d.sourceRepo} rel="noopener">
-                {hostOf(d.sourceRepo)}
-              </a>
-            </dd>
-          </div>
-        )}
-        {d.website && (
-          <div>
-            <dt>官网</dt>
-            <dd>
-              <a href={d.website}>{d.website.startsWith('/') ? '本站介绍页' : hostOf(d.website)}</a>
-            </dd>
-          </div>
-        )}
-        {d.releaseDate && (
-          <div>
-            <dt>首次发布</dt>
-            <dd>
-              <time datetime={d.releaseDate}>{d.releaseDate}</time>
-            </dd>
-          </div>
-        )}
-        <div>
-          <dt>最近更新</dt>
-          <dd>{d.updated ? <time datetime={d.updated}>{d.updated}</time> : '暂无记录'}</dd>
-        </div>
-        {d.lastChecked && (
-          <div>
-            <dt>最后核对</dt>
-            <dd>
-              <time datetime={d.lastChecked}>{d.lastChecked}</time>
-            </dd>
-          </div>
-        )}
-        <div>
-          <dt>下载次数</dt>
-          <dd data-downloads-detail>—</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section class="section" aria-labelledby="h-privacy">
-      <h2 id="h-privacy">隐私</h2>
-      <div class="panel mt-4">
-        {d.privacy ? (
-          <>
-            <p>
-              {d.privacy.collects.length
-                ? `开发者说明会收集：${d.privacy.collects.join('、')}。`
-                : '开发者说明：不收集任何数据。'}
-            </p>
-            {d.privacy.note && <p class="muted mt-2">{d.privacy.note}</p>}
-            {d.privacy.policyUrl && (
-              <p class="mt-2">
-                <a href={d.privacy.policyUrl}>查看隐私政策</a>
-              </p>
-            )}
-          </>
-        ) : (
-          <p class="muted">开发者尚未提供隐私说明。</p>
-        )}
-        <p class="muted mt-2">
-          本站下载中转只记录「某个应用的某个平台被下载了一次」，不保存访客
-          IP（只存每日轮换的加盐哈希用于去重，2 天后删除）。
-        </p>
-      </div>
-    </section>
-
-    {d.changelog.length > 0 && (
-      <section class="section" aria-labelledby="h-history">
-        <h2 id="h-history">版本历史</h2>
-        <ol class="timeline mt-4">
-          {d.changelog.map((c) => (
-            <li>
-              <time datetime={c.date}>{c.date}</time> <b>{c.version}</b>
-              {c.notes.map((n) => (
-                <p>{n}</p>
-              ))}
-            </li>
-          ))}
-        </ol>
-      </section>
-    )}
-
-    {d.faq.length > 0 && (
-      <section class="section" aria-labelledby="h-faq">
-        <h2 id="h-faq">常见问题</h2>
-        <div class="faq mt-4">
-          {d.faq.map((f) => (
-            <details>
-              <summary>{f.q}</summary>
-              <p>{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-    )}
-
-    {(d.verification.length > 0 || d.issues) && (
-      <section class="section" aria-labelledby="h-verify">
-        <h2 id="h-verify">验证与已知问题</h2>
-        {d.verification.length > 0 && (
-          <ul class="list-group mt-4" role="list">
-            {d.verification.map((v) => (
-              <li class="list-row">
-                <span class="list-row__main">
-                  <span class="list-row__title">{v.label}</span>
-                  <br />
-                  <span class="list-row__sub">{v.note}</span>
-                </span>
-                <span class="list-row__aside">{v.value}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {d.issues && <p class="mt-4">{d.issues}</p>}
-      </section>
-    )}
-
+  <StoreDetail
+    kind="app"
+    slug={app.id}
+    data={d}
+    body={bodyHtml}
+    categoryLabel={CATEGORIES[d.category]}
+    categoryHref={url.appCategory(d.category)}
+    platformHref={url.appPlatform}
+  >
     {related.length > 0 && (
-      <section class="section" aria-labelledby="h-related">
+      <section class="section" aria-labelledby="h-related" slot="related">
         <div class="section__head">
           <h2 id="h-related">相关应用</h2>
           <a href={url.appCategory(d.category)}>更多{CATEGORIES[d.category]} →</a>
@@ -415,9 +82,8 @@ const shotsIllustrative = d.screenshots.some((s) => s.illustrative);
         </div>
       </section>
     )}
-
     {articles.length > 0 && (
-      <section class="section" aria-labelledby="h-articles">
+      <section class="section" aria-labelledby="h-articles" slot="articles">
         <h2 id="h-articles">相关文章</h2>
         <div class="grid mt-4">
           {articles.map((a) => (
@@ -426,9 +92,7 @@ const shotsIllustrative = d.screenshots.some((s) => s.illustrative);
         </div>
       </section>
     )}
-
-    <Comments pageKey={`project:${app.id}`} />
-  </article>
+  </StoreDetail>
 </Base>
 
 <script>
