@@ -1,0 +1,36 @@
+---
+import Base from '@/layouts/Base.astro';
+---
+
+<Base
+  title="正在完成登录"
+  description="处理邮箱验证、密码重置与第三方登录的回跳。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '登录', path: '/login/' },
+  ]}
+>
+  <div class="auth-wrap">
+    <section class="auth-card" aria-labelledby="cb-title" data-callback>
+      <h1 id="cb-title" data-cb-title>
+        正在完成登录…
+      </h1>
+      <p class="auth-card__lede" role="status" data-cb-status>
+        请稍候，正在验证链接。
+      </p>
+      <p class="notice notice--error" role="alert" data-cb-error hidden></p>
+      <div class="btn-row" data-cb-actions hidden>
+        <a class="btn btn--primary" href="/login/">
+          返回登录
+        </a>
+        <a class="btn" href="/register/?mode=resend">
+          重新发送确认邮件
+        </a>
+      </div>
+    </section>
+  </div>
+  <script>
+    import '@/scripts/auth-pages';
+  </script>
+</Base>

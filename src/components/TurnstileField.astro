@@ -1,0 +1,15 @@
+---
+import { turnstileSiteKey } from '@/lib/turnstile-keys';
+interface Props {
+  action: 'signup' | 'recover' | 'resend';
+}
+const { action } = Astro.props;
+---
+
+<div class="field">
+  <span class="field__label">人机验证</span>
+  <div class="turnstile" data-turnstile data-sitekey={turnstileSiteKey()} data-action={action}></div>
+  <p class="field__hint" data-turnstile-hint>
+    由 Cloudflare Turnstile 提供，通常无需任何操作。
+  </p>
+</div>

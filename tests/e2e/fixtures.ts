@@ -61,6 +61,29 @@ export async function mockSupabase(page: Page, mode: 'ok' | 'down' = 'ok') {
   });
 }
 
+/** Cloudflare Turnstile 假脚本：渲染一个占位并立刻回调测试 token（与官方测试 key 的行为一致） */
+export const FAKE_TURNSTILE = `
+  (function(){
+    var widgets = {}, n = 0;
+    window.turnstile = {
+      render: function(el, o){
+        var id = 'w' + (++n); widgets[id] = o;
+        var b = document.createElement('div'); b.className = 'fake-turnstile'; b.textContent = '已通过人机验证（测试）';
+        el.appendChild(b);
+        setTimeout(function(){ o.callback && o.callback('XXXX.DUMMY.TOKEN.XXXX'); }, 20);
+        return id;
+      },
+      reset: function(id){ var o = widgets[id]; if (o) setTimeout(function(){ o.callback && o.callback('XXXX.DUMMY.TOKEN.XXXX'); }, 20); }
+    };
+    if (window.azTurnstileReady) window.azTurnstileReady();
+  })();`;
+
+export async function mockTurnstile(page: Page) {
+  await page.route('https://challenges.cloudflare.com/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: FAKE_TURNSTILE }),
+  );
+}
+
 type Fixtures = { errors: string[] };
 
 /** 每个测试自动挂上假数据，并收集控制台错误与未捕获异常 */
@@ -68,7 +91,12 @@ export const test = base.extend<Fixtures>({
   errors: [
     async ({ page }, use) => {
       const errors: string[] = [];
-      page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+      page.on('pageerror', (e) => {
+        // Chromium 在脚本触发的跨文档跳转（登录后 location.assign）时偶发中断视图转场，
+        // 抛出的是浏览器内部 promise，页面代码无法捕获，对用户只是「这次没有动画」。
+        if (/Transition was aborted because of invalid state/.test(e.message)) return;
+        errors.push(`pageerror: ${e.message}`);
+      });
       page.on('console', (m) => {
         if (
           m.type() === 'error' &&
@@ -77,6 +105,7 @@ export const test = base.extend<Fixtures>({
           errors.push(`console: ${m.text()}`);
       });
       await mockSupabase(page);
+      await mockTurnstile(page);
       await use(errors);
     },
     { auto: true },

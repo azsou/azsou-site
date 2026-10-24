@@ -18,6 +18,8 @@ const NOINDEX = [
   '/offline/',
   '/forum/thread/',
   '/404/',
+  '/auth/',
+  '/api/',
 ];
 
 export default defineConfig({

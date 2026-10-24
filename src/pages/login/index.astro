@@ -1,5 +1,70 @@
 ---
-import ComingSoon from '@/components/ComingSoon.astro';
+import Base from '@/layouts/Base.astro';
+import OAuthButtons from '@/components/OAuthButtons.astro';
 ---
 
-<ComingSoon title="登录" path="/login/" phase="P2" what="邮箱密码登录、GitHub / Google 登录。" />
+<Base
+  title="登录"
+  description="登录 AZ Studio 账户：邮箱密码，或使用 GitHub / Google 账户。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '登录', path: '/login/' },
+  ]}
+>
+  <div class="auth-wrap">
+    <section class="auth-card" aria-labelledby="login-title">
+      <h1 id="login-title">登录</h1>
+      <p class="auth-card__lede">欢迎回来。使用邮箱密码，或 GitHub / Google 账户登录。</p>
+      <p class="notice notice--info" data-already hidden>
+        你已登录为 <strong data-already-name></strong>。<a href="/settings/">前往账户设置</a>
+      </p>
+      <form class="form" data-auth-form="login" novalidate>
+        <div class="field">
+          <label for="login-email">邮箱</label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autocomplete="username email"
+            inputmode="email"
+            required
+          />
+          <p class="field__error" data-error-for="email"></p>
+        </div>
+        <div class="field">
+          <div class="field__row">
+            <label for="login-password">密码</label>
+            <a href="/reset-password/">忘记密码？</a>
+          </div>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+          <p class="field__error" data-error-for="password"></p>
+        </div>
+        <p class="notice notice--error form-status" role="alert" data-form-status></p>
+        <p class="field__hint" data-resend hidden>
+          没有收到确认邮件？
+          <a href="/register/?mode=resend" data-resend-link>
+            重新发送确认邮件
+          </a>
+        </p>
+        <button class="btn btn--primary btn--block" type="submit">
+          登录
+        </button>
+      </form>
+      <div class="divider">或</div>
+      <OAuthButtons />
+      <p class="auth-foot">
+        还没有账户？<a href="/register/">注册新账户</a>
+      </p>
+    </section>
+  </div>
+  <script>
+    import '@/scripts/auth-pages';
+  </script>
+</Base>

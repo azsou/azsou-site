@@ -17,7 +17,8 @@ const event = (email: string, meta: Record<string, unknown> = {}, provider = 'em
   user: { email, app_metadata: { provider, providers: [provider] }, user_metadata: meta },
 });
 const hook = async (e: unknown) =>
-  (await db.pool.query(`select public.az_hook_before_user_created($1::jsonb) as r`, [JSON.stringify(e)])).rows[0].r;
+  (await db.pool.query(`select public.az_hook_before_user_created($1::jsonb) as r`, [JSON.stringify(e)]))
+    .rows[0].r;
 
 describe('az_hook_before_user_created', () => {
   it('未配置密钥时放行一切（安全的默认）', async () => {
@@ -26,7 +27,10 @@ describe('az_hook_before_user_created', () => {
   describe('配置密钥后', () => {
     const SECRET = 'k'.repeat(64);
     beforeAll(async () => {
-      await db.pool.query(`insert into private.app_settings (key, value) values ('signup_ticket_secret', $1)`, [SECRET]);
+      await db.pool.query(
+        `insert into private.app_settings (key, value) values ('signup_ticket_secret', $1)`,
+        [SECRET],
+      );
     });
     it('Node 签发的票据被数据库接受（邮箱大小写不敏感）', async () => {
       const t = makeSignupTicket(SECRET, 'Alice@Example.com');
@@ -54,7 +58,9 @@ describe('az_hook_before_user_created', () => {
       const c = await db.pool.connect();
       try {
         await c.query('begin; set local role authenticated');
-        await expect(c.query(`select public.az_hook_before_user_created('{}')`)).rejects.toThrow(/permission denied/);
+        await expect(c.query(`select public.az_hook_before_user_created('{}')`)).rejects.toThrow(
+          /permission denied/,
+        );
         await c.query('rollback; begin; set local role anon');
         await expect(c.query(`select * from private.app_settings`)).rejects.toThrow(/permission denied/);
         await c.query('rollback');

@@ -63,14 +63,14 @@ const newId = () => {
  */
 export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
   const now = seed.now ?? (() => new Date().toISOString());
-  const threads = [...(seed.threads ?? [])].map((t) => ({
+  const threads: Thread[] = [...(seed.threads ?? [])].map((t) => ({
     published: true,
     locked: false,
     featured: false,
     ...t,
   }));
-  const replies = [...(seed.replies ?? [])].map((r) => ({ published: true, ...r }));
-  const comments = [...(seed.comments ?? [])].map((c) => ({ published: true, ...c }));
+  const replies: Reply[] = [...(seed.replies ?? [])].map((r) => ({ published: true, ...r }));
+  const comments: Comment[] = [...(seed.comments ?? [])].map((c) => ({ published: true, ...c }));
   const users = new Map(
     (seed.users ?? []).map((u) => [
       u.email.toLowerCase(),

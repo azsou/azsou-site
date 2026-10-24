@@ -1,6 +1,7 @@
 ---
 import { NAV } from '@/lib/site';
 import Icon from './Icon.astro';
+import UserMenu from './UserMenu.astro';
 const path = Astro.url.pathname;
 const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
 ---
@@ -31,6 +32,7 @@ const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWi
       >
         <Icon name="search" />
       </a>
+      <UserMenu />
     </div>
   </nav>
 </header>

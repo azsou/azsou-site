@@ -62,7 +62,8 @@ export async function handleGuardedAuth(
   deps: GuardedDeps,
   clientIp?: string,
 ): Promise<Response> {
-  if (!action || !ACTIONS.includes(action as GuardedAction)) return json(404, { error_code: 'not_found', msg: '未知操作' });
+  if (!action || !ACTIONS.includes(action as GuardedAction))
+    return json(404, { error_code: 'not_found', msg: '未知操作' });
   if (request.method !== 'POST') return json(405, { error_code: 'method_not_allowed', msg: '只支持 POST' });
   const origin = new URL(request.url).origin;
   // 同源检查：浏览器跨站提交会带别的 Origin
@@ -83,7 +84,8 @@ export async function handleGuardedAuth(
   const token = typeof body.captchaToken === 'string' ? body.captchaToken : '';
   if (!token) return json(400, { error_code: 'captcha_failed', msg: '缺少人机验证' });
   const v = await verifyTurnstile(token, secret, { ip: clientIp, fetch: deps.fetch });
-  if (!v.success) return json(400, { error_code: 'turnstile_failed', msg: '人机验证没有通过', codes: v.codes });
+  if (!v.success)
+    return json(400, { error_code: 'turnstile_failed', msg: '人机验证没有通过', codes: v.codes });
 
   const url = env.PUBLIC_SUPABASE_URL || deps.defaults.url;
   const key = env.PUBLIC_SUPABASE_KEY || deps.defaults.key;
@@ -92,7 +94,8 @@ export async function handleGuardedAuth(
   let payload: Record<string, unknown>;
   if (action === 'signup') {
     const password = typeof body.password === 'string' ? body.password : '';
-    if (password.length < 8 || password.length > 72) return json(400, { error_code: 'weak_password', msg: '密码长度 8–72 位' });
+    if (password.length < 8 || password.length > 72)
+      return json(400, { error_code: 'weak_password', msg: '密码长度 8–72 位' });
     const data = (body.data ?? {}) as Record<string, unknown>;
     const name = typeof data.name === 'string' ? data.name.trim().slice(0, 40) : '';
     const meta: Record<string, string> = { name };
@@ -110,15 +113,18 @@ export async function handleGuardedAuth(
   }
   let res: Response;
   try {
-    res = await (deps.fetch ?? fetch)(`${url}/auth/v1/${path}?redirect_to=${encodeURIComponent(redirectTo)}`, {
-      method: 'POST',
-      headers: {
-        apikey: key,
-        'content-type': 'application/json',
-        ...(clientIp ? { 'x-forwarded-for': clientIp } : {}),
+    res = await (deps.fetch ?? fetch)(
+      `${url}/auth/v1/${path}?redirect_to=${encodeURIComponent(redirectTo)}`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: key,
+          'content-type': 'application/json',
+          ...(clientIp ? { 'x-forwarded-for': clientIp } : {}),
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+    );
   } catch {
     return json(502, { error_code: 'upstream_unavailable', msg: '认证服务暂时不可达' });
   }

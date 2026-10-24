@@ -37,8 +37,18 @@ export async function verifyTurnstile(
   const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 8000);
   try {
     const res = await (opts.fetch ?? fetch)(SITEVERIFY_URL, { method: 'POST', body, signal: ctrl.signal });
-    const j = (await res.json()) as { success?: boolean; 'error-codes'?: string[]; hostname?: string; action?: string };
-    return { success: j.success === true, codes: j['error-codes'] ?? [], hostname: j.hostname, action: j.action };
+    const j = (await res.json()) as {
+      success?: boolean;
+      'error-codes'?: string[];
+      hostname?: string;
+      action?: string;
+    };
+    return {
+      success: j.success === true,
+      codes: j['error-codes'] ?? [],
+      hostname: j.hostname,
+      action: j.action,
+    };
   } catch (e) {
     return { success: false, codes: ['internal-error', (e as Error).name] };
   } finally {
@@ -52,13 +62,23 @@ export async function verifyTurnstile(
  * 数据库的 before-user-created 钩子（db/migrations/0007）用同一算法核对，
  * 这样绕过本站直接调 GoTrue /signup 的机器人会被拒绝。
  */
-export function makeSignupTicket(secret: string, email: string, nowSec = Math.floor(Date.now() / 1000)): string {
+export function makeSignupTicket(
+  secret: string,
+  email: string,
+  nowSec = Math.floor(Date.now() / 1000),
+): string {
   const ts = String(nowSec);
   const sig = createHmac('sha256', secret).update(`${email.trim().toLowerCase()}.${ts}`).digest('hex');
   return `${ts}.${sig}`;
 }
 
-export function checkSignupTicket(secret: string, email: string, ticket: string, nowSec = Math.floor(Date.now() / 1000), maxAgeSec = 900): boolean {
+export function checkSignupTicket(
+  secret: string,
+  email: string,
+  ticket: string,
+  nowSec = Math.floor(Date.now() / 1000),
+  maxAgeSec = 900,
+): boolean {
   const [ts, sig] = ticket.split('.');
   if (!/^\d{9,11}$/.test(ts ?? '') || !/^[0-9a-f]{64}$/.test(sig ?? '')) return false;
   if (Math.abs(nowSec - Number(ts)) > maxAgeSec) return false;

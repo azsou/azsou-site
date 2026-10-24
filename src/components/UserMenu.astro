@@ -1,0 +1,40 @@
+---
+import Icon from './Icon.astro';
+---
+
+<div class="user-menu" data-user-menu>
+  <a class="icon-btn" href="/login/" data-signed-out aria-label="登录 / 注册">
+    <Icon name="user" />
+  </a>
+  <button
+    class="avatar-btn"
+    type="button"
+    data-signed-in
+    hidden
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-controls="user-menu-pop"
+    aria-label="账户菜单"
+  >
+    <span class="avatar avatar--sm" data-initials aria-hidden="true"></span>
+  </button>
+  <div class="menu glass" id="user-menu-pop" data-menu hidden>
+    <p class="menu__head">
+      <strong data-name></strong>
+      <span data-email></span>
+    </p>
+    <div role="menu" aria-label="账户">
+      <a role="menuitem" href="/settings/">
+        账户设置
+      </a>
+      <button role="menuitem" type="button" data-signout>
+        退出登录
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/user-menu').then((m) => m.initUserMenu()), 500);
+</script>

@@ -111,6 +111,7 @@
     --c-orange: #b35c00;
     --c-purple: #7a3a99;
     --c-review: #7a4d00;
+    --c-danger: #c42b1c;
     --c-glass: rgba(250, 250, 252, 0.72);
     --c-glass-solid: #fafafc;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 1px rgba(0, 0, 0, 0.04);
@@ -149,6 +150,7 @@
       --c-orange: #ff9f0a;
       --c-purple: #bf5af2;
       --c-review: #ffd60a;
+      --c-danger: #ff7b6e;
       --c-glass: rgba(28, 28, 30, 0.72);
       --c-glass-solid: #1c1c1e;
       --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -985,6 +987,274 @@
   }
   .hero .btn-row {
     margin-top: var(--space-6);
+  }
+
+  /* ---------- 账户：表单卡片（iOS 设置风格） ---------- */
+  .auth-wrap {
+    max-width: 460px;
+    margin-inline: auto;
+  }
+  .auth-card {
+    background: var(--c-bg-elevated);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-2);
+    padding: var(--space-6);
+  }
+  .auth-card + .auth-card {
+    margin-top: var(--space-5);
+  }
+  .auth-card > h1,
+  .auth-card > h2 {
+    font-size: var(--text-large);
+    line-height: 1.25;
+    margin-bottom: var(--space-2);
+  }
+  .auth-card > h2 {
+    font-size: var(--text-title);
+  }
+  .auth-card__lede {
+    color: var(--c-label-2);
+    font-size: var(--text-ui);
+    margin-bottom: var(--space-5);
+  }
+  .auth-foot {
+    margin-top: var(--space-5);
+    text-align: center;
+    font-size: var(--text-ui);
+    color: var(--c-label-2);
+  }
+  .auth-foot a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+    padding-inline: var(--space-2);
+  }
+  .form {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .field {
+    display: grid;
+    gap: 6px;
+  }
+  .field > label,
+  .field__label {
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  .field input {
+    width: 100%;
+    min-height: var(--touch);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-separator);
+    background: var(--c-bg);
+    color: var(--c-label);
+    font: inherit;
+    font-size: 1rem; /* ≥16px：iOS 聚焦不缩放 */
+    transition:
+      border-color var(--dur-fast),
+      box-shadow var(--dur-fast);
+  }
+  .field input:focus-visible {
+    outline: none;
+    border-color: var(--c-blue);
+    box-shadow: var(--focus-ring);
+  }
+  .field input[aria-invalid='true'] {
+    border-color: var(--c-danger);
+  }
+  .field input[readonly] {
+    color: var(--c-label-2);
+  }
+  .field__hint {
+    font-size: var(--text-xs);
+    color: var(--c-label-2);
+  }
+  .field__error {
+    font-size: var(--text-xs);
+    color: var(--c-danger);
+    font-weight: 600;
+  }
+  .field__error:empty {
+    display: none;
+  }
+  .field__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+  }
+  .field__row a {
+    font-size: var(--text-sm);
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+    margin-block: calc((var(--touch) - 1.5em) / -2);
+  }
+  .check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--c-label-2);
+    min-height: var(--touch);
+    cursor: pointer;
+  }
+  .check input {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    accent-color: var(--c-accent);
+  }
+  .btn--block {
+    width: 100%;
+  }
+  .btn:disabled,
+  .btn[aria-busy='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+  .btn--danger {
+    color: var(--c-danger);
+  }
+  .btn--oauth {
+    background: var(--c-bg);
+    border: 1px solid var(--c-separator);
+  }
+  .btn--oauth svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+  .oauth-list {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--c-label-2);
+    font-size: var(--text-sm);
+    margin-block: var(--space-5);
+  }
+  .divider::before,
+  .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--c-separator);
+  }
+  .notice--error {
+    background: color-mix(in srgb, var(--c-danger) 12%, transparent);
+  }
+  .notice--ok {
+    background: color-mix(in srgb, var(--c-green) 14%, transparent);
+  }
+  .form-status:empty {
+    display: none;
+  }
+  .turnstile {
+    min-height: 65px;
+  }
+  .kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-2) var(--space-4);
+    font-size: var(--text-ui);
+    margin: 0;
+  }
+  .kv dt {
+    color: var(--c-label-2);
+  }
+  .kv dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- 顶栏用户菜单 ---------- */
+  .user-menu {
+    position: relative;
+  }
+  .avatar-btn {
+    display: inline-grid;
+    place-items: center;
+    min-width: var(--touch);
+    min-height: var(--touch);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+  }
+  .avatar-btn:hover .avatar,
+  .avatar-btn[aria-expanded='true'] .avatar {
+    background: var(--c-accent);
+    color: var(--c-accent-contrast);
+  }
+  .avatar--sm {
+    width: 32px;
+    height: 32px;
+  }
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 232px;
+    max-width: calc(100vw - 2 * var(--space-4));
+    padding: 6px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-3);
+    z-index: 60;
+    transform-origin: top right;
+    animation: menu-in var(--dur-fast) var(--ease-spring);
+  }
+  .menu[hidden] {
+    display: none;
+  }
+  .menu__head {
+    display: grid;
+    padding: var(--space-2) var(--space-3) var(--space-3);
+    margin: 0 0 4px;
+    border-bottom: 1px solid var(--c-separator);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+  .menu__head span {
+    color: var(--c-label-2);
+    overflow-wrap: anywhere;
+  }
+  .menu a,
+  .menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--c-label);
+    font: inherit;
+    font-size: var(--text-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+  .menu a:hover,
+  .menu button:hover,
+  .menu a:focus-visible,
+  .menu button:focus-visible {
+    background: var(--c-fill);
+    text-decoration: none;
+    outline: none;
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-4px);
+    }
   }
 
   /* ---------- 讨论/评论 island ---------- */
