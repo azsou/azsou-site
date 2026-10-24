@@ -7,11 +7,11 @@
 
 - 先备份，再动库。每个迁移文件自带 `begin … commit`：中途出错整文件回滚，库停在上一步的状态。
 - 每个文件都可以重复执行（`if not exists` / `create or replace` / `on conflict`）。执行失败修正后直接重跑。
-- 0002–0013 全部向后兼容 V72（CI 用 PostgREST 重放 V72 的全部请求验证）：迁移过程中和迁移之后，V72 都能正常读写。
+- 0002–0014 全部向后兼容 V72（CI 用 PostgREST 重放 V72 的全部请求验证）：迁移过程中和迁移之后，V72 都能正常读写。
 - **不要执行 `0001_baseline.sql`**——它是生产现状的精确还原，只用于本地 / CI 建库。
 
 当前状态（2026-10-24 只读核对）：`db/verify/status.sql` 的 17 项检查全部为 `false`，即 0002–0011 都还没有执行。
-P6 新增 0012（应用商店：评价 + 下载计数）与 0013（AI 工具页评论），核对项增加到 20 项。
+P6 新增 0012（应用商店：评价 + 下载计数）、0013（AI 工具页评论）与 0014（视频页评论），核对项增加到 21 项。
 
 ---
 
@@ -220,7 +220,7 @@ select pg_get_constraintdef(oid) from pg_constraint where conname = 'reports_tar
 | 注册钩子误拦正常用户            | Dashboard → Authentication → Hooks → Before User Created → Disable（立即生效）；或清空 `private.app_settings` 里的密钥（钩子放行所有人）                                                                                                                                   |
 | 数据被误删 / 库损坏（灾难恢复） | 新建一个 Supabase 项目 → `bash scripts/db-restore.sh "<新库连接串>" azsou-public-*.dump azsou-auth-users-*.dump` → Vercel 改 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY` 指向新项目并 Redeploy；Auth / Storage 设置按 CONFIG.md 重配。脚本已在 CI 里演练（见 BACKUP.md） |
 
-0002–0013 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
+0002–0014 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
 需要回到迁移前的精确状态时，用第 1 步的备份恢复到新项目（上表最后一行），不要在生产库上手工删除对象。
 
 ## 5B. AI 工具评论（0013，T6.6）
@@ -239,6 +239,22 @@ run db/migrations/0013_tool_comments.sql;        status   # comments_page_key_ch
 select pg_get_constraintdef(oid) from pg_constraint where conname = 'comments_page_key_check';  -- 含 tool
 ```
 
+## 5C. 视频页评论（0014，T6.7）
+
+```bash
+run db/migrations/0014_video_comments.sql;       status   # comments_page_key_check 允许 video:<slug>
+```
+
+- 只替换一条约束：`comments.page_key` 在 `article / game / work / project / tool` 之外允许 `video:<slug>`（/videos/<slug>/ 的讨论区）。V72 的读写不受影响；可重复执行。
+- 带保护：执行前先统计不符合新约束的 `page_key`。理论上不会有（0013 的约束更严）；万一有，迁移**跳过替换并给出 warning**，不会让整个文件失败——先人工检查那些行再重跑。
+- 视频页没有评分与下载，不涉及 0012 的表。没执行 0014 之前，/videos/ 页面照常可用，只是在视频页发评论会被数据库拒绝（页面提示发布失败）。
+
+**验证**：
+
+```sql
+select pg_get_constraintdef(oid) from pg_constraint where conname = 'comments_page_key_check';  -- 同时含 tool 与 video
+```
+
 ## 附：最终执行顺序
 
 ```
@@ -248,6 +264,7 @@ select pg_get_constraintdef(oid) from pg_constraint where conname = 'comments_pa
      → 0008_forum_search → 0009_admin → 0010_ugc_images → 0011_forum_category_guard
      → 0012_app_store（应用商店：评价 + 下载计数）
      → 0013_tool_comments（AI 工具页的评论）
+     → 0014_video_comments（视频页的评论）
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

@@ -160,6 +160,64 @@ AI 工具是另一个内容集合：`src/content/tools/<slug>.md`，网址 `http
 - `version` 一般不写（页面显示「随官方更新」）；`lastChecked` 必填，每次核对官网后更新。
 - 图标：从官网（apple-touch-icon / favicon）或官方 GitHub 账号头像取，存到 `public/ai/icons/<slug>.png`（256×256，透明图标垫白底），再生成 `-{64,128,256}.{avif,webp}`，写 `"variants": true`。实在拿不到就用字母标识（如 TRAE）。不要热链外站图片。
 
+## 6B. 视频（/videos/，第三方视频嵌入）
+
+视频是内容集合 `src/content/videos/<slug>.md`，网址 `https://azsou.com/videos/<slug>/`。文件名不能叫 `category`、`page`。
+
+**原则**
+
+- 只收录**可公开嵌入**的视频，优先官方频道。本站不下载、不转载视频，只保存缩略图与原创导读；页面注明「视频版权归原作者所有」。
+- **不写播放量、点赞数**（会过期，也无法核实）。
+- 标题、频道、可嵌入逐个用 YouTube oEmbed 核对；`duration`（时长）与 `published`（发布时间）**只写核实过的值**——时长取自频道 / 播放列表页，发布时间取自频道 RSS；查不到就不写，页面与结构化数据会自动省略。
+- `summary` 80–150 字、正文至少两段导读 + 一个「看点」列表，**自己写**，不要翻译官方简介。没看过的内容不要写成确定的结论，用「按官方简介」「以视频内容为准」之类的说法。
+- `chapters` 只收录作者在视频简介里给出的时间点（标题可以翻译）。
+
+**最小模板**
+
+```json
+---
+{
+  "title": "中文标题（4–40 字）",
+  "originalTitle": "与 oEmbed 返回完全一致的原标题",
+  "summary": "80–150 字的原创导读……",
+  "provider": "youtube",
+  "videoId": "vLIDHi-1PVU",
+  "channel": { "name": "Anthropic", "url": "https://www.youtube.com/@anthropic-ai" },
+  "categories": ["ai-coding"],
+  "tags": ["claude-code"],
+  "duration": "12:04",
+  "published": "2025-09-26T19:48:00+00:00",
+  "chapters": [{ "t": "0:20", "label": "设计原则" }],
+  "relatedTools": ["claude-code"],
+  "lastChecked": "2026-10-25",
+  "order": 25
+}
+---
+
+<p>导读第一段……</p>
+<p>导读第二段……</p>
+<h3>看点</h3>
+<ul><li>……</li><li>……</li></ul>
+```
+
+- `categories`：`ai-coding`（AI 编程）· `gamedev`（游戏开发）· `indie`（独立游戏）· `tutorial`（教程），可多选，第一个是主分类（决定面包屑和分类页里的排序）。新增分类改 `src/lib/videos.ts` 的 `VIDEO_CATEGORIES`。
+- `relatedTools` / `relatedApps`：相关的 `/ai/<slug>/` 与 `/apps/<slug>/`（单元测试检查都存在）。
+- `owner: true`：站长本人的视频，显示在列表顶部的「我的视频」区（没有这类视频时整个区不显示）。
+- 哔哩哔哩：`"provider": "bilibili"`、`"videoId": "BV……"`。facade 已支持；**第一次加 B 站视频时**要在 `vercel.json` 的 `frame-src` 加 `https://player.bilibili.com`，并手动准备缩略图（`scripts/check-csp.mjs` 与单元测试会提醒）。
+
+**缩略图与核对**：新增或更新视频后运行
+
+```bash
+node scripts/videos/sync.mjs          # oEmbed 核对（仍存在、可嵌入、标题 / 频道一致）+ 生成缺失的缩略图
+node scripts/videos/sync.mjs --check-only   # 只核对（每周内容检查用，T9.2）
+```
+
+缩略图生成到 `public/videos/thumbs/<slug>-{480,960}.{avif,webp}`（16:9）。页面只用本地文件，不热链平台图片。
+
+**隐私 facade**：详情页首屏只有本地缩略图和一个指向原平台的链接，点击之前**不向视频平台发任何请求**（不预连接、不加载脚本）；点击后才插入 `youtube-nocookie.com`（隐私增强模式）的播放器。没有 JavaScript 时点击就是普通链接，在 YouTube 打开。
+
+**站长待补**：仓库、V72 站点数据（`legacy/`、`/workspace/projects-azsou`）里都没有找到站长本人的视频或 B 站 / YouTube 频道地址（V72 页脚的「Bilibili / YouTube」图标没有链接）。有自己的视频时，按上面的模板新建文件并写 `"owner": true` 即可，「我的视频」区会自动出现。
+
 ## 7. 本地预览与检查
 
 ```bash

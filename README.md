@@ -4,7 +4,7 @@ Astro 5 + TypeScript 静态站，部署在 Vercel。重构计划与进度见 [do
 
 > 当前分支 `v2/astro` 已完成 **P1 静态站、P2 数据层与账户、P3 论坛与评论、P4 管理后台、P5 上线准备**（图片上传、
 > 全量回归、Lighthouse ≥ 95、CSP、备份与恢复演练、交付文档）。**合并到 `main` 即上线**：先按
-> [docs/MIGRATION.md](docs/MIGRATION.md) 备份并执行生产库迁移（0002…0013，不执行 0001），验收见 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)。
+> [docs/MIGRATION.md](docs/MIGRATION.md) 备份并执行生产库迁移（0002…0014，不执行 0001），验收见 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)。
 
 ## 本地开发
 
@@ -59,7 +59,7 @@ npm run test:lhci    # Lighthouse CI：16 个页面，四项 ≥ 95（noindex �
 | `public/art/`                                  | 生成式 SVG 素材（从 V72 `AZ_ASSETS` 拆出）                                           |
 | `public/sw.js` · `public/az-sw.js`             | 新离线外壳 · 旧 SW 的自毁替身（清掉 V72 缓存）                                       |
 | `scripts/`                                     | 内容迁移、静态服务器、死链检查、体积报告、图标生成、CSP 检查、备份 / 恢复 / 演练     |
-| `db/migrations/`                               | 0001 基线（生产现状，仅本地 / CI）+ 0002…0013 增量迁移                               |
+| `db/migrations/`                               | 0001 基线（生产现状，仅本地 / CI）+ 0002…0014 增量迁移                               |
 | `db/shim/` · `db/verify/` · `db/restore/`      | Supabase 环境模拟 / 迁移状态核对 / 恢复用 SQL                                        |
 | `tests/unit`、`tests/db`、`tests/e2e`          | Vitest（单元）、Vitest（数据库）与 Playwright                                        |
 | `legacy/`                                      | V72 单文件站点与提取出的数据，仅供参考，不参与构建                                   |
