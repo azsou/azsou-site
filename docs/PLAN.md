@@ -68,15 +68,18 @@
 - [x] 限流（PT429 / HTTP 429）按数据库给出的 detail 显示中文「每 N 分钟最多 M 次」
 - [x] 测试：Vitest（净化器 32 例 XSS/语法、编辑器、仓储契约）、DB（0008 搜索/计数 RPC、PostgREST 适配器 P3 读写与旧库降级）、Playwright 社区流程连真实 Postgres + PostgREST（3 引擎 × 桌面/iPhone）
 
-### P4 管理后台
-- [ ] T4.1 后台框架与权限守卫
-- [ ] T4.2 仪表盘统计
-- [ ] T4.3 内容 CRUD + 草稿/发布 + 触发重建
-- [ ] T4.4 论坛/评论审核、举报队列
-- [ ] T4.5 用户与角色、封禁
-- [ ] T4.6 站点设置、导入导出、审计日志
+### P4 管理后台——2026-10-24 完成（v2/astro）
+- [x] T4.1 后台框架与权限守卫——`/admin/*` 8 个页面（noindex、robots Disallow），侧栏导航（iPad / 手机为横向分段导航），客户端权限门只管体验，权限由 RLS + 0009 RPC 强制；版主看到概览 / 举报 / 内容 / 用户 / 官方内容，管理员另有审计 / 设置 / 导入导出
+- [x] T4.2 仪表盘统计——`admin_stats()`：用户 / 主题 / 回复 / 评论（含隐藏数）/ 待处理举报 / 近 7、30 天注册 / 封禁数；30 天注册与发帖柱状图（原生 SVG，无图表库，附可访问数据表）
+- [x] T4.3 内容管理——**范围调整**：官方内容留在 Git / Markdown（不做 CMS 写入，改动走 PR 与预览站，合并后 Vercel 自动重建）；后台「官方内容」只读清单链接 GitHub 编辑页与历史。用户内容（主题 / 回复 / 评论）表格：搜索、分类 / 隐藏 / 被举报 / 作者筛选、分页、隐藏 / 恢复 / 删除、置顶 / 精华 / 锁定、批量操作
+- [x] T4.4 举报队列——状态筛选（待处理 / 已处理 / 已驳回）、目标预览、单条与批量处理（隐藏 / 锁定 / 警告 / 封禁 N 天 / 驳回 + 处理说明，`mod_handle_reports()` 一个事务完成并写审计）
+- [x] T4.5 用户与角色、封禁——列表 / 搜索（管理员可搜邮箱）、详情页（资料、他的内容、封禁记录）、改角色（仅管理员，`admin_set_user`，不能改自己）、封禁 / 解封（原因 + 到期时间，`user_bans`，到期立即失效）、警告（站内通知）；版主只能封禁普通用户
+- [x] T4.6 站点设置（公告条、注册开关、论坛分类启用 / 顺序、限流只读展示）、导入导出（UGC JSON / CSV 不含邮箱；设置 JSON 导入导出）、审计日志（筛选 + CSV）；备份方案见 `docs/BACKUP.md`
+- [x] @提及：回复 / 评论里的 `@昵称` → `mention` 通知（最长前缀匹配，重名不通知，每条最多 5 人）
+- [ ] 编辑器图片上传（Supabase Storage）——**未做**：本地 / CI 没有可测试的 Storage 服务（PostgREST 之外还需 storage-api + 对象存储），按要求跳过，留到 P5 评估
 
 ### P5 上线与交付
+- [ ] 编辑器图片上传（Supabase Storage，需在预览环境验证）
 - [ ] T5.1 全量回归（所有端、所有角色）
 - [ ] T5.2 性能与 SEO 最终验收（Lighthouse ≥ 95）
 - [ ] T5.3 数据库备份 Action（pg_dump）与迁移手册（换库步骤）
@@ -107,6 +110,16 @@
 2. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
 3. `0007_signup_guard.sql`（钩子默认不生效；v2 切换时再写入密钥并在 Dashboard 启用）
 4. `0008_forum_search.sql`（P3：pg_trgm 扩展 + 三元组索引 + `search_threads` / `thread_reply_counts` RPC；纯增量，V72 不受影响）
+5. `0009_admin.sql`（P4：`user_bans` 封禁记录与到期、版主封禁 / 警告 / 批量处理举报、后台统计与列表 RPC、@提及通知、注册钩子读取「注册开关」；`is_admin` / `can_write` 等签名不变，只是把到期封禁视为已解除；V72 不受影响）
 
 （`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。）
 
+
+## 5. P4 设计说明
+
+- **权限只在数据库**：后台页面是静态外壳，权限门（未登录 / 无权限 / 仅管理员）只决定显示什么；所有读写都经 RLS 或 `SECURITY DEFINER` RPC（入口先 `az_require_moderator()`）。版主不能改角色、不能读审计日志、不能封禁版主 / 管理员；任何人不能封禁 / 降级自己。
+- **封禁**：`profiles.banned` 仍是唯一标志（V72 读它）；每次封禁在 `user_bans` 记一行（原因、到期、操作人、解除时间 / 原因）。到期后 `is_admin()` / `can_write()` / `is_moderator()` / `current_app_role()` 立即视为未封禁；后台概览打开时调用 `mod_lift_expired_bans()` 清标志并记审计（也可放进 pg_cron）。
+- **审计**：内容与举报的变更由 0004 的触发器记录；0009 的 RPC 额外写 `user.ban` / `user.unban` / `user.warn` / `report.action.*`；站点设置写 `content.*`。
+- **站点设置**：`site_content`（`kind='setting'`）三行：`announcement`、`registration`、`forum`。公开页面空闲时匿名读取（sessionStorage 缓存 5 分钟），读不到按默认值工作；公告条固定定位，不推动布局（CLS 0）。注册关闭时注册页收起表单、`/api/auth/signup` 返回 403，启用注册钩子后 GoTrue 直连注册（含第三方首次登录）也被拒绝。论坛分类的「停用」目前只在发帖页生效（数据库不拦截旧客户端，V72 仍可发到任意分类）。
+- **导出不含邮箱**：导出只读 `profiles` 等 public 表；邮箱只在 `auth.users`，只有 `mod_list_users()` 对管理员返回（用于搜索）。
+- **测试隔离**：E2E 里站点设置是全局状态，公开页面读设置默认被截成「默认设置」，只有设置用例显式读真实值，且这些用例串行、只在桌面视口跑。
