@@ -32,6 +32,7 @@ create schema if not exists auth;
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 grant usage on schema auth to anon, authenticated, service_role;
+grant usage on schema extensions to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
 
 create table if not exists auth.users (

@@ -458,6 +458,10 @@ describe('(5)(6)(7) 结构约定', () => {
       'like_summary:anon',
       'like_summary:authenticated',
       'mark_notifications_read:authenticated',
+      'search_threads:anon',
+      'search_threads:authenticated',
+      'thread_reply_counts:anon',
+      'thread_reply_counts:authenticated',
       'unread_notification_count:authenticated',
     ]);
   });
