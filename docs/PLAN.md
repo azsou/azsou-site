@@ -107,7 +107,7 @@ v2 原则不变：
 - [x] T6.3 下载中转 `/go/[app]/[platform]/`——外链提示中间页、SHA-256、真实下载计数（Supabase RPC）、限流、过滤爬虫、按钮附近不放广告
 - [x] T6.4 评分与评论——迁移 0012：`app_reviews`（1–5 星 + 文字，每人每个应用一条，RLS，复用举报 / 审核）、聚合视图、`app_download_counts` 表 + 计数 RPC
 - [x] T6.5 应用目录——按平台 / 分类 / 价格筛选，按热门 / 最新 / 评分排序，静态分页 `/apps/page/2/`，分类与平台落地页
-- [ ] T6.6 AI 工具栏目 `/ai/`——AI Agent、Vibe Coding、CLI、AI Bot、MCP；瀑布流卡片；只链官方地址
+- [x] T6.6 AI 工具栏目 `/ai/`——AI Agent、Vibe Coding、CLI、AI Bot、MCP；瀑布流卡片；只链官方地址（2026-10-25：内容集合 `tools` 30 个工具，原创介绍 + 逐个核对官网；分类页 `/ai/category/<分类>/`、价格 / 开源筛选；详情页与应用共用布局、评价与 `/go/` 计数；迁移 0013 让讨论区挂在 `tool:<slug>`）。同日按站长授权补齐 8 个自研应用的图标家族、概念图截图与默认档案，下载按钮改为「即将推出 + 上线通知」
 - [ ] T6.7 视频栏目 `/videos/`——B 站 / YouTube 轻量嵌入（点击才加载播放器的 facade，保证性能）
 - [ ] T6.8 首页改版——轮播 Hero、搜索 + 热门词、平台快捷入口、编辑推荐、热门应用、排行榜、AI 工具、游戏、最新文章、视频、社区动态、最新留言、友情链接
 - [ ] T6.9 视觉升级——图标体系、渐变封面、卡片动效、App Store 式排版
@@ -116,7 +116,7 @@ v2 原则不变：
 ### P7 社区与体验
 - [ ] T7.1 Ctrl+K 即时搜索（Pagefind）
 - [ ] T7.2 标签云
-- [ ] T7.3 访客留言板 `/guestbook/`（允许匿名，需 Turnstile；审核；迁移 0013）
+- [ ] T7.3 访客留言板 `/guestbook/`（允许匿名，需 Turnstile；审核；迁移 0014）
 - [ ] T7.4 SNS 图标与友链页 `/links/`（含友链申请表单）
 - [ ] T7.5 主题跟随系统 + 手动切换
 - [ ] T7.6 中英双语 `/en/`
@@ -162,13 +162,13 @@ v2 原则不变：
 2. `db/shim/supabase.sql`（只做存在性检查）
 3. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
 4. `0007_signup_guard.sql`（钩子函数，**先不启用**）
-5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）
+5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）→ `0013_tool_comments.sql`（AI 工具页评论）
 6. 每执行完一个文件跑一次 `db/verify/status.sql`：该步及之前的行都为 true
 7. 合并 PR #2（合并即上线）→ `node scripts/check-csp.mjs --url https://azsou.com`
 8. 写入 `signup_ticket_secret`，在 Dashboard 启用 Before User Created 钩子，开启邮箱确认
 9. 上线检查（MIGRATION.md §7）→ 提交站点地图 `sitemap-index.xml` 与 `forum/sitemap-threads.xml`（Google / Bing / 百度）
 
-（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0012 均可重复执行、向后兼容 V72。）
+（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0013 均可重复执行、向后兼容 V72。）
 
 
 ## 5. P4 设计说明

@@ -13,7 +13,7 @@
 - **评分和下载数不写在这里**。它们来自数据库里的真实用户评价（`app_reviews`）与真实下载计数（`app_count_download`），页面自动读取。
 - **第三方软件只链官方渠道**（官网 / 应用商店 / GitHub Release），不要把别人的安装包放到本站再分发。
 - **自研软件的直链必须附 SHA-256**（`linkType: "direct"` 时构建强制检查）。
-- **示意图必须标注**：生成的界面示意（不是真实截图）要写 `"illustrative": true`，页面会显示「示意图 · 非真实截图」。
+- **概念图必须标注**：生成的界面概念图（不是真实截图）要写 `"illustrative": true`，`alt` 里写「概念图：……」，页面会显示「概念图 · 非真实截图」角标和说明。
 - 下载按钮附近不放广告（P8 接入 AdSense 时由 `AdSlot` 组件保证）。
 
 ## 2. 新建一个应用：最小模板
@@ -67,6 +67,7 @@
 | `summary`                                     | ✅   | 列表与 SEO 描述                                                                                                                                                                   |
 | `icon.src`                                    | ✅   | `/apps/icons/<slug>.png｜svg｜webp`，正方形，建议 1024×1024；圆角由页面裁切，**图片本身不要做圆角**                                                                               |
 | `icon.placeholder`                            |      | `true` = 临时图标（页面图标下方显示「临时图标」）                                                                                                                                 |
+| `icon.variants`                               |      | `true` = 同目录有 `<slug>-{64,128,256,512}.{avif,webp}`（`scripts/icons/render.mjs` 生成），页面用 `<picture>` 按尺寸选图                                                         |
 | `hue`                                         | ✅   | 主题色：`accent` `green` `teal` `blue` `orange`                                                                                                                                   |
 | `developer`                                   | ✅   | `name`、`url`（可选，站内路径或 https）、`type`：`self`（本站作者）或 `third-party`（第三方）                                                                                     |
 | `category`                                    | ✅   | `creative` 创作工具 · `browser-tools` 浏览器工具 · `utilities` 效率工具 · `ai` AI 工具 · `dev-tools` 开发工具 · `games` 游戏（新增分类改 `src/lib/app-store.ts` 的 `CATEGORIES`） |
@@ -100,17 +101,23 @@
 | `github`   | GitHub Release 页                     | `https://github.com/azsou/x/releases/tag/v1.0.0`        |
 | `web`      | 在线使用（按钮文字是「打开」）        | `https://tool.example.com/`                             |
 
-- 没有 `url` 的平台显示「暂未提供」，不会出现可点的下载按钮。
+- 没有 `url` 的平台显示「暂未提供」，不会出现可点的下载按钮；加上 `"availability": "coming-soon"` 则显示禁用的「即将推出」，旁边出现「上线通知」（订阅 RSS，或在评论区留言）。拿到地址后填 `url`、删掉 `availability` 即可。
 - 所有下载按钮都先到中转页 `/go/<slug>/<os>/`：显示目标域名、SHA-256 与校验命令，点击「继续前往」时记一次真实下载（同一访客 24 小时内只计一次，爬虫不计），然后跳到 `url`。
 - 生成 SHA-256：Windows `certutil -hashfile 文件名 SHA256`；macOS / Linux `shasum -a 256 文件名`。把 64 位十六进制填进 `sha256`。
 - 访客打开详情页时，页面会按设备自动把最合适的平台设为主按钮（同系统优先，其次网页版 / 扩展 / 命令行）。
 
 ## 5. 图标与截图
 
-**图标**：放 `public/apps/icons/<slug>.png`（或 `.svg` / `.webp`），1024×1024，不要自带圆角和阴影。
-替换占位图标后把 `icon.placeholder` 改成 `false`，并从 `ownerTodo` 里删掉「图标」那一条。
+**图标**：放 `public/apps/icons/<slug>.png`，1024×1024，不要自带圆角和阴影（页面用 CSS 裁成 squircle）。
+再生成多尺寸版本并在档案里写 `"variants": true`：
 
-**截图**：放 `public/apps/screens/<slug>/<名字>.png｜webp｜jpg`，然后在档案里写：
+```bash
+node scripts/icons/render.mjs <放 SVG 的目录> public/apps/icons   # 每个 <slug>.svg → 1024 PNG + 512/256/128/64 的 AVIF / WebP
+```
+
+现在的 8 个图标是 2026-10-25 代为设计的统一风格图标（手工 SVG，生成脚本 `scripts/icons/own-apps.py`）。换成自己的图标时，覆盖 `<slug>.png` 并重新生成多尺寸版本。
+
+**截图**：放 `public/apps/screens/<slug>/<名字>.webp`（建议 WebP，单张 ≤ 300 KB），然后在档案里写：
 
 ```json
 "screenshots": [
@@ -119,27 +126,39 @@
 ]
 ```
 
-- `width` / `height` 写图片的真实像素（页面用它预留位置，避免加载时跳动）。
-- `device`：`desktop` / `tablet` / `phone`。
+- `width` / `height` 写图片的真实像素（页面用它预留位置，避免加载时跳动；单元测试会核对）。
+- `device`：`desktop`（建议 16:10）/ `tablet` / `phone`（建议 9:19.5）。第一张立即加载，其余懒加载。
 - `alt` 写清楚截图里是什么（给读屏用户和搜索引擎）。
-- 建议 WebP，单张 ≤ 300 KB。
-- 生成的界面示意图写 `"illustrative": true`（页面显示「示意」角标；不会写进结构化数据的 `screenshot`）。
-  FableMotion 目前的 3 张就是示意图（`public/apps/screens/fablemotion/*.svg`），拿到真实截图后替换。
+- 概念图（AI 生成的界面构想，不是真实截图）写 `"illustrative": true`，`alt` 以「<应用名> 概念图：」开头；页面显示「概念图」角标与说明，结构化数据里不会当作 `screenshot`。
+  目前 8 个应用的截图都是概念图（2026-10-25 生成），拿到真实截图后直接替换文件、把 `illustrative` 改成 `false`。
 
-## 6. 站长待补清单（2026-10-24 迁移时）
+## 6. 站长待补清单（2026-10-25 更新）
 
-8 个应用都只有 V72 目录里的信息，以下素材需要站长提供（每个应用的 `ownerTodo` 里也写了）：
+2026-10-25 站长授权代填了图标、截图与默认档案：
 
-| 应用              | 平台（迁移时推断） | 还缺                                                           |
-| ----------------- | ------------------ | -------------------------------------------------------------- |
-| FableMotion       | 网页版 / Windows   | 真实图标、真实截图（替换 3 张示意图）、下载地址、许可 / 价格   |
-| Image Atlas Pro   | 浏览器扩展（商店） | 确认平台与渠道、真实图标、截图、商店链接、许可 / 价格 / 隐私   |
-| Capture Kit       | 浏览器扩展         | 确认平台与渠道、真实图标、截图、下载地址、许可 / 价格 / 隐私   |
-| 单文件工具箱      | 网页版（直链）     | 真实图标、截图、下载地址 + SHA-256、许可 / 价格                |
-| 程序化声场        | 网页版             | 真实图标、截图、在线地址、许可 / 价格                          |
-| 职业技能树工具    | 网页版（推断）     | 确认平台、真实图标、截图、地址、许可 / 价格                    |
-| Sub2API           | 命令行（推断）     | 确认平台与渠道（GitHub Release？）、图标、截图、许可、隐私说明 |
-| Hermes 回归验收器 | 网页版（直链）     | 真实图标、截图、下载地址 + SHA-256、许可 / 价格                |
+- **图标**：8 个应用换成统一风格的正式图标（iOS squircle、渐变底、每个应用一个专属图形），不再是「临时图标」。
+- **截图**：每个应用 2–3 张 **概念图**（桌面 16:10，部分应用加手机 9:19.5），页面明确标注「概念图 · 非真实截图」。仓库和 V72 站点里都没有这些应用的可运行代码，所以无法拍真实截图。
+- **默认档案**（可随时更正）：价格「免费」；许可「保留所有权利（免费使用）」；不开源；隐私「本应用不收集个人数据，所有处理在本地完成」（Sub2API：「仅在本机转发请求，不上传对话内容」）。平台沿用迁移时的推断（Image Atlas Pro / Capture Kit 浏览器扩展、职业技能树工具网页版、Sub2API 命令行）。
+- **下载**：没有安装包的平台显示「即将推出」+「上线通知」，不会出现可点的下载按钮。
+
+现在只缺站长本人能给的东西（每个应用的 `ownerTodo` 里也写了）：
+
+1. **真实下载地址**：每个平台的官网 / 商店 / GitHub Release 链接；直链必须附 SHA-256。填上后删掉该平台的 `"availability": "coming-soon"`。
+2. **可选：真实截图**：替换 `public/apps/screens/<slug>/` 里的概念图，并把 `illustrative` 改成 `false`、`alt` 去掉「概念图」。
+3. **核对默认值**：价格、许可、是否开源、隐私说明、平台（尤其 Image Atlas Pro、Capture Kit、职业技能树工具、Sub2API 的平台与发布渠道）。有任何一项不对，直接改档案。
+
+## 6A. AI 工具（/ai/，第三方）
+
+AI 工具是另一个内容集合：`src/content/tools/<slug>.md`，网址 `https://azsou.com/ai/<slug>/`。和应用共用详情页布局、评价与 `/go/` 跳转计数，所以 **slug 不能和应用重名**（单元测试会检查）。
+
+- 只链官方渠道：`linkType` 只能是 `official` / `github` / `store` / `web`，每个平台都必须有 https 地址；不允许直链、不在本站托管安装包。
+- `developer.type` 固定 `third-party`，`developer.url` 写官网。
+- `categories`：`agent`（AI Agent）· `vibe-coding` · `cli`（CLI 工具）· `ai-bot`（AI Bot）· `mcp`，可以多选，第一个是主分类（决定面包屑和分类页里的排序）。
+- `summary`：一句话简介，40–140 字（建议 60–120），**自己写**，不要复制官网文案。
+- 正文：至少 3 段原创介绍与点评（是什么、亮点与体验、适合谁与注意事项），最后一段注明核对日期和「图标版权归各自所有者」。
+- `price.model`：`free` / `freemium` / `paid`，`price.note` 写计费方式；不写具体价格数字（会过期）。
+- `version` 一般不写（页面显示「随官方更新」）；`lastChecked` 必填，每次核对官网后更新。
+- 图标：从官网（apple-touch-icon / favicon）或官方 GitHub 账号头像取，存到 `public/ai/icons/<slug>.png`（256×256，透明图标垫白底），再生成 `-{64,128,256}.{avif,webp}`，写 `"variants": true`。实在拿不到就用字母标识（如 TRAE）。不要热链外站图片。
 
 ## 7. 本地预览与检查
 
