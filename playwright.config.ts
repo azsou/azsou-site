@@ -66,7 +66,7 @@ export default defineConfig({
   },
   projects,
   webServer: {
-    command: 'node scripts/serve.mjs 4321 dist',
+    command: 'node scripts/serve.mjs 4321 dist/client',
     url: 'http://127.0.0.1:4321/',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

@@ -15,7 +15,7 @@ const PAGES = [
 module.exports = {
   ci: {
     collect: {
-      startServerCommand: 'node scripts/serve.mjs 4322 dist',
+      startServerCommand: 'node scripts/serve.mjs 4322 dist/client',
       startServerReadyPattern: 'serving',
       url: PAGES.map((p) => BASE + p),
       numberOfRuns: 1,

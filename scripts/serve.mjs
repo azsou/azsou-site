@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const port = Number(process.argv[2] || process.env.PORT || 4321);
-const root = path.resolve(process.argv[3] || 'dist');
+const root = path.resolve(process.argv[3] || 'dist/client');
 const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
 const TYPES = {
   '.html': 'text/html; charset=utf-8',

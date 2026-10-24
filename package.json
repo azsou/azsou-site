@@ -18,7 +18,7 @@
     "test": "npm run test:unit && npm run test:links && npm run test:html && npm run test:e2e",
     "test:unit": "vitest run",
     "test:links": "node scripts/check-links.mjs",
-    "test:html": "html-validate \"dist/**/*.html\"",
+    "test:html": "html-validate \"dist/client/**/*.html\"",
     "test:e2e": "playwright test",
     "test:lhci": "lhci autorun --config=lighthouserc.cjs",
     "size": "node scripts/size-report.mjs",

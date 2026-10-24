@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { listRoutes } from './routes.mjs';
 
-const dir = process.argv[2] || 'dist';
+const dir = process.argv[2] || 'dist/client';
 const SITE = 'https://azsou.com';
 const cache = new Map();
 const read = (f) => {

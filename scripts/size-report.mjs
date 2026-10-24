@@ -5,7 +5,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { listRoutes } from './routes.mjs';
 
-const dir = 'dist';
+const dir = 'dist/client';
 const BUDGET_JS = 50 * 1024;
 const gz = (f) => zlib.gzipSync(fs.readFileSync(f)).length;
 const file = (r) => path.join(dir, r.endsWith('/') ? r + 'index.html' : r);

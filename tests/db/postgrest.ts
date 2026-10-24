@@ -46,7 +46,7 @@ export async function startPostgrest(dbName: string, port: number): Promise<Chil
       PGRST_SERVER_HOST: '127.0.0.1',
       PGRST_LOG_LEVEL: 'crit',
     },
-    stdio: ['ignore', 'ignore', 'inherit'],
+    stdio: 'ignore',
   });
   for (let i = 0; i < 150; i++) {
     try {

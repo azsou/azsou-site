@@ -28,6 +28,9 @@ begin
 end $$;
 
 create schema if not exists auth;
+-- Supabase 把扩展装在 extensions schema（pgcrypto 在 0007 的注册钩子里用到 hmac()）
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 grant usage on schema auth to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
 
