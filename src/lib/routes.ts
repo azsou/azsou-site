@@ -8,6 +8,11 @@ export const url = {
   appPlatform: (os: string) => `/apps/platform/${os}/`,
   /** 下载中转页（外链提示 + 计数）；不进 sitemap、noindex */
   go: (slug: string, os: string) => `/go/${slug}/${os}/`,
+  /** AI 工具栏目（第三方工具，只链官方地址） */
+  ai: () => '/ai/',
+  tool: (slug: string) => `/ai/${slug}/`,
+  aiCategory: (cat: string) => `/ai/category/${cat}/`,
+  rss: () => '/rss.xml',
   games: () => '/games/',
   game: (slug: string) => `/games/${slug}/`,
   articles: () => '/articles/',
@@ -33,12 +38,17 @@ export const url = {
   adminUser: (id: string) => `/admin/users/view/?id=${encodeURIComponent(id)}`,
 } as const;
 
-/** 评论 page_key（与 V72 一致：article:/game:/work:/project:<slug>）→ 页面地址；无法识别返回 null */
+/** 评论 page_key 的格式（与数据库 comments_page_key_check 一致；tool: 由迁移 0013 加入） */
+export const PAGE_KEY_RE = /^(article|game|work|project|tool):([a-z0-9-]{1,60})$/;
+
+/** 评论 page_key（V72：article:/game:/work:/project:<slug>；v2 新增 tool:<slug>）→ 页面地址；无法识别返回 null */
 export function pageKeyUrl(pageKey: string): string | null {
-  const m = /^(article|game|work|project):([a-z0-9-]{1,60})$/.exec(pageKey);
+  const m = PAGE_KEY_RE.exec(pageKey);
   if (!m) return null;
   const [, scope, slug] = m;
-  return scope === 'project' ? url.app(slug) : url[scope as 'article' | 'game' | 'work'](slug);
+  if (scope === 'project') return url.app(slug);
+  if (scope === 'tool') return url.tool(slug);
+  return url[scope as 'article' | 'game' | 'work'](slug);
 }
 
 export type RelatedType = 'app' | 'game' | 'article' | 'work';

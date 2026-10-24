@@ -21,6 +21,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: '/', label: '首页', tab: '首页', icon: 'home' },
   { href: '/apps/', label: '应用', tab: '应用', icon: 'apps' },
+  { href: '/ai/', label: 'AI 工具' },
   { href: '/games/', label: '游戏', tab: '游戏', icon: 'games' },
   { href: '/articles/', label: '文章', tab: '文章', icon: 'articles' },
   { href: '/works/', label: '作品', icon: 'works' },
@@ -32,6 +33,7 @@ export const FOOTER = [
     title: '发现',
     links: [
       { href: '/apps/', label: '应用目录' },
+      { href: '/ai/', label: 'AI 工具' },
       { href: '/games/', label: '游戏与 Demo' },
       { href: '/articles/', label: '原创文章' },
       { href: '/works/', label: '作品与视频' },

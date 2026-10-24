@@ -3,7 +3,7 @@
  * 沿用 V63 的做法（见文章《拼音首字母搜索》）：条目量小，不引拼音库。
  */
 export interface SearchItem {
-  type: 'app' | 'game' | 'article' | 'work' | 'thread' | 'page';
+  type: 'app' | 'tool' | 'game' | 'article' | 'work' | 'thread' | 'page';
   title: string;
   url: string;
   summary?: string;
@@ -13,6 +13,7 @@ export interface SearchItem {
 
 export const TYPE_LABEL: Record<SearchItem['type'], string> = {
   app: '应用',
+  tool: 'AI 工具',
   game: '游戏',
   article: '文章',
   work: '作品',

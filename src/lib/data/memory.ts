@@ -1,3 +1,4 @@
+import { PAGE_KEY_RE } from '@/lib/routes';
 import { memoryStore, type SessionStore } from './session';
 import {
   AuthError,
@@ -525,8 +526,7 @@ export function createMemoryRepository(seed: MemorySeed = {}): DataRepository {
       async create(pageKey, body) {
         const p = requireWriter();
         valid(body, LIMITS.commentBody, '评论');
-        if (!/^(article|game|work|project):[a-z0-9-]{1,60}$/.test(pageKey))
-          throw new ValidationError('页面标识不正确');
+        if (!PAGE_KEY_RE.test(pageKey)) throw new ValidationError('页面标识不正确');
         const c: Comment = {
           id: newId(),
           pageKey,

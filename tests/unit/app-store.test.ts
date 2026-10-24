@@ -15,7 +15,16 @@ import {
   sortApps,
   toQueryString,
   type CatalogItem,
+  AI_CATEGORIES,
+  AI_CATEGORY_IDS,
+  AI_CATEGORY_LEDE,
+  AI_CATEGORY_SCHEMA,
+  filterTools,
+  parseToolQuery,
+  toolQueryString,
+  type AiCategory,
 } from '@/lib/app-store';
+import { iconSrcset } from '@/lib/icons';
 
 const UA = {
   win: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36',
@@ -180,5 +189,61 @@ describe('stats & format', () => {
     expect(isSha256('a'.repeat(63))).toBe(false);
     expect(hostOf('https://github.com/x/y/releases')).toBe('github.com');
     expect(hostOf('not a url')).toBe('');
+  });
+});
+
+describe('AI 工具筛选（/ai/）', () => {
+  const tools = [
+    { slug: 'a', categories: ['cli', 'agent'], price: 'free', openSource: true },
+    { slug: 'b', categories: ['vibe-coding'], price: 'freemium', openSource: false },
+    { slug: 'c', categories: ['mcp'], price: 'free', openSource: true },
+    { slug: 'd', categories: ['ai-bot', 'agent'], price: 'paid', openSource: false },
+  ] as const satisfies readonly {
+    slug: string;
+    categories: AiCategory[];
+    price: 'free' | 'freemium' | 'paid';
+    openSource: boolean;
+  }[];
+  const slugs = (q: Parameters<typeof filterTools>[1]) =>
+    filterTools(
+      tools.map((t) => ({ ...t, categories: [...t.categories] })),
+      q,
+    ).map((t) => t.slug);
+  it('按分类（含次要分类）、价格、开源组合筛选', () => {
+    expect(slugs({})).toEqual(['a', 'b', 'c', 'd']);
+    expect(slugs({ category: 'agent' })).toEqual(['a', 'd']);
+    expect(slugs({ price: 'free' })).toEqual(['a', 'c']);
+    expect(slugs({ oss: true })).toEqual(['a', 'c']);
+    expect(slugs({ category: 'agent', oss: true })).toEqual(['a']);
+    expect(slugs({ price: 'paid', oss: true })).toEqual([]);
+  });
+  it('查询串解析：非法值忽略；序列化省略默认值', () => {
+    expect(parseToolQuery('?cat=mcp&price=free&oss=1')).toEqual({
+      category: 'mcp',
+      price: 'free',
+      oss: true,
+    });
+    expect(parseToolQuery('?cat=evil&price=gratis&oss=yes')).toEqual({ category: '', price: '', oss: false });
+    expect(toolQueryString({ price: 'freemium', oss: true })).toBe('?price=freemium&oss=1');
+    expect(toolQueryString({})).toBe('');
+  });
+  it('五个分类都有名称、说明与 schema.org 类别', () => {
+    expect(AI_CATEGORY_IDS).toEqual(['agent', 'vibe-coding', 'cli', 'ai-bot', 'mcp']);
+    for (const c of AI_CATEGORY_IDS) {
+      expect(AI_CATEGORIES[c]).toBeTruthy();
+      expect(AI_CATEGORY_LEDE[c].length).toBeGreaterThan(10);
+      expect(AI_CATEGORY_SCHEMA[c]).toMatch(/Application$/);
+    }
+  });
+});
+
+describe('图标多尺寸版本', () => {
+  it('按显示尺寸给出 1x / 2x', () => {
+    expect(iconSrcset('/ai/icons/ollama.png', 'lg', 'avif')).toBe(
+      '/ai/icons/ollama-128.avif 1x, /ai/icons/ollama-256.avif 2x',
+    );
+    expect(iconSrcset('/apps/icons/hermes.png', 'md', 'webp')).toBe(
+      '/apps/icons/hermes-64.webp 1x, /apps/icons/hermes-128.webp 2x',
+    );
   });
 });

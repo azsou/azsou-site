@@ -40,6 +40,8 @@ export const LINK_TYPE_LABEL: Record<LinkType, string> = {
   web: '在线使用',
 };
 
+const isIn = <T extends string>(list: readonly T[], v: unknown): v is T => list.includes(v as T);
+
 /** 应用分类（slug → 名称）。新增分类在这里加一行，页面与筛选自动出现 */
 export const CATEGORIES = {
   creative: '创作工具',
@@ -73,6 +75,93 @@ export const PLATFORM_SCHEMA: Record<PlatformOs, string> = {
   mcp: 'Windows, macOS, Linux',
 };
 export const CATEGORY_IDS = Object.keys(CATEGORIES) as Category[];
+
+// ------------------------------------------------------- AI 工具栏目 /ai/ ----
+
+/** AI 工具分类（/ai/ 的标签页）。一个工具可属于多个分类，第一个是主分类 */
+export const AI_CATEGORIES = {
+  agent: 'AI Agent',
+  'vibe-coding': 'Vibe Coding',
+  cli: 'CLI 工具',
+  'ai-bot': 'AI Bot',
+  mcp: 'MCP',
+} as const;
+export type AiCategory = keyof typeof AI_CATEGORIES;
+export const AI_CATEGORY_IDS = Object.keys(AI_CATEGORIES) as AiCategory[];
+/** 分类页的一句话说明（也用作 meta description 的一部分） */
+export const AI_CATEGORY_LEDE: Record<AiCategory, string> = {
+  agent: '能自己拆解任务、调用工具并持续执行的智能体平台与应用。',
+  'vibe-coding': '用自然语言描述需求、由 AI 生成和修改代码的编辑器与在线构建器。',
+  cli: '在终端里运行的 AI 编程助手与本地模型工具。',
+  'ai-bot': '面向日常对话、写作与问答的 AI 助手应用。',
+  mcp: 'Model Context Protocol 服务器：让 AI 助手安全地连接外部工具与数据。',
+};
+/** schema.org applicationCategory（AI 工具） */
+export const AI_CATEGORY_SCHEMA: Record<AiCategory, string> = {
+  agent: 'BusinessApplication',
+  'vibe-coding': 'DeveloperApplication',
+  cli: 'DeveloperApplication',
+  'ai-bot': 'UtilitiesApplication',
+  mcp: 'DeveloperApplication',
+};
+
+/** /ai/ 卡片与客户端筛选用的条目 */
+export interface ToolItem {
+  slug: string;
+  title: string;
+  subtitle: string;
+  summary: string;
+  icon: string;
+  iconAlt: string;
+  categories: AiCategory[];
+  platforms: PlatformOs[];
+  price: PriceModel;
+  priceLabel: string;
+  openSource: boolean;
+  developer: string;
+  order: number;
+  url: string;
+}
+
+export interface ToolQuery {
+  category?: AiCategory | '';
+  price?: PriceModel | '';
+  /** 只看开源 */
+  oss?: boolean;
+}
+
+/** 解析 /ai/ 的查询串（非法值忽略） */
+export function parseToolQuery(search: string | URLSearchParams): Required<ToolQuery> {
+  const q = typeof search === 'string' ? new URLSearchParams(search) : search;
+  const cat = q.get('cat');
+  const price = q.get('price');
+  return {
+    category: isIn(AI_CATEGORY_IDS, cat) ? (cat as AiCategory) : '',
+    price: isIn(PRICE_MODELS, price) ? (price as PriceModel) : '',
+    oss: q.get('oss') === '1',
+  };
+}
+
+export function toolQueryString(q: ToolQuery): string {
+  const p = new URLSearchParams();
+  if (q.category) p.set('cat', q.category);
+  if (q.price) p.set('price', q.price);
+  if (q.oss) p.set('oss', '1');
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+export function filterTools<T extends Pick<ToolItem, 'categories' | 'price' | 'openSource'>>(
+  items: T[],
+  q: ToolQuery,
+): T[] {
+  return items.filter(
+    (t) =>
+      (!q.category || t.categories.includes(q.category)) &&
+      (!q.price || t.price === q.price) &&
+      (!q.oss || t.openSource),
+  );
+}
 
 export const PRICE_MODELS = ['free', 'freemium', 'paid', 'tbd'] as const;
 export type PriceModel = (typeof PRICE_MODELS)[number];
@@ -116,6 +205,8 @@ export function detectOs(
 
 /** 桌面浏览器上「哪里都能用」的平台 */
 const UNIVERSAL_DESKTOP: PlatformOs[] = ['web', 'browser-ext', 'cli', 'mcp', 'ai-bot'];
+/** 系统专属平台（有这些平台时，「没有你的系统版本」的提示才有意义） */
+export const NATIVE_OS: PlatformOs[] = ['ios', 'android', 'windows', 'macos', 'linux'];
 const UNIVERSAL_MOBILE: PlatformOs[] = ['web', 'ai-bot'];
 
 /**
@@ -176,8 +267,6 @@ export interface CatalogQuery {
   sort?: Sort;
   page?: number;
 }
-
-const isIn = <T extends string>(list: readonly T[], v: unknown): v is T => list.includes(v as T);
 
 /** 解析 URL 查询串（非法值一律忽略，回到默认） */
 export function parseQuery(search: string | URLSearchParams): Required<CatalogQuery> {

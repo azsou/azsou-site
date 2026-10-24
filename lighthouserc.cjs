@@ -9,6 +9,8 @@ const PAGES = [
   '/',
   '/apps/',
   '/apps/fablemotion/',
+  '/ai/',
+  '/ai/claude-code/',
   '/games/emberdeep/',
   '/articles/',
   '/articles/fablemotion-s3-timeline/',

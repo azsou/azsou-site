@@ -81,7 +81,7 @@ export function softwareApp(a: {
   description: string;
   path: string;
   category: string;
-  version: string;
+  version?: string;
   image?: string;
   os?: string;
   /** schema.org applicationCategory（如 MultimediaApplication） */
@@ -102,7 +102,7 @@ export function softwareApp(a: {
     url: abs(a.path),
     applicationCategory: a.applicationCategory ?? a.category,
     ...(a.applicationCategory ? { applicationSubCategory: a.category } : {}),
-    softwareVersion: a.version,
+    ...(a.version ? { softwareVersion: a.version } : {}),
     operatingSystem: a.os ?? 'Web',
     ...(a.image ? { image: abs(a.image) } : {}),
     ...(a.screenshots?.length ? { screenshot: a.screenshots.map((s) => abs(s)) } : {}),
@@ -120,6 +120,20 @@ export function softwareApp(a: {
       : AUTHOR_REF,
   };
 }
+
+/** 列表页（/ai/ 等）：ItemList，每项指向详情页 */
+export const itemList = (name: string, path: string, items: { name: string; path: string }[]): Json => ({
+  '@type': 'ItemList',
+  name,
+  url: abs(path),
+  numberOfItems: items.length,
+  itemListElement: items.map((it, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: it.name,
+    url: abs(it.path),
+  })),
+});
 
 export function videoGame(g: {
   name: string;

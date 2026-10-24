@@ -5,15 +5,18 @@ import { url } from './routes';
 import type { SearchItem } from './search';
 import { excerpt } from './escape';
 import {
+  AI_CATEGORIES,
   CATEGORIES,
   PLATFORM_LABEL,
   PRICE_LABEL,
   byNewest,
   type CatalogItem,
   type PlatformOs,
+  type ToolItem,
 } from './app-store';
 
 export type App = CollectionEntry<'apps'>;
+export type Tool = CollectionEntry<'tools'>;
 export type Game = CollectionEntry<'games'>;
 export type Article = CollectionEntry<'articles'>;
 export type Work = CollectionEntry<'works'>;
@@ -22,6 +25,7 @@ const byOrder = (a: { data: { order: number } }, b: { data: { order: number } })
   a.data.order - b.data.order;
 
 export const getApps = async () => (await getCollection('apps')).sort(byOrder);
+export const getTools = async () => (await getCollection('tools')).sort(byOrder);
 export const getGames = async () => (await getCollection('games')).sort(byOrder);
 export const getWorks = async () => (await getCollection('works')).sort(byOrder);
 /** 文章按发布日期倒序；同日按原顺序 */
@@ -35,8 +39,9 @@ export type ForumSeed = (typeof forumData.seeds)[number];
 export type ForumCategory = (typeof forumData.categories)[number];
 
 export async function buildSearchIndex(): Promise<SearchItem[]> {
-  const [apps, games, articles, works] = await Promise.all([
+  const [apps, tools, games, articles, works] = await Promise.all([
     getApps(),
+    getTools(),
     getGames(),
     getArticles(),
     getWorks(),
@@ -49,6 +54,14 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
       summary: a.data.summary,
       pinyin: a.data.pinyin,
       meta: `${CATEGORIES[a.data.category]} · ${a.data.version}`,
+    })),
+    ...tools.map((t) => ({
+      type: 'tool' as const,
+      title: t.data.title,
+      url: url.tool(t.id),
+      summary: t.data.summary,
+      pinyin: t.data.pinyin,
+      meta: `${t.data.categories.map((c) => AI_CATEGORIES[c]).join(' / ')} · ${t.data.developer.name}`,
     })),
     ...games.map((g) => ({
       type: 'game' as const,
@@ -87,6 +100,10 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
 
 // ------------------------------------------------------------ 应用商店 ----
 
+/** 列表卡片用的图标：有多尺寸版本时用 128 px WebP（64 px 显示的 2x），不下载 1024 母版 */
+export const cardIcon = (icon: { src: string; variants: boolean }) =>
+  icon.variants ? icon.src.replace(/\.(png|svg|webp)$/, '-128.webp') : icon.src;
+
 /** 目录条目（列表卡片 / catalog.json / 客户端筛选共用） */
 export function catalogItem(a: App): CatalogItem {
   const d = a.data;
@@ -94,7 +111,7 @@ export function catalogItem(a: App): CatalogItem {
     slug: a.id,
     title: d.title,
     subtitle: d.subtitle,
-    icon: d.icon.src,
+    icon: cardIcon(d.icon),
     iconAlt: `${d.title} 图标`,
     category: d.category,
     categoryLabel: CATEGORIES[d.category],
@@ -132,3 +149,45 @@ export function relatedApps(app: App, all: App[], n = 4): App[] {
 
 /** 平台列表文字（「网页版 / Windows」） */
 export const platformText = (oses: PlatformOs[]) => oses.map((o) => PLATFORM_LABEL[o]).join(' / ');
+
+// ------------------------------------------------------------- AI 工具 ----
+
+/** /ai/ 卡片条目 */
+export function toolItem(t: Tool): ToolItem {
+  const d = t.data;
+  return {
+    slug: t.id,
+    title: d.title,
+    subtitle: d.subtitle,
+    summary: d.summary,
+    icon: cardIcon(d.icon),
+    iconAlt: `${d.title} 图标`,
+    categories: d.categories,
+    platforms: d.platforms.map((p) => p.os),
+    price: d.price.model,
+    priceLabel: PRICE_LABEL[d.price.model],
+    openSource: d.openSource,
+    developer: d.developer.name,
+    order: d.order,
+    url: url.tool(t.id),
+  };
+}
+
+/** 相关工具：共同分类多的优先，其次共同标签；不含自己，最多 n 个 */
+export function relatedTools(tool: Tool, all: Tool[], n = 4): Tool[] {
+  const cats = new Set(tool.data.categories);
+  const tags = new Set(tool.data.tags);
+  return all
+    .filter((x) => x.id !== tool.id)
+    .map((x) => ({
+      x,
+      score:
+        x.data.categories.filter((c) => cats.has(c)).length * 10 +
+        (x.data.categories[0] === tool.data.categories[0] ? 5 : 0) +
+        x.data.tags.filter((t) => tags.has(t)).length,
+    }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score || a.x.data.order - b.x.data.order)
+    .slice(0, n)
+    .map((r) => r.x);
+}

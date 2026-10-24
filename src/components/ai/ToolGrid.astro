@@ -1,0 +1,93 @@
+---
+/**
+ * AI 工具列表（/ai/ 与 /ai/category/<分类>/ 共用）：分类标签页（静态链接，零 JS 可浏览）+ 价格 / 开源筛选（island）+ 瀑布流卡片。
+ * 筛选只隐藏 / 显示已渲染的卡片，状态写进查询串（?price=free&oss=1），可分享、可后退。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import ToolCard from './ToolCard.astro';
+import {
+  AI_CATEGORIES,
+  AI_CATEGORY_IDS,
+  PRICE_LABEL,
+  PRICE_MODELS,
+  type AiCategory,
+  type ToolItem,
+} from '@/lib/app-store';
+import { url } from '@/lib/routes';
+import type { Crumb } from '@/lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  lede: string;
+  all: ToolItem[];
+  items: ToolItem[];
+  crumbs: Crumb[];
+  category?: AiCategory;
+  schema?: Record<string, unknown>[];
+}
+const { title, description, lede, all, items, crumbs, category, schema = [] } = Astro.props;
+const prices = PRICE_MODELS.filter((p) => items.some((t) => t.price === p));
+const count = (c: AiCategory) => all.filter((t) => t.categories.includes(c)).length;
+const ossCount = items.filter((t) => t.openSource).length;
+---
+
+<Base title={title} description={description} crumbs={crumbs} schema={schema}>
+  <PageHead eyebrow="AI 工具" title={title} lede={lede} />
+
+  <nav class="chip-nav ai-tabs" aria-label="AI 工具分类">
+    <a class="chip" href={url.ai()} aria-current={!category ? 'page' : undefined}>
+      全部 <span class="chip__n">{all.length}</span>
+    </a>
+    {AI_CATEGORY_IDS.map((c) => (
+      <a class="chip" href={url.aiCategory(c)} aria-current={category === c ? 'page' : undefined}>
+        {AI_CATEGORIES[c]} <span class="chip__n">{count(c)}</span>
+      </a>
+    ))}
+  </nav>
+
+  <div class="ai-filter panel" data-ai-filter role="group" aria-label="筛选">
+    <div class="field">
+      <span class="field__label" id="af-price-label">
+        价格
+      </span>
+      <div class="segmented segmented--inline" role="group" aria-labelledby="af-price-label">
+        <button type="button" data-price="" aria-pressed="true" disabled>
+          全部
+        </button>
+        {prices.map((p) => (
+          <button type="button" data-price={p} aria-pressed="false" disabled>
+            {PRICE_LABEL[p]}
+          </button>
+        ))}
+      </div>
+    </div>
+    <label class="ai-filter__oss">
+      <input type="checkbox" data-oss disabled />
+      只看开源（{ossCount}）
+    </label>
+  </div>
+
+  <p class="catalog-status muted" data-ai-status role="status">
+    共 {items.length} 个工具 · 只链接官方地址，本站不托管安装包
+  </p>
+
+  <div class="masonry" data-ai-grid>
+    {items.map((t) => (
+      <ToolCard item={t} />
+    ))}
+  </div>
+  <p class="muted mt-6" data-ai-empty hidden>
+    没有符合条件的工具，换个筛选条件试试。
+  </p>
+
+  <p class="muted mt-6 ai-note">
+    收录的都是第三方工具，信息核对于各自详情页注明的日期，价格与功能以官方网站为准。图标版权归各自所有者，仅用于识别。
+  </p>
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/ai/filter'));
+</script>
