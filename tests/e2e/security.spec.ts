@@ -19,6 +19,8 @@ const PAGES = [
   '/forum/t/t-announce/',
   '/forum/t/?id=11111111-2222-3333-4444-555555555555',
   '/articles/pinyin-initial-search/',
+  '/videos/',
+  '/videos/designing-claude-code/',
   '/search/?q=fable',
   '/login/',
   '/register/',
@@ -42,6 +44,9 @@ test.describe('CSP 与安全头', () => {
     expect(CSP).toMatch(/connect-src [^;]*https:\/\/\*\.supabase\.co/);
     expect(CSP).toMatch(/img-src [^;]*https:\/\/\*\.supabase\.co/);
     expect(CSP).toMatch(/frame-src [^;]*https:\/\/challenges\.cloudflare\.com/);
+    // 视频嵌入只放 youtube-nocookie.com（隐私增强模式），不放 youtube.com 主站与通配符
+    expect(CSP).toMatch(/frame-src [^;]*https:\/\/www\.youtube-nocookie\.com/);
+    expect(CSP).not.toMatch(/frame-src [^;]*(https:\/\/www\.youtube\.com|\*)/);
     expect(CSP).not.toMatch(/script-src [^;]*'unsafe-(inline|eval)'/);
     expect(CSP).toContain("object-src 'none'");
     expect(CSP).toContain("frame-ancestors 'self'");

@@ -96,7 +96,7 @@ const need = {
     'https://challenges.cloudflare.com',
   ],
   'img-src': ["'self'", 'https://*.supabase.co', 'data:'],
-  'frame-src': ['https://challenges.cloudflare.com'],
+  'frame-src': ['https://challenges.cloudflare.com', 'https://www.youtube-nocookie.com'],
   'object-src': ["'none'"],
   'base-uri': ["'self'"],
   'frame-ancestors': ["'self'"],
@@ -105,6 +105,34 @@ const need = {
 };
 for (const [d, vals] of Object.entries(need))
   for (const v of vals) if (!(csp[d] ?? []).includes(v)) fail.push(`CSP ${d} 缺少 ${v}`);
+
+// 视频嵌入（T6.7）：frame-src 只放 Turnstile 与实际用到的视频平台嵌入域名，不放平台主站、不用通配符。
+// 用了哔哩哔哩视频（src/content/videos/*.md 里 "provider": "bilibili"）才需要 player.bilibili.com。
+const VIDEO_FRAMES = { youtube: 'https://www.youtube-nocookie.com', bilibili: 'https://player.bilibili.com' };
+const videoDir = 'src/content/videos';
+const usedProviders = new Set(
+  fs.existsSync(videoDir)
+    ? fs
+        .readdirSync(videoDir)
+        .filter((f) => f.endsWith('.md'))
+        .map(
+          (f) =>
+            /"provider":\s*"([a-z]+)"/.exec(fs.readFileSync(path.join(videoDir, f), 'utf8'))?.[1] ??
+            'youtube',
+        )
+    : [],
+);
+const allowedFrames = new Set([
+  'https://challenges.cloudflare.com',
+  ...[...usedProviders].map((p) => VIDEO_FRAMES[p]),
+]);
+for (const p of usedProviders)
+  if (!VIDEO_FRAMES[p]) fail.push(`视频平台 ${p} 没有登记嵌入域名（scripts/check-csp.mjs 的 VIDEO_FRAMES）`);
+  else if (!(csp['frame-src'] ?? []).includes(VIDEO_FRAMES[p]))
+    fail.push(`CSP frame-src 缺少 ${VIDEO_FRAMES[p]}（有 ${p} 视频）`);
+for (const v of csp['frame-src'] ?? [])
+  if (!allowedFrames.has(v))
+    fail.push(`CSP frame-src 不应包含 ${v}（只允许 Turnstile 与实际用到的视频嵌入域名）`);
 for (const bad of ["'unsafe-eval'", "'unsafe-inline'", '*', 'http:', 'https:'])
   if ((csp['script-src'] ?? []).includes(bad)) fail.push(`CSP script-src 不应包含 ${bad}`);
 if (!('upgrade-insecure-requests' in csp)) fail.push('CSP 缺少 upgrade-insecure-requests');

@@ -1,0 +1,54 @@
+---
+import VideoThumb from './VideoThumb.astro';
+import { PLAYER_SIZES, PROVIDER_LABEL, embedUrl, watchUrl, type VideoProvider } from '@/lib/videos';
+/**
+ * 隐私友好的播放器外观（facade）：首屏只有本地缩略图和一个指向原平台的链接，
+ * 页面不向视频平台发任何请求（不预连接、不加载脚本、不热链缩略图）。
+ * 访客点击后 src/scripts/videos/facade.ts 才把它换成 youtube-nocookie.com 的 iframe（自动播放）。
+ * 没有 JavaScript 时，点击就是普通链接：在原平台打开视频。
+ */
+interface Props {
+  slug: string;
+  provider: VideoProvider;
+  videoId: string;
+  title: string;
+}
+const { slug, provider, videoId, title } = Astro.props;
+const label = PROVIDER_LABEL[provider];
+const host = new URL(embedUrl(provider, videoId)).host;
+---
+
+<div
+  class="video-player"
+  data-video-facade
+  data-provider={provider}
+  data-embed={embedUrl(provider, videoId)}
+  data-title={title}
+>
+  <a class="video-player__facade" href={watchUrl(provider, videoId)} rel="noopener" data-facade-link>
+    <VideoThumb slug={slug} sizes={PLAYER_SIZES} eager class="video-player__thumb" />
+    <span class="video-player__play" aria-hidden="true">
+      <svg viewBox="0 0 68 48" width="68" height="48" focusable="false">
+        <path
+          class="video-player__play-bg"
+          d="M66.5 7.7A8.5 8.5 0 0 0 60.5 1.7C55.2.3 34 .3 34 .3S12.8.3 7.5 1.7a8.5 8.5 0 0 0-6 6C.1 13 .1 24 .1 24s0 11 1.4 16.3a8.5 8.5 0 0 0 6 6c5.3 1.4 26.5 1.4 26.5 1.4s21.2 0 26.5-1.4a8.5 8.5 0 0 0 6-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3Z"
+        ></path>
+        <path d="M45 24 27 14v20" fill="#fff"></path>
+      </svg>
+    </span>
+    <span class="visually-hidden">
+      播放视频：{title}（点击后从 {label} 加载播放器）
+    </span>
+  </a>
+</div>
+<p class="video-player__note muted" data-facade-note>
+  点击播放后才会连接 <code>{host}</code>（{label} 隐私增强模式）加载播放器，此前本页不向 {label}{' '}
+  发送任何请求。
+  <a href={watchUrl(provider, videoId)} rel="noopener">
+    在 {label} 上观看
+  </a>
+</p>
+
+<script>
+  import '@/scripts/videos/facade';
+</script>

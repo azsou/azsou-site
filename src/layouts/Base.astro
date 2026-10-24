@@ -23,7 +23,7 @@ interface Props {
   /** 首屏 LCP 图：在 <head> 里预加载，和 CSS 并行下载 */
   preloadImage?: string;
   /** 首屏 LCP 图是 <picture>（AVIF srcset）时用这个预加载，与 <source> 的 srcset 一致才不会重复下载 */
-  preloadSrcset?: { srcset: string; type: string };
+  preloadSrcset?: { srcset: string; type: string; sizes?: string };
 }
 
 const {
@@ -76,6 +76,7 @@ const isProd = import.meta.env.PROD;
         rel="preload"
         as="image"
         imagesrcset={preloadSrcset.srcset}
+        imagesizes={preloadSrcset.sizes}
         type={preloadSrcset.type}
         fetchpriority="high"
       />

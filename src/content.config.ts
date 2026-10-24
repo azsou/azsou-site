@@ -9,6 +9,13 @@ import {
   type AiCategory,
   type Category,
 } from './lib/app-store';
+import {
+  VIDEO_CATEGORY_IDS,
+  VIDEO_ID_RE,
+  VIDEO_PROVIDERS,
+  parseClock,
+  type VideoCategory,
+} from './lib/videos';
 
 const hue = z.enum(['accent', 'green', 'teal', 'blue', 'orange']);
 const date = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, '日期格式应为 YYYY-MM 或 YYYY-MM-DD');
@@ -211,6 +218,52 @@ const tools = defineCollection({
     .refine(uniquePlatforms, { message: '同一平台只能出现一次' }),
 });
 
+/**
+ * 视频（/videos/）：第三方视频只做「点击才加载」的嵌入，不下载、不转载；本站存的是缩略图与原创导读。
+ * 标题、频道、缩略图逐个用 oEmbed 核对；时长与发布时间只写从平台页面 / 频道 RSS 核实过的值，查不到就不写。
+ * 页面上不显示、也不保存播放量。
+ */
+const clock = z.string().refine((s) => parseClock(s) !== null, '时长格式应为 M:SS 或 H:MM:SS');
+const videos = defineCollection({
+  loader: glob({ pattern: '*.md', base: './src/content/videos' }),
+  schema: z
+    .object({
+      /** 本站的中文标题（原创，不是翻译腔的直译） */
+      title: z.string().min(4).max(40),
+      /** 平台上的原标题（与 oEmbed 返回的 title 完全一致） */
+      originalTitle: z.string(),
+      /** 一段话导读（80–150 字，原创），用在卡片、搜索与 meta description */
+      summary: z.string().min(80).max(150),
+      provider: z.enum(VIDEO_PROVIDERS).default('youtube'),
+      videoId: z.string(),
+      channel: z.object({ name: z.string(), url: httpsUrl }),
+      /** 第一个是主分类 */
+      categories: z.array(z.enum(VIDEO_CATEGORY_IDS as [VideoCategory, ...VideoCategory[]])).min(1),
+      tags: z.array(slugRef).default([]),
+      /** 已核实的时长（来自平台频道 / 播放列表页），查不到就不写 */
+      duration: clock.optional(),
+      /** 已核实的发布时间（ISO 8601，来自频道 RSS），查不到就不写 */
+      published: z.string().datetime({ offset: true }).optional(),
+      /** 视频语言（BCP 47） */
+      lang: z.string().default('en'),
+      /** 章节：只收录作者在视频简介里给出的时间点（标题为本站翻译） */
+      chapters: z.array(z.object({ t: clock, label: z.string() })).default([]),
+      /** 相关的 AI 工具（/ai/<slug>/）与本站应用（/apps/<slug>/） */
+      relatedTools: z.array(slugRef).default([]),
+      relatedApps: z.array(slugRef).default([]),
+      /** true = 站长本人的视频（「我的视频」区） */
+      owner: z.boolean().default(false),
+      featured: z.boolean().default(false),
+      /** 本站最后一次核对（oEmbed 可嵌入、标题、频道）的日期 */
+      lastChecked: date,
+      /** 核对来源说明 */
+      verifiedBy: z.string().default('YouTube oEmbed + 频道 RSS'),
+      order: z.number().int(),
+      pinyin: z.string().default(''),
+    })
+    .refine((v) => VIDEO_ID_RE[v.provider].test(v.videoId), { message: '视频 ID 与平台格式不符' }),
+});
+
 const games = defineCollection({
   loader: glob({ pattern: '*.md', base: './src/content/games' }),
   schema: z.object({
@@ -266,4 +319,4 @@ const works = defineCollection({
   }),
 });
 
-export const collections = { apps, tools, games, articles, works };
+export const collections = { apps, tools, videos, games, articles, works };

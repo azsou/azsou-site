@@ -14,9 +14,11 @@ import {
   type PlatformOs,
   type ToolItem,
 } from './app-store';
+import { VIDEO_CATEGORIES, channelKey, lengthOf, parseClock, publishedDate, type VideoItem } from './videos';
 
 export type App = CollectionEntry<'apps'>;
 export type Tool = CollectionEntry<'tools'>;
+export type Video = CollectionEntry<'videos'>;
 export type Game = CollectionEntry<'games'>;
 export type Article = CollectionEntry<'articles'>;
 export type Work = CollectionEntry<'works'>;
@@ -26,6 +28,7 @@ const byOrder = (a: { data: { order: number } }, b: { data: { order: number } })
 
 export const getApps = async () => (await getCollection('apps')).sort(byOrder);
 export const getTools = async () => (await getCollection('tools')).sort(byOrder);
+export const getVideos = async () => (await getCollection('videos')).sort(byOrder);
 export const getGames = async () => (await getCollection('games')).sort(byOrder);
 export const getWorks = async () => (await getCollection('works')).sort(byOrder);
 /** 文章按发布日期倒序；同日按原顺序 */
@@ -39,9 +42,10 @@ export type ForumSeed = (typeof forumData.seeds)[number];
 export type ForumCategory = (typeof forumData.categories)[number];
 
 export async function buildSearchIndex(): Promise<SearchItem[]> {
-  const [apps, tools, games, articles, works] = await Promise.all([
+  const [apps, tools, videos, games, articles, works] = await Promise.all([
     getApps(),
     getTools(),
+    getVideos(),
     getGames(),
     getArticles(),
     getWorks(),
@@ -62,6 +66,14 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
       summary: t.data.summary,
       pinyin: t.data.pinyin,
       meta: `${t.data.categories.map((c) => AI_CATEGORIES[c]).join(' / ')} · ${t.data.developer.name}`,
+    })),
+    ...videos.map((v) => ({
+      type: 'video' as const,
+      title: v.data.title,
+      url: url.video(v.id),
+      summary: v.data.summary,
+      pinyin: v.data.pinyin,
+      meta: `${v.data.categories.map((c) => VIDEO_CATEGORIES[c]).join(' / ')} · ${v.data.channel.name} · ${v.data.originalTitle}`,
     })),
     ...games.map((g) => ({
       type: 'game' as const,
@@ -187,6 +199,50 @@ export function relatedTools(tool: Tool, all: Tool[], n = 4): Tool[] {
         x.data.tags.filter((t) => tags.has(t)).length,
     }))
     .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score || a.x.data.order - b.x.data.order)
+    .slice(0, n)
+    .map((r) => r.x);
+}
+
+// ------------------------------------------------------------ 视频 ----
+
+/** /videos/ 卡片与筛选用的条目 */
+export function videoItem(v: Video): VideoItem {
+  const d = v.data;
+  const seconds = d.duration ? parseClock(d.duration) : null;
+  return {
+    slug: v.id,
+    title: d.title,
+    originalTitle: d.originalTitle,
+    summary: d.summary,
+    provider: d.provider,
+    channel: channelKey(d.channel.name),
+    channelName: d.channel.name,
+    categories: d.categories,
+    seconds,
+    duration: d.duration ?? '',
+    length: lengthOf(seconds),
+    published: d.published ? publishedDate(d.published) : '',
+    owner: d.owner,
+    order: d.order,
+    url: url.video(v.id),
+  };
+}
+
+/** 相关视频：同主分类优先，其次共同分类 / 标签 / 相关工具多的；不含自己，最多 n 个 */
+export function relatedVideos(video: Video, all: Video[], n = 3): Video[] {
+  const d = video.data;
+  const tags = new Set([...d.tags, ...d.relatedTools.map((t) => `tool:${t}`)]);
+  return all
+    .filter((x) => x.id !== video.id)
+    .map((x) => {
+      const sameMain = x.data.categories[0] === d.categories[0] ? 4 : 0;
+      const cats = x.data.categories.filter((c) => d.categories.includes(c)).length;
+      const shared = [...x.data.tags, ...x.data.relatedTools.map((t) => `tool:${t}`)].filter((t) =>
+        tags.has(t),
+      ).length;
+      return { x, score: sameMain + cats + shared * 2 };
+    })
     .sort((a, b) => b.score - a.score || a.x.data.order - b.x.data.order)
     .slice(0, n)
     .map((r) => r.x);

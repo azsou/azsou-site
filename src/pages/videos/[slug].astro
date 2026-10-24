@@ -1,0 +1,185 @@
+---
+import Base from '@/layouts/Base.astro';
+import Comments from '@/components/Comments.astro';
+import VideoPlayer from '@/components/videos/VideoPlayer.astro';
+import VideoCard from '@/components/videos/VideoCard.astro';
+import ToolCard from '@/components/ai/ToolCard.astro';
+import { getTools, getVideos, relatedVideos, toolItem, videoItem, type Video } from '@/lib/content';
+import {
+  PLAYER_SIZES,
+  PROVIDER_LABEL,
+  VIDEO_CATEGORIES,
+  embedUrl,
+  humanDuration,
+  isoDuration,
+  parseClock,
+  publishedDate,
+  thumbPath,
+  thumbSrcset,
+  watchUrl,
+} from '@/lib/videos';
+import { url } from '@/lib/routes';
+import { videoObject } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  const videos = await getVideos();
+  return videos.map((video) => ({ params: { slug: video.id }, props: { video, all: videos } }));
+}
+const { video, all } = Astro.props as { video: Video; all: Video[] };
+const d = video.data;
+const slug = video.id;
+const main = d.categories[0];
+const path = url.video(slug);
+const seconds = d.duration ? parseClock(d.duration) : null;
+const date = d.published ? publishedDate(d.published) : null;
+const related = relatedVideos(video, all);
+const toolMap = new Map((await getTools()).map((t) => [t.id, t]));
+const tools = d.relatedTools.map((t) => toolMap.get(t)).filter((t) => !!t);
+const label = PROVIDER_LABEL[d.provider];
+const chapters = d.chapters.map((c, i, arr) => {
+  const start = parseClock(c.t)!;
+  const next = arr[i + 1] ? parseClock(arr[i + 1].t)! : (seconds ?? undefined);
+  return { ...c, start, end: next };
+});
+const description = `${d.title}：${d.summary}（${d.channel.name} 官方视频，本站原创中文导读）`;
+---
+
+<Base
+  title={d.title}
+  description={description}
+  preloadSrcset={{ srcset: thumbSrcset(slug, 'avif'), type: 'image/avif', sizes: PLAYER_SIZES }}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '视频', path: url.videos() },
+    { name: VIDEO_CATEGORIES[main], path: url.videoCategory(main) },
+    { name: d.title, path },
+  ]}
+  schema={[
+    videoObject({
+      name: d.originalTitle,
+      description: d.summary,
+      path,
+      thumbnails: [thumbPath(slug, 960, 'webp'), thumbPath(slug, 480, 'webp')],
+      embedUrl: embedUrl(d.provider, d.videoId).replace(/\?.*$/, ''),
+      uploadDate: d.published,
+      duration: seconds != null ? isoDuration(seconds) : undefined,
+      inLanguage: d.lang,
+      author: d.channel,
+      clips: chapters.map((c) => ({
+        name: c.label,
+        startOffset: c.start,
+        endOffset: c.end,
+        url: watchUrl(d.provider, d.videoId, c.start),
+      })),
+    }),
+  ]}
+>
+  <article class="video-detail" data-video-page={slug}>
+    <header class="video-detail__head">
+      <p class="eyebrow">
+        <a href={url.videoCategory(main)}>{VIDEO_CATEGORIES[main]}</a>
+      </p>
+      <h1>{d.title}</h1>
+      <p class="video-detail__orig" lang={d.lang}>
+        原标题：{d.originalTitle}
+      </p>
+      <ul class="video-facts" role="list">
+        <li>
+          频道{' '}
+          <b>
+            <a href={d.channel.url} rel="noopener">
+              {d.channel.name}
+            </a>
+          </b>
+        </li>
+        {seconds != null && (
+          <li>
+            时长{' '}
+            <b>
+              <time datetime={isoDuration(seconds)}>{d.duration}</time>
+            </b>
+            <span class="visually-hidden">（{humanDuration(seconds)}）</span>
+          </li>
+        )}
+        {date && (
+          <li>
+            发布{' '}
+            <b>
+              <time datetime={date}>{date}</time>
+            </b>
+          </li>
+        )}
+        <li>
+          语言 <b>{d.lang === 'en' ? '英语' : d.lang === 'zh' ? '中文' : d.lang}</b>
+        </li>
+        <li>
+          来源 <b>{label}</b>
+        </li>
+      </ul>
+    </header>
+
+    <VideoPlayer slug={slug} provider={d.provider} videoId={d.videoId} title={d.title} />
+
+    <p class="video-lede">{d.summary}</p>
+    <p class="video-copyright notice" role="note">
+      视频版权归原作者所有（{d.channel.name}）。本站只做嵌入与原创导读，不下载、不转载；播放由 {label}{' '}
+      提供，适用其服务条款与隐私政策。
+    </p>
+
+    {chapters.length > 0 && (
+      <section class="section" aria-labelledby="h-chapters">
+        <h2 id="h-chapters">章节</h2>
+        <p class="muted">时间点来自作者的视频简介，标题为本站翻译。点击从该处开始播放。</p>
+        <ol class="chapters" role="list">
+          {chapters.map((c) => (
+            <li>
+              <button type="button" class="chapters__btn" data-seek={c.start} disabled>
+                <span class="chapters__t">{c.t}</span>
+                <span>{c.label}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )}
+
+    <section class="section" aria-labelledby="h-guide">
+      <h2 id="h-guide">导读与要点</h2>
+      <div class="video-body" set:html={video.body ?? ''} />
+    </section>
+
+    {tools.length > 0 && (
+      <section class="section" aria-labelledby="h-tools">
+        <div class="section__head">
+          <h2 id="h-tools">视频里提到的工具</h2>
+          <a href={url.ai()}>全部 AI 工具 →</a>
+        </div>
+        <div class="masonry masonry--compact mt-4">
+          {tools.map((t) => (
+            <ToolCard item={toolItem(t)} headingLevel="h3" />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {related.length > 0 && (
+      <section class="section" aria-labelledby="h-related">
+        <div class="section__head">
+          <h2 id="h-related">相关视频</h2>
+          <a href={url.videoCategory(main)}>更多{VIDEO_CATEGORIES[main]}视频 →</a>
+        </div>
+        <div class="video-grid mt-4">
+          {related.map((v) => (
+            <VideoCard item={videoItem(v)} headingLevel="h3" />
+          ))}
+        </div>
+      </section>
+    )}
+
+    <p class="muted mt-6 video-note">
+      信息核对于 {d.lastChecked}：{d.verifiedBy}。本站不显示、也不保存播放量。
+    </p>
+
+    <Comments pageKey={`video:${slug}`} />
+  </article>
+</Base>

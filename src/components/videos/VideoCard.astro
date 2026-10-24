@@ -1,0 +1,49 @@
+---
+import VideoThumb from './VideoThumb.astro';
+import { CARD_SIZES, VIDEO_CATEGORIES, humanDuration, type VideoItem } from '@/lib/videos';
+/**
+ * /videos/ 网格卡片。data-* 给客户端筛选用（src/scripts/videos/filter.ts），隐藏用 hidden 属性，不重新渲染。
+ * 不显示播放量：本站不保存、也不伪造第三方平台的计数。
+ */
+interface Props {
+  item: VideoItem;
+  headingLevel?: 'h2' | 'h3';
+  eager?: boolean;
+}
+const { item, headingLevel = 'h2', eager = false } = Astro.props;
+const H = headingLevel;
+---
+
+<article
+  class="card video-card"
+  data-video={item.slug}
+  data-cats={item.categories.join(' ')}
+  data-len={item.length}
+  data-ch={item.channel}
+>
+  <div class="video-card__media">
+    <VideoThumb slug={item.slug} sizes={CARD_SIZES} eager={eager} />
+    {item.seconds != null && (
+      <span class="video-card__dur">
+        <span aria-hidden="true">{item.duration}</span>
+        <span class="visually-hidden">时长 {humanDuration(item.seconds)}</span>
+      </span>
+    )}
+  </div>
+  <div class="video-card__body">
+    <H class="card__title video-card__title">
+      <a class="card__link" href={item.url}>
+        {item.title}
+      </a>
+    </H>
+    <p class="video-card__meta">
+      <span>{item.channelName}</span>
+      {item.published && <time datetime={item.published}>{item.published}</time>}
+    </p>
+    <ul class="video-card__tags" role="list">
+      {item.categories.map((c) => (
+        <li class="tag">{VIDEO_CATEGORIES[c]}</li>
+      ))}
+    </ul>
+  </div>
+</article>

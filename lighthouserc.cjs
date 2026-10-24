@@ -11,6 +11,8 @@ const PAGES = [
   '/apps/fablemotion/',
   '/ai/',
   '/ai/claude-code/',
+  '/videos/',
+  '/videos/designing-claude-code/',
   '/games/emberdeep/',
   '/articles/',
   '/articles/fablemotion-s3-timeline/',

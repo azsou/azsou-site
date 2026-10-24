@@ -121,6 +121,48 @@ export function softwareApp(a: {
   };
 }
 
+/**
+ * 视频详情页：VideoObject。只写核实过的字段——时长 / 发布时间查不到就不写；不写播放量（interactionStatistic）。
+ * 章节（作者在简介里给出的时间点）写成 Clip，指向原平台的对应时间点。
+ */
+export function videoObject(v: {
+  name: string;
+  description: string;
+  path: string;
+  thumbnails: string[];
+  embedUrl: string;
+  uploadDate?: string;
+  /** ISO 8601，如 PT12M4S */
+  duration?: string;
+  inLanguage?: string;
+  author: { name: string; url: string };
+  clips?: { name: string; startOffset: number; endOffset?: number; url: string }[];
+}): Json {
+  return {
+    '@type': 'VideoObject',
+    name: v.name,
+    description: v.description,
+    url: abs(v.path),
+    thumbnailUrl: v.thumbnails.map((t) => abs(t)),
+    embedUrl: v.embedUrl,
+    ...(v.uploadDate ? { uploadDate: v.uploadDate } : {}),
+    ...(v.duration ? { duration: v.duration } : {}),
+    ...(v.inLanguage ? { inLanguage: v.inLanguage } : {}),
+    author: { '@type': 'Organization', name: v.author.name, url: v.author.url },
+    ...(v.clips?.length
+      ? {
+          hasPart: v.clips.map((c) => ({
+            '@type': 'Clip',
+            name: c.name,
+            startOffset: c.startOffset,
+            ...(c.endOffset != null ? { endOffset: c.endOffset } : {}),
+            url: c.url,
+          })),
+        }
+      : {}),
+  };
+}
+
 /** 列表页（/ai/ 等）：ItemList，每项指向详情页 */
 export const itemList = (name: string, path: string, items: { name: string; path: string }[]): Json => ({
   '@type': 'ItemList',

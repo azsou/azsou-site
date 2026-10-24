@@ -1,0 +1,42 @@
+---
+import VideoGrid from '@/components/videos/VideoGrid.astro';
+import { getVideos, videoItem } from '@/lib/content';
+import { VIDEO_CATEGORIES, VIDEO_CATEGORY_IDS, VIDEO_CATEGORY_LEDE, type VideoCategory } from '@/lib/videos';
+import { url } from '@/lib/routes';
+import { itemList } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  return VIDEO_CATEGORY_IDS.map((category) => ({ params: { category }, props: { category } }));
+}
+const { category } = Astro.props as { category: VideoCategory };
+const all = (await getVideos()).map(videoItem);
+// 主分类是本分类的排在前面
+const items = all
+  .filter((v) => v.categories.includes(category))
+  .sort(
+    (a, b) =>
+      Number(b.categories[0] === category) - Number(a.categories[0] === category) || a.order - b.order,
+  );
+const name = VIDEO_CATEGORIES[category];
+---
+
+<VideoGrid
+  title={`${name}视频`}
+  description={`${name}：${VIDEO_CATEGORY_LEDE[category]}共 ${items.length} 个，每个都配原创中文导读，点击后才加载播放器。`}
+  lede={VIDEO_CATEGORY_LEDE[category]}
+  all={all}
+  items={items}
+  category={category}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '视频', path: url.videos() },
+    { name, path: url.videoCategory(category) },
+  ]}
+  schema={[
+    itemList(
+      `${name}视频`,
+      url.videoCategory(category),
+      items.map((v) => ({ name: v.title, path: v.url })),
+    ),
+  ]}
+/>
