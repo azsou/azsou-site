@@ -137,9 +137,13 @@ test.describe('登录', () => {
     });
     const menuBtn = page.locator('.avatar-btn');
     await expect(menuBtn).toBeVisible();
-    await expect(menuBtn).toHaveAttribute('aria-label', '账户菜单：Alice');
+    await expect(menuBtn).toHaveAccessibleName('账户菜单：Alice');
     await menuBtn.click();
-    await expect(page.getByRole('menuitem', { name: '账户设置' })).toBeFocused();
+    await expect(page.getByRole('menuitem', { name: '我的主页' })).toBeFocused();
+    await expect(page.getByRole('menuitem', { name: '我的主页' })).toHaveAttribute('href', /^\/u\/\?id=9b2c1a10-/);
+    await expect(page.getByRole('menuitem', { name: '通知' })).toHaveAttribute('href', '/notifications/');
+    await expect(page.getByRole('menuitem', { name: '我的收藏' })).toHaveAttribute('href', '/bookmarks/');
+    await expect(page.getByRole('menuitem', { name: '账户设置' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#user-menu-pop')).toBeHidden();
     await menuBtn.click();
@@ -317,7 +321,7 @@ test.describe('账户设置', () => {
     await expect(page.locator('[data-auth-form="settings-name"] [data-form-status]')).toHaveText(
       '昵称已保存。',
     );
-    await expect(page.locator('.avatar-btn')).toHaveAttribute('aria-label', '账户菜单：Alice Z');
+    await expect(page.locator('.avatar-btn')).toHaveAccessibleName('账户菜单：Alice Z');
     const patch = m.calls.find((c) => c.method === 'PATCH')!;
     expect(patch.body).toEqual({ display_name: 'Alice Z' });
     await page.getByRole('button', { name: '退出登录' }).click();

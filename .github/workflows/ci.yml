@@ -1,5 +1,5 @@
 name: CI
-# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 → E2E（3 引擎 × 4 视口 + axe）→ Lighthouse
+# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 → E2E（3 引擎 × 4 视口 + axe；社区流程连真实 Postgres + PostgREST）→ Lighthouse
 # 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + PostgREST 14 重放 V72 请求
 on:
   pull_request:
@@ -64,6 +64,19 @@ jobs:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
+    # 社区（P3）用例的真实后端：Postgres 17 跑全部迁移 + PostgREST 14，浏览器的 /rest/v1 请求转发过去
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      POSTGREST_BIN: ${{ github.workspace }}/.bin/postgrest
+      E2E_REQUIRE_DB: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -71,6 +84,10 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
+      - name: PostgREST 14
+        run: |
+          mkdir -p .bin
+          curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npx playwright test
         env:

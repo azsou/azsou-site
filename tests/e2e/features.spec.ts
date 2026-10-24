@@ -71,8 +71,8 @@ test.describe('搜索', () => {
   });
 });
 
-test.describe('只读数据 island', () => {
-  test('文章评论：种子 + 数据库评论，用户内容按纯文本渲染', async ({ page }) => {
+test.describe('数据 island（未登录 · 假数据）', () => {
+  test('文章评论：种子 + 数据库评论，用户内容经 Markdown 净化渲染（原始 HTML 显示为文字）', async ({ page }) => {
     await page.goto('/articles/pinyin-initial-search/');
     const box = page.locator('[data-comments]');
     await expect(box).toHaveAttribute('data-state', 'online');
@@ -80,6 +80,8 @@ test.describe('只读数据 island', () => {
       '<script>window.__xss=1</script>数据库评论',
     );
     await expect(box.locator('[data-count]')).toHaveText('2 条');
+    await expect(box.locator('script')).toHaveCount(0);
+    await expect(box.getByRole('link', { name: '登录' })).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   });
   test('后端不可达时进入只读模式', async ({ page }) => {
@@ -97,14 +99,16 @@ test.describe('只读数据 island', () => {
     await expect(row).toContainText('E2E 用户主题');
     await expect(page.locator('[data-seed-id="t-announce"] .list-row__aside')).toHaveText('1 回复');
     await row.click();
-    await expect(page).toHaveURL(/\/forum\/thread\/\?id=11111111/);
+    await expect(page).toHaveURL(/\/forum\/t\/\?id=11111111/);
     await expect(page.locator('h1')).toHaveText('E2E 用户主题');
     await expect(page.locator('[data-body]')).toContainText('<img src=x onerror=');
+    await expect(page.locator('[data-body] img')).toHaveCount(0);
     await expect(page.locator('[data-list] [data-source="db"]')).toContainText('数据库回复');
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   });
   test('分类页只列本分类', async ({ page }) => {
     await page.goto('/forum/tech/');
+    await expect(page.locator('[data-forum-list]')).toHaveAttribute('data-state', 'online');
     await expect(page.locator('[data-forum-list] [data-source="db"]')).toHaveCount(1);
     await page.goto('/forum/announce/');
     await expect(page.locator('[data-forum-list]')).toHaveAttribute('data-state', 'online');
@@ -112,7 +116,7 @@ test.describe('只读数据 island', () => {
   });
   test('种子主题页追加数据库回复', async ({ page }) => {
     await page.goto('/forum/t/t-announce/');
-    await expect(page.locator('[data-forum-replies] [data-source="db"]')).toContainText(
+    await expect(page.locator('[data-thread-page] [data-list] [data-source="db"]')).toContainText(
       '种子主题下的数据库回复',
     );
   });

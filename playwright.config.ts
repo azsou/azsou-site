@@ -49,6 +49,8 @@ for (const [b, base] of Object.entries(BROWSERS)) {
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  // 社区（P3）用例的真实后端：本地 Postgres + PostgREST（未配置时这些用例跳过）
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

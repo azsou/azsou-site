@@ -53,10 +53,20 @@ export async function mockSupabase(page: Page, mode: 'ok' | 'down' = 'ok') {
     const q = u.searchParams;
     const eq = (k: string) => q.get(k)?.replace(/^eq\./, '');
     let rows: Record<string, unknown>[] = [];
-    if (table === 'forum_threads') rows = DB.threads.filter((t) => !eq('id') || t.id === eq('id'));
+    if (table === 'forum_threads')
+      rows = DB.threads
+        .filter((t) => !eq('id') || t.id === eq('id'))
+        .filter((t) => !eq('cat') || t.cat === eq('cat'))
+        .filter((t) => !eq('pinned') || String(t.pinned) === eq('pinned'));
     if (table === 'forum_replies')
       rows = DB.replies.filter((r) => !eq('thread_id') || r.thread_id === eq('thread_id'));
     if (table === 'comments') rows = DB.comments.filter((c) => c.page_key === eq('page_key'));
+    if (table === 'thread_reply_counts') {
+      const keys = (route.request().postDataJSON()?.p_keys ?? []) as string[];
+      rows = keys
+        .map((k) => ({ thread_id: k, replies: DB.replies.filter((r) => r.thread_id === k).length }))
+        .filter((r) => r.replies > 0);
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
   });
 }
