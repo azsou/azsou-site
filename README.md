@@ -2,8 +2,8 @@
 
 Astro 5 + TypeScript 静态站，部署在 Vercel。重构计划与进度见 [docs/PLAN.md](docs/PLAN.md)。
 
-> 当前分支 `v2/astro` 是 **P1 静态站骨架**。账户、发帖、后台（P2–P4）完成前不要合并到 `main`：
-> 合并即上线，而 v2 目前还没有登录与发帖功能（论坛/评论只读）。
+> 当前分支 `v2/astro` 已完成 **P1 静态站 + P2 数据层与账户 + P3 论坛与评论**。后台（P4）与上线验收（P5）完成、
+> 且生产库执行完迁移（顺序见 docs/PLAN.md §4）之前，不要合并到 `main`：合并即上线。
 
 ## 本地开发
 
@@ -29,6 +29,10 @@ npm run test:e2e     # Playwright：chromium / firefox / webkit × 1440 / 834 / 
 npm run test:lhci    # Lighthouse CI 预算
 ```
 
+- 社区（发帖/回帖/通知…）用例连真实后端：设置 `DATABASE_URL`（Postgres 超级用户，`npm run db:local` 可起一个）与
+  `POSTGREST_BIN`（PostgREST 14 可执行文件），globalSetup 会建临时库、跑全部迁移、起 PostgREST，浏览器的 `/rest/v1` 请求被转发过去；
+  未设置时这些用例跳过（CI 设 `E2E_REQUIRE_DB=1`，缺少即失败）。默认只在桌面与 iPhone 视口跑，`COMMUNITY_ALL=1` 跑全部 4 个视口
+- 数据库测试：`DATABASE_URL=… POSTGREST_BIN=… npm run test:db`
 - 只跑某个引擎：`PW_BROWSERS=webkit npm run test:e2e`
 - Linux arm64 上 Playwright 没有 Chromium 构建：`CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`
 - 在全部 12 个项目上跑 axe：`A11Y_ALL=1 npm run test:e2e`
@@ -44,7 +48,9 @@ npm run test:lhci    # Lighthouse CI 预算
 | `src/lib/`                                     | 路由、SEO（JSON-LD）、搜索（拼音首字母）、旧 hash 跳转、日期、转义                   |
 | `src/components/`、`src/layouts/`              | 设计系统组件（导航、底部 Tab、卡片、分段控件、列表组…）                              |
 | `src/styles/global.css`                        | 设计令牌与组件样式（`@layer`，零 `!important`）                                      |
-| `src/scripts/`                                 | 只读数据 island（评论、论坛）与搜索页脚本                                            |
+| `src/scripts/community/`                       | 社区 island：论坛列表、主题页、发帖、评论、编辑器、通知、收藏、个人主页              |
+| `src/lib/markdown.ts` · `src/lib/sanitize.ts`  | 先转义的白名单 Markdown 渲染器 + DOMPurify 二次净化                                  |
+| `src/scripts/`                                 | 搜索页、顶栏用户菜单（未读角标）等脚本                                               |
 | `src/pages/og/art/[slot].png.ts`               | 构建期把 SVG 素材栅格化为 PNG 分享图                                                 |
 | `public/art/`                                  | 生成式 SVG 素材（从 V72 `AZ_ASSETS` 拆出）                                           |
 | `public/sw.js` · `public/az-sw.js`             | 新离线外壳 · 旧 SW 的自毁替身（清掉 V72 缓存）                                       |
