@@ -1,0 +1,64 @@
+name: DB backup
+# 每周一 03:30（北京时间）+ 手动触发：pg_dump 生产库 → 压缩的自定义格式备份 + 结构 SQL + 行数清单 + 校验和，
+# 上传为保留 30 天的 workflow artifact。
+#
+# 站长需要在 GitHub → Settings → Secrets and variables → Actions 里添加（本工作流不会替你设置）：
+#   SUPABASE_DB_URL     必需。Supabase → Project Settings → Database → Connection string → Session pooler（端口 5432）
+#   BACKUP_PASSPHRASE   强烈建议。设置后产物用 gpg AES256 加密，并额外备份 auth.users（邮箱 + 密码哈希）
+# 没有 SUPABASE_DB_URL 时工作流成功结束并给出提示（不会失败）。
+# 注意：定时触发只在默认分支（main）上生效；合并前可在 Actions 页面对 v2/astro 手动运行。
+# 详见 docs/OPERATIONS.md「备份」与 docs/BACKUP.md。
+on:
+  schedule:
+    - cron: '30 19 * * 0' # UTC 周日 19:30 = 北京时间周一 03:30
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: 检查 Secret
+        id: check
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::notice title=跳过备份::仓库还没有配置 Secret SUPABASE_DB_URL（见 docs/OPERATIONS.md「备份」）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            [ -n "$BACKUP_PASSPHRASE" ] || echo "::warning title=备份未加密::建议添加 Secret BACKUP_PASSPHRASE（加密产物并备份 auth.users）"
+          fi
+      - if: steps.check.outputs.skip == 'false'
+        uses: actions/checkout@v4
+      - name: 安装 PostgreSQL 17 客户端（pg_dump 版本需 ≥ 服务器）
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: pg_dump
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          export BACKUP_INCLUDE_AUTH=$([ -n "$BACKUP_PASSPHRASE" ] && echo 1 || echo 0)
+          bash scripts/db-backup.sh "$SUPABASE_DB_URL" backup
+      - name: 上传备份（保留 30 天）
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0 # 产物已压缩 / 加密

@@ -1,6 +1,6 @@
 {
   "name": "azsou-site",
-  "version": "2.0.0-p1",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "AZ Studio · azsou.com v2（Astro 静态站）",
@@ -22,6 +22,11 @@
     "test:e2e": "playwright test",
     "test:lhci": "lhci autorun --config=lighthouserc.cjs",
     "size": "node scripts/size-report.mjs",
+    "test:csp": "node scripts/check-csp.mjs",
+    "csp:update": "node scripts/check-csp.mjs --write",
+    "db:backup": "bash scripts/db-backup.sh",
+    "db:restore": "bash scripts/db-restore.sh",
+    "db:drill": "bash scripts/restore-drill.sh",
     "test:db": "vitest run -c vitest.db.config.ts",
     "db:local": "bash scripts/pg-local.sh start"
   },
