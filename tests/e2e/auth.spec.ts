@@ -65,7 +65,12 @@ async function mockAuth(page: Page, opts: { confirmed?: boolean } = {}): Promise
       // 模拟提供方授权后回跳到本站回调页（PKCE：?code=）
       const to = new URL(u.searchParams.get('redirect_to')!);
       to.searchParams.set('code', 'oauth-code-1');
-      return route.fulfill({ status: 302, headers: { location: to.toString() } });
+      // WebKit 不支持用 3xx fulfill 导航请求，改用一个立即跳转的页面
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: `<!doctype html><script>location.replace(${JSON.stringify(to.toString())})</script>`,
+      });
     }
     return json(route, 404, { msg: 'no mock' });
   });
@@ -122,7 +127,7 @@ test.describe('登录', () => {
     await expect(page.locator('[data-form-status]')).toHaveText('邮箱或密码不正确。');
     await page.getByLabel('密码', { exact: true }).fill('Passw0rd!');
     await page.getByRole('button', { name: '登录', exact: true }).click();
-    await page.waitForURL('**/forum/');
+    await page.waitForURL((u) => u.pathname === '/forum/');
     await page.waitForLoadState('networkidle');
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('az-session-v68')!));
     expect(stored).toMatchObject({
@@ -239,7 +244,7 @@ test.describe('找回密码', () => {
     await page.getByLabel('新密码', { exact: true }).fill('newpass99');
     await page.getByLabel('确认新密码').fill('newpass99');
     await page.getByRole('button', { name: '保存新密码' }).click();
-    await page.waitForURL('**/settings/');
+    await page.waitForURL((u) => u.pathname === '/settings/');
     expect(m.calls.find((c) => c.method === 'PUT')?.body).toEqual({ password: 'newpass99' });
   });
 
@@ -274,7 +279,7 @@ test.describe('邮件验证与第三方登录回调', () => {
     const m = await mockAuth(page);
     await page.goto('/login/?next=/articles/');
     await page.getByRole('button', { name: '使用 GitHub 登录' }).click();
-    await page.waitForURL('**/articles/');
+    await page.waitForURL((u) => u.pathname === '/articles/');
     const auth = m.calls.find((c) => c.url.includes('/auth/v1/authorize'))!;
     const q = new URL(auth.url).searchParams;
     expect(q.get('provider')).toBe('github');

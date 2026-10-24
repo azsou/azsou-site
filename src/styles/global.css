@@ -912,7 +912,7 @@
     border-left: 3px solid var(--c-accent);
   }
   /* 正文里的链接要有下划线，不能只靠颜色区分（WCAG 1.4.1） */
-  :where(p, .prose li, .timeline) a:not([class]) {
+  :where(p, .prose li, .timeline, .check) a:not([class]) {
     text-decoration: underline;
   }
   .article-meta {
