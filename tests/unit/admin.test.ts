@@ -170,6 +170,8 @@ describe('封禁时长 / 审计摘要 / 路由', () => {
   it('pageKeyUrl / 后台路由 / GitHub 编辑链接', () => {
     expect(pageKeyUrl('article:pinyin-initial-search')).toBe('/articles/pinyin-initial-search/');
     expect(pageKeyUrl('tool:claude-code')).toBe('/ai/claude-code/');
+    expect(pageKeyUrl('video:designing-claude-code')).toBe('/videos/designing-claude-code/');
+    expect(pageKeyUrl('videos:x')).toBeNull();
     expect(pageKeyUrl('ai:claude-code')).toBeNull();
     expect(pageKeyUrl('project:fablemotion')).toBe('/apps/fablemotion/');
     expect(pageKeyUrl('game:emberdeep')).toBe('/games/emberdeep/');

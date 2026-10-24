@@ -12,6 +12,10 @@ export const url = {
   ai: () => '/ai/',
   tool: (slug: string) => `/ai/${slug}/`,
   aiCategory: (cat: string) => `/ai/category/${cat}/`,
+  /** 视频栏目（第三方视频只做点击才加载的嵌入，不转载） */
+  videos: () => '/videos/',
+  video: (slug: string) => `/videos/${slug}/`,
+  videoCategory: (cat: string) => `/videos/category/${cat}/`,
   rss: () => '/rss.xml',
   games: () => '/games/',
   game: (slug: string) => `/games/${slug}/`,
@@ -38,16 +42,17 @@ export const url = {
   adminUser: (id: string) => `/admin/users/view/?id=${encodeURIComponent(id)}`,
 } as const;
 
-/** 评论 page_key 的格式（与数据库 comments_page_key_check 一致；tool: 由迁移 0013 加入） */
-export const PAGE_KEY_RE = /^(article|game|work|project|tool):([a-z0-9-]{1,60})$/;
+/** 评论 page_key 的格式（与数据库 comments_page_key_check 一致；tool: 由迁移 0013、video: 由 0014 加入） */
+export const PAGE_KEY_RE = /^(article|game|work|project|tool|video):([a-z0-9-]{1,60})$/;
 
-/** 评论 page_key（V72：article:/game:/work:/project:<slug>；v2 新增 tool:<slug>）→ 页面地址；无法识别返回 null */
+/** 评论 page_key（V72：article:/game:/work:/project:<slug>；v2 新增 tool:/video:<slug>）→ 页面地址；无法识别返回 null */
 export function pageKeyUrl(pageKey: string): string | null {
   const m = PAGE_KEY_RE.exec(pageKey);
   if (!m) return null;
   const [, scope, slug] = m;
   if (scope === 'project') return url.app(slug);
   if (scope === 'tool') return url.tool(slug);
+  if (scope === 'video') return url.video(slug);
   return url[scope as 'article' | 'game' | 'work'](slug);
 }
 

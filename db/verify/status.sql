@@ -3,7 +3,7 @@
 --
 -- 每一行是一项检查：step = 对应的迁移文件，ok = 是否已生效。
 -- 生产切换时每执行完一个迁移文件就跑一次：该步及之前的所有行都应为 true，之后的行为 false。
--- 全部为 true = 0002…0012 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
+-- 全部为 true = 0002…0014 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
 -- =============================================================================
 with c(step, item, ok) as (
   values
@@ -64,6 +64,9 @@ with c(step, item, ok) as (
                  and pg_get_constraintdef(oid) like '%review%')),
   ('0013', '评论可以挂在 AI 工具页（page_key 允许 tool:）',
      exists (select 1 from pg_constraint where conname = 'comments_page_key_check'
-             and pg_get_constraintdef(oid) like '%tool%'))
+             and pg_get_constraintdef(oid) like '%tool%')),
+  ('0014', '评论可以挂在视频页（page_key 允许 video:）',
+     exists (select 1 from pg_constraint where conname = 'comments_page_key_check'
+             and pg_get_constraintdef(oid) like '%video%'))
 )
 select step, item, ok from c order by step, item;
