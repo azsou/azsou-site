@@ -1,4 +1,5 @@
 ---
+import '@/styles/community.css';
 import seedsData from '@/data/comment-seeds.json';
 import { initials } from '@/scripts/render';
 import { textToHtml } from '@/lib/escape';
@@ -22,7 +23,7 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
       {seeds.length} 条
     </span>
   </div>
-  <p class="muted">评论公开可见。后端不可达时本区自动进入只读模式。</p>
+  <p class="muted">评论公开可见，支持 Markdown。后端不可达时本区自动进入只读模式。</p>
   <ul class="list-reset" role="list" data-list>
     {seeds.map((c) => (
       <li class="comment" data-source="seed">
@@ -40,6 +41,7 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
       </li>
     ))}
   </ul>
+  <div class="composer-box" data-composer></div>
   <p class="data-status" data-status role="status">
     正在加载讨论…
   </p>
@@ -47,5 +49,5 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 
 <script>
   import { whenIdle } from '@/scripts/idle';
-  whenIdle(() => import('@/scripts/comments'));
+  whenIdle(() => import('@/scripts/community/comments'));
 </script>

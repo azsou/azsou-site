@@ -16,10 +16,14 @@ import { url } from '@/lib/routes';
   ]}
 >
   <PageHead eyebrow="社区" title="论坛" lede="讨论围绕站内项目与技术；尊重每一位真实署名的参与者。">
-    <p class="notice notice--info mt-4" role="note">
-      v2
-      预览：论坛暂为只读，历史内容照常可读。账户系统已上线（可以注册与登录），发帖与回帖会在论坛系统（P3）上线后开放。
-    </p>
+    <div class="btn-row mt-4">
+      <a class="btn btn--primary" href={url.forumNew()}>
+        发新主题
+      </a>
+      <a class="btn" href={url.search()}>
+        搜索论坛
+      </a>
+    </div>
   </PageHead>
   <section aria-labelledby="h-cats">
     <h2 id="h-cats" class="visually-hidden">

@@ -51,10 +51,47 @@ export function initUserMenu(root: ParentNode = document) {
       return;
     }
     btn.querySelector('[data-initials]')!.textContent = initials(v.name);
-    btn.setAttribute('aria-label', `账户菜单：${v.name}`);
+    // 可访问名称放在隐藏文字里（不用 aria-label，避免与可见的姓名首字不一致：WCAG 2.5.3）
+    btn.querySelector('[data-btn-label]')!.textContent = `账户菜单：${v.name}`;
     menu.querySelector('[data-name]')!.textContent = v.name;
     menu.querySelector('[data-email]')!.textContent = v.email;
+    menu
+      .querySelector<HTMLAnchorElement>('[data-profile-link]')
+      ?.setAttribute('href', `/u/?id=${encodeURIComponent(v.id)}`);
+    void refreshUnread();
   };
+  /** 未读通知角标：只有登录用户才动态加载数据层查询（未登录访客的首屏不受影响） */
+  const badge = btn.querySelector<HTMLElement>('[data-unread-badge]');
+  const count = menu.querySelector<HTMLElement>('[data-unread-count]');
+  let unreadSeq = 0;
+  async function refreshUnread() {
+    const seq = ++unreadSeq;
+    const v = readViewer();
+    let n = 0;
+    if (v) {
+      try {
+        const { getRepository } = await import('@/lib/data');
+        n = await getRepository().notifications.unreadCount();
+      } catch {
+        n = 0;
+      }
+    }
+    if (seq !== unreadSeq) return;
+    const text = n > 99 ? '99+' : String(n);
+    if (badge) {
+      badge.hidden = !n;
+      badge.textContent = n ? text : '';
+    }
+    if (count) {
+      count.hidden = !n;
+      count.textContent = n ? `${text} 条未读` : '';
+    }
+    if (v)
+      btn.querySelector('[data-btn-label]')!.textContent = n
+        ? `账户菜单：${v.name}，${text} 条未读通知`
+        : `账户菜单：${v.name}`;
+  }
+  addEventListener('az:notifications', () => void refreshUnread());
   const open = () => {
     menu.hidden = false;
     btn.setAttribute('aria-expanded', 'true');

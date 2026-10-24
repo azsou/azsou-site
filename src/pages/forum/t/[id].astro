@@ -1,4 +1,5 @@
 ---
+import '@/styles/community.css';
 import Base from '@/layouts/Base.astro';
 import { forum, type ForumSeed } from '@/lib/content';
 import { url } from '@/lib/routes';
@@ -28,11 +29,11 @@ const path = url.forumThread(t.id);
     forumPosting({ title: t.title, body: t.body, path, date: t.date, author: t.author, replies: t.replies }),
   ]}
 >
-  <article>
+  <article class="thread" data-thread-page data-mode="seed" data-thread-id={t.id}>
     <header class="page-head">
-      <p class="eyebrow">
-        {cat.name}
-        {t.pinned && ' · 置顶'}
+      <p class="eyebrow thread__cat" data-cat>
+        <a href={url.forumCategory(cat.id)}>{cat.name}</a>
+        {t.pinned && <span class="badge">置顶</span>}
       </p>
       <h1>{t.title}</h1>
       <div class="article-meta">
@@ -42,7 +43,8 @@ const path = url.forumThread(t.id);
       </div>
     </header>
     <div class="panel prose" set:html={textToHtml(t.body)} />
-    <section class="discussion panel" data-forum-replies data-thread-id={t.id} aria-labelledby="h-replies">
+    <div class="thread-actions" data-thread-actions></div>
+    <section class="discussion panel" aria-labelledby="h-replies">
       <div class="section__head">
         <h2 id="h-replies">回复</h2>
         <span class="muted" data-count>
@@ -66,14 +68,20 @@ const path = url.forumThread(t.id);
           </li>
         ))}
       </ul>
-      <p class="data-status" data-status role="status">
-        正在加载回复…
-      </p>
+      <div class="btn-row list-more">
+        <button class="btn" type="button" data-more hidden>
+          加载更多回复
+        </button>
+      </div>
+      <div class="composer-box" data-composer></div>
     </section>
+    <p class="data-status" data-status role="status">
+      正在加载回复…
+    </p>
   </article>
 </Base>
 
 <script>
   import { whenIdle } from '@/scripts/idle';
-  whenIdle(() => import('@/scripts/forum'));
+  whenIdle(() => import('@/scripts/community/thread'));
 </script>

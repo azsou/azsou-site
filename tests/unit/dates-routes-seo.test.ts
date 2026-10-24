@@ -49,7 +49,7 @@ describe('routes', () => {
   it('routes seed threads statically and db threads dynamically', () => {
     expect(url.forumThread('t-announce')).toBe('/forum/t/t-announce/');
     expect(url.forumThread('c81da701-f3a9-4232-87a9-009351953263')).toBe(
-      '/forum/thread/?id=c81da701-f3a9-4232-87a9-009351953263',
+      '/forum/t/?id=c81da701-f3a9-4232-87a9-009351953263',
     );
     expect(url.search('塔防')).toBe('/search/?q=%E5%A1%94%E9%98%B2');
     expect(relatedUrl('app', 'fablemotion')).toBe('/apps/fablemotion/');

@@ -1,0 +1,55 @@
+---
+/**
+ * 数据库主题页 /forum/t/?id=<uuid>：静态外壳 + 客户端渲染（设计说明见 docs/PLAN.md「P3 动态页面方案」）。
+ * 标题、描述、canonical、JSON-LD 由脚本按主题内容写入；不存在 / 被隐藏的主题追加 noindex。
+ */
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
+---
+
+<Base
+  title="论坛主题"
+  description="AZ Studio 论坛的社区主题：围绕站内项目与技术的讨论。"
+  type="article"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+    { name: '主题', path: '/forum/t/' },
+  ]}
+>
+  <article class="thread" data-thread-page data-mode="dynamic">
+    <header class="page-head">
+      <p class="eyebrow thread__cat" data-cat>
+        论坛
+      </p>
+      <h1 data-title>正在加载主题…</h1>
+      <div class="article-meta" data-meta></div>
+    </header>
+    <div class="panel thread__body" data-body aria-busy="true">
+      <span class="skeleton skeleton--line"></span>
+      <span class="skeleton skeleton--line"></span>
+      <span class="skeleton skeleton--line skeleton--short"></span>
+    </div>
+    <div class="thread-actions" data-thread-actions></div>
+    <section class="discussion panel" aria-labelledby="h-replies" data-replies-section>
+      <div class="section__head">
+        <h2 id="h-replies">回复</h2>
+        <span class="muted" data-count></span>
+      </div>
+      <ul class="list-reset" role="list" data-list></ul>
+      <div class="btn-row list-more">
+        <button class="btn" type="button" data-more hidden>
+          加载更多回复
+        </button>
+      </div>
+      <div class="composer-box" data-composer></div>
+    </section>
+    <p class="data-status" data-status role="status">
+      正在加载…
+    </p>
+  </article>
+</Base>
+
+<script>
+  import '@/scripts/community/thread';
+</script>

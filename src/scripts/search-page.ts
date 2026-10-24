@@ -44,7 +44,63 @@ function render(items: SearchItem[], q: string) {
     : '';
 }
 
+// ------------------------------------------------ 论坛数据库主题（pg_trgm RPC）
+const forumBox = document.querySelector<HTMLElement>('[data-forum-results]')!;
+const forumList = forumBox.querySelector<HTMLElement>('[data-forum-list]')!;
+const forumStatus = forumBox.querySelector<HTMLElement>('[data-forum-status]')!;
+let forumSeq = 0;
+async function runForum(q: string) {
+  const seq = ++forumSeq;
+  const term = q.trim();
+  if (!term) {
+    forumBox.hidden = true;
+    return;
+  }
+  forumBox.hidden = false;
+  forumStatus.textContent = '正在搜索社区主题…';
+  try {
+    const [{ getRepository, CATEGORY_NAMES }, { url }, { shortDate }] = await Promise.all([
+      import('@/lib/data'),
+      import('@/lib/routes'),
+      import('./render'),
+    ]);
+    const hits = await getRepository().forum.search(term, { limit: 20 });
+    if (seq !== forumSeq) return;
+    forumList.replaceChildren(
+      ...hits.map((hit) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.className = 'list-row';
+        a.href = url.forumThread(hit.id);
+        const main = document.createElement('span');
+        main.className = 'list-row__main';
+        const t = document.createElement('span');
+        t.className = 'list-row__title';
+        t.textContent = hit.title;
+        const s = document.createElement('span');
+        s.className = 'list-row__sub';
+        s.textContent = `${CATEGORY_NAMES[hit.category] ?? ''} · ${hit.author.name} · ${shortDate(hit.createdAt)} — ${hit.excerpt}`;
+        main.append(t, document.createElement('br'), s);
+        const aside = document.createElement('span');
+        aside.className = 'list-row__aside badge';
+        aside.textContent = '社区';
+        a.append(main, aside);
+        li.append(a);
+        return li;
+      }),
+    );
+    forumList.hidden = hits.length === 0;
+    forumStatus.textContent = hits.length ? `社区主题 ${hits.length} 条` : `社区主题里没有找到“${term}”。`;
+  } catch {
+    if (seq !== forumSeq) return;
+    forumList.replaceChildren();
+    forumList.hidden = true;
+    forumStatus.textContent = '社区主题暂时无法搜索（数据服务不可达），上方站内结果不受影响。';
+  }
+}
+
 async function run(q: string) {
+  void runForum(q);
   try {
     const idx = await load();
     render(q.trim() ? search(idx, q) : [], q.trim());
@@ -65,7 +121,7 @@ form.addEventListener('submit', (e) => {
 let timer: ReturnType<typeof setTimeout> | undefined;
 input.addEventListener('input', () => {
   clearTimeout(timer);
-  timer = setTimeout(() => void run(input.value), 150);
+  timer = setTimeout(() => void run(input.value), 300);
 });
 
 const initial = new URLSearchParams(location.search).get('q') || '';

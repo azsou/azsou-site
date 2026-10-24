@@ -15,10 +15,15 @@ export const url = {
   search: (q?: string) => (q ? `/search/?q=${encodeURIComponent(q)}` : '/search/'),
   forum: () => '/forum/',
   forumCategory: (id: string) => `/forum/${id}/`,
-  /** 种子主题静态生成；数据库主题在 P3 前用只读动态页 */
+  /** 种子主题静态生成；数据库主题走静态外壳 + 客户端渲染（见 docs/PLAN.md P3 设计说明） */
   forumThread: (id: string) =>
-    /^t-[a-z0-9-]+$/.test(id) ? `/forum/t/${id}/` : `/forum/thread/?id=${encodeURIComponent(id)}`,
+    /^t-[a-z0-9-]+$/.test(id) ? `/forum/t/${id}/` : `/forum/t/?id=${encodeURIComponent(id)}`,
+  forumNew: (category?: string) =>
+    category ? `/forum/new/?cat=${encodeURIComponent(category)}` : '/forum/new/',
   user: (id: string) => `/u/?id=${encodeURIComponent(id)}`,
+  bookmarks: () => '/bookmarks/',
+  notifications: () => '/notifications/',
+  login: (next?: string) => (next ? `/login/?next=${encodeURIComponent(next)}` : '/login/'),
 } as const;
 
 export type RelatedType = 'app' | 'game' | 'article' | 'work';

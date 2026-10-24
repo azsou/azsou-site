@@ -16,7 +16,8 @@ const NOINDEX = [
   '/u/',
   '/search/',
   '/offline/',
-  '/forum/thread/',
+  '/forum/new/',
+  '/bookmarks/',
   '/404/',
   '/auth/',
   '/api/',
@@ -33,7 +34,11 @@ export default defineConfig({
   compressHTML: true,
   integrations: [
     sitemap({
-      filter: (page) => !NOINDEX.some((p) => new URL(page).pathname.startsWith(p)),
+      filter: (page) => {
+        const path = new URL(page).pathname;
+        // /forum/t/ 是数据库主题的外壳（?id=…，由 /forum/sitemap-threads.xml 列出）；/forum/t/t-xxx/ 种子主题照常收录
+        return path !== '/forum/t/' && !NOINDEX.some((p) => path.startsWith(p));
+      },
       changefreq: 'weekly',
     }),
   ],

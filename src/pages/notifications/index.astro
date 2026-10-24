@@ -1,5 +1,49 @@
 ---
-import ComingSoon from '@/components/ComingSoon.astro';
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
 ---
 
-<ComingSoon title="通知" path="/notifications/" phase="P3" what="回复与 @提及通知。" />
+<Base
+  title="通知"
+  description="你的 AZ Studio 通知：主题收到的回复、举报处理结果与账号消息。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '通知', path: '/notifications/' },
+  ]}
+>
+  <header class="page-head">
+    <h1>通知</h1>
+    <p>有人回复你的主题、举报有了处理结果，都会出现在这里。</p>
+  </header>
+  <section data-notifications aria-label="通知列表">
+    <div class="auth-card" data-signed-out hidden>
+      <p>登录后可以查看通知。</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="/login/?next=/notifications/">
+          登录
+        </a>
+      </div>
+    </div>
+    <div class="btn-row notif-tools" data-tools hidden>
+      <button class="btn" type="button" data-mark-all>
+        全部标为已读
+      </button>
+    </div>
+    <ul class="list-group" role="list" data-list aria-busy="true">
+      {[0, 1, 2].map(() => (
+        <li class="skeleton-row" aria-hidden="true">
+          <span class="skeleton skeleton--line" />
+          <span class="skeleton skeleton--line skeleton--short" />
+        </li>
+      ))}
+    </ul>
+    <p class="data-status" data-status role="status">
+      正在加载…
+    </p>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/community/notifications';
+</script>

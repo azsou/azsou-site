@@ -1198,6 +1198,41 @@
     width: 32px;
     height: 32px;
   }
+  .avatar-btn {
+    position: relative;
+  }
+  /* 未读通知角标（绝对定位，不占布局） */
+  .nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-pill);
+    background: var(--c-danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--c-bg);
+  }
+  .menu__count {
+    margin-left: auto;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--c-danger);
+    color: #fff;
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+  @media (prefers-color-scheme: dark) {
+    .nav-badge,
+    .menu__count {
+      color: #000;
+    }
+  }
   .menu {
     position: absolute;
     right: 0;

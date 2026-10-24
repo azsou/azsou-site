@@ -21,7 +21,15 @@ const { c } = Astro.props as { c: ForumCategory };
     { name: c.name, path: url.forumCategory(c.id) },
   ]}
 >
-  <PageHead eyebrow="论坛" title={c.name} lede={c.desc} />
+  <PageHead eyebrow="论坛" title={c.name} lede={c.desc}>
+    {(c.id !== 'announce' && (
+      <div class="btn-row mt-4">
+        <a class="btn btn--primary" href={url.forumNew(c.id)}>
+          在「{c.name}」发主题
+        </a>
+      </div>
+    )) || <p class="muted mt-4">公告由管理员发布。</p>}
+  </PageHead>
   <Segmented
     label="论坛分类"
     items={[

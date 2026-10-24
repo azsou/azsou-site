@@ -14,9 +14,12 @@ import Icon from './Icon.astro';
     aria-haspopup="menu"
     aria-expanded="false"
     aria-controls="user-menu-pop"
-    aria-label="账户菜单"
   >
     <span class="avatar avatar--sm" data-initials aria-hidden="true"></span>
+    <span class="visually-hidden" data-btn-label>
+      账户菜单
+    </span>
+    <span class="nav-badge" data-unread-badge aria-hidden="true" hidden></span>
   </button>
   <div class="menu glass" id="user-menu-pop" data-menu hidden>
     <p class="menu__head">
@@ -24,6 +27,15 @@ import Icon from './Icon.astro';
       <span data-email></span>
     </p>
     <div role="menu" aria-label="账户">
+      <a role="menuitem" href="/u/" data-profile-link>
+        我的主页
+      </a>
+      <a role="menuitem" href="/notifications/">
+        通知<span class="menu__count" data-unread-count hidden></span>
+      </a>
+      <a role="menuitem" href="/bookmarks/">
+        我的收藏
+      </a>
       <a role="menuitem" href="/settings/">
         账户设置
       </a>

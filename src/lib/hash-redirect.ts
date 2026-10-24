@@ -51,7 +51,7 @@ export function mapLegacyHash(hash: string): string | null {
         return `/apps/${id}/`;
       case 'forum':
         if (/^t-[a-z0-9-]+$/.test(id)) return `/forum/t/${id}/`;
-        if (UUID.test(id)) return `/forum/thread/?id=${id}`;
+        if (UUID.test(id)) return `/forum/t/?id=${id}`;
         if (/^(announce|product|tech|meta)$/.test(id)) return `/forum/${id}/`;
         return '/forum/';
       case 'user':

@@ -17,10 +17,7 @@ describe('mapLegacyHash（V72 hash 路由 → v2 真实 URL）', () => {
     ['#/archive', '/archive/'],
     ['#/forum', '/forum/'],
     ['#/forum/t-announce', '/forum/t/t-announce/'],
-    [
-      '#/forum/c81da701-f3a9-4232-87a9-009351953263',
-      '/forum/thread/?id=c81da701-f3a9-4232-87a9-009351953263',
-    ],
+    ['#/forum/c81da701-f3a9-4232-87a9-009351953263', '/forum/t/?id=c81da701-f3a9-4232-87a9-009351953263'],
     ['#/login', '/login/'],
     ['#/register', '/register/'],
     ['#/forgot-password', '/reset-password/'],

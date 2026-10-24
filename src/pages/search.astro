@@ -32,7 +32,15 @@ import Icon from '@/components/Icon.astro';
     </button>
   </form>
   <p class="data-status" data-status role="status" aria-live="polite"></p>
-  <ul class="list-group mt-4" role="list" data-results hidden></ul>
+  <ul class="list-group mt-4" role="list" aria-label="站内内容" data-results hidden></ul>
+  <section class="section" data-forum-results hidden aria-labelledby="h-forum-results">
+    <div class="section__head">
+      <h2 id="h-forum-results">社区主题</h2>
+      <a href="/forum/">论坛</a>
+    </div>
+    <ul class="list-group" role="list" aria-labelledby="h-forum-results" data-forum-list></ul>
+    <p class="data-status" data-forum-status role="status" aria-live="polite"></p>
+  </section>
 </Base>
 
 <script>

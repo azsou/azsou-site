@@ -1,0 +1,49 @@
+---
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
+import { forum } from '@/lib/content';
+const seeds = Object.fromEntries(
+  forum.seeds.map((t) => [t.id, { title: t.title, category: t.category, date: t.date }]),
+);
+---
+
+<Base
+  title="我的收藏"
+  description="你在 AZ Studio 论坛收藏的主题。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '我的收藏', path: '/bookmarks/' },
+  ]}
+>
+  <header class="page-head">
+    <h1>我的收藏</h1>
+    <p>在主题页点「收藏」，就会出现在这里。收藏只有你自己能看到。</p>
+  </header>
+  <section data-bookmarks aria-label="收藏的主题">
+    <div class="auth-card" data-signed-out hidden>
+      <p>登录后可以查看收藏。</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="/login/?next=/bookmarks/">
+          登录
+        </a>
+      </div>
+    </div>
+    <ul class="list-group" role="list" data-list aria-busy="true">
+      {[0, 1, 2].map(() => (
+        <li class="skeleton-row" aria-hidden="true">
+          <span class="skeleton skeleton--line" />
+          <span class="skeleton skeleton--line skeleton--short" />
+        </li>
+      ))}
+    </ul>
+    <p class="data-status" data-status role="status">
+      正在加载…
+    </p>
+  </section>
+  <script type="application/json" data-seeds set:html={JSON.stringify(seeds)} />
+</Base>
+
+<script>
+  import '@/scripts/community/bookmarks';
+</script>
