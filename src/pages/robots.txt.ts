@@ -10,6 +10,8 @@ export const GET: APIRoute = ({ site }) =>
       'Disallow: /notifications/',
       'Disallow: /bookmarks/',
       'Disallow: /forum/new/',
+      // 下载中转页：不让爬虫进入（也不会被计数）
+      'Disallow: /go/',
       'Disallow: /search/?',
       '',
       `Sitemap: ${new URL('sitemap-index.xml', site).href}`,

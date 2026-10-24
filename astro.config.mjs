@@ -21,6 +21,7 @@ const NOINDEX = [
   '/404/',
   '/auth/',
   '/api/',
+  '/go/',
 ];
 
 export default defineConfig({
