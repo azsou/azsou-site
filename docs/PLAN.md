@@ -76,15 +76,16 @@
 - [x] T4.5 用户与角色、封禁——列表 / 搜索（管理员可搜邮箱）、详情页（资料、他的内容、封禁记录）、改角色（仅管理员，`admin_set_user`，不能改自己）、封禁 / 解封（原因 + 到期时间，`user_bans`，到期立即失效）、警告（站内通知）；版主只能封禁普通用户
 - [x] T4.6 站点设置（公告条、注册开关、论坛分类启用 / 顺序、限流只读展示）、导入导出（UGC JSON / CSV 不含邮箱；设置 JSON 导入导出）、审计日志（筛选 + CSV）；备份方案见 `docs/BACKUP.md`
 - [x] @提及：回复 / 评论里的 `@昵称` → `mention` 通知（最长前缀匹配，重名不通知，每条最多 5 人）
-- [ ] 编辑器图片上传（Supabase Storage）——**未做**：本地 / CI 没有可测试的 Storage 服务（PostgREST 之外还需 storage-api + 对象存储），按要求跳过，留到 P5 评估
+- [x] 编辑器图片上传（Supabase Storage）——P4 未做（本地 / CI 没有 storage-api），已在 P5 完成（0010，见下）
 
-### P5 上线与交付
-- [ ] 编辑器图片上传（Supabase Storage，需在预览环境验证）
-- [ ] T5.1 全量回归（所有端、所有角色）
-- [ ] T5.2 性能与 SEO 最终验收（Lighthouse ≥ 95）
-- [ ] T5.3 数据库备份 Action（pg_dump）与迁移手册（换库步骤）
-- [ ] T5.4 运维文档、管理员手册、交付清单
-- [ ] T5.5 切换生产、提交 sitemap 到 Google / Bing / 百度
+### P5 上线与交付——2026-10-24 开发侧完成（v2/astro，PR #2）；切换生产由站长执行
+- [x] 编辑器图片上传——0010：Supabase Storage 公开读桶 `ugc-images`（2 MB，jpeg/png/webp/gif）+ 存储 RLS（只能传到自己的 `<uid>/` 目录、文件名白名单、10 分钟 10 张 / 24 小时 50 张限流、本人或版主删除）；编辑器工具栏选图 / 粘贴 / 拖入，客户端缩到最长边 1600 并转 WebP，填写替代文字（默认取文件名）；渲染与净化只放行本站桶的图。本地 / CI 用 `db/shim/plain.sql` 的 Storage 替身测 RLS，E2E 模拟 storage-api；**真实 Storage 需在 Vercel 预览上人工验证一次**（ACCEPTANCE 2.10）
+- [x] 0011：停用的论坛分类在数据库层拦截新主题 / 移入（版主除外，V72 兼容）
+- [x] T5.1 全量回归（所有端、所有角色）——角色矩阵 E2E（匿名 / 用户 / 被封禁 / 版主 / 管理员 × 3 引擎 × 4 视口）、图片上传 E2E、安全 E2E；CI 的 E2E 每个引擎分 2 片
+- [x] T5.2 性能与 SEO 最终验收（Lighthouse ≥ 95）——16 个页面移动端四项 ≥ 95、LCP < 2.0 s、CLS < 0.05；严格 CSP（内联脚本哈希，`scripts/check-csp.mjs` 校验构建产物与线上）
+- [x] T5.3 数据库备份 Action（pg_dump，每周一 03:30 北京时间，产物保留 30 天，可选 gpg 加密）、恢复脚本与每次 CI 的恢复演练、迁移状态核对 `db/verify/status.sql`、迁移手册（docs/MIGRATION.md、PORTABILITY.md）
+- [x] T5.4 运维文档、管理员手册、交付清单——docs/ACCEPTANCE.md、DEPLOY.md、CONFIG.md、OPERATIONS.md、BACKUP.md、README
+- [ ] T5.5 切换生产、提交 sitemap 到 Google / Bing / 百度——**站长执行**，步骤见 docs/MIGRATION.md（顺序见下方 §4）
 
 ## 4. P3 设计说明与上线顺序
 
@@ -105,14 +106,18 @@
 - 论坛首页/分类页：站点主题静态在上，「社区主题」区预留骨架高度（不推动上方内容），置顶在前，其余 `created_at desc, id desc` keyset 游标分页；
   回复 `created_at asc, id asc` 游标分页（每页 30）；回复数用 `thread_reply_counts` RPC 一次取回。
 
-### 生产数据库执行顺序（站长批准后，在 Supabase SQL 编辑器按顺序执行；每个文件可重复执行）
-1. `db/shim/supabase.sql`（只做存在性检查）
-2. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
-3. `0007_signup_guard.sql`（钩子默认不生效；v2 切换时再写入密钥并在 Dashboard 启用）
-4. `0008_forum_search.sql`（P3：pg_trgm 扩展 + 三元组索引 + `search_threads` / `thread_reply_counts` RPC；纯增量，V72 不受影响）
-5. `0009_admin.sql`（P4：`user_bans` 封禁记录与到期、版主封禁 / 警告 / 批量处理举报、后台统计与列表 RPC、@提及通知、注册钩子读取「注册开关」；`is_admin` / `can_write` 等签名不变，只是把到期封禁视为已解除；V72 不受影响）
+### 生产切换顺序（站长批准后执行；详细命令、验证与回滚见 docs/MIGRATION.md）
+1. **备份**：Actions → DB backup 手动运行（或 `scripts/db-backup.sh`），确认拿到文件
+2. `db/shim/supabase.sql`（只做存在性检查）
+3. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
+4. `0007_signup_guard.sql`（钩子函数，**先不启用**）
+5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql`
+6. 每执行完一个文件跑一次 `db/verify/status.sql`：该步及之前的行都为 true
+7. 合并 PR #2（合并即上线）→ `node scripts/check-csp.mjs --url https://azsou.com`
+8. 写入 `signup_ticket_secret`，在 Dashboard 启用 Before User Created 钩子，开启邮箱确认
+9. 上线检查（MIGRATION.md §7）→ 提交站点地图 `sitemap-index.xml` 与 `forum/sitemap-threads.xml`（Google / Bing / 百度）
 
-（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。）
+（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0011 均可重复执行、向后兼容 V72。）
 
 
 ## 5. P4 设计说明
