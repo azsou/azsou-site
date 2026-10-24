@@ -451,6 +451,51 @@
     }
   }
 
+  /* ---------- 站点公告条（站点设置；固定定位，不推动布局） ---------- */
+  .site-banner {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--space-4) + var(--safe-bottom));
+    z-index: 70;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    width: min(640px, calc(100vw - 2 * var(--space-4)));
+    padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-3);
+    transform: translateX(-50%);
+    font-size: var(--text-ui);
+    border-left: 4px solid var(--c-blue);
+  }
+  .site-banner--warning {
+    border-left-color: var(--c-orange);
+  }
+  .site-banner p {
+    flex: 1;
+    margin: 0;
+    padding-block: 2px;
+  }
+  .site-banner__close {
+    flex: none;
+    width: var(--touch);
+    height: var(--touch);
+    margin-block: calc(var(--space-3) * -1);
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-label-2);
+    font-size: 1.25rem;
+  }
+  .site-banner__close:hover {
+    background: var(--c-fill);
+  }
+  @media (max-width: 767px) {
+    .site-banner {
+      bottom: calc(var(--tabbar-h) + var(--space-3) + var(--safe-bottom));
+    }
+  }
+
   /* ---------- 页脚 ---------- */
   .site-footer {
     border-top: 1px solid var(--c-separator);

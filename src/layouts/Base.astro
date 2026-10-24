@@ -108,6 +108,11 @@ const isProd = import.meta.env.PROD;
     </main>
     <Footer />
     <TabBar />
+    <script>
+      // 站点公告条与论坛分类顺序（站点设置，P4）：空闲时加载，不影响首屏
+      import { whenIdle } from '@/scripts/idle';
+      whenIdle(() => import('@/scripts/site-banner').then((m) => m.initSiteBanner()), 3000);
+    </script>
     {isProd && <script is:inline>
       if ('serviceWorker' in navigator)
         addEventListener('load', function () {

@@ -4,6 +4,7 @@ import { friendlyError } from '@/lib/community-errors';
 import { url } from '@/lib/routes';
 import { clearDraft, countChars, loadDraft, mountEditor, saveDraft } from './editor';
 import { busy, viewer } from './ui';
+import { loadSiteSettings } from '../site-settings';
 
 const root = document.querySelector<HTMLElement>('[data-new-thread]')!;
 const form = root.querySelector<HTMLFormElement>('[data-signed-in]')!;
@@ -90,7 +91,25 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-void viewer().then((me) => {
+/** 站点设置：停用的分类不出现、按设置排序（数据库不拦截旧客户端，见 docs/PLAN.md §5） */
+async function applyCategorySettings(isAdmin: boolean) {
+  const s = await loadSiteSettings();
+  const picker = form.querySelector<HTMLElement>('.cat-picker')!;
+  const labels = new Map(radios().map((r) => [r.value, r.closest('label')!]));
+  for (const c of s.forum.categories) {
+    const label = labels.get(c.id);
+    if (!label) continue;
+    label.hidden = !c.enabled || (c.id === 'announce' && !isAdmin);
+    picker.append(label);
+  }
+  const visible = radios().filter((r) => !r.closest('label')!.hidden);
+  if (visible.length && !visible.some((r) => r.checked)) {
+    visible[0].checked = true;
+    paintCat();
+  }
+}
+
+void viewer().then(async (me) => {
   if (!me) return;
   out.hidden = true;
   if (me.banned) {
@@ -99,5 +118,6 @@ void viewer().then((me) => {
   }
   if (me.role === 'admin')
     form.querySelectorAll<HTMLElement>('[data-admin-only]').forEach((x) => (x.hidden = false));
+  await applyCategorySettings(me.role === 'admin');
   form.hidden = false;
 });

@@ -11,6 +11,8 @@ interface Viewer {
   id: string;
   name: string;
   email: string;
+  /** 登录时缓存的角色（只用于显示「管理后台」入口；权限由数据库判定） */
+  role: string;
 }
 
 export function readViewer(): Viewer | null {
@@ -28,7 +30,8 @@ export function readViewer(): Viewer | null {
       meta.user_name ||
       email.split('@')[0] ||
       '用户';
-    return { id: s.user.id, name, email };
+    const role: string = (p?.id === s.user.id && p.role) || s.profile?.role || 'user';
+    return { id: s.user.id, name, email, role };
   } catch {
     return null;
   }
@@ -58,6 +61,8 @@ export function initUserMenu(root: ParentNode = document) {
     menu
       .querySelector<HTMLAnchorElement>('[data-profile-link]')
       ?.setAttribute('href', `/u/?id=${encodeURIComponent(v.id)}`);
+    const adminLink = menu.querySelector<HTMLElement>('[data-admin-link]');
+    if (adminLink) adminLink.hidden = !(v.role === 'admin' || v.role === 'moderator');
     void refreshUnread();
   };
   /** 未读通知角标：只有登录用户才动态加载数据层查询（未登录访客的首屏不受影响） */

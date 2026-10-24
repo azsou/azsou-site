@@ -95,15 +95,17 @@ describe('/api/auth/[action]', () => {
     expect(res.status).toBe(200);
     expect(calls.map((c) => c.url)).toEqual([
       SITEVERIFY_URL,
+      'https://sb.example.co/rest/v1/site_content?kind=eq.setting&slug=eq.registration&published=eq.true&select=data',
       `https://sb.example.co/auth/v1/signup?redirect_to=${encodeURIComponent(`${ORIGIN}/auth/callback/`)}`,
     ]);
-    const sent = JSON.parse(calls[1].body);
+    const gotrue = calls.find((c) => c.url.includes('/auth/v1/signup'))!;
+    const sent = JSON.parse(gotrue.body);
     expect(sent).toEqual({
       email: 'a@example.com',
       password: 'pw123456',
       data: { name: '小A', signup_ticket: makeSignupTicket('tk', 'a@example.com', 1_800_000_000) },
     });
-    expect(calls[1].headers.apikey).toBe('pk');
+    expect(gotrue.headers.apikey).toBe('pk');
     expect(new URLSearchParams(calls[0].body).get('remoteip')).toBe('9.9.9.9');
   });
   it('Turnstile 失败 → 400 turnstile_failed，不转发', async () => {
@@ -177,5 +179,40 @@ describe('/api/auth/[action]', () => {
       `${ORIGIN}/auth/callback/?next=/settings/`,
     );
     expect(safeRedirect(`${ORIGIN}/admin/`, ORIGIN)).toBe(`${ORIGIN}/auth/callback/`);
+  });
+});
+
+describe('注册开关（站点设置）', () => {
+  const closed = (open: unknown, status = 200) =>
+    vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === SITEVERIFY_URL) return Response.json({ success: true });
+      if (url.includes('/rest/v1/site_content')) return Response.json([{ data: { open } }], { status });
+      return Response.json({ id: 'u1' });
+    }) as unknown as typeof fetch;
+  const body = {
+    email: 'a@example.com',
+    password: 'pw123456',
+    captchaToken: TURNSTILE_TEST.dummyToken,
+  };
+  it('open=false → 403 registration_closed，不转发 GoTrue', async () => {
+    const f = closed(false);
+    const res = await handleGuardedAuth('signup', req('signup', body), {}, { fetch: f, defaults });
+    expect(res.status).toBe(403);
+    expect((await res.json()).error_code).toBe('registration_closed');
+    expect(
+      (f as unknown as ReturnType<typeof vi.fn>).mock.calls.some((c) => String(c[0]).includes('/auth/v1/')),
+    ).toBe(false);
+  });
+  it('open=true / 设置读取失败 → 照常注册（钩子是第二道拦截）', async () => {
+    for (const f of [closed(true), closed(false, 500)]) {
+      const res = await handleGuardedAuth('signup', req('signup', body), {}, { fetch: f, defaults });
+      expect(res.status).toBe(200);
+    }
+  });
+  it('找回密码不受注册开关影响', async () => {
+    const f = closed(false);
+    const res = await handleGuardedAuth('recover', req('recover', body), {}, { fetch: f, defaults });
+    expect(res.status).toBe(200);
   });
 });

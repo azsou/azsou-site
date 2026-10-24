@@ -29,9 +29,9 @@ import { url } from '@/lib/routes';
     <h2 id="h-cats" class="visually-hidden">
       分类
     </h2>
-    <div class="grid">
+    <div class="grid" data-forum-cats>
       {forum.categories.map((c, i) => (
-        <article class="card">
+        <article class="card" data-cat={c.id}>
           <div class="card__media">
             <Art slot={c.art} eager={i < 2} />
           </div>

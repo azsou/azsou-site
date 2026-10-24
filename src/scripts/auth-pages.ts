@@ -251,6 +251,23 @@ onSubmit('login', async (form) => {
   }
 }
 
+// 站点设置：注册已关闭 → 收起注册表单与第三方注册（服务端 /api/auth/signup 与注册钩子另行拦截）
+{
+  const regPanel = $('[data-register-panel]');
+  if (regPanel)
+    void import('./site-settings').then(async ({ loadSiteSettings }) => {
+      const s = await loadSiteSettings({ fresh: true });
+      if (s.registration.open) return;
+      const notice = $('[data-register-closed]', regPanel)!;
+      if (s.registration.message)
+        $('[data-register-closed-text]', notice)!.textContent = s.registration.message;
+      notice.hidden = false;
+      $('form[data-auth-form="register"]', regPanel)!.hidden = true;
+      const alt = $('[data-register-alt]', regPanel);
+      if (alt) alt.hidden = true;
+    });
+}
+
 const captchas = new Map<HTMLFormElement, ReturnType<typeof turnstileFor>>();
 // 只给可见的表单渲染 Turnstile（注册页同时有「注册」与「重新发送」两个表单，只显示其中一个）
 document

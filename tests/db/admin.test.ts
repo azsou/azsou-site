@@ -386,7 +386,7 @@ describe('后台统计与列表', () => {
     const hidden = await list(`'thread', p_hidden => true`);
     expect(hidden.map((x) => x.id)).toEqual([T.bobHidden]);
     const reported = await list(`'thread', p_reported => true`);
-    expect(reported.every((x) => x.open_reports > 0)).toBe(true);
+    expect(reported.every((x) => (x.open_reports as number) > 0)).toBe(true);
     expect(reported.map((x) => x.id)).toContain(T.ada);
     const byAuthor = await list(`'reply', p_author => '${U.bob}'`);
     expect(byAuthor.every((x) => x.author === U.bob && x.kind === 'reply')).toBe(true);

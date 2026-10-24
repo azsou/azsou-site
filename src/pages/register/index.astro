@@ -17,6 +17,12 @@ import TurnstileField from '@/components/TurnstileField.astro';
     <section class="auth-card" aria-labelledby="register-title" data-register-panel>
       <h1 id="register-title">注册</h1>
       <p class="auth-card__lede">注册后即可在论坛发帖、回复和评论。</p>
+      <div class="notice" role="status" data-register-closed hidden>
+        <p>
+          <strong>暂时关闭注册</strong>
+        </p>
+        <p data-register-closed-text>本站暂时关闭了新用户注册，已有账户可以照常登录。</p>
+      </div>
       <form class="form" data-auth-form="register" novalidate>
         <div class="field">
           <label for="reg-name">昵称</label>
@@ -68,8 +74,10 @@ import TurnstileField from '@/components/TurnstileField.astro';
           注册
         </button>
       </form>
-      <div class="divider">或</div>
-      <OAuthButtons verb="注册" />
+      <div data-register-alt>
+        <div class="divider">或</div>
+        <OAuthButtons verb="注册" />
+      </div>
       <p class="auth-foot">
         已经有账户？<a href="/login/">登录</a>
       </p>

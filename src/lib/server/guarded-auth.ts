@@ -55,6 +55,32 @@ export function safeRedirect(requested: unknown, origin: string): string {
   }
 }
 
+/**
+ * 站点设置「注册已关闭」（site_content kind=setting slug=registration {"open":false}）。
+ * 读不到（网络 / 旧库）时视为开放：注册钩子（0009）在数据库侧还有一道拦截。
+ */
+export async function registrationClosed(
+  url: string,
+  key: string,
+  f: typeof fetch = fetch,
+): Promise<boolean> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const res = await f(
+      `${url}/rest/v1/site_content?kind=eq.setting&slug=eq.registration&published=eq.true&select=data`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` }, signal: ctrl.signal },
+    );
+    if (!res.ok) return false;
+    const rows = (await res.json()) as { data?: { open?: unknown } }[];
+    return Array.isArray(rows) && rows[0]?.data?.open === false;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function handleGuardedAuth(
   action: string | undefined,
   request: Request,
@@ -93,6 +119,8 @@ export async function handleGuardedAuth(
   let path: string;
   let payload: Record<string, unknown>;
   if (action === 'signup') {
+    if (await registrationClosed(url, key, deps.fetch))
+      return json(403, { error_code: 'registration_closed', msg: '本站暂时关闭了新用户注册' });
     const password = typeof body.password === 'string' ? body.password : '';
     if (password.length < 8 || password.length > 72)
       return json(400, { error_code: 'weak_password', msg: '密码长度 8–72 位' });

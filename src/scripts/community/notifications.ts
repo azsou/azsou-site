@@ -1,7 +1,7 @@
 /** /notifications/：通知列表、未读标记、全部已读；点击通知跳到对应主题 / 回复并标记已读。 */
 import { getRepository, type Notification } from '@/lib/data';
 import { friendlyError } from '@/lib/community-errors';
-import { url } from '@/lib/routes';
+import { pageKeyUrl, url } from '@/lib/routes';
 import { setStatus } from '../render';
 import { busy, h, timeEl, toastError, viewer } from './ui';
 
@@ -20,6 +20,11 @@ const KIND: Record<Notification['kind'], string> = {
 };
 
 export function notificationHref(n: Notification): string | null {
+  // 评论里的 @提及：thread_key 是评论所在页面的 page_key（article:slug 等）
+  if (n.threadKey && n.targetType === 'comment') {
+    const page = pageKeyUrl(n.threadKey);
+    return page ? `${page}#c-${n.targetId}` : null;
+  }
   if (n.threadKey) {
     const anchor = n.targetType === 'reply' && n.targetId ? `#r-${n.targetId}` : '';
     return url.forumThread(n.threadKey) + anchor;
