@@ -87,6 +87,57 @@
 - [x] T5.4 运维文档、管理员手册、交付清单——docs/ACCEPTANCE.md、DEPLOY.md、CONFIG.md、OPERATIONS.md、BACKUP.md、README
 - [ ] T5.5 切换生产、提交 sitemap 到 Google / Bing / 百度——**站长执行**，步骤见 docs/MIGRATION.md（顺序见下方 §4）
 
+---
+
+## 3A. 产品方向调整（站长，2026-10-24）
+
+站点从「作品档案站」升级为：**个人应用商店**（全部应用上架、用户下载、访客互动、完整 App Store 式设计）+ **个人综合站**（产品、文章、游戏、视频、软件、AI 工具、论坛、留言板），用 **Google AdSense** 变现。
+
+v2 原则不变：
+
+- **只用真实数据**：不伪造评分、下载量、评论；没有数据就显示「暂无」。下载数来自真实计数（Supabase RPC），评分来自真实用户评价。
+- **静态优先**：内容页全部 SSG，交互用按需加载的 island。
+- **Lighthouse ≥ 90**：接入广告前保持现有 ≥ 95；广告上线后性能分允许降到 ≥ 90，无障碍 / 最佳实践 / SEO 仍 ≥ 95。
+- **无障碍、安全**：axe 无违规、严格 CSP（广告域名单独白名单）、权限全部在数据库层。
+- **下载安全**：第三方软件只链官方 / 商店 / GitHub Release，不自行托管再分发；自研软件直链必须附 SHA-256；下载按钮附近不放广告。
+
+### P6 应用商店核心
+- [ ] T6.1 应用数据模型升级——真实图标图片、副标题、开发者 {name, url, self | third-party}、分类 + 标签、`platforms[]`（每项 {os: ios | android | windows | macos | linux | web | cli | browser-ext | ai-bot | mcp, version, size, minOS / requirements, linkType: direct | official | store | github | web, url, sha256?, arch?}）、`screenshots[]`（按设备尺寸）、价格 / 许可 / 是否开源、官网 / 源码仓库、隐私说明、按版本的更新日志、FAQ、featured 推荐标记、releaseDate / updated
+- [ ] T6.2 App Store 风格详情页——头部（图标 + 名称 + 开发者 + 评分 + 下载按钮，自动识别访客平台）、截图轮播 + 灯箱、介绍、新功能（What's New）、信息表、版本历史、相关应用、评价
+- [ ] T6.3 下载中转 `/go/[app]/[platform]/`——外链提示中间页、SHA-256、真实下载计数（Supabase RPC）、限流、过滤爬虫、按钮附近不放广告
+- [ ] T6.4 评分与评论——迁移 0012：`app_reviews`（1–5 星 + 文字，每人每个应用一条，RLS，复用举报 / 审核）、聚合视图、`app_download_counts` 表 + 计数 RPC
+- [ ] T6.5 应用目录——按平台 / 分类 / 价格筛选，按热门 / 最新 / 评分排序，静态分页 `/apps/page/2/`，分类与平台落地页
+- [ ] T6.6 AI 工具栏目 `/ai/`——AI Agent、Vibe Coding、CLI、AI Bot、MCP；瀑布流卡片；只链官方地址
+- [ ] T6.7 视频栏目 `/videos/`——B 站 / YouTube 轻量嵌入（点击才加载播放器的 facade，保证性能）
+- [ ] T6.8 首页改版——轮播 Hero、搜索 + 热门词、平台快捷入口、编辑推荐、热门应用、排行榜、AI 工具、游戏、最新文章、视频、社区动态、最新留言、友情链接
+- [ ] T6.9 视觉升级——图标体系、渐变封面、卡片动效、App Store 式排版
+- [ ] T6.10 结构化数据——SoftwareApplication / MobileApplication / VideoGame / VideoObject / Article / BreadcrumbList
+
+### P7 社区与体验
+- [ ] T7.1 Ctrl+K 即时搜索（Pagefind）
+- [ ] T7.2 标签云
+- [ ] T7.3 访客留言板 `/guestbook/`（允许匿名，需 Turnstile；审核；迁移 0013）
+- [ ] T7.4 SNS 图标与友链页 `/links/`（含友链申请表单）
+- [ ] T7.5 主题跟随系统 + 手动切换
+- [ ] T7.6 中英双语 `/en/`
+- [ ] T7.7 可视化内容后台（Keystatic 或 Decap，基于 Git）：应用 / 文章 / AI 工具
+- [ ] T7.8 邮件 / RSS 订阅
+
+### P8 AdSense 变现
+- [ ] T8.1 清理所有占位内容 + 25–30 篇原创文章计划
+- [ ] T8.2 隐私政策 / Cookie / 广告条款、关于、联系页补全
+- [ ] T8.3 `ads.txt` + AdSense 加载器 + CSP 白名单 + `AdSlot` 组件（预留尺寸，CLS 0）；位置：文内 / 侧栏 / 列表间；永远不靠近下载按钮；由环境变量 `PUBLIC_ADSENSE_CLIENT` 控制开关
+- [ ] T8.4 Google 认证 CMP（AdSense「隐私和消息」）+ Consent Mode v2
+- [ ] T8.5 Search Console / GA4 + 提交站点地图
+- [ ] T8.6 申请 AdSense
+- [ ] T8.7 联盟链接 / 赞助
+
+### P9 上线与运营
+- [ ] T9.1 生产迁移 0002 → 最新（需站长批准）+ 配置 + 切换
+- [ ] T9.2 每周内容与工具版本检查
+- [ ] T9.3 月度数据复盘
+
+
 ## 4. P3 设计说明与上线顺序
 
 ### 动态页面方案：静态外壳 + 客户端渲染（而不是按需 SSR）
