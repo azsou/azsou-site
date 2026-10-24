@@ -62,3 +62,12 @@ export const FOOTER = [
     ],
   },
 ];
+
+/** 官方内容在 Git 里维护：后台「官方内容」页链接到 GitHub 编辑页（合并到 main 后生效的分支） */
+export const REPO = {
+  url: 'https://github.com/azsou/azsou-site',
+  branch: 'main',
+} as const;
+export const githubEdit = (path: string) => `${REPO.url}/edit/${REPO.branch}/${path.replace(/^\.?\//, '')}`;
+export const githubHistory = (path: string) =>
+  `${REPO.url}/commits/${REPO.branch}/${path.replace(/^\.?\//, '')}`;

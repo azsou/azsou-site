@@ -1,3 +1,4 @@
+import { createAdminApi } from './admin';
 import { localStore, type SessionStore } from './session';
 import { createSupabaseAuth } from './supabase-auth';
 import {
@@ -159,7 +160,10 @@ export function restError(status: number, body: Record<string, unknown> | null):
   if (code === '23503')
     return new ValidationError(/[\u4e00-\u9fff]/.test(msg) ? msg : '目标不存在或已被删除');
   if (code === '23505') return new ValidationError('已经提交过了');
-  if (code === '23514' || code === '22001') return new ValidationError('内容长度或格式不符合要求');
+  if (code === '23514' || code === '22001')
+    return new ValidationError(/[\u4e00-\u9fff]/.test(msg) ? msg : '内容长度或格式不符合要求');
+  // 后台 RPC 的参数错误 / 目标不存在（0009，中文提示）
+  if ((code === '22023' || code === 'P0002') && /[\u4e00-\u9fff]/.test(msg)) return new ValidationError(msg);
   if (status >= 500) return new DataUnavailableError(`HTTP ${status}`);
   return new Error(msg || `HTTP ${status}`);
 }
@@ -176,10 +180,10 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
       guardedEndpoint: cfg.guardedEndpoint,
     });
 
-  async function rest<T = Row[]>(
+  async function request(
     path: string,
     init: { method?: string; body?: unknown; prefer?: string; requireAuth?: boolean } = {},
-  ): Promise<T> {
+  ): Promise<{ json: unknown; res: Response }> {
     const token = await auth.accessToken().catch(() => null);
     if (init.requireAuth && !token) throw new NotSignedInError();
     const ctrl = new AbortController();
@@ -203,7 +207,7 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
     } finally {
       clearTimeout(timer);
     }
-    if (res.status === 204) return null as T;
+    if (res.status === 204) return { json: null, res };
     const text = await res.text();
     let json: unknown = null;
     try {
@@ -218,8 +222,30 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
         throw new MissingObjectError(code);
       throw restError(res.status, json as Record<string, unknown>);
     }
-    return json as T;
+    return { json, res };
   }
+  async function rest<T = Row[]>(
+    path: string,
+    init: { method?: string; body?: unknown; prefer?: string; requireAuth?: boolean } = {},
+  ): Promise<T> {
+    return (await request(path, init)).json as T;
+  }
+  /** GET + 总数（Prefer: count=exact → Content-Range: 0-24/123） */
+  async function restCount(path: string, init: { prefer?: string } = {}) {
+    const { json, res } = await request(path, {
+      requireAuth: true,
+      prefer: ['count=exact', init.prefer].filter(Boolean).join(','),
+    });
+    const rows = (Array.isArray(json) ? json : []) as Row[];
+    const m = /\/(\d+)$/.exec(res.headers.get('content-range') ?? '');
+    return { rows, total: m ? Number(m[1]) : rows.length };
+  }
+  /** 后台接口依赖 0009：旧库上给出明确提示 */
+  const notMigrated = (e: unknown): never => {
+    if (e instanceof MissingObjectError || e instanceof MissingColumnError)
+      throw new DataUnavailableError('数据库还没有执行管理后台迁移（0009）');
+    throw e;
+  };
   /** 读：先用新列，库还没迁移时退回旧列 */
   async function read(build: (cols: string) => string, cols: string, legacy: string): Promise<Row[]> {
     try {
@@ -254,6 +280,10 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
   return {
     name: 'supabase',
     auth,
+    admin: createAdminApi({
+      rest: <T>(path: string, init?: Parameters<typeof rest>[1]) => rest<T>(path, init).catch(notMigrated),
+      restCount: (path, init) => restCount(path, init).catch(notMigrated),
+    }),
     profiles: {
       async get(id) {
         const rows = await rest(`profiles?id=eq.${enc(id)}&select=id,display_name,role,banned,created_at`);

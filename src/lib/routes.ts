@@ -24,7 +24,17 @@ export const url = {
   bookmarks: () => '/bookmarks/',
   notifications: () => '/notifications/',
   login: (next?: string) => (next ? `/login/?next=${encodeURIComponent(next)}` : '/login/'),
+  admin: (section = '') => (section ? `/admin/${section}/` : '/admin/'),
+  adminUser: (id: string) => `/admin/users/view/?id=${encodeURIComponent(id)}`,
 } as const;
+
+/** 评论 page_key（与 V72 一致：article:/game:/work:/project:<slug>）→ 页面地址；无法识别返回 null */
+export function pageKeyUrl(pageKey: string): string | null {
+  const m = /^(article|game|work|project):([a-z0-9-]{1,60})$/.exec(pageKey);
+  if (!m) return null;
+  const [, scope, slug] = m;
+  return scope === 'project' ? url.app(slug) : url[scope as 'article' | 'game' | 'work'](slug);
+}
 
 export type RelatedType = 'app' | 'game' | 'article' | 'work';
 export const relatedUrl = (type: RelatedType, slug: string) => url[type](slug);

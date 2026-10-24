@@ -44,6 +44,7 @@ const MESSAGES: Record<string, string> = {
   turnstile_failed: '人机验证没有通过，请重试。',
   turnstile_not_configured: '人机验证尚未配置，暂时无法注册，请联系站长。',
   signup_disabled: '暂未开放注册。',
+  registration_closed: '本站暂时关闭了新用户注册。',
   email_provider_disabled: '暂未开放邮箱注册。',
   provider_disabled: '这种登录方式尚未启用。',
   email_address_invalid: '邮箱地址不正确。',

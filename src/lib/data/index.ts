@@ -1,17 +1,15 @@
 import { createMemoryRepository } from './memory';
 import { createSupabaseRepository } from './supabase';
 import type { DataRepository } from './types';
+import { DEFAULT_SUPABASE } from '../supabase-config';
 
 export * from './types';
+export * from './admin';
 export { createMemoryRepository, createSupabaseRepository };
 export { createSupabaseAuth } from './supabase-auth';
 export { localStore, memoryStore, SESSION_KEY } from './session';
 
-export const DEFAULT_SUPABASE = {
-  url: 'https://abryflgoljltyakthtql.supabase.co',
-  // publishable key：设计上就是公开的，权限由数据库 RLS 决定
-  key: 'sb_publishable_whTlV4b20Da6ShYOdYjs0Q_-d6RTSRh',
-};
+export { DEFAULT_SUPABASE } from '../supabase-config';
 
 /** 站内 Vercel Function：Turnstile 服务端校验后再转发注册 / 找回密码请求（src/pages/api/auth/[action].ts） */
 export const GUARDED_AUTH_ENDPOINT = '/api/auth';

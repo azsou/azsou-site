@@ -299,6 +299,8 @@ export interface DataRepository {
   reports: ReportRepo;
   notifications: NotificationRepo;
   bookmarks: BookmarkRepo;
+  /** 管理后台（P4）；内存适配器不提供 */
+  admin?: import('./admin').AdminRepo;
 }
 
 // ------------------------------------------------------------------ 错误 ----

@@ -178,7 +178,7 @@ create or replace function public.az_require_moderator()
 as $$
 begin
   if not public.is_moderator() then
-    raise exception 'moderator only' using errcode = '42501';
+    raise exception '仅版主或管理员可以执行这个操作' using errcode = '42501';
   end if;
 end
 $$;
@@ -219,16 +219,16 @@ declare
 begin
   perform public.az_require_moderator();
   if p_target = auth.uid() then
-    raise exception 'cannot ban yourself' using errcode = '42501';
+    raise exception '不能封禁自己' using errcode = '42501';
   end if;
   select * into t from public.profiles where id = p_target;
-  if not found then raise exception 'user not found' using errcode = 'P0002'; end if;
+  if not found then raise exception '用户不存在' using errcode = 'P0002'; end if;
   if t.role in ('moderator', 'admin') and not public.is_admin() then
     raise exception '只有管理员可以封禁版主或管理员' using errcode = '42501';
   end if;
-  if char_length(r) > 500 then raise exception 'reason too long' using errcode = '22001'; end if;
+  if char_length(r) > 500 then raise exception '原因最多 500 字' using errcode = '22001'; end if;
   if p_expires_at is not null and p_expires_at <= now() then
-    raise exception 'expires_at must be in the future' using errcode = '22023';
+    raise exception '到期时间必须晚于现在' using errcode = '22023';
   end if;
   -- 新封禁取代旧封禁
   update public.user_bans set lifted_at = now(), lifted_by = auth.uid(), lift_reason = '被新的封禁取代'
@@ -260,14 +260,14 @@ declare
 begin
   perform public.az_require_moderator();
   if p_target = auth.uid() then
-    raise exception 'cannot unban yourself' using errcode = '42501';
+    raise exception '不能给自己解封' using errcode = '42501';
   end if;
   select * into t from public.profiles where id = p_target;
-  if not found then raise exception 'user not found' using errcode = 'P0002'; end if;
+  if not found then raise exception '用户不存在' using errcode = 'P0002'; end if;
   if t.role in ('moderator', 'admin') and not public.is_admin() then
     raise exception '只有管理员可以解封版主或管理员' using errcode = '42501';
   end if;
-  if char_length(r) > 500 then raise exception 'reason too long' using errcode = '22001'; end if;
+  if char_length(r) > 500 then raise exception '原因最多 500 字' using errcode = '22001'; end if;
   if not t.banned then return; end if;
   perform set_config('az.lift_reason', r, true);
   perform set_config('az.mod_ban', 'on', true);
@@ -320,13 +320,13 @@ declare m text := btrim(coalesce(p_message, ''));
 begin
   perform public.az_require_moderator();
   if p_target = auth.uid() then
-    raise exception 'cannot warn yourself' using errcode = '42501';
+    raise exception '不能警告自己' using errcode = '42501';
   end if;
   if not exists (select 1 from public.profiles where id = p_target) then
-    raise exception 'user not found' using errcode = 'P0002';
+    raise exception '用户不存在' using errcode = 'P0002';
   end if;
   if m = '' then m := '请遵守论坛版规。'; end if;
-  if char_length(m) > 190 then raise exception 'message too long' using errcode = '22001'; end if;
+  if char_length(m) > 190 then raise exception '提醒内容最多 190 字' using errcode = '22001'; end if;
   insert into public.notifications (user_id, actor, kind, target_type, target_id, excerpt)
   values (p_target, auth.uid(), 'moderation', p_target_type, p_target_id, '版主提醒：' || m);
   perform public.az_audit('user.warn', 'profile', p_target::text,
@@ -355,20 +355,20 @@ declare
 begin
   perform public.az_require_moderator();
   if p_status not in ('resolved', 'dismissed') then
-    raise exception 'bad status' using errcode = '22023';
+    raise exception '处理状态只能是 resolved 或 dismissed' using errcode = '22023';
   end if;
   if p_action not in ('none', 'hide', 'lock', 'ban', 'warn') then
-    raise exception 'bad action' using errcode = '22023';
+    raise exception '未知的处理动作' using errcode = '22023';
   end if;
   if p_action <> 'none' and p_status <> 'resolved' then
-    raise exception 'action requires resolved' using errcode = '22023';
+    raise exception '执行处理动作时状态必须是「已处理」' using errcode = '22023';
   end if;
   if coalesce(array_length(p_ids, 1), 0) = 0 or array_length(p_ids, 1) > 100 then
     raise exception '一次处理 1–100 条举报' using errcode = '22023';
   end if;
-  if char_length(note) > 500 then raise exception 'note too long' using errcode = '22001'; end if;
+  if char_length(note) > 500 then raise exception '处理说明最多 500 字' using errcode = '22001'; end if;
   if p_ban_days is not null and (p_ban_days < 1 or p_ban_days > 3650) then
-    raise exception 'ban days 1–3650' using errcode = '22023';
+    raise exception '封禁天数 1–3650' using errcode = '22023';
   end if;
 
   if p_action <> 'none' then
@@ -492,7 +492,7 @@ declare
 begin
   perform public.az_require_moderator();
   if p_type not in ('thread', 'reply', 'comment') then
-    raise exception 'bad type' using errcode = '22023';
+    raise exception '未知的内容类型' using errcode = '22023';
   end if;
   if term is not null then
     pat := '%' || replace(replace(replace(left(term, 100), '\', '\\'), '%', '\%'), '_', '\_') || '%';
