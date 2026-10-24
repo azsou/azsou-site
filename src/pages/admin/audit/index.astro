@@ -1,0 +1,74 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="audit"
+  title="审计日志"
+  lede="所有后台与版主操作的记录（只读）；可按条件筛选并导出 CSV。"
+  require="admin"
+>
+  <form class="toolbar" data-filters>
+    <div class="field">
+      <label for="au-action">动作</label>
+      <select id="au-action" name="action">
+        <option value="">全部</option>
+        <option value="user.">用户（角色 / 封禁 / 警告）</option>
+        <option value="report.">举报处理</option>
+        <option value="thread.">主题</option>
+        <option value="reply.">回复</option>
+        <option value="comment.">评论</option>
+        <option value="content.">站点内容 / 设置</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="au-target">对象 ID</label>
+      <input
+        id="au-target"
+        name="target"
+        type="search"
+        autocomplete="off"
+        placeholder="用户 / 内容 / 举报 ID"
+      />
+    </div>
+    <div class="field">
+      <label for="au-actor">操作人 ID</label>
+      <input id="au-actor" name="actor" type="search" autocomplete="off" placeholder="uuid" />
+    </div>
+    <div class="field">
+      <label for="au-from">开始日期</label>
+      <input id="au-from" name="from" type="date" />
+    </div>
+    <div class="field">
+      <label for="au-to">结束日期</label>
+      <input id="au-to" name="to" type="date" />
+    </div>
+    <button class="btn" type="submit">
+      筛选
+    </button>
+    <button class="btn" type="button" data-export>
+      导出 CSV
+    </button>
+  </form>
+  <div class="table-wrap">
+    <table class="data-table">
+      <caption class="visually-hidden">审计日志</caption>
+      <thead>
+        <tr>
+          <th scope="col">时间</th>
+          <th scope="col">操作人</th>
+          <th scope="col">动作</th>
+          <th scope="col">对象</th>
+          <th scope="col">详情</th>
+        </tr>
+      </thead>
+      <tbody data-rows aria-busy="true"></tbody>
+    </table>
+  </div>
+  <nav class="pagination" aria-label="分页" data-pager></nav>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/audit';
+</script>

@@ -1,0 +1,156 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { LIMITS, PER_LABEL, RATE_LIMITS, SIGNUP_LIMITS } from '@/lib/settings';
+---
+
+<AdminLayout
+  section="settings"
+  title="站点设置"
+  lede="保存在数据库 site_content（kind = setting），保存后立即生效；只有管理员可以修改。"
+  require="admin"
+>
+  <div class="settings-grid">
+    <form class="panel form" data-setting="announcement" aria-labelledby="h-ann">
+      <h2 id="h-ann">站点公告</h2>
+      <label class="switch">
+        <span>在所有公开页面显示公告条</span>
+        <input type="checkbox" name="enabled" role="switch" />
+      </label>
+      <div class="field">
+        <label for="st-ann-text">公告内容</label>
+        <textarea
+          id="st-ann-text"
+          name="text"
+          rows="2"
+          maxlength={LIMITS.announcement}
+          aria-describedby="st-ann-text-hint"
+        ></textarea>
+        <p class="field__hint" id="st-ann-text-hint">
+          纯文本，最多 {LIMITS.announcement} 字。访客关闭后，内容更新才会再次显示。
+        </p>
+      </div>
+      <fieldset class="field">
+        <legend class="field__label">样式</legend>
+        <div class="btn-row">
+          <label class="check">
+            <input type="radio" name="level" value="info" checked /> <span>普通</span>
+          </label>
+          <label class="check">
+            <input type="radio" name="level" value="warning" /> <span>重要</span>
+          </label>
+        </div>
+      </fieldset>
+      <div class="split-2">
+        <div class="field">
+          <label for="st-ann-link">链接（选填）</label>
+          <input
+            id="st-ann-link"
+            name="link"
+            type="text"
+            inputmode="url"
+            placeholder="/changelog/ 或 https://…"
+            autocomplete="off"
+          />
+        </div>
+        <div class="field">
+          <label for="st-ann-linktext">链接文字</label>
+          <input
+            id="st-ann-linktext"
+            name="linkText"
+            type="text"
+            maxlength={LIMITS.linkText}
+            placeholder="了解更多"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+      <p class="form-status" role="status" data-form-status></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          保存公告
+        </button>
+      </div>
+    </form>
+
+    <form class="panel form" data-setting="registration" aria-labelledby="h-reg">
+      <h2 id="h-reg">注册</h2>
+      <label class="switch">
+        <span>开放新用户注册</span>
+        <input type="checkbox" name="open" role="switch" />
+      </label>
+      <div class="field">
+        <label for="st-reg-msg">关闭注册时的说明（选填）</label>
+        <textarea id="st-reg-msg" name="message" rows="2" maxlength={LIMITS.registrationMessage}></textarea>
+      </div>
+      <p class="field__hint">
+        关闭后：注册页显示说明并停用表单，/api/auth/signup 拒绝请求；启用 0007/0009 注册钩子后，直接调用
+        Supabase Auth 注册（含第三方登录首次注册）也会被拒绝。
+      </p>
+      <p class="form-status" role="status" data-form-status></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          保存注册设置
+        </button>
+      </div>
+    </form>
+
+    <form class="panel form" data-setting="forum" aria-labelledby="h-forum">
+      <h2 id="h-forum">论坛分类</h2>
+      <p class="field__hint">
+        停用的分类不会出现在发帖页；顺序影响论坛首页与发帖页的分类排列。已有主题不受影响。
+      </p>
+      <ol class="order-list" data-cat-list></ol>
+      <p class="form-status" role="status" data-form-status></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          保存分类设置
+        </button>
+      </div>
+    </form>
+
+    <section class="panel" aria-labelledby="h-limits">
+      <h2 id="h-limits">限流（只读）</h2>
+      <p class="field__hint">
+        写在数据库触发器里（db/migrations/0004），对版主与管理员豁免；修改需要新的迁移。
+      </p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <caption class="visually-hidden">数据库限流</caption>
+          <thead>
+            <tr>
+              <th scope="col">操作</th>
+              <th scope="col">上限</th>
+              <th scope="col">计数键</th>
+            </tr>
+          </thead>
+          <tbody>
+            {RATE_LIMITS.map((r) => (
+              <tr class="no-check">
+                <td data-label="操作">{r.label}</td>
+                <td data-label="上限">
+                  {PER_LABEL[r.per]} {r.max} 次
+                </td>
+                <td data-label="计数键">
+                  <code>{r.action}</code>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <h3 class="list-heading">注册</h3>
+      <dl class="kv">
+        {SIGNUP_LIMITS.map((s) => (
+          <>
+            <dt>{s.label}</dt>
+            <dd>{s.value}</dd>
+          </>
+        ))}
+      </dl>
+    </section>
+  </div>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/settings';
+</script>

@@ -1,0 +1,97 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="data"
+  title="导入导出"
+  lede="导出用户内容备份（不含邮箱）；导入站点设置；数据库整体备份见下方说明。"
+  require="admin"
+>
+  <div class="settings-grid">
+    <section class="panel" aria-labelledby="h-export">
+      <h2 id="h-export">导出用户内容</h2>
+      <p class="field__hint">
+        主题、回复、评论（含已隐藏）与用户资料（昵称 / 角色 / 封禁 / 注册时间，<strong>不含邮箱</strong>
+        ）。按管理员权限读取，数据量大时需要一点时间。
+      </p>
+      <div class="btn-row mt-4">
+        <button class="btn btn--primary" type="button" data-export-json>
+          导出全部（JSON）
+        </button>
+        <button class="btn" type="button" data-export-csv="forum_threads">
+          主题 CSV
+        </button>
+        <button class="btn" type="button" data-export-csv="forum_replies">
+          回复 CSV
+        </button>
+        <button class="btn" type="button" data-export-csv="comments">
+          评论 CSV
+        </button>
+        <button class="btn" type="button" data-export-csv="profiles">
+          用户 CSV
+        </button>
+      </div>
+      <p class="data-status" role="status" data-export-status></p>
+    </section>
+
+    <section class="panel" aria-labelledby="h-settings-io">
+      <h2 id="h-settings-io">站点设置</h2>
+      <div class="btn-row">
+        <button class="btn" type="button" data-export-settings>
+          导出设置（JSON）
+        </button>
+      </div>
+      <form class="form mt-4" data-import-form>
+        <div class="field">
+          <label for="imp-file">导入设置（JSON 文件）</label>
+          <input
+            id="imp-file"
+            name="file"
+            type="file"
+            accept="application/json,.json"
+            aria-describedby="imp-hint"
+          />
+          <p class="field__hint" id="imp-hint">
+            格式与「导出设置」一致：{'{'}"version":1,"settings":[{'{'}"slug":"announcement","data":{'{'}…{'}'}
+            {'}'}]{'}'}；只接受 announcement / forum / registration，内容会先校验与清洗，确认后才写入。
+          </p>
+        </div>
+        <div data-import-preview hidden>
+          <h3 class="list-heading">将要导入</h3>
+          <ul class="list-group" role="list" data-import-list></ul>
+        </div>
+        <p class="form-status" role="status" data-import-status></p>
+        <div class="btn-row">
+          <button class="btn btn--primary" type="submit" data-import-submit disabled>
+            确认导入
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="h-backup">
+      <h2 id="h-backup">数据库备份（pg_dump）</h2>
+      <p>
+        上面的导出只覆盖用户内容；完整备份（含审计日志、举报、通知、封禁记录与函数 / 策略）请用{' '}
+        <code>pg_dump</code>：
+      </p>
+      <pre class="code-block">{`# 连接串在 Supabase Dashboard → Project Settings → Database（用 Session pooler 或直连）
+pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges \\
+  --format=custom --file=azsou-$(date +%F).dump
+
+# 只要数据（结构由 db/migrations 重建）
+pg_dump "$DATABASE_URL" --schema=public --data-only --format=custom --file=azsou-data-$(date +%F).dump
+
+# 恢复到新库：先 db/shim/plain.sql + 迁移，再导入数据
+pg_restore --data-only --disable-triggers --no-owner -d "$NEW_DATABASE_URL" azsou-data-YYYY-MM-DD.dump`}</pre>
+      <p class="field__hint mt-4">
+        完整步骤、定时备份（GitHub Actions）与换库方法见仓库 <code>docs/BACKUP.md</code>。
+      </p>
+    </section>
+  </div>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/data';
+</script>

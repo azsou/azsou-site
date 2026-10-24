@@ -1,5 +1,36 @@
 ---
-import ComingSoon from '@/components/ComingSoon.astro';
+import AdminLayout from '@/layouts/AdminLayout.astro';
 ---
 
-<ComingSoon title="管理后台" path="/admin/" phase="P4" what="内容管理、审核队列、用户与角色、站点设置。" />
+<AdminLayout section="dashboard" title="概览" lede="站点数据一览；数字来自数据库实时统计。">
+  <section aria-labelledby="h-stats">
+    <h2 id="h-stats" class="visually-hidden">
+      统计
+    </h2>
+    <ul class="stat-grid" role="list" data-stats aria-busy="true">
+      {[0, 1, 2, 3, 4, 5].map(() => (
+        <li class="stat" aria-hidden="true">
+          <span class="skeleton skeleton--line skeleton--short" />
+          <span class="skeleton skeleton--line" />
+        </li>
+      ))}
+    </ul>
+  </section>
+  <section class="panel" aria-labelledby="h-chart">
+    <h2 id="h-chart">近 30 天：注册与发帖</h2>
+    <div data-chart></div>
+    <ul class="chart-legend" role="list">
+      <li class="legend-a">新注册</li>
+      <li class="legend-b">发帖（主题 + 回复 + 评论）</li>
+    </ul>
+    <details>
+      <summary>查看数据表</summary>
+      <div class="table-wrap" data-chart-table></div>
+    </details>
+  </section>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/dashboard';
+</script>
