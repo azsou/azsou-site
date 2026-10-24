@@ -40,11 +40,34 @@ pg_dump "$DATABASE_URL" --schema=auth --table=auth.users --data-only \
 
 建议：本地 `pg_dump` 版本 ≥ 服务器版本（Supabase 目前是 Postgres 15/17）；备份文件加密存放（`gpg -c`），不要提交进仓库。
 
-### 定时备份（GitHub Actions，P5 落地）
+### 定时备份（GitHub Actions）
 
-`.github/workflows/` 里加一个每日任务：用仓库 Secret `SUPABASE_DB_URL` 跑 ② 和 ①，产物 `gpg --symmetric`（Secret `BACKUP_PASSPHRASE`）后上传为 Actions artifact（保留 14 天）或推到私有存储桶。工作流文件在 P5 的 T5.3 提交。
+工作流 `.github/workflows/db-backup.yml`（脚本 `scripts/db-backup.sh`，本地也能直接用）：
+
+| 项目 | 设置                                                                                                                          |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 时间 | **每周一 03:30（北京时间）**，cron `30 19 * * 0`（UTC 周日 19:30）；也可在 Actions 页面手动运行                               |
+| 保留 | 产物上传为 workflow artifact `db-backup-<run id>`，**保留 30 天**，过期由 GitHub 自动删除                                     |
+| 内容 | `azsou-public-*.dump`（public 全部结构 + 数据 + 策略 + 授权）、结构 SQL、行数清单、SHA256 校验和；配置口令时另含 `auth.users` |
+| 加密 | 配置 Secret `BACKUP_PASSPHRASE` 后全部产物用 gpg AES256 加密；解密：`gpg -d 文件.gpg > 文件`                                  |
+| 需要 | 仓库 Secret `SUPABASE_DB_URL`（Session pooler，端口 5432）；未配置时工作流成功结束并提示「跳过备份」                          |
+
+- 定时触发只在默认分支 `main` 上生效；合并前可在 Actions → DB backup → Run workflow 选 `v2/astro` 手动运行。
+- 30 天 ≈ 最近 4–5 份周备份。需要更久的留档：每月下载一份放到自己的加密存储里。
+- 批量删除、导入、生产迁移之前，先手动运行一次。
 
 ## 3. 恢复 / 换库（任意标准 Postgres：Neon、RDS、自建）
+
+**推荐用脚本**（与恢复演练同一套）：
+
+```bash
+# 整库恢复（灾难恢复：恢复到新的 Supabase 项目 / 新库）
+psql "$NEW_DATABASE_URL" -f db/shim/plain.sql      # 新的 Supabase 项目不需要这一步
+bash scripts/db-restore.sh "$NEW_DATABASE_URL" azsou-public-*.dump azsou-auth-users-*.dump
+psql "$NEW_DATABASE_URL" -f db/verify/status.sql   # 全部为 true
+```
+
+下面是不用脚本时的手工步骤（换库：迁移建结构 + 只导数据）：
 
 ```bash
 export NEW_DATABASE_URL='postgresql://…'
@@ -63,9 +86,22 @@ psql "$NEW_DATABASE_URL" -c "select setval(pg_get_serial_sequence('public.audit_
 
 之后部署 PostgREST（或任何实现了「事务内 `set local role` + `request.jwt.claims`」的 API 层），前端只需改 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY`；认证换成别的提供方时实现 `src/lib/data/types.ts` 的 `AuthProvider` 即可。
 
-## 4. 本地演练
+## 4. 恢复演练
+
+`scripts/restore-drill.sh` 在**每次 CI**（db 任务）中自动运行，也可以本地运行：
+
+1. 建源库：shim + 全部迁移 + 演练数据（`db/restore/drill-seed.sql`）；
+2. 用 `scripts/db-backup.sh` 备份（含 `auth.users`），校验 SHA256；
+3. A. **整库恢复**：新库只跑 shim → `scripts/db-restore.sh`（`pre-restore.sql` → pg_restore → `post-restore.sql`）；
+   B. **换库恢复**：新库跑 shim + 全部迁移 → 只导数据（`--data-only --disable-triggers`）；
+4. 核对：每张表行数「源库 = A = B」；A 的策略、函数（含授权）、触发器、RLS 开关、表授权与源库一致；恢复后新用户注册正常；
+5. 以 A 为模板跑 RLS 角色矩阵、后台 RPC、回归、P5 测试（`DB_TEST_TEMPLATE`）。
 
 ```bash
-bash scripts/pg-local.sh start          # 一次性本地 Postgres（端口 54329）
-npm run test:db                         # 迁移 + RLS 矩阵 + 后台 RPC 测试都在临时库上跑
+bash scripts/pg-local.sh start                                   # 一次性本地 Postgres（端口 54329）
+DATABASE_URL=postgres://postgres@127.0.0.1:54329/postgres npm run db:drill
+DATABASE_URL=… POSTGREST_BIN=… npm run test:db                   # 迁移 + RLS 矩阵 + 后台 RPC + 存储 RLS
 ```
+
+**站长每季度做一次真实演练**：从 Actions 下载最近一份备份 → 解密 → 恢复到一个临时 Supabase 项目或本地 Postgres → 跑 `db/verify/status.sql`
+并对比行数清单（`azsou-rowcounts-*.tsv`）→ 删除临时项目。

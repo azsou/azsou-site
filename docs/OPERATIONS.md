@@ -1,0 +1,105 @@
+# 运维手册
+
+日常管理都在站内后台 `https://azsou.com/admin/`；权限由数据库强制（RLS + `SECURITY DEFINER` 函数），后台页面只是界面。
+需要直接改库时用 Supabase → SQL Editor（以 `postgres` 身份执行，不受 RLS / 限流 / 守卫触发器约束，**谨慎操作**）。
+
+## 1. 角色与权限
+
+| 角色   | 能做什么                                                                                                                                                                |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 访客   | 浏览全部公开内容、搜索                                                                                                                                                  |
+| 用户   | 发主题 / 回复 / 评论（限流）、编辑与删除自己的内容、点赞、收藏、举报、上传图片（10 分钟 10 张、每天 50 张，单张 ≤ 2 MB）                                                |
+| 被封禁 | 只能浏览、删除自己的内容；不能发帖、回复、评论、上传图片、进后台                                                                                                        |
+| 版主   | 用户的全部权限（不限流）+ 置顶 / 精华 / 锁定 / 隐藏 / 删除任何帖子与评论、处理举报、警告、封禁 / 解封**普通用户**、删除任何图片；后台：概览、举报、内容、用户、官方内容 |
+| 管理员 | 版主的全部权限 + 改用户角色、封禁版主、「公告」分类发帖、站点设置、审计日志、导入导出                                                                                   |
+
+- 任何人都不能封禁、降级自己；版主不能改角色、不能封禁版主 / 管理员。
+- **设第一个管理员**（SQL Editor）：
+
+  ```sql
+  update public.profiles set role = 'admin'
+  where id = (select id from auth.users where email = '<邮箱>');
+  ```
+
+  之后在后台 → 用户 → 详情里改角色（仅管理员，经 `admin_set_user()`，写审计日志）。
+
+- 被提升或撤销角色的用户刷新任一社区 / 后台页面后，顶栏「管理后台」入口会自动更新（无需重新登录）。
+
+## 2. 内容审核
+
+- **举报队列**（后台 → 举报队列）：按状态筛选；可单条或批量「隐藏目标 / 锁定主题 / 警告作者 / 封禁 N 天 / 驳回」，附处理说明。
+  一个操作在一个事务里完成，同时通知举报人与作者并写审计日志。
+- **内容管理**：主题 / 回复 / 评论表格，可按分类、隐藏、被举报、作者、关键词筛选；隐藏（软删除，可恢复）优先于删除。
+- **图片**：帖子里的图片在 Storage 桶 `ugc-images`，路径 `<用户 id>/<文件名>`。隐藏帖子不会删除图片文件。
+  需要删除违规图片时：Supabase → Storage → `ugc-images` → 进入该用户目录 → Delete（或版主用 Storage API 删除，RLS 允许）。
+  图片地址在帖子正文的 `![说明](https://…/storage/v1/object/public/ugc-images/<用户 id>/<文件名>)` 里。
+- **停用论坛分类**（后台 → 站点设置 → 论坛分类）：停用后发帖页隐藏该分类，数据库（0011）同时拒绝普通用户在该分类发新主题或把主题移入；
+  版主 / 管理员不受限；已有主题照常显示、可回复。
+- **关闭注册**（站点设置 → 注册）：注册页收起表单，`/api/auth/signup` 返回 403；启用了注册钩子时，绕过本站直连 GoTrue 的注册（含第三方首次登录）也被拒。
+- **公告条**（站点设置 → 公告）：全站顶部提示，可带链接，5 分钟内对所有访客生效（浏览器缓存）。
+
+## 3. 封禁与警告
+
+- 后台 → 用户 → 详情 → 封禁：填写原因与到期时间（留空 = 永久）。到期后立即失效（权限函数实时判断），
+  后台概览打开时会清理到期封禁的标志并记审计；也可以在 SQL Editor 执行 `select public.mod_lift_expired_bans();`
+  （需要以版主身份；SQL Editor 中直接 `update public.profiles set banned = false where id = '…'` 也可以）。
+- 警告：给用户发一条站内通知（「版主提醒」），不影响权限。
+- 每次封禁 / 解封 / 警告都在 `user_bans` 与审计日志里有记录。
+
+## 4. 备份
+
+- **自动备份**：GitHub Actions 工作流 `DB backup`（`.github/workflows/db-backup.yml`），每周一 03:30（北京时间）运行，
+  产物保留 30 天（仓库 → Actions → DB backup → 某次运行 → Artifacts）。
+  - **站长需要添加仓库 Secret**（Settings → Secrets and variables → Actions → New repository secret）：
+    - `SUPABASE_DB_URL`：Supabase → Project Settings → Database → Connection string → Session pooler（5432），把 `[YOUR-PASSWORD]` 换成数据库密码。
+    - `BACKUP_PASSPHRASE`（强烈建议）：任意长口令，**另外妥善保存**；设置后产物加密，并额外备份 `auth.users`。
+  - 未配置 `SUPABASE_DB_URL` 时工作流会成功结束并提示「跳过备份」。
+  - 定时触发只在默认分支 `main` 上生效；合并前可在 Actions 页面手动运行（Run workflow → 分支 `v2/astro`）。
+  - 每次手动大改数据前（批量删除、导入、迁移）先手动运行一次。
+- **恢复**：见 [BACKUP.md](BACKUP.md)。`scripts/restore-drill.sh` 在每次 CI 中演练「备份 → 恢复到新库 → 核对行数 / 策略 / 授权 → 跑 RLS 测试」。
+- **不在数据库备份里的东西**：Storage 里的图片文件（只有元数据在库里）、Auth 设置、邮件模板、Vercel 环境变量。
+  图片可定期用 Supabase Storage 的 S3 兼容接口同步到别处（`rclone sync`，见 PORTABILITY.md）；设置项以 CONFIG.md 为准。
+- Supabase 免费版不提供可下载的每日备份；升级 Pro 后另有每日备份与 PITR，可与本工作流并存。
+
+## 5. 更换密钥
+
+| 密钥                                | 在哪里换                                                                                | 换完要做                                                                                                                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 数据库密码                          | Supabase → Project Settings → Database → Reset database password                        | 更新仓库 Secret `SUPABASE_DB_URL`；其他地方都不用数据库密码                                                                                                                                                                      |
+| Supabase publishable key            | Project Settings → API Keys → 新建 publishable key                                      | Vercel 设 `PUBLIC_SUPABASE_KEY` → Redeploy；确认无误后在 Supabase 删除旧 key。keepalive 工作流可设 Secret `SUPABASE_PUBLISHABLE_KEY`                                                                                             |
+| Supabase secret / service_role key  | Project Settings → API Keys                                                             | 本站代码**不使用** secret key，泄露时直接作废重建即可                                                                                                                                                                            |
+| JWT 签名密钥                        | Project Settings → JWT Keys → Rotate                                                    | 所有用户需要重新登录（旧会话失效）；无需改代码                                                                                                                                                                                   |
+| Turnstile 私钥                      | Cloudflare → Turnstile → 站点 → Rotate secret key                                       | Vercel 更新 `TURNSTILE_SECRET_KEY` → Redeploy（Cloudflare 旋转期间新旧密钥都有效）                                                                                                                                               |
+| 注册票据密钥 `SIGNUP_TICKET_SECRET` | 自己生成：`openssl rand -hex 32`                                                        | **两处同时改**：Vercel 环境变量（Redeploy）+ SQL `update private.app_settings set value = '<新>' , updated_at = now() where key = 'signup_ticket_secret';`。两处不一致期间邮箱注册会被拒（第三方登录不受影响），建议在低峰时操作 |
+| GitHub / Google OAuth 密钥          | GitHub → Settings → Developer settings → OAuth Apps；Google Cloud Console → Credentials | Supabase → Authentication → Providers 里更新 Client Secret                                                                                                                                                                       |
+| SMTP 密码                           | 邮件服务商后台                                                                          | Supabase → Authentication → Emails → SMTP Settings 更新                                                                                                                                                                          |
+| 备份口令 `BACKUP_PASSPHRASE`        | GitHub Secret                                                                           | 旧备份仍需旧口令解密，旧口令保留到旧备份过期（30 天）                                                                                                                                                                            |
+
+## 6. 监控
+
+- **GitHub Actions 失败邮件**：CI、DB backup、Supabase keepalive 失败时 GitHub 会给仓库管理员发邮件（个人设置 → Notifications → Actions）。
+- **Supabase**：Dashboard → Reports（API 请求、数据库负载）、Logs Explorer（API / Auth / Postgres / Storage 日志）、
+  Advisors（安全与性能建议，每次迁移后看一眼）。免费项目一周无请求会暂停，keepalive 工作流每 3 天访问一次。
+- **Vercel**：Deployments（构建失败通知）、Logs（Function 日志：`/api/auth/*` 的 Turnstile 失败、上游错误）、
+  可选开启 Speed Insights（需在 CSP 的 `script-src` / `connect-src` 加 Vercel 的域名，并重新运行 `npm run test:csp`）。
+- **可用性**：建议用免费的外部监控（UptimeRobot / Better Stack）每 5 分钟检查 `https://azsou.com/` 与
+  `https://azsou.com/forum/sitemap-threads.xml`（后者会访问数据库，可以同时发现 Supabase 暂停或故障）。
+- **限流**：`rate_limit_events` 每个用户只保留 24 小时内的计数（触发时自动清理）；若表变大，可在 SQL Editor 执行
+  `delete from public.rate_limit_events where created_at < now() - interval '1 day';`，或用 pg_cron 每天执行。
+- **审计日志**：后台 → 审计日志，可按动作 / 操作人筛选并导出 CSV。
+
+## 7. 内容更新（官方内容）
+
+官方内容（应用 / 游戏 / 文章 / 作品 / 页面）在 Git 里：编辑 `src/content/**` → 提交到分支 → 开 PR（Vercel 自动生成预览）→ 合并即上线。
+后台「官方内容」页列出全部条目并链接到 GitHub 编辑页。
+
+## 8. 常见问题
+
+| 现象                                   | 排查                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 论坛显示「只读模式」                   | Supabase 暂停或故障：Dashboard 查看项目状态，必要时 Restore；keepalive 工作流是否在跑                                    |
+| 注册提示「人机验证失败」               | Vercel 的 `TURNSTILE_SECRET_KEY` 与站点密钥不配套，或当前域名不在 Turnstile 主机名列表里                                 |
+| 注册提示「请在 azsou.com 的注册页面…」 | 注册钩子已启用但 Vercel 与数据库的 `SIGNUP_TICKET_SECRET` 不一致，或 Vercel 没有 Redeploy                                |
+| 收不到确认邮件                         | 未配置自定义 SMTP 时 Supabase 每小时只发 2 封；按 CONFIG.md 配置 SMTP                                                    |
+| 图片上传失败「账户受限，或上传太频繁」 | 用户被封禁，或触发限流（10 分钟 10 张 / 24 小时 50 张）；`ugc-images` 桶不存在时提示「图片存储还没有开通」→ 执行 0010    |
+| 页面报 CSP 错误（控制台 Refused to …） | 新增了外部资源或内联脚本：改 `vercel.json` 的 CSP（内联脚本用 `npm run csp:update`），CI 的 `test:csp` 与 E2E 会帮你发现 |

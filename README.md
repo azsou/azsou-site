@@ -2,8 +2,9 @@
 
 Astro 5 + TypeScript 静态站，部署在 Vercel。重构计划与进度见 [docs/PLAN.md](docs/PLAN.md)。
 
-> 当前分支 `v2/astro` 已完成 **P1 静态站 + P2 数据层与账户 + P3 论坛与评论**。后台（P4）与上线验收（P5）完成、
-> 且生产库执行完迁移（顺序见 docs/PLAN.md §4）之前，不要合并到 `main`：合并即上线。
+> 当前分支 `v2/astro` 已完成 **P1 静态站、P2 数据层与账户、P3 论坛与评论、P4 管理后台、P5 上线准备**（图片上传、
+> 全量回归、Lighthouse ≥ 95、CSP、备份与恢复演练、交付文档）。**合并到 `main` 即上线**：先按
+> [docs/MIGRATION.md](docs/MIGRATION.md) 备份并执行生产库迁移（0002…0011，不执行 0001），验收见 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)。
 
 ## 本地开发
 
@@ -26,17 +27,20 @@ npm run test:html    # html-validate
 npm run size         # 首屏 JS / CSS 体积与预算
 npx playwright install --with-deps
 npm run test:e2e     # Playwright：chromium / firefox / webkit × 1440 / 834 / 390 / 360，全部路由 + axe
-npm run test:lhci    # Lighthouse CI 预算
+npm run test:csp     # CSP 内联脚本哈希与安全头（改了内联脚本后：npm run csp:update）
+npm run test:lhci    # Lighthouse CI：16 个页面，四项 ≥ 95
 ```
 
 - 社区（发帖/回帖/通知…）用例连真实后端：设置 `DATABASE_URL`（Postgres 超级用户，`npm run db:local` 可起一个）与
   `POSTGREST_BIN`（PostgREST 14 可执行文件），globalSetup 会建临时库、跑全部迁移、起 PostgREST，浏览器的 `/rest/v1` 请求被转发过去；
   未设置时这些用例跳过（CI 设 `E2E_REQUIRE_DB=1`，缺少即失败）。默认只在桌面与 iPhone 视口跑，`COMMUNITY_ALL=1` 跑全部 4 个视口
-- 数据库测试：`DATABASE_URL=… POSTGREST_BIN=… npm run test:db`
+- 数据库测试：`DATABASE_URL=… POSTGREST_BIN=… npm run test:db`（迁移、RLS 角色矩阵、后台 RPC、存储 RLS、`db/verify/status.sql`）
+- 备份恢复演练：`DATABASE_URL=… npm run db:drill`（需要 pg_dump / pg_restore 17）
 - 只跑某个引擎：`PW_BROWSERS=webkit npm run test:e2e`
 - Linux arm64 上 Playwright 没有 Chromium 构建：`CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`
 - 在全部 12 个项目上跑 axe：`A11Y_ALL=1 npm run test:e2e`
-- CI（`.github/workflows/ci.yml`）在每个 PR 上跑以上全部。
+- CI（`.github/workflows/ci.yml`）在每个 PR 上跑以上全部：build、db（含恢复演练）、lighthouse、e2e（3 引擎 × 2 分片）。
+- 数据库备份：`.github/workflows/db-backup.yml` 每周一 03:30（北京时间）运行，产物保留 30 天（需要仓库 Secret，见 docs/OPERATIONS.md）。
 
 ## 目录
 
@@ -54,9 +58,24 @@ npm run test:lhci    # Lighthouse CI 预算
 | `src/pages/og/art/[slot].png.ts`               | 构建期把 SVG 素材栅格化为 PNG 分享图                                                 |
 | `public/art/`                                  | 生成式 SVG 素材（从 V72 `AZ_ASSETS` 拆出）                                           |
 | `public/sw.js` · `public/az-sw.js`             | 新离线外壳 · 旧 SW 的自毁替身（清掉 V72 缓存）                                       |
-| `scripts/`                                     | 内容迁移、静态服务器、死链检查、体积报告、图标生成                                   |
-| `tests/unit`、`tests/e2e`                      | Vitest 与 Playwright                                                                 |
+| `scripts/`                                     | 内容迁移、静态服务器、死链检查、体积报告、图标生成、CSP 检查、备份 / 恢复 / 演练     |
+| `db/migrations/`                               | 0001 基线（生产现状，仅本地 / CI）+ 0002…0011 增量迁移                               |
+| `db/shim/` · `db/verify/` · `db/restore/`      | Supabase 环境模拟 / 迁移状态核对 / 恢复用 SQL                                        |
+| `tests/unit`、`tests/db`、`tests/e2e`          | Vitest（单元）、Vitest（数据库）与 Playwright                                        |
 | `legacy/`                                      | V72 单文件站点与提取出的数据，仅供参考，不参与构建                                   |
+
+## 文档
+
+| 文档                                       | 内容                                                         |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| [docs/PLAN.md](docs/PLAN.md)               | 重构方案、任务清单与设计说明                                 |
+| [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)   | 上线验收清单（每项的证据与状态）                             |
+| [docs/MIGRATION.md](docs/MIGRATION.md)     | 生产切换手册（备份 → 迁移 → 合并 → 钩子 → 站点地图，含回滚） |
+| [docs/DEPLOY.md](docs/DEPLOY.md)           | Vercel 部署、环境变量、域名、CSP                             |
+| [docs/CONFIG.md](docs/CONFIG.md)           | Supabase Auth / 邮件 / OAuth / Turnstile / Storage 配置      |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md)   | 运维与管理员手册                                             |
+| [docs/BACKUP.md](docs/BACKUP.md)           | 备份、导出、恢复与恢复演练                                   |
+| [docs/PORTABILITY.md](docs/PORTABILITY.md) | 离开 Supabase 的换库方案                                     |
 
 ## 内容更新
 
