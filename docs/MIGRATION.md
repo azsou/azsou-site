@@ -220,7 +220,7 @@ select pg_get_constraintdef(oid) from pg_constraint where conname = 'reports_tar
 | 注册钩子误拦正常用户            | Dashboard → Authentication → Hooks → Before User Created → Disable（立即生效）；或清空 `private.app_settings` 里的密钥（钩子放行所有人）                                                                                                                                   |
 | 数据被误删 / 库损坏（灾难恢复） | 新建一个 Supabase 项目 → `bash scripts/db-restore.sh "<新库连接串>" azsou-public-*.dump azsou-auth-users-*.dump` → Vercel 改 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY` 指向新项目并 Redeploy；Auth / Storage 设置按 CONFIG.md 重配。脚本已在 CI 里演练（见 BACKUP.md） |
 
-0002–0014 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
+0002–0015 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
 需要回到迁移前的精确状态时，用第 1 步的备份恢复到新项目（上表最后一行），不要在生产库上手工删除对象。
 
 ## 5B. AI 工具评论（0013，T6.6）
@@ -255,6 +255,34 @@ run db/migrations/0014_video_comments.sql;       status   # comments_page_key_ch
 select pg_get_constraintdef(oid) from pg_constraint where conname = 'comments_page_key_check';  -- 同时含 tool 与 video
 ```
 
+## 5D. 留言板与友链申请（0015，T7.3 / T7.4）
+
+```bash
+run db/migrations/0015_guestbook.sql;            status   # guestbook_entries / friend_links（RLS）+ 提交 RPC
+```
+
+- 新增两张表：`guestbook_entries`（访客留言）与 `friend_links`（友链申请）。公开只读 `approved`；友链的联系方式任何 API 角色都读不到（只有管理员 RPC `admin_list_friend_links` 返回）。
+- 写入只能经 `guestbook_submit` / `friend_link_submit`，而且必须带本站 Vercel Function（`/api/submit/<kind>`，服务端校验 Turnstile）签发的 HMAC 票据：10 分钟有效、一次性、绑定内容摘要；写入的一律是 `pending`。限流按带密钥的访客摘要（不存 IP）：留言 3 次 / 10 分钟、10 次 / 天；友链 2 次 / 天；待审核上限 200 / 50。
+- 审核：留言由版主或管理员（`mod_guestbook_set_status` / `mod_guestbook_delete`），友链仅管理员（`admin_friend_link_*`）；每个动作写 `audit_log`。
+- **必须配置票据密钥，否则提交一律被拒（页面提示「暂未开放」）**：
+
+```bash
+SECRET=$(openssl rand -hex 32)
+# Vercel → Settings → Environment Variables：COMMUNITY_TICKET_SECRET=$SECRET（Production + Preview）
+psql "$PROD" -c "insert into private.app_settings (key, value) values ('community_ticket_secret', '$SECRET')
+  on conflict (key) do update set value = excluded.value, updated_at = now();"
+```
+
+- Turnstile 复用注册页已有的 `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`（同一个小组件即可，action 分别为 `guestbook` / `link`）。预览站没有真实密钥时设 `TURNSTILE_ALLOW_TEST_KEYS=1`。
+- 纯增量、可重复执行，不改任何已有表；没执行 0015 之前，/guestbook/ 与 /links/ 照常打开，只是列表显示「暂时无法加载」、提交返回「数据库还没有执行 0015 迁移」。
+
+**验证**：
+
+```sql
+select relname, relrowsecurity from pg_class where relname in ('guestbook_entries', 'friend_links');  -- 都是 true
+select count(*) from private.app_settings where key = 'community_ticket_secret';                    -- 1
+```
+
 ## 附：最终执行顺序
 
 ```
@@ -265,6 +293,7 @@ select pg_get_constraintdef(oid) from pg_constraint where conname = 'comments_pa
      → 0012_app_store（应用商店：评价 + 下载计数）
      → 0013_tool_comments（AI 工具页的评论）
      → 0014_video_comments（视频页的评论）
+     → 0015_guestbook（留言板 + 友链申请；写入 community_ticket_secret）
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

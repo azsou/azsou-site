@@ -182,6 +182,7 @@ describe('封禁时长 / 审计摘要 / 路由', () => {
       'https://github.com/azsou/azsou-site/edit/main/src/content/apps/x.md',
     );
     expect(ADMIN_SECTIONS.filter((s) => s.role === 'admin').map((s) => s.id)).toEqual([
+      'links',
       'audit',
       'settings',
       'data',

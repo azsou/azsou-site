@@ -595,6 +595,8 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
       '/admin/settings/',
       '/admin/audit/',
       '/admin/data/',
+      '/admin/guestbook/',
+      '/admin/links/',
     ]) {
       await page.goto(path);
       await expect(body(page)).toBeVisible();

@@ -116,11 +116,11 @@ v2 原则不变：
 P6 完成（2026-10-25）。
 
 ### P7 社区与体验
-- [ ] T7.1 Ctrl+K 即时搜索（Pagefind）
-- [ ] T7.2 标签云
-- [ ] T7.3 访客留言板 `/guestbook/`（允许匿名，需 Turnstile；审核；迁移 0015——0014 已用于 T6.7 视频页评论）
-- [ ] T7.4 SNS 图标与友链页 `/links/`（含友链申请表单）
-- [ ] T7.5 主题跟随系统 + 手动切换
+- [x] T7.1 Ctrl+K 即时搜索（Pagefind）（2026-10-25：构建后 `scripts/pagefind.mjs` 只索引内容详情页——应用 / AI 工具 / 视频 / 游戏 / 文章 / 作品 / 论坛种子主题，共 103 页，Pagefind extended 中文分词；全站 Ctrl/⌘K 与导航搜索按钮打开原生 `<dialog>` 面板（combobox + listbox，↑↓ / Enter / Esc），面板与 Pagefind 只在第一次打开时下载（约 92 KB，预算 120 KB）；`/search/` 也用它，拼音首字母仍由站内 JSON 索引补上；WASM 在 Pagefind 自己的 Worker 里运行，`'wasm-unsafe-eval'` 只放在 `/pagefind/` 的响应 CSP 上，页面 CSP 不变）
+- [x] T7.2 标签云（2026-10-25：`/tags/` 汇总应用 / AI 工具 / 视频 / 文章的全部标签，数量为真实条目数，字号按对数 5 档且数量同时显示、可访问名称含数量；`/tags/<标签>/` 按类型分组；只有 1 个条目的标签页 noindex 且不进 sitemap；全部标签在 `src/lib/tags.ts` 登记中文 / 品牌名，单元测试检查）
+- [x] T7.3 访客留言板 `/guestbook/`（允许匿名，需 Turnstile；审核；迁移 0015——0014 已用于 T6.7 视频页评论）（2026-10-25：昵称 + 留言，Turnstile 服务端校验后由 `/api/submit/guestbook` 签发 HMAC 票据，数据库 RPC 核对票据 / 一次性 / 限流后写入 pending；公开只读 approved；后台 `/admin/guestbook/` 版主 / 管理员通过、拒绝、退回、删除，写审计；登录用户不自动通过（规格未要求）。生产需配置 `COMMUNITY_TICKET_SECRET`，见 MIGRATION.md §5D）
+- [x] T7.4 SNS 图标与友链页 `/links/`（含友链申请表单）（2026-10-25：作者账号只显示能核实的——GitHub `azsou`（本仓库所有者）与本站 RSS；B 站 / YouTube 找不到地址，整项隐藏（`src/data/social.json`）；Person.sameAs 同步；友链申请与留言同一套 Turnstile + 票据，存 0015 的 `friend_links`（同一迁移，见 MIGRATION.md §5D），联系方式只有管理员可见，`/admin/links/` 仅管理员审核）
+- [x] T7.5 主题跟随系统 + 手动切换（2026-10-25：导航按钮在 跟随系统 → 浅色 → 深色 间切换，存 localStorage `az-theme`，跨标签页同步；`<head>` 内联脚本首帧前写入 `data-theme`（CSP 哈希），无闪烁；深色变量 = 系统深色且未手动选浅色，或手动深色；theme-color 同步）
 - [ ] T7.6 中英双语 `/en/`
 - [ ] T7.7 可视化内容后台（Keystatic 或 Decap，基于 Git）：应用 / 文章 / AI 工具
 - [ ] T7.8 邮件 / RSS 订阅
@@ -164,13 +164,13 @@ P6 完成（2026-10-25）。
 2. `db/shim/supabase.sql`（只做存在性检查）
 3. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
 4. `0007_signup_guard.sql`（钩子函数，**先不启用**）
-5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）→ `0013_tool_comments.sql`（AI 工具页评论）→ `0014_video_comments.sql`（视频页评论）
+5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）→ `0013_tool_comments.sql`（AI 工具页评论）→ `0014_video_comments.sql`（视频页评论）→ `0015_guestbook.sql`（留言板 + 友链，另需写入 `community_ticket_secret`）
 6. 每执行完一个文件跑一次 `db/verify/status.sql`：该步及之前的行都为 true
 7. 合并 PR #2（合并即上线）→ `node scripts/check-csp.mjs --url https://azsou.com`
 8. 写入 `signup_ticket_secret`，在 Dashboard 启用 Before User Created 钩子，开启邮箱确认
 9. 上线检查（MIGRATION.md §7）→ 提交站点地图 `sitemap-index.xml` 与 `forum/sitemap-threads.xml`（Google / Bing / 百度）
 
-（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0014 均可重复执行、向后兼容 V72。）
+（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0015 均可重复执行、向后兼容 V72。）
 
 
 ## 5. P4 设计说明

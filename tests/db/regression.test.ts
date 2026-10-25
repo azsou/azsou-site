@@ -446,6 +446,9 @@ describe('(5)(6)(7) 结构约定', () => {
       order by 1, 2`);
     const got = r.rows.map((x) => `${x.proname}:${x.rolname}`);
     expect(got).toEqual([
+      'admin_friend_link_delete:authenticated',
+      'admin_friend_link_set_status:authenticated',
+      'admin_list_friend_links:authenticated',
       'admin_set_user:authenticated',
       'admin_stats:authenticated',
       'app_count_download:anon',
@@ -455,6 +458,10 @@ describe('(5)(6)(7) 结构约定', () => {
       'can_write:authenticated',
       'current_app_role:anon',
       'current_app_role:authenticated',
+      'friend_link_submit:anon',
+      'friend_link_submit:authenticated',
+      'guestbook_submit:anon',
+      'guestbook_submit:authenticated',
       'is_admin:anon',
       'is_admin:authenticated',
       'is_moderator:anon',
@@ -463,6 +470,8 @@ describe('(5)(6)(7) 结构约定', () => {
       'like_summary:authenticated',
       'mark_notifications_read:authenticated',
       'mod_ban_user:authenticated',
+      'mod_guestbook_delete:authenticated',
+      'mod_guestbook_set_status:authenticated',
       'mod_handle_reports:authenticated',
       'mod_lift_expired_bans:authenticated',
       'mod_list_content:authenticated',

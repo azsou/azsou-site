@@ -270,3 +270,9 @@ npm run test:unit           # 内容完整性：图标 / 截图文件存在、�
 ```
 
 E2E 测试用的夹具应用在 `src/content/apps/_e2e/`，只有设置 `AZ_E2E_FIXTURES=1` 的构建才会加载（CI 用），**不要**把真实应用放进这个目录。
+
+## 7. 标签、作者账号与搜索（P7）
+
+- **标签**：内容里写 ASCII slug（`"tags": ["mcp", "open-source"]`），第一次用到的新标签在 `src/lib/tags.ts` 登记显示名（可选写一句说明）；`npm run test:unit` 会检查没有漏登记。`/tags/` 的数量自动统计；只有 1 个条目的标签页不进搜索引擎索引。
+- **作者账号**（页脚图标、`/links/`、Person.sameAs）：`src/data/social.json`。只填确实存在的账号，并在 `verified` 写明在哪里核实的；`url` 为 `null` 的不会显示。目前只有 GitHub（`azsou`，本仓库所有者）与本站 RSS；B 站 / YouTube 地址待站长提供。
+- **全文搜索**：`npm run build` 之后自动生成 Pagefind 索引（`scripts/pagefind.mjs`），只收内容详情页的正文（`Base.astro` 的 `searchType`）；面包屑、讨论区、「相关」区块带 `data-pagefind-ignore` 不进索引。新增内容类型时给它的详情页加 `searchType`。

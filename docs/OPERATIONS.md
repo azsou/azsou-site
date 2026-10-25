@@ -103,3 +103,9 @@
 | 收不到确认邮件                         | 未配置自定义 SMTP 时 Supabase 每小时只发 2 封；按 CONFIG.md 配置 SMTP                                                    |
 | 图片上传失败「账户受限，或上传太频繁」 | 用户被封禁，或触发限流（10 分钟 10 张 / 24 小时 50 张）；`ugc-images` 桶不存在时提示「图片存储还没有开通」→ 执行 0010    |
 | 页面报 CSP 错误（控制台 Refused to …） | 新增了外部资源或内联脚本：改 `vercel.json` 的 CSP（内联脚本用 `npm run csp:update`），CI 的 `test:csp` 与 E2E 会帮你发现 |
+
+## 留言板与友链审核（P7，迁移 0015）
+
+- **留言**：后台「留言审核」（`/admin/guestbook/`，版主与管理员）。新留言都在「待审核」；通过后出现在 `/guestbook/`，拒绝的只在后台可见，也可以「退回待审核」或删除。每个操作写审计日志（`guestbook.*`）。
+- **友链**：后台「友链审核」（`/admin/links/`，仅管理员），能看到申请人留的联系方式；通过后出现在 `/links/`（审计 `friend_link.*`）。同一网址在待审核 / 已通过时不能重复申请。
+- **防刷**：提交必须经过本站 Turnstile + 服务端票据（`COMMUNITY_TICKET_SECRET`，与 `private.app_settings.community_ticket_secret` 相同）；同一访客留言 3 次 / 10 分钟、10 次 / 天，友链 2 次 / 天；待审核超过 200 / 50 条时暂停接收。换密钥：两处同时改（先数据库后 Vercel，期间提交会失败几分钟）。

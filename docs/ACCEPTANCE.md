@@ -46,7 +46,7 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 
 | #   | 检查项                                                               | 证据                                                                          | 状态 |
 | --- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ---- |
-| 3.1 | 迁移 0002–0014 在 0001 基线（生产现状）上可执行、可重复执行          | CI db：`npm run test:db`（`tests/db/baseline.test.ts`、`regression.test.ts`） | ✅   |
+| 3.1 | 迁移 0002–0015 在 0001 基线（生产现状）上可执行、可重复执行          | CI db：`npm run test:db`（`tests/db/baseline.test.ts`、`regression.test.ts`） | ✅   |
 | 3.2 | RLS 角色矩阵（匿名 / 用户 / 被封禁 / 版主 / 管理员 × 每张表的读写）  | `tests/db/rls-matrix.test.ts`（96 例），结果表作为 CI 产物 `rls-matrix` 上传  | ✅   |
 | 3.3 | V72 旧前端的全部请求在迁移后仍可用                                   | `tests/db/postgrest-v72.test.ts`（PostgREST 14 重放）                         | ✅   |
 | 3.4 | 图片存储 RLS：只能传到自己的目录、2 MB、类型、文件名、限流、删除权限 | `tests/db/p5.test.ts`（0010，含「没有 Storage 的纯 Postgres」场景）           | ✅   |
@@ -89,7 +89,7 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 备份 → db/shim/supabase.sql
      → 0002 → 0003 → 0004 → 0005 → 0006
      → 0007（注册钩子函数，先不启用）
-     → 0008 → 0009 → 0010 → 0011 → 0012（P6 应用商店）→ 0013（AI 工具页评论）→ 0014（视频页评论）
+     → 0008 → 0009 → 0010 → 0011 → 0012（P6 应用商店）→ 0013（AI 工具页评论）→ 0014（视频页评论）→ 0015（留言板 + 友链，写入 community_ticket_secret）
      （每执行一个文件，跑一次 db/verify/status.sql）
      → 合并 PR #2 → check-csp --url
      → 写入 signup_ticket_secret，启用 Before User Created 钩子，开启邮箱确认
@@ -142,3 +142,14 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 
 E2E 构建说明：CI 的 build 任务设置 `AZ_E2E_FIXTURES=1`，额外加载 `src/content/apps/_e2e/` 里的测试夹具应用（带真实格式的直链、SHA-256、在线使用与「暂未提供」三种平台），用来测下载中转与平台识别。
 Vercel 的生产 / 预览构建**不设**这个变量，夹具不会出现在线上（`tests/unit/content.test.ts` 也检查它不在正式内容目录里）。
+
+## 11. P7 社区与体验（第一批：T7.1–T7.5）
+
+| #    | 检查项                                                                                                                                                                                                                                           | 证据                                                                              | 状态 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ---- |
+| 11.1 | Ctrl/⌘K 搜索面板（全站）：Pagefind 构建期索引内容详情页（中文分词），面板与索引只在打开时下载（≤ 120 KB，`scripts/pagefind.mjs` 检查），键盘 / 读屏可用，`/search/` 同一引擎 + 拼音首字母；`wasm-unsafe-eval` 只在 `/pagefind/` Worker 的 CSP 上 | `tests/e2e/p7.spec.ts`、`tests/unit/p7.test.ts`、`scripts/check-csp.mjs`          | ✅   |
+| 11.2 | 标签云 `/tags/` 与标签页：真实数量、5 档字号 + 数字、可访问名称含数量；单条目标签页 noindex、不进 sitemap                                                                                                                                        | `tests/e2e/p7.spec.ts`、`tests/unit/p7.test.ts`                                   | ✅   |
+| 11.3 | 留言板 `/guestbook/`：匿名 + Turnstile + 票据，pending → 审核后公开，限流，后台审核写审计（0015）                                                                                                                                                | `tests/db/guestbook.test.ts`、`tests/e2e/p7.spec.ts`（真实 Postgres + PostgREST） | ✅   |
+| 11.4 | 作者账号只显示核实过的（GitHub、RSS）；友链页 + 申请表单，联系方式仅管理员可见，仅管理员审核                                                                                                                                                     | `tests/unit/p7.test.ts`、`tests/db/guestbook.test.ts`、`tests/e2e/p7.spec.ts`     | ✅   |
+| 11.5 | 主题：跟随系统 / 浅色 / 深色，持久化，首帧无闪烁（内联脚本 + CSP 哈希），按钮有可访问名称                                                                                                                                                        | `tests/e2e/p7.spec.ts`、`tests/unit/p7.test.ts`                                   | ✅   |
+| 11.6 | 生产库执行 0015 并写入 `community_ticket_secret`、Vercel 设置 `COMMUNITY_TICKET_SECRET`                                                                                                                                                          | MIGRATION.md §5D                                                                  | 🟡   |

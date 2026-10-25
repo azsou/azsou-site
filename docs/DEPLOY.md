@@ -27,16 +27,17 @@
 
 ## 2. 环境变量（Settings → Environment Variables）
 
-| 变量                        | 环境                 | 必需   | 说明                                                                                                                                          |
-| --------------------------- | -------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TURNSTILE_SITE_KEY`        | Production / Preview | 是     | Cloudflare Turnstile **站点密钥**（公开值，构建时写进注册 / 找回密码页）。未设置时用 Cloudflare 测试 key（总是通过）                          |
-| `TURNSTILE_SECRET_KEY`      | Production / Preview | 是     | Turnstile **私钥**，只在 `/api/auth/*` 服务端使用。部署环境缺少它时注册 / 找回密码接口拒绝服务（防止误用测试 key 上线）                       |
-| `SIGNUP_TICKET_SECRET`      | Production           | 切换时 | 注册票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 里的值相同；启用 0007 注册钩子时才需要，见 MIGRATION.md 第 6 步 |
-| `PUBLIC_SUPABASE_URL`       | 全部                 | 否     | 默认 `https://abryflgoljltyakthtql.supabase.co`（代码里的默认值）；换项目 / 换库时设置                                                        |
-| `PUBLIC_SUPABASE_KEY`       | 全部                 | 否     | Supabase **publishable key**（公开值，权限由 RLS 决定）；默认值写在 `src/lib/supabase-config.ts`。**绝不要**填 secret / service_role key      |
-| `PUBLIC_IMAGE_HOSTS`        | 全部                 | 否     | 帖子里允许显示的额外图片主机（逗号分隔），换图片存储时用；同时要改 `vercel.json` CSP 的 `img-src`                                             |
-| `TURNSTILE_ALLOW_TEST_KEYS` | Preview              | 否     | 设为 `1` 时预览环境允许使用测试密钥（预览域名不在 Turnstile 白名单里时用）。**生产不要设置**                                                  |
-| `PUBLIC_DATA_ADAPTER`       | —                    | 否     | 只用于本地演示（`memory`）。**生产与预览都不要设置**                                                                                          |
+| 变量                        | 环境                 | 必需   | 说明                                                                                                                                                                                                                |
+| --------------------------- | -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TURNSTILE_SITE_KEY`        | Production / Preview | 是     | Cloudflare Turnstile **站点密钥**（公开值，构建时写进注册 / 找回密码页）。未设置时用 Cloudflare 测试 key（总是通过）                                                                                                |
+| `TURNSTILE_SECRET_KEY`      | Production / Preview | 是     | Turnstile **私钥**，只在 `/api/auth/*` 服务端使用。部署环境缺少它时注册 / 找回密码接口拒绝服务（防止误用测试 key 上线）                                                                                             |
+| `SIGNUP_TICKET_SECRET`      | Production           | 切换时 | 注册票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 里的值相同；启用 0007 注册钩子时才需要，见 MIGRATION.md 第 6 步                                                                       |
+| `COMMUNITY_TICKET_SECRET`   | Production / Preview | 是     | 留言板 / 友链申请（T7.3 / T7.4）的票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 的 `community_ticket_secret` 相同。缺少时 `/api/submit/*` 返回 503，数据库也会拒绝，见 MIGRATION.md §5D |
+| `PUBLIC_SUPABASE_URL`       | 全部                 | 否     | 默认 `https://abryflgoljltyakthtql.supabase.co`（代码里的默认值）；换项目 / 换库时设置                                                                                                                              |
+| `PUBLIC_SUPABASE_KEY`       | 全部                 | 否     | Supabase **publishable key**（公开值，权限由 RLS 决定）；默认值写在 `src/lib/supabase-config.ts`。**绝不要**填 secret / service_role key                                                                            |
+| `PUBLIC_IMAGE_HOSTS`        | 全部                 | 否     | 帖子里允许显示的额外图片主机（逗号分隔），换图片存储时用；同时要改 `vercel.json` CSP 的 `img-src`                                                                                                                   |
+| `TURNSTILE_ALLOW_TEST_KEYS` | Preview              | 否     | 设为 `1` 时预览环境允许使用测试密钥（预览域名不在 Turnstile 白名单里时用）。**生产不要设置**                                                                                                                        |
+| `PUBLIC_DATA_ADAPTER`       | —                    | 否     | 只用于本地演示（`memory`）。**生产与预览都不要设置**                                                                                                                                                                |
 
 `PUBLIC_*` 变量在**构建时**写入页面，修改后需要 Redeploy 才生效。
 
