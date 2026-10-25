@@ -597,6 +597,13 @@
     padding-top: var(--space-4);
     border-top: 1px solid var(--c-separator);
   }
+  /* 页脚语言切换链接：触控目标 ≥ 44px（下划线由正文链接规则提供） */
+  .footer-bottom a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+    min-width: var(--touch);
+  }
   .trust-points {
     display: flex;
     flex-wrap: wrap;
