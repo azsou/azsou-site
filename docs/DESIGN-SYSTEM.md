@@ -2,6 +2,7 @@
 
 > 状态：提案（2026-10-25），由 P9「设计系统与商业化视觉」落地。依据见 [DESIGN-AUDIT.md](./DESIGN-AUDIT.md) §5。
 > 原则：**少即是一致**。每一类数值只允许下面列出的档位；新增档位必须改本文 + token 文件，并通过评审。
+> v1.1（2026-10-25 第二轮）：新增 §16–§22（状态矩阵、UI 图标、文案、图片 / OG、邮件、视口与系统模式、中文排版）；断点在 600 / 900 / 1200 之外新增 **1600 宽屏档**（只扩容器与列数，见 §21）。
 > 单一来源：`tokens/*.json`（Style Dictionary）→ 生成 `src/styles/tokens.css`、`src/lib/tokens.ts`、`public/cms/preview.css`。组件只能用 `var(--…)`，由 stylelint 强制（见 DESIGN-QA.md）。
 
 ## 1. 基础
@@ -132,6 +133,7 @@
 ### 6.5 UI 图标
 
 - 一套线性图标（SF Symbols 风格，推荐 Lucide 子集或现有 `Icon.astro` 统一线宽 1.75px、24 网格、圆角端点），尺寸 16 / 20 / 24，与文字同色（`currentColor`）。
+- **2026-10-25 第二轮更新**：现有 `Icon.astro` 实为 9 个**填充式**图标（全部 20px 渲染），与本条矛盾；完整规范以 **§17** 为准（线性为主、TabBar 选中态用填充变体、字符图标禁用）。
 - 分类卡用单个 24px 线性分类图标 + 圆形 `fill` 底（40），不再叠放应用图标。
 
 ## 7. 缩略图与封面
@@ -206,6 +208,8 @@
 
 ## 11. 交互状态
 
+> 焦点环画法、hover 媒体查询、visited / error / 强制色等完整状态见 **§16**（第二轮更新，冲突时以 §16 为准）。
+
 | 状态                      | 卡片                                                     | 按钮（主）                          | 按钮（次 / chip）                   | 输入框                        |
 | ------------------------- | -------------------------------------------------------- | ----------------------------------- | ----------------------------------- | ----------------------------- |
 | 默认                      | `surface` + `elev-0`                                     | `accent` 底 + `on-accent` 字        | `fill` 底 + `label` 字              | `surface-2` + 1px `separator` |
@@ -252,3 +256,205 @@
 - 字段 `hint` 统一写「用于哪里 · 字数范围」，例：`卡片一句话 · 6–16 字`；自定义 `string-count` widget 显示实时 `zhLength` 与超限红字（保存前校验 `pattern`）。
 - 图标字段：自定义 widget 显示 56 / 112 两档预览（含遮罩与垫板）+ 安全区参考线；上传后提示「将自动规范化」。
 - 品牌对齐：Decap 的主色、圆角、字体通过 `preview.css` 无法改编辑器外壳 —— 外壳保持 Decap 默认，但在 `config.yml` 设置 `logo_url`、`locale: zh_Hans`，并在 `/cms/` 页加一行站点色顶栏说明「编辑后会开 PR，由站长合并」。
+
+---
+
+> 以下 §16–§22 为 2026-10-25 第二轮审计（[DESIGN-AUDIT-2.md](./DESIGN-AUDIT-2.md)）新增的规则，优先级与 §1–§15 相同。
+
+## 16. 状态矩阵（完整版，取代 §11 中的焦点与 hover 细节）
+
+**焦点环（唯一画法）**
+
+```css
+:focus-visible {
+  outline: 2px solid var(--c-focus); /* 不透明；浅色 #0058B0，深色 #64A8FF；对相邻底色 ≥ 3:1 */
+  outline-offset: 2px;
+  border-radius: inherit; /* 现代浏览器 outline 跟随圆角 */
+}
+/* 整卡链接：焦点画在卡片上 */
+.card:has(.card__link:focus-visible) {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+```
+
+- 禁止 `outline: none` 搭配 `box-shadow` 画焦点（强制色模式下 box-shadow 被清空，焦点消失）。
+- 焦点环宽 2px、偏移 2px，全站一种；表单输入框额外把边框改 `accent`。
+
+**hover 只在有指针的设备**：所有 hover 视觉放进 `@media (hover: hover) and (pointer: fine) { … }`；`a:hover` 下划线同样。触屏用 `:active` 按压态反馈。
+
+**全局**：`html { -webkit-tap-highlight-color: transparent; }`（必须同时有 `:active` 按压态）。
+
+| 状态               | 链接（正文）                                          | 链接（导航 / 列表标题）                     | 主按钮                                        | 次按钮 / chip                 | 图标按钮            | 输入框 / Listbox                                                   | 卡片                | Tab / Segmented        |
+| ------------------ | ----------------------------------------------------- | ------------------------------------------- | --------------------------------------------- | ----------------------------- | ------------------- | ------------------------------------------------------------------ | ------------------- | ---------------------- |
+| 默认               | `link` 色 + 下划线                                    | `label` 色无下划线                          | `accent` 底                                   | `fill` 底 + 1px 透明边        | 透明底 + 1px 透明边 | `surface-2` + 1px `separator`                                      | `surface`           | `label-2`              |
+| hover（指针）      | 下划线加粗 2px                                        | `label` + `fill` 底（导航）/ 下划线（标题） | 加深 8%                                       | `fill-strong`                 | `fill` 底           | 边 `label-3`                                                       | 上浮 2px + `elev-1` | `label`                |
+| focus-visible      | 焦点环                                                | 焦点环                                      | 焦点环                                        | 焦点环                        | 焦点环              | 焦点环 + 边 `accent`                                               | 卡片焦点环          | 焦点环                 |
+| pressed            | 颜色加深                                              | `fill-strong` 底                            | `scale(.98)` + 加深 14%                       | `scale(.98)`                  | `scale(.92)`        | —                                                                  | `scale(.98)`        | —                      |
+| selected / current | —                                                     | `accent` 字 + 600（`aria-current`）         | —                                             | `accent` 12% 底 + `accent` 字 | `accent` 字         | 选中项 ✓                                                           | —                   | 白底滑块 + `label` 600 |
+| visited            | 列表 / 搜索结果标题变 `label-2`（仅文章、视频、论坛） | 同左                                        | —                                             | —                             | —                   | —                                                                  | —                   | —                      |
+| disabled           | `label-3` 无下划线                                    | 同左                                        | `opacity .4` + `not-allowed`                  | 同左                          | 同左                | `fill` 底 + `label-3`                                              | 不渲染为可点        | `label-3`              |
+| loading            | —                                                     | —                                           | 16px spinner，宽度不变，`aria-busy`           | 同左                          | spinner 替换图标    | 右侧 spinner                                                       | 骨架                | —                      |
+| error              | —                                                     | —                                           | —                                             | —                             | —                   | 边 `danger` + 字段下错误文案（`aria-describedby`、`aria-invalid`） | 内联错误条          | —                      |
+| 强制色             | `LinkText`                                            | `LinkText`                                  | `ButtonText` on `ButtonFace` + `ButtonBorder` | 同左                          | 同左                | `Field` / `FieldText`                                              | 1px `CanvasText` 边 | 选中 `Highlight`       |
+
+- **禁用主按钮不作为页面唯一主操作**：功能未上线时换成另一个可用操作（如「上线时通知我」），平台信息写成 meta 文字。
+- `::selection { background: color-mix(in srgb, var(--c-accent) 24%, transparent); color: inherit; }`；`::placeholder { color: var(--c-label-3); opacity: 1; }`；`caret-color: var(--c-accent)`。
+- 原生 `title` 只用于缩写；需要提示时用 `Tooltip` 组件（hover 300ms 延迟 / focus 立即 / 触屏长按，`role="tooltip"` + `aria-describedby`，最大宽 240、`caption` 字号、`elev-2`）。
+- 弹层（菜单、搜索面板、对话框、Toast）都有进入**和退出**动画：进入 `--dur-fast` `--ease-out`，退出 `--dur-fast` `--ease-in`；减少动态时只做淡入淡出。
+
+## 17. UI 图标规范
+
+- **图标集**：Lucide 子集（ISC 许可）按需内联为 `Icon.astro` 的路径表；24 网格、`stroke-width: 1.75`、`stroke-linecap/linejoin: round`、`fill: none`、`currentColor`。
+- **填充变体**只用于：TabBar 当前项、点赞 / 收藏已选中、状态徽标里的实心点。同一组控件里不能线性与填充混用（选中态除外）。
+- **尺寸**：16（行内 / 胶囊内）、20（按钮内、列表行）、24（图标按钮、TabBar）；图标按钮命中区 ≥ 44（移动）/ 36（桌面工具栏）。
+- **光学对齐**：与文字同行时 `vertical-align: -0.125em`（16px）或 flex 居中；chevron / arrow 类在按钮末尾时与文字间距 4px；播放三角向右偏移 1px。
+- **最低清单**（必须存在，禁止用字符代替）：chevron-left/right/down、arrow-right、arrow-up-right（外链）、download、external-link、search、x（关闭）、check、more-horizontal（⋯）、filter、sort、copy、share、play、pause、bell、bookmark、heart、message、user、settings、sun / moon / monitor（主题）、globe（语言）、alert-circle、info、check-circle、loader（spinner）。
+- **禁止**：「→ ← › ‹ » ✓ ✕ ×」等字符当图标；emoji 当 UI 图标；同一视图出现两套图标风格。
+- **品牌图标**（GitHub、YouTube 等）用官方填充字标，尺寸同 UI 图标，不与 Lucide 混在同一按钮组里时可例外。
+- **验收**：Q18 扫描 DOM 内所有 SVG：viewBox 必须 `0 0 24 24`，描边宽 1.75（或标记 `data-icon-variant="filled"`），渲染尺寸 ∈ {16, 20, 24}；文本节点中 `[→←›‹»✓✕×]` 出现在按钮 / 链接末尾即失败。
+
+## 18. 文案风格指南（Microcopy）
+
+### 18.1 语气
+
+- **陈述事实，不做辩白**。诚信原则（不伪造评分 / 下载 / 用户数）只在「关于」与「编辑规范」各写一次；其他页面靠数据本身体现（版本号、相对时间、来源链接）。
+- **禁用词表（CI 检查，可见文本中出现即失败）**：不伪造、不造假、不刷、真实计数、真实下载、如实标注、非真实截图、本站暂无足够、不做热度、测试环境（作者测试环境）——后者改为「已测试：Chrome 129 · Windows 11」这样的具体信息。
+- 空状态说「接下来能做什么」，不解释为什么没有（「还没有评价 · 写第一条」✅；「评分只来自真实用户，本站不预置任何评分」❌）。
+- 「即将推出」只出现在状态徽章里，不做按钮文字。
+
+### 18.2 CTA 动词表
+
+| 场景           | 中文                           | English    |
+| -------------- | ------------------------------ | ---------- |
+| 自研应用已发布 | 获取 / 打开                    | Get / Open |
+| 第三方工具官网 | 访问官网                       | Visit site |
+| 命令行工具     | 安装                           | Install    |
+| 游戏 / Demo    | 试玩                           | Play       |
+| 视频           | 观看                           | Watch      |
+| 未发布         | 上线时通知我                   | Notify me  |
+| 订阅           | 订阅更新                       | Subscribe  |
+| 查看全部       | 查看全部（不带数字和箭头字符） | See all    |
+
+- 按钮文字 ≤ 6 个汉字 / 2 个英文词；英文按钮与标题用 **Title Case**（Get Started、See All），正文与说明用 Sentence case。
+- 一个按钮只做一件事（「上线通知 RSS 订阅」❌ → 「上线时通知我」+ 次级链接「RSS」）。
+
+### 18.3 术语表（栏目名 = 导航名 = 页面 H1 = 页脚名 = 面包屑）
+
+| 概念     | 中文           | English      | 不用                                                                            |
+| -------- | -------------- | ------------ | ------------------------------------------------------------------------------- |
+| 应用栏目 | 应用           | Apps         | 应用商店、应用目录（H1 可以是「应用」，副标题说明「AZ Studio 自研与精选应用」） |
+| 自研应用 | AZ Studio 出品 | By AZ Studio | 自研应用 / 本站作者                                                             |
+| 站点作者 | 作者           | Author       | 站长、本站作者                                                                  |
+| AI 工具  | AI 工具        | AI Tools     | AI 工具库                                                                       |
+| 作品     | 作品           | Works        | 作品与视频（视频是独立栏目）                                                    |
+| 论坛     | 论坛           | Forum        | 社区（社区 = 论坛 + 留言板的统称，只在页脚分组用）                              |
+
+### 18.4 标点、数字、日期
+
+- 中文引号用「」，嵌套『』；英文页用 “ ”。中文正文不用半角 `, . ; :`；连接两段中文用「，」「。」或「 · 」，不用「. 」。
+- 中英 / 数字之间半角空格（由 T9.10 的 `text-autospace: normal` 兜底，内容里仍手写空格；DOM 拼接处在模板加空格）。
+- 数字：`Intl.NumberFormat`；中文 ≥ 1 万用「1.2 万」，英文 ≥ 1000 用「1.2K」；数字与单位之间空格（「30 个」「2 MB」「12 分钟」）。
+- 日期：列表与卡片用相对时间（< 7 天「3 天前」、< 1 年「3 个月前」、≥ 1 年显示年月）；详情页与信息表用完整日期 —— 中文「2026年7月19日」、英文「Jul 19, 2026」；`<time datetime="2026-07-19">`。不再在可见文本里使用 ISO `2026-07-19`。
+- 英文页面不得出现未翻译中文（例外：作品原名，需配英文说明）；未翻译文章不进 `/en/` 首页。
+
+## 19. 图片与 OG 规范
+
+### 19.1 OG / 社交卡片
+
+- 尺寸 **1200×630**（1.91:1），PNG ≤ 300 KB；安全区四周 60px（社交平台裁切）；构建期用 `@resvg/resvg-js` 从 SVG 模板生成（`src/pages/og/*`）。
+- 统一视觉：中性底（浅 `#F5F5F7` / 深 `#1C1C1E` 二选一，按页面类型固定）+ 左上 Logo 40 + 底部 8px 品牌绿条；标题 56/700（≤ 2 行）、副标题 30/400 `label-2`（1 行）。不使用与品牌无关的强调色（文章 OG 现在的蓝色改为品牌绿）。
+- 模板：
+
+| 页面类型           | 内容                                                        |
+| ------------------ | ----------------------------------------------------------- |
+| 应用 / AI 工具详情 | 图标 160（squircle + 规范化）+ 名称 + tagline + 分类 · 价格 |
+| 游戏详情           | 封面 16:9 占左 60% + 名称 + 类型                            |
+| 视频详情           | 缩略图 + 标题（≤ 2 行）+ 频道 · 时长                        |
+| 文章               | 标题 + 分类 + 阅读时长                                      |
+| 论坛帖             | 标题 + 分类 + 回复数（静态种子帖；数据库帖用论坛默认图）    |
+| 栏目页 / 首页      | 栏目名 + 一句话 + 4 个代表图标                              |
+| `/en/`             | 同模板英文文案                                              |
+
+- 不在 OG 图里写辩白文案（「不伪造…」）。数字与量词不拆行（「30 行」作为一个不可断单元）。
+- `twitter:card = summary_large_image`；`og:image:alt` 必填（= 标题）；`og:type`：文章 `article`，其余 `website`。
+- **meta description**：中文 50–80 字；英文 110–160 字符；每页唯一；不以站名开头。
+
+### 19.2 站点图标与 PWA
+
+- `favicon.svg`（文字转路径，不依赖系统字体；颜色用 hex）、`favicon.ico`（16/32/48）、`apple-touch-icon.png` 180（不透明底）、manifest 192 / 512 / maskable 512（安全区 80%）。
+- manifest：`theme_color` 浅色 + HTML 里深浅两条 `theme-color` meta（已有）；`screenshots`（窄 1080×1920、宽 1920×1080 各 1）；`shortcuts`（应用 / AI 工具 / 搜索 / 论坛，各带 96 图标）。
+
+### 19.3 内容图片
+
+- 首屏图片 `loading="eager"`，首屏第一张关键图 `fetchpriority="high"`；首屏以下 `loading="lazy" decoding="async"`。
+- 所有图片容器自带垫板底色（`--icon-plate` / `fill`）和固定 `aspect-ratio`，图片加载前与失败时都显示垫板；`img { color: transparent }` 隐藏裂图 alt 文本；`error` 事件换 Monogram / 品牌占位。
+- alt：名称已在旁边可见时 `alt=""`；独立出现时 alt = 名称（不加「图标」「图片」等字）；截图 alt 描述画面内容。
+- 深色模式：照片 / 截图不做滤镜；白底 logo 走 §6.3 垫板；插画类封面在深色下可降 6% 亮度（`filter: brightness(.94)`），仅限插画。
+- 没有真实截图的应用不显示「截图」区；概念图只能放在「设计方向」小节，宽 ≤ 正文宽、不进货架。
+
+## 20. 邮件模板规范
+
+- **结构**：600px 居中单列表格布局 + 全部内联样式（邮件客户端不支持 `<style>` 的情况按 Gmail / Outlook 最低集处理）；外层背景 `#F5F5F7`，内容卡白底 12px 圆角（Outlook 无圆角可接受）。
+- **区块顺序**：preheader（隐藏，≤ 90 字，概括邮件）→ Logo 头（32 高，PNG + alt「AZ Studio」）→ 标题（22/700）→ 正文（16/1.6，`#1D1D1F`）→ 主按钮（bulletproof：`<table>` + `<a>` 背景 `#1F7A52`、白字 16/600、44 高、12 圆角）→ 备用链接（「按钮无法点击？复制此链接：…」13 `#6E6E73`）→ 分隔线 → 页脚（为什么收到这封邮件、退订链接、站点地址，12 `#6E6E73`）。
+- **字体**：`-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif`。
+- **深色模式**：`<meta name="color-scheme" content="light dark">` + `@media (prefers-color-scheme: dark)` 覆盖（支持的客户端），Logo 用带白描边版本，避免深色下消失。
+- **头**：`List-Unsubscribe: <https://…>, <mailto:…>` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click`；发件人名「AZ Studio」；主题 ≤ 30 字，不用感叹号。
+- **纯文本版**与 HTML 内容一致（已有）。
+- **语言**：中英两套各一份模板，不混排。
+- **验收**：模板快照（浅 / 深 / 360 宽）进视觉回归；头字段单测；Gmail（网页 + 安卓）、Outlook（Windows 新版）、Apple Mail（iOS）人工各看一次。
+
+## 21. 视口与系统模式
+
+- **视口档**：320（最小支持）/ 390 / 768 / 1024 / 1440 / 1920 / 2560；以及横屏 844×390、740×360。320 必须无溢出、无拉丁单词内断行。
+- **宽屏档 ≥ 1600**：`--container: 1360px`；网格列数在 1200 档基础上 +1；货架左对齐容器、右侧出血到视口边缘。字阶不放大。
+- **正文行长**：中文 30–45 字 / 行（`--reading-max: 40em` ≈ 680–720px @17px），英文 45–75 字符；所有长文本（文章、视频导读、隐私、关于、详情页介绍）都受此约束。
+- **断词**：全局 `overflow-wrap: break-word`；`anywhere` 只用于 `.prose a`, `code`, 用户生成内容容器、URL 字段；Logo、按钮、统计数值、标签 `white-space: nowrap`。
+- **小高度**（`max-height: 480px`）：TabBar 只显示图标（40 高），顶部导航向下滚动时隐藏、向上滚动出现。
+- **强制色**：所有成形控件有 `border: 1px solid transparent`；`@media (forced-colors: active)` 中图标 `fill/stroke: CanvasText`、选中 `Highlight`、品牌 Logo 底块 `forced-color-adjust: none`；不能依赖背景色或阴影表达状态。
+- **减少动态**：保持现状（位移 / 缩放为 0、`scroll-behavior: auto`），新增的退出动画同样遵守。
+- **文字放大 200%**：字号继续用 rem；卡片使用最小高度而非固定高度包住文字；截断数不超过基线 + 5。
+- **打印**：`@media print` 隐藏导航 / TabBar / 页脚 / 讨论 / 广告 / 货架按钮 / 主题与语言按钮；正文 11pt 黑字白底、行高 1.6；`a[href^="http"]::after { content: " (" attr(href) ")" }`（正文内）；截图纵向排列；`h2, h3 { break-after: avoid }`、`figure, pre, table { break-inside: avoid }`；页眉一行「AZ Studio · 标题 · URL」。
+
+## 22. 中文排版细则
+
+### 22.1 字体栈
+
+```css
+--font-sans:
+  -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+  'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
+--font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Noto Sans Mono CJK SC', monospace;
+```
+
+- 系统字体，不引入网络字体（无 FOUT，已验证 `@font-face` 0）。
+- Windows 上拉丁（Segoe UI，600 有真字重）与中文（雅黑，600 → 700）混排会粗细不一：标题优先 600，评审在 Windows 真机进行（T9.19）。
+
+### 22.2 标点
+
+- `text-spacing-trim: trim-start`（标题行首全角标点去半格）+ `text-autospace: normal`（Chrome 140+ 中英自动间距，内容里的手写空格保留以兼容旧浏览器）。
+- 标题不以句中逗号分隔两个短语（用换行或「·」）。
+- 数字 + 量词、品牌名、版本号作为不可断单元（`<span class="nobr">`，`white-space: nowrap`）。
+- 禁则依赖浏览器默认 `line-break: auto`（第二轮实测仅 1 处英文标点落行首），不强制 `strict`。
+
+### 22.3 强调
+
+- 中文不用斜体（无真斜体，浏览器会做伪斜体）：`.prose em:lang(zh) { font-style: normal; font-weight: 600; }`，或 `text-emphasis: filled dot; text-emphasis-position: under right`（仅用于短词）。
+
+### 22.4 正文元素（`.prose`，文章 / 论坛 / 留言 / 回复共用）
+
+| 元素             | 规则                                                                                                                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| h2               | title-2（20/600），上 2em 下 .6em                                                                                                                                                                           |
+| h3               | title-3（17/600），上 1.6em 下 .4em（必须 ≥ 正文字号）                                                                                                                                                      |
+| p / li           | body 17 / 1.8，段距 1em                                                                                                                                                                                     |
+| 行内 `code`      | `.9em` mono，`fill` 底，`2px 6px` 内边距，`radius-xs`                                                                                                                                                       |
+| `pre`            | 14 mono / 1.6，`surface-2` 底，`radius-md`，16 内边距，**横向滚动不折行**（`overflow-x: auto; tabindex="0"; aria-label="代码"`），Shiki 构建期高亮（主题色由 token 生成，深浅各一）；右上角「复制」图标按钮 |
+| `blockquote`     | 左 3px `separator-strong` 竖线 + 16 内边距 + `label-2`                                                                                                                                                      |
+| `table`          | 外包 `.table-wrap { overflow-x: auto }`；表头 `fill` 底 13/600；行线 1px `separator`；单元格 `10px 12px`；数字列右对齐 + `tabular-nums`；第一列可吸附                                                       |
+| `kbd`            | 12 mono，1px `separator-strong` 边 + 底部 2px 阴影，`radius-xs`，`1px 6px`                                                                                                                                  |
+| `hr`             | 1px `separator`，上下 2em                                                                                                                                                                                   |
+| `img` / `figure` | 宽 ≤ 100%，`radius-md`；`figcaption` caption 13 `label-2` 居中，上 8px                                                                                                                                      |
+| 脚注             | `sup { line-height: 0 }`；脚注区上方 1px 分隔线 + 「注释」小标题，14 / `label-2`；回跳链接用 Lucide `corner-up-left` 图标                                                                                   |
+| 链接             | 下划线（已有），`text-underline-offset: .2em`                                                                                                                                                               |
+| 任务列表         | 自定义复选框 18px，与文字顶对齐                                                                                                                                                                             |

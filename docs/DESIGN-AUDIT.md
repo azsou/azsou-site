@@ -2,6 +2,7 @@
 
 > 审计对象：`v2/astro` 分支 head `0f10f02`（预览 https://azsou-site-git-v2-astro-azsous-projects.vercel.app ）
 > 审计日期：2026-10-25 · 方法：本地 `npm run build` + Playwright（Chromium，本地 Postgres + PostgREST 种子数据，与 e2e 相同）
+> 第二轮（nitpick、边缘视口 / 系统模式 / 文案 / 转化 / 图像 / 正文 / 跨浏览器）见 [DESIGN-AUDIT-2.md](./DESIGN-AUDIT-2.md)，含商业化交付验收标准（DoD）。
 > 只做分析与方案，**没有改任何 `src/` 代码**。配套文档：[DESIGN-SYSTEM.md](./DESIGN-SYSTEM.md)（统一标准）、[DESIGN-QA.md](./DESIGN-QA.md)（测试规范）、[PLAN.md](./PLAN.md) §P9（任务清单）。
 
 ## 0. 结论先行

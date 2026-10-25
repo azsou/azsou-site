@@ -158,6 +158,79 @@ expect(cut).toEqual([]);
 - `reducedMotion: 'reduce'` 下 hover 后 `transform` 计算值为 `none`。
 - 所有 `transition-duration` ∈ {80, 160, 240, 360}ms。
 
+## 2B. 第二轮新增门禁（2026-10-25，依据 [DESIGN-AUDIT-2.md](./DESIGN-AUDIT-2.md)）
+
+| #   | 检查                                                                                                                                                                              | 工具                                                                               | 级别                       | 时机            |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------- | --------------- |
+| Q11 | 系统模式矩阵：强制色（焦点可见、控件有边框）、减少动态（无位移）、仅文字放大 200%（溢出 0、截断 ≤ 基线 + 5）、打印（PDF 首页快照 + 页数上限）                                     | Playwright `emulateMedia` + 自定义断言                                             | 阻断                       | e2e             |
+| Q12 | 视口全集：320 / 390 / 768 / 1024 / 1440 / 1920 / 2560 + 横屏 844×390 / 740×360：溢出 0、拉丁单词内断行 0、导航单字断行 0、长文行长 ≤ 45 字                                        | Playwright                                                                         | 阻断                       | e2e             |
+| Q13 | 文案 lint：禁用词、术语表、引号风格、半角标点混入中文、EN 页未翻译片段、按钮文字长度、英文 Title Case                                                                             | `scripts/design/copy-lint.mjs`（扫描 `dist/client/**/*.html` 可见文本 + 内容集合） | 阻断                       | build 后        |
+| Q14 | 元信息：每个页面类型 OG 存在且 1200×630、≤ 300 KB；`og:image:alt`；description 长度（zh 50–80 字 / en 110–160 字符）；title 唯一                                                  | vitest（built）                                                                    | 阻断                       | build 后        |
+| Q15 | 状态覆盖：`/_kit/` 每个组件 × 状态矩阵（DESIGN-SYSTEM §16）× 深浅 × 强制色都有截图基线                                                                                            | Playwright `toHaveScreenshot`                                                      | 阻断                       | e2e             |
+| Q16 | 三引擎：Chromium 像素基线；Firefox / WebKit 布局断言（溢出 0、关键元素可见、页面高度与 Chromium 差 ≤ 3%）                                                                         | Playwright 多 project                                                              | 阻断（布局）/ 报告（像素） | e2e（夜间全量） |
+| Q17 | 邮件：模板快照（浅 / 深 / 360）+ `List-Unsubscribe` / `List-Unsubscribe-Post` 头 + 纯文本版存在                                                                                   | vitest + Playwright `setContent`                                                   | 阻断                       | unit            |
+| Q18 | 资源与图标：UI 图标 SVG 规范（viewBox 24、描边 1.75 或标记 filled、尺寸 16/20/24）、字符图标 0、favicon.ico / svg / apple-touch / manifest 图标与 shortcuts 存在、首屏图片非 lazy | Playwright + `check-assets.mjs` 扩展                                               | 阻断                       | e2e / build     |
+
+### 2.11 系统模式（Q11）
+
+```ts
+// 强制色：焦点必须可见
+await page.emulateMedia({ forcedColors: 'active' });
+await page.keyboard.press('Shift');
+await page.locator('main a').first().focus();
+const ring = await page.evaluate(() => {
+  const c = getComputedStyle(document.activeElement!);
+  return c.outlineStyle !== 'none' && parseFloat(c.outlineWidth) >= 2;
+});
+expect(ring).toBe(true);
+// 强制色：按钮类元素必须有边框（透明边在强制色下会显示）
+const borderless = await page.$$eval(
+  'button, a.btn, .chip, [role=tab], input, select',
+  (els) =>
+    els.filter((e) => e.getBoundingClientRect().width && parseFloat(getComputedStyle(e).borderTopWidth) === 0)
+      .length,
+);
+expect(borderless).toBe(0);
+```
+
+- 减少动态：沿用 T6.9 用例，加「打开 / 关闭菜单与搜索面板」路径。
+- 文字放大：`addStyleTag('html{font-size:200%}')` 后溢出 0；截断数 ≤ 基线 + 5。
+- 打印：`emulateMedia({ media: 'print' })` 后导航 / 页脚 / TabBar `display: none`；`page.pdf()` 页数：文章 ≤ 正文估算页数 + 0、应用详情 ≤ 3。
+
+### 2.12 视口全集（Q12）
+
+- 拉丁单词内断行检测：对每个文本节点逐字符取 `Range.getClientRects()`，若换行发生在两个 `[A-Za-z0-9]` 之间即失败（第二轮脚本 `.design-audit/pass2.mjs` 的行首禁则检测可直接改造）。
+- 行长：`.prose p`、详情页介绍段落，`(汉字数 + 拉丁字符数 × 0.5) / 行数 ≤ 45`。
+
+### 2.13 文案 lint（Q13）
+
+- 禁用词表见 DESIGN-SYSTEM §18.1；术语表 §18.3（「应用商店」「应用目录」「站长」「本站作者」出现即失败）。
+- 中文段落中出现 `“”`（应为「」）、`[\u4e00-\u9fff][,;:!?]`、`\. [\u4e00-\u9fff]` 失败。
+- `/en/` 页面：`main` 首屏区域（第一个 viewport 高度内）出现 ≥ 2 个连续汉字失败；全页报告数量。
+- 按钮：中文 ≤ 6 字、英文 ≤ 2 词；英文按钮 Title Case。
+- 可见 ISO 日期 `\b\d{4}-\d{2}-\d{2}\b`（`<time>` 的 `datetime` 属性除外）失败。
+
+### 2.14 元信息（Q14）
+
+- 每个页面类型（首页、栏目、应用、工具、视频、游戏、文章、论坛种子帖、`/en/` 对应页）抽 1 页：`og:image` 不等于默认图（栏目页除外）、图片实际尺寸 1200×630。
+
+### 2.15 状态覆盖（Q15）
+
+- `/_kit/states/` 页面用 `data-state="hover|focus|pressed|…"` + 强制伪类（Playwright `page.hover` 在无头环境不一定触发 `:hover`，第二轮已复现——组件需支持 `.is-hover` 等调试类，仅 `/_kit/` 使用）。
+
+### 2.16 三引擎（Q16）
+
+- 本地 / CI 安装：`sudo npx playwright install-deps firefox webkit && npx playwright install firefox webkit`（Debian 13 已验证）；访问本地服务时必须设 `NO_PROXY=127.0.0.1,localhost`，否则 Firefox / WebKit 走代理返回「not found」。
+
+### 2.17 邮件（Q17）
+
+- `buildConfirmEmail()` 输出的 `html` 用 Playwright `setContent` 渲染 600 / 360 宽 × 浅 / 深截图基线；`headers` 断言包含 `List-Unsubscribe-Post`。
+
+### 2.18 资源与图标（Q18）
+
+- DOM 中所有 `svg`（排除品牌字标 `data-brand`）：`viewBox="0 0 24 24"`，渲染尺寸 ∈ {16, 20, 24}；按钮 / 链接文本末尾出现 `[→←›‹»✓✕×]` 失败。
+- 首屏（第一个 viewport）内 `img[loading=lazy]` 数 = 0。
+
 ## 3. 人工评审清单（每个 P9 任务验收 + 上线前全站一次）
 
 在 1440 / 768 / 390 × 浅 / 深 下逐页过一遍（参考 `contact-*.png` 改版前对照）：
@@ -199,6 +272,20 @@ expect(cut).toEqual([]);
 - [ ] Windows Chrome（雅黑）下层级清楚、不「全站发粗」
 - [ ] iPad 竖屏 768、安卓 360 无溢出
 
+**第二轮补充（2026-10-25）**
+
+- [ ] Windows 高对比（设置 → 辅助功能 → 对比度主题）下：焦点可见、按钮 / 输入框有轮廓、图标可见
+- [ ] 320 宽与手机横屏：无溢出、英文单词不被拆开、导航不竖排
+- [ ] 1920 / 2560：货架不在屏幕中部硬切、正文行长 ≤ 45 字
+- [ ] 浏览器设置「字体大小：非常大」：无溢出、关键信息不被截断
+- [ ] 打印预览（文章、应用详情）：只有正文，页数合理
+- [ ] 文案：无「不伪造 / 真实计数 / 概念图」类辩白；术语与导航一致；引号「」统一；英文页无中文残留
+- [ ] 主操作：每个详情页首屏有一个可用的主按钮（不是禁用态）
+- [ ] 正文：引用、表格、行内代码、代码块、脚注、图注都有样式，h3 不小于正文
+- [ ] 分享：把首页、应用、工具、视频、文章链接各贴到微信 / Telegram / X 预览，卡片有标题与对应图
+- [ ] 裂图：断网后刷新（或屏蔽图片域名），图标位置显示垫板 / Monogram，而不是裂图 + alt 文字
+- [ ] 订阅确认邮件在 Gmail（网页 + 安卓）、Outlook、iOS 邮件里的样子（浅 / 深）
+
 ## 4. 运行方式（P9 落地后）
 
 ```bash
@@ -206,7 +293,14 @@ npm run lint            # Q1（stylelint + eslint + prettier）
 npm run check:assets    # Q4
 npm run test:unit       # Q3（字数）
 npm run test:visual     # Q2（视觉回归，Docker 内）
-npm run test:design     # Q5–Q10（tests/design/*.spec.ts）
+npm run test:design     # Q5–Q12、Q15、Q16、Q18（tests/design/*.spec.ts）
+npm run lint:copy       # Q13（文案 lint）
+npm run test:ld         # Q14（元信息，已有命令扩展）
 ```
 
 审计脚本原型（本次审计用）：`.design-audit/audit.spec.ts`（不进仓库）—— Q5 / Q7 / Q8 / Q9 的测量逻辑可直接迁移到 `tests/design/`。
+
+## 5. 商业化交付验收标准（DoD）
+
+完整定义见 [DESIGN-AUDIT-2.md §5](./DESIGN-AUDIT-2.md#5-商业化交付验收标准definition-of-done)：自动化 D1–D15（对应 Q1–Q18，全部阻断）+ 人工 H1–H6（启发式评审 ≥ 4.3/5、复评 ≥ 8.5、5 秒测试 ≥ 4/5、5 人任务测试完成率 ≥ 90% 且 SUS ≥ 80、真机矩阵、设计与站长签字 `docs/DESIGN-SIGNOFF.md`）。
+P9 的迭代循环（实现 → 门禁 → 截图评审 → 修复 → pass 3 复审）见 [PLAN.md](./PLAN.md) T9.20。
