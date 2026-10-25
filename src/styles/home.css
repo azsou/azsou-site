@@ -3,11 +3,6 @@
 @layer reset, tokens, base, components, utilities;
 
 @layer components {
-  /* <picture class="app-icon-pic"> 是 display: contents，<source> 会变成 0 宽的 flex 项、多占一个 gap */
-  .app-icon-pic > source {
-    display: none;
-  }
-
   /* ---------- hero ---------- */
   .home-hero {
     display: grid;
@@ -211,8 +206,10 @@
     border-radius: 22.5%;
     transition: transform var(--dur) var(--ease-spring);
   }
-  .icon-wall a:hover {
-    transform: scale(1.06);
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .icon-wall a:hover {
+      transform: scale(1.06);
+    }
   }
 
   /* ---------- 首屏以下的区块：跳过离屏渲染（content-visibility），首屏样式 / 布局计算更少 ----------
@@ -337,16 +334,37 @@
     padding: var(--space-6);
     border-radius: var(--radius-xl);
     background:
-      radial-gradient(130% 120% at 100% 0%, color-mix(in srgb, var(--hue) 30%, transparent), transparent 62%),
-      linear-gradient(160deg, color-mix(in srgb, var(--hue) 14%, var(--c-bg-elevated)), var(--c-bg-elevated));
+      radial-gradient(
+        130% 120% at 100% 0%,
+        color-mix(in srgb, var(--hue) calc(var(--cover-strong) + 4%), transparent),
+        transparent 62%
+      ),
+      linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--hue) calc(var(--cover-soft) + 3%), var(--c-bg-elevated)),
+        var(--c-bg-elevated)
+      );
     box-shadow: var(--shadow-1);
     transition:
       transform var(--dur) var(--ease-spring),
       box-shadow var(--dur) var(--ease-out);
   }
-  .feature-card:has(a.card__link:hover) {
-    transform: translateY(-2px);
+  @media (hover: hover) {
+    .feature-card:has(a.card__link:hover),
+    .cat-tile:has(.cat-tile__link:hover) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-2);
+    }
+  }
+  .feature-card:has(a.card__link:focus-visible) {
     box-shadow: var(--shadow-2);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feature-card,
+    .cat-tile {
+      transform: none !important;
+      transition: none;
+    }
   }
   .feature-card__eyebrow {
     font-size: var(--text-xs);
@@ -415,6 +433,15 @@
     border-radius: var(--radius-lg);
     background: var(--c-bg-elevated);
     box-shadow: var(--shadow-1);
+  }
+  .srow--tile .app-tile[data-hue] {
+    background:
+      radial-gradient(
+        70% 130% at 0% 50%,
+        color-mix(in srgb, var(--hue) var(--cover-soft), transparent),
+        transparent 70%
+      ),
+      var(--c-bg-elevated);
   }
   .srow--grid3 .app-tile {
     background: transparent;
@@ -538,6 +565,9 @@
     border-radius: var(--radius-lg);
     background: var(--c-bg-elevated);
     box-shadow: var(--shadow-1);
+    transition:
+      transform var(--dur) var(--ease-spring),
+      box-shadow var(--dur) var(--ease-out);
   }
   .cat-tile__link {
     display: flex;
@@ -558,9 +588,6 @@
   }
   .cat-tile__link:focus-visible::after {
     box-shadow: var(--focus-ring);
-  }
-  .cat-tile:has(.cat-tile__link:hover) {
-    background: color-mix(in srgb, var(--c-fill) 60%, var(--c-bg-elevated));
   }
   .cat-tile__name {
     font-weight: 650;

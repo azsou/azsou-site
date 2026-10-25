@@ -1,4 +1,5 @@
 /** 目录卡片的浏览器端渲染（与 AppCard.astro 同一结构），以及卡片上的评分 / 下载数一行。 */
+import { iconSrcset } from '@/lib/icons';
 import { PLATFORM_LABEL, formatCount, formatRating, type AppStats, type CatalogItem } from '@/lib/app-store';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) {
@@ -9,8 +10,9 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 }
 
 export function renderCard(item: CatalogItem, headingLevel: 'h2' | 'h3' = 'h3'): HTMLElement {
-  const card = el('article', 'card card--row app-card');
+  const card = el('article', 'card card--row card--hue app-card');
   card.dataset.app = item.slug;
+  card.dataset.hue = item.hue;
   const img = el('img', 'app-icon-img app-icon-img--md');
   img.src = item.icon;
   img.alt = item.iconAlt;
@@ -18,6 +20,17 @@ export function renderCard(item: CatalogItem, headingLevel: 'h2' | 'h3' = 'h3'):
   img.height = 64;
   img.loading = 'lazy';
   img.decoding = 'async';
+  // 与 AppIcon.astro（variants）同一结构：<picture> + AVIF source，WebP 1x / 2x 兜底
+  let icon: HTMLElement = img;
+  if (item.iconVariants) {
+    img.srcset = iconSrcset(item.iconSrc, 'md', 'webp');
+    const pic = el('picture', 'app-icon-pic');
+    const source = el('source');
+    source.type = 'image/avif';
+    source.srcset = iconSrcset(item.iconSrc, 'md', 'avif');
+    pic.append(source, img);
+    icon = pic;
+  }
   const body = el('div', 'card__body');
   const h = el(headingLevel, 'card__title');
   const a = el('a', 'card__link', item.title);
@@ -44,7 +57,7 @@ export function renderCard(item: CatalogItem, headingLevel: 'h2' | 'h3' = 'h3'):
   const stats = el('p', 'app-card__stats');
   stats.dataset.cardStats = '';
   body.append(stats);
-  card.append(img, body);
+  card.append(icon, body);
   return card;
 }
 

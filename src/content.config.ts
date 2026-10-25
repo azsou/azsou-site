@@ -9,6 +9,7 @@ import {
   type AiCategory,
   type Category,
 } from './lib/app-store';
+import { HUES } from './lib/hue';
 import {
   VIDEO_CATEGORY_IDS,
   VIDEO_ID_RE,
@@ -17,7 +18,7 @@ import {
   type VideoCategory,
 } from './lib/videos';
 
-const hue = z.enum(['accent', 'green', 'teal', 'blue', 'orange']);
+const hue = z.enum(HUES);
 const date = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, '日期格式应为 YYYY-MM 或 YYYY-MM-DD');
 const fact = z.object({ label: z.string(), value: z.string() });
 const slugRef = z.string().regex(/^[a-z0-9-]+$/);
@@ -183,6 +184,8 @@ const tools = defineCollection({
       /** 一句话简介（60–120 字，原创），用在卡片、搜索与 meta description */
       summary: z.string().min(40).max(140),
       icon,
+      /** 卡片 / 横幅色相；不写 = 跟随主分类（AI_CATEGORY_HUE） */
+      hue: hue.optional(),
       developer: z.object({
         name: z.string(),
         url: httpsUrl,

@@ -1,5 +1,6 @@
 ---
 import AppIcon from '@/components/apps/AppIcon.astro';
+import type { Hue } from '@/lib/hue';
 /** 横向行里的紧凑应用 / 工具条目（图标 + 名称 + 副标题 + 一行元信息） */
 interface Props {
   title: string;
@@ -8,11 +9,13 @@ interface Props {
   href: string;
   icon: { src: string; variants: boolean };
   slug: string;
+  /** 色相：悬停时图标背后的柔光 */
+  hue?: Hue;
 }
-const { title, subtitle, meta, href, icon, slug } = Astro.props;
+const { title, subtitle, meta, href, icon, slug, hue } = Astro.props;
 ---
 
-<article class="app-tile" data-tile={slug}>
+<article class="app-tile" data-tile={slug} data-hue={hue}>
   <AppIcon src={icon.src} alt={`${title} 图标`} variants={icon.variants} />
   <div class="app-tile__body">
     <h3 class="app-tile__title">

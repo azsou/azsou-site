@@ -7,6 +7,7 @@
     "src": "/ai/icons/claude-code.png",
     "variants": true
   },
+  "hue": "orange",
   "developer": {
     "name": "Anthropic",
     "url": "https://www.anthropic.com/",

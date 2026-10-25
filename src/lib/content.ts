@@ -2,6 +2,7 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 import { compareDesc } from './dates';
 import forumData from '../data/forum.json';
 import { url } from './routes';
+import { toolHue } from './hue';
 import type { SearchItem } from './search';
 import { excerpt } from './escape';
 import {
@@ -55,7 +56,8 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
       type: 'app' as const,
       title: a.data.title,
       url: url.app(a.id),
-      summary: a.data.summary,
+      // 副标题也参与搜索（「动画编辑器」能搜到 FableMotion）
+      summary: `${a.data.subtitle}。${a.data.summary}`,
       pinyin: a.data.pinyin,
       meta: `${CATEGORIES[a.data.category]} · ${a.data.version}`,
     })),
@@ -125,6 +127,9 @@ export function catalogItem(a: App): CatalogItem {
     subtitle: d.subtitle,
     icon: cardIcon(d.icon),
     iconAlt: `${d.title} 图标`,
+    iconSrc: d.icon.src,
+    iconVariants: d.icon.variants,
+    hue: d.hue,
     category: d.category,
     categoryLabel: CATEGORIES[d.category],
     tags: d.tags,
@@ -174,6 +179,9 @@ export function toolItem(t: Tool): ToolItem {
     summary: d.summary,
     icon: cardIcon(d.icon),
     iconAlt: `${d.title} 图标`,
+    iconSrc: d.icon.src,
+    iconVariants: d.icon.variants,
+    hue: toolHue(d),
     categories: d.categories,
     platforms: d.platforms.map((p) => p.os),
     price: d.price.model,

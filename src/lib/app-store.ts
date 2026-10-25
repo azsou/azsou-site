@@ -2,6 +2,7 @@
  * 应用商店（P6）的分类法与纯函数：平台、分类、链接类型、平台识别、筛选 / 排序 / 分页、计数格式化。
  * 没有 DOM / Astro 依赖：构建期页面与浏览器 island 共用，Vitest 直接测。
  */
+import type { Hue } from './hue';
 
 export const PLATFORMS = [
   'ios',
@@ -113,6 +114,12 @@ export interface ToolItem {
   summary: string;
   icon: string;
   iconAlt: string;
+  /** 图标母版路径（AppIcon / renderCard 据此输出 AVIF / WebP 多尺寸 <picture>） */
+  iconSrc: string;
+  /** 母版旁有 -64/-128/-256 的 AVIF / WebP 版本 */
+  iconVariants: boolean;
+  /** 卡片渐变封面色相 */
+  hue: Hue;
   categories: AiCategory[];
   platforms: PlatformOs[];
   price: PriceModel;
@@ -235,6 +242,12 @@ export interface CatalogItem {
   subtitle: string;
   icon: string;
   iconAlt: string;
+  /** 图标母版路径（AppIcon / renderCard 据此输出 AVIF / WebP 多尺寸 <picture>） */
+  iconSrc: string;
+  /** 母版旁有 -64/-128/-256 的 AVIF / WebP 版本 */
+  iconVariants: boolean;
+  /** 卡片渐变封面色相 */
+  hue: Hue;
   category: Category;
   categoryLabel: string;
   tags: string[];

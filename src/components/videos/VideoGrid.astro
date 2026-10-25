@@ -118,7 +118,7 @@ const channels = [...new Map(curated.map((v) => [v.channel, v.channelName])).ent
       <VideoCard item={v} eager={i === 0} />
     ))}
   </div>
-  <p class="muted mt-6" data-video-empty hidden>
+  <p class="empty-state" data-video-empty hidden>
     没有符合条件的视频，换个筛选条件试试。
   </p>
 

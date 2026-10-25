@@ -13,6 +13,7 @@ import Status from '@/components/Status.astro';
 import { LINK_TYPE_LABEL, PLATFORM_LABEL, PRICE_LABEL, hostOf, type PlatformOs } from '@/lib/app-store';
 import { url } from '@/lib/routes';
 import type { App, Tool } from '@/lib/content';
+import type { Hue } from '@/lib/hue';
 
 interface Props {
   kind: 'app' | 'tool';
@@ -24,8 +25,10 @@ interface Props {
   categoryHref: string;
   /** 平台链接（应用 → /apps/platform/<os>/；工具没有平台页，传 null 只显示文字） */
   platformHref: ((os: PlatformOs) => string) | null;
+  /** 横幅渐变色相 */
+  hue: Hue;
 }
-const { kind, slug, data: d, body, categoryLabel, categoryHref, platformHref } = Astro.props;
+const { kind, slug, data: d, body, categoryLabel, categoryHref, platformHref, hue } = Astro.props;
 const app = kind === 'app' ? (d as App['data']) : null;
 const tool = kind === 'tool' ? (d as Tool['data']) : null;
 const third = d.developer.type === 'third-party';
@@ -53,7 +56,7 @@ const hint = usable.length
 ---
 
 <article class="app-page" data-app-page data-app={slug} data-kind={kind}>
-  <header class="app-hero">
+  <header class="app-hero hue-cover" data-hue={hue}>
     <div class="app-hero__icon">
       <AppIcon src={d.icon.src} variants={d.icon.variants} alt={`${d.title} 图标`} size="lg" eager />
       {d.icon.placeholder && <span class="app-hero__icon-note">临时图标</span>}

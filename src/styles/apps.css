@@ -49,6 +49,13 @@
     align-items: start;
     padding-top: var(--space-6);
   }
+  /* 详情页头部横幅：条目色相渐变（.hue-cover，纯 CSS） */
+  .app-hero.hue-cover {
+    margin-top: var(--space-4);
+    padding: var(--space-6);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-1);
+  }
   .app-hero__icon {
     display: grid;
     justify-items: center;
@@ -101,6 +108,10 @@
     font-size: var(--text-sm);
   }
   @media (max-width: 600px) {
+    .app-hero.hue-cover {
+      padding: var(--space-5) var(--space-4);
+      border-radius: var(--radius-lg);
+    }
     .app-hero {
       grid-template-columns: 1fr;
       justify-items: start;
@@ -617,6 +628,10 @@
   }
   .app-icon-pic {
     display: contents;
+  }
+  /* <picture> 是 display: contents，<source> 会变成 0 宽的 flex 项、多占一个 gap */
+  .app-icon-pic > source {
+    display: none;
   }
 
   /* ---------- AI 工具 /ai/：瀑布流卡片 ---------- */

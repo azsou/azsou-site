@@ -51,7 +51,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
       image: image ?? d.icon.src,
       os: [...new Set(oses.map((o) => PLATFORM_SCHEMA[o]))].join(', '),
       screenshots: d.screenshots.filter((s) => !s.illustrative).map((s) => s.src),
-      free: d.price.model === 'free',
+      price: d.price,
       datePublished: d.releaseDate,
       dateModified: d.updated,
       codeRepository: d.sourceRepo,
@@ -68,6 +68,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
     categoryLabel={CATEGORIES[d.category]}
     categoryHref={url.appCategory(d.category)}
     platformHref={url.appPlatform}
+    hue={d.hue}
   >
     {related.length > 0 && (
       <section class="section" aria-labelledby="h-related" slot="related">

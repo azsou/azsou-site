@@ -8,7 +8,7 @@
     "placeholder": false,
     "variants": true
   },
-  "hue": "accent",
+  "hue": "purple",
   "developer": {
     "name": "Randy Hopkins",
     "url": "/about/",
