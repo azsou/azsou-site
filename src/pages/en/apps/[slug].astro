@@ -8,6 +8,7 @@ import { EN_CATEGORY, EN_PLATFORM } from '@/lib/i18n-labels';
 import { softwareApp } from '@/lib/seo';
 import { iconSrcset } from '@/lib/icons';
 import { url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
 
 export async function getStaticPaths() {
   const apps = (await getApps()).filter((a) => a.data.en);
@@ -24,6 +25,7 @@ const description = `${title}: ${en.summary} Platforms: ${oses.map((o) => EN_PLA
 ---
 
 <Base
+  image={ogFor('app', app.id, 'en')}
   searchType="app"
   preloadSrcset={
     d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'xl', 'avif'), type: 'image/avif' } : undefined

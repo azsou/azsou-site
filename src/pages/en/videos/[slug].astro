@@ -19,6 +19,7 @@ import {
 } from '@/lib/videos';
 import { EN_VIDEO_CATEGORY } from '@/lib/i18n-labels';
 import { url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
 import { videoObject } from '@/lib/seo';
 
 export async function getStaticPaths() {
@@ -36,6 +37,7 @@ const provider = PROVIDER_LABEL[d.provider];
 ---
 
 <Base
+  image={ogFor('video', video.id, 'en')}
   searchType="video"
   title={d.originalTitle}
   description={`${en.summary} (Official ${d.channel.name} video.)`}

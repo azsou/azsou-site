@@ -7,8 +7,10 @@ import { AI_CATEGORIES, PLATFORM_LABEL, type ToolItem } from '@/lib/app-store';
 interface Props {
   item: ToolItem;
   headingLevel?: 'h2' | 'h3';
+  /** 首屏内的卡片传 true：图标 eager + 同步解码（DESIGN-SYSTEM §19.3） */
+  eager?: boolean;
 }
-const { item, headingLevel = 'h2' } = Astro.props;
+const { item, headingLevel = 'h2', eager = false } = Astro.props;
 const H = headingLevel;
 ---
 
@@ -21,7 +23,7 @@ const H = headingLevel;
   data-oss={item.openSource ? '1' : '0'}
 >
   <div class="tool-card__head">
-    <AppIcon src={item.iconSrc} alt="" variants={item.iconVariants} />
+    <AppIcon src={item.iconSrc} alt="" variants={item.iconVariants} eager={eager} />
     <div>
       <H class="card__title">
         <a class="card__link" href={item.url}>

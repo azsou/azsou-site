@@ -12,8 +12,7 @@ export const KNOWN: Record<string, string> = {
   'trunc:*@*': 'T9.5 内容 schema 字数规格（P0-4）',
   // 仅文字放大 200% 时应用详情横向溢出 1px（N-ZOOM-1）
   'zoom:app-detail@390': 'T9.8 卡片家族与栅格（N-ZOOM-1）',
-  // 首屏图片 loading=lazy（N-IMG-3）
-  'lazy:*@*': 'T9.4 封面与首屏图片（N-IMG-3）',
+
   // 按钮 / 链接末尾的「→ › ×」字符图标（N-ICON-1）
   'glyph:*@*': 'T9.7 Lucide 图标（N-ICON-1）',
 };

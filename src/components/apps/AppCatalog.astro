@@ -158,8 +158,8 @@ const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
   </p>
 
   <div class="grid grid--wide" data-catalog-grid>
-    {paged.items.map((a) => (
-      <AppCard item={a} headingLevel="h2" />
+    {paged.items.map((a, i) => (
+      <AppCard item={a} headingLevel="h2" eager={i < 6} />
     ))}
   </div>
   {paged.items.length === 0 && <p class="empty-state">这里还没有应用。</p>}

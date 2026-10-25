@@ -5,6 +5,7 @@ import Art from '@/components/Art.astro';
 import Comments from '@/components/Comments.astro';
 import { getApps, getArticles, getGames, getWorks, type Work } from '@/lib/content';
 import { relatedUrl, ogArt, url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
 import { creativeWork } from '@/lib/seo';
 import { excerpt } from '@/lib/escape';
 
@@ -42,7 +43,7 @@ const related = d.related.map((r) => ({
   preloadImage={artSrc(d.art)}
   title={`${d.title} · ${d.kind}`}
   description={description}
-  image={ogArt(d.art)}
+  image={ogFor('work', work.id)}
   imageAlt={d.title}
   crumbs={[
     { name: '首页', path: '/' },

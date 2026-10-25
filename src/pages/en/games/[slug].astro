@@ -5,6 +5,7 @@ import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
 import { getGames, type Game } from '@/lib/content';
 import { url, ogArt } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
 import { videoGame } from '@/lib/seo';
 
 export async function getStaticPaths() {
@@ -23,7 +24,7 @@ const path = `/en/games/${game.id}/`;
   preloadImage={artSrc(d.art)}
   title={`${title} · ${en.genre}`}
   description={en.summary}
-  image={ogArt(d.art)}
+  image={ogFor('game', game.id, 'en')}
   imageAlt={title}
   crumbs={[
     { name: 'Home', path: '/en/' },

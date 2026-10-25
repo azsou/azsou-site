@@ -206,7 +206,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
           {mosaic.map((m) => (
             <li>
               <a href={m.href} tabindex="-1">
-                <AppIcon src={m.icon.src} alt="" variants={m.icon.variants} />
+                <AppIcon src={m.icon.src} alt="" variants={m.icon.variants} eager />
               </a>
             </li>
           ))}
@@ -219,7 +219,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
     <HomeSection id="featured" title="编辑精选" note="站长挑选的自研应用与 AI 工具" row="feature">
       {featured.map((f) => (
         <li>
-          <FeatureCard item={f} />
+          <FeatureCard item={f} eager />
         </li>
       ))}
     </HomeSection>
@@ -236,6 +236,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
       {ownApps.map((a) => (
         <li>
           <AppTile
+            eager
             slug={a.id}
             title={a.data.title}
             subtitle={a.data.subtitle}

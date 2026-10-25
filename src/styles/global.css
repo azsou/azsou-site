@@ -570,10 +570,14 @@
       transform var(--dur) var(--ease-spring),
       box-shadow var(--dur) var(--ease-out);
   }
+  /* 媒体比例（T9.4，DESIGN-SYSTEM §19.3）：游戏 / 视频 16:9、作品 4:3、文章 2:1，图片 object-fit: cover 不拉伸 */
   .card__media {
     aspect-ratio: 16 / 9;
     background: var(--c-fill);
     overflow: hidden;
+  }
+  .card__media--4x3 {
+    aspect-ratio: 4 / 3;
   }
   .card__media img {
     width: 100%;
@@ -993,6 +997,9 @@
     overflow: hidden;
     background: var(--c-fill);
     aspect-ratio: 16 / 9;
+  }
+  .hero-media--2x1 {
+    aspect-ratio: 2 / 1;
   }
   .hero-media img {
     width: 100%;

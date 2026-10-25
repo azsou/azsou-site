@@ -74,8 +74,8 @@ const ossCount = items.filter((t) => t.openSource).length;
   </p>
 
   <div class="masonry" data-ai-grid>
-    {items.map((t) => (
-      <ToolCard item={t} />
+    {items.map((t, i) => (
+      <ToolCard item={t} eager={i < 6} />
     ))}
   </div>
   <p class="empty-state" data-ai-empty hidden>

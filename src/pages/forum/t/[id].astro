@@ -3,6 +3,7 @@ import '@/styles/community.css';
 import Base from '@/layouts/Base.astro';
 import { forum, type ForumSeed } from '@/lib/content';
 import { url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
 import { forumPosting } from '@/lib/seo';
 import { excerpt, textToHtml } from '@/lib/escape';
 import { initials } from '@/scripts/render';
@@ -16,6 +17,7 @@ const path = url.forumThread(t.id);
 ---
 
 <Base
+  image={ogFor('forum', t.id)}
   searchType="thread"
   title={`${t.title} · 论坛`}
   description={excerpt(t.body, 120)}
