@@ -38,7 +38,11 @@
   "sourceRepo": "https://github.com/open-webui/open-webui",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 23
+  "order": 23,
+  "en": {
+    "subtitle": "Self-hosted AI chat and agent workbench",
+    "summary": "A self-hosted AI platform with a ChatGPT-like web UI that connects to Ollama and OpenAI-compatible models, with knowledge bases, web search, tools and multi-user permissions."
+  }
 }
 ---
 

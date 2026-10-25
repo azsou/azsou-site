@@ -5,7 +5,19 @@ import TabBar from '@/components/TabBar.astro';
 import Footer from '@/components/Footer.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import { SITE } from '@/lib/site';
-import { abs, breadcrumbs, graph, jsonLd, organization, person, website, type Crumb } from '@/lib/seo';
+import {
+  abs,
+  breadcrumbs,
+  graph,
+  jsonLd,
+  organization,
+  person,
+  webPage,
+  website,
+  type Crumb,
+} from '@/lib/seo';
+import { getEnPaths } from '@/lib/content';
+import { LOCALES, OG_LOCALES, alternatesFor, langOf, switchHref } from '@/lib/i18n';
 
 interface Props {
   title: string;
@@ -45,20 +57,37 @@ const {
   searchType,
 } = Astro.props;
 
-const fullTitle = title === SITE.title ? title : `${title} · ${SITE.name}`;
+const fullTitle =
+  title === SITE.title || title.startsWith(`${SITE.name} ·`) ? title : `${title} · ${SITE.name}`;
 const canonicalUrl = abs(canonical);
-const nodes = [website(), organization(), person(), ...(crumbs ? [breadcrumbs(crumbs)] : []), ...schema];
+// 中英双语（T7.6）：语言由路径决定（/en/ 下是英文）；有对应语言的页面时输出 hreflang（x-default = 中文）
+const path = Astro.url.pathname;
+const lang = langOf(path);
+const enPaths = await getEnPaths();
+const alt = noindex ? null : alternatesFor(path, enPaths);
+const langSwitch = switchHref(path, enPaths);
+const nodes = [
+  website(),
+  organization(),
+  person(),
+  webPage({ path: canonical, name: fullTitle, inLanguage: LOCALES[lang] }),
+  ...(crumbs ? [breadcrumbs(crumbs)] : []),
+  ...schema,
+];
 const isProd = import.meta.env.PROD;
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang={LOCALES[lang]}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
+    {alt && <link rel="alternate" hreflang="zh-CN" href={abs(alt.zh)} />}
+    {alt && <link rel="alternate" hreflang="en" href={abs(alt.en)} />}
+    {alt && <link rel="alternate" hreflang="x-default" href={abs(alt.zh)} />}
     {noindex ? (
       <meta name="robots" content="noindex,follow" />
     ) : (
@@ -105,15 +134,28 @@ const isProd = import.meta.env.PROD;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="alternate" type="application/rss+xml" title="AZ Studio · 全站更新" href="/rss.xml" />
-    <link rel="alternate" type="application/rss+xml" title="AZ Studio · 原创文章" href="/articles/rss.xml" />
+    {lang === 'en' ? (
+      <link rel="alternate" type="application/rss+xml" title="AZ Studio (English)" href="/en/rss.xml" />
+    ) : (
+      <>
+        <link rel="alternate" type="application/rss+xml" title="AZ Studio · 全站更新" href="/rss.xml" />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="AZ Studio · 原创文章"
+          href="/articles/rss.xml"
+        />
+        <link rel="alternate" type="application/feed+json" title="AZ Studio · JSON Feed" href="/feed.json" />
+      </>
+    )}
     <link rel="sitemap" href="/sitemap-index.xml" />
     <!-- 站长平台验证位：拿到验证码后在这里填 content（百度 / 必应 / Google） -->
     <!-- <meta name="baidu-site-verification" content="" /> -->
     <!-- <meta name="msvalidate.01" content="" /> -->
     <!-- <meta name="google-site-verification" content="" /> -->
     <meta property="og:site_name" content={SITE.name} />
-    <meta property="og:locale" content={SITE.locale} />
+    <meta property="og:locale" content={OG_LOCALES[lang]} />
+    {alt && <meta property="og:locale:alternate" content={OG_LOCALES[lang === 'en' ? 'zh' : 'en']} />}
     <meta property="og:type" content={type} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
@@ -131,9 +173,9 @@ const isProd = import.meta.env.PROD;
   </head>
   <body>
     <a class="skip-link" href="#main">
-      跳到正文
+      {lang === 'en' ? 'Skip to content' : '跳到正文'}
     </a>
-    <Nav />
+    <Nav lang={lang} switchHref={langSwitch} />
     <main
       id="main"
       class="page"
@@ -142,12 +184,12 @@ const isProd = import.meta.env.PROD;
       data-pagefind-meta={searchType ? `type:${searchType}` : undefined}
     >
       <div class="shell">
-        {crumbs && crumbs.length > 1 && <Breadcrumbs items={crumbs} />}
+        {crumbs && crumbs.length > 1 && <Breadcrumbs items={crumbs} lang={lang} />}
         <slot />
       </div>
     </main>
-    <Footer />
-    <TabBar />
+    <Footer lang={lang} switchHref={langSwitch} />
+    <TabBar lang={lang} />
     <script>
       // 主题切换按钮 + Ctrl/⌘K 搜索面板（面板与 Pagefind 只在打开时才加载）
       import '@/scripts/site-shell';

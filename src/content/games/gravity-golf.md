@@ -44,7 +44,14 @@
       "note": "引力场叠加与回放"
     }
   ],
-  "issues": "关卡编辑器只在开发构建里；手感参数仍在迭代。"
+  "issues": "关卡编辑器只在开发构建里；手感参数仍在迭代。",
+  "en": {
+    "title": "Gravity Golf",
+    "kind": "Playable demo",
+    "status": "Playable · In development",
+    "summary": "Golf in planetary gravity fields: aim, charge and watch the trajectory bend around several bodies. The physics is a hand-written two-body approximation whose error is acceptable at level scale.",
+    "genre": "Physics trajectory puzzle"
+  }
 }
 ---
 

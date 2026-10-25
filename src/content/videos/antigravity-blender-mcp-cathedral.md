@@ -28,7 +28,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 6
+  "order": 6,
+  "en": {
+    "summary": "Google's demo connects Antigravity to Blender over MCP: an agent powered by Gemini 4 Argon works from a flat concept image and, over 45 iterations, infers the structure, carves fluted columns and adds volumetric light to build a realistic 3D cathedral from scratch."
+  }
 }
 ---
 

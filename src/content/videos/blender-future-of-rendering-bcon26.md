@@ -22,7 +22,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 14
+  "order": 14,
+  "en": {
+    "summary": "At Blender Conference 2026, Jules Urbach covers new GPU-rendering trends in motion graphics, film, product design, VFX, games, virtual production and immersive media, and the latest in traditional and neural rendering and the workflows merging them."
+  }
 }
 ---
 

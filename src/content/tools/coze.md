@@ -46,7 +46,12 @@
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 20,
-  "pinyin": "kz"
+  "pinyin": "kz",
+  "en": {
+    "title": "Coze",
+    "subtitle": "ByteDance's AI agent platform",
+    "summary": "ByteDance's AI agent platform for building chatbots and workflows without code and publishing them to Doubao, Feishu, WeChat and other channels. Its developer kit, Coze Studio, is open source."
+  }
 }
 ---
 

@@ -44,7 +44,14 @@
       "note": "长曝光渲染模式"
     }
   ],
-  "issues": "参数预设还没做保存；移动端默认降到 800 个体。"
+  "issues": "参数预设还没做保存；移动端默认降到 800 个体。",
+  "en": {
+    "title": "Boids Swarm Sandbox",
+    "kind": "Web 3D",
+    "status": "Playable · Polishing",
+    "summary": "A Boids flocking sandbox with three thousand agents: tune separation, alignment and cohesion live, and export long-exposure trail images in one click (the one in the works section came from it).",
+    "genre": "Swarm simulation sandbox"
+  }
 }
 ---
 

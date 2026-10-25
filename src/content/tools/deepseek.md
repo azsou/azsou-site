@@ -50,7 +50,11 @@
   "sourceRepo": "https://github.com/deepseek-ai/DeepSeek-V3",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 27
+  "order": 27,
+  "en": {
+    "subtitle": "DeepSeek's free AI assistant",
+    "summary": "DeepSeek's free AI assistant, built on its open-weight models. Strong at reasoning, maths and coding, with excellent Chinese, and usable directly on the web and mobile."
+  }
 }
 ---
 

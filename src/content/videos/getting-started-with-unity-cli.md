@@ -65,7 +65,10 @@
   "featured": true,
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 23
+  "order": 23,
+  "en": {
+    "summary": "Unity's tutorial: the editor GUI is slow and token-hungry for AI automation. The new Unity CLI installs editors, manages licences and opens projects, while the Pipeline package turns a running editor into a local service that compiles and runs C# snippets on the main thread in milliseconds."
+  }
 }
 ---
 

@@ -23,7 +23,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 20
+  "order": 20,
+  "en": {
+    "summary": "A GodotCon 2026 talk: many memorable games come from developers spending “too much” time on details most people consider unimportant. Using several examples and his own Godot game Fallacy Quiz, Tim Krief explains why those seemingly trivial investments define a game's charm."
+  }
 }
 ---
 

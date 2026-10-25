@@ -51,7 +51,11 @@
   "sourceRepo": "https://github.com/zed-industries/zed",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 10
+  "order": 10,
+  "en": {
+    "subtitle": "High-performance collaborative code editor",
+    "summary": "A fast, open-source code editor written in Rust by the original Atom team, with built-in AI edit prediction and an agent panel. It can also connect external agents such as Claude Code and Codex."
+  }
 }
 ---
 

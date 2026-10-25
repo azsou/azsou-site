@@ -3,6 +3,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
 export const THEME_KEY = 'az-theme';
 export const THEME_ORDER: ThemePref[] = ['system', 'light', 'dark'];
 export const THEME_LABEL: Record<ThemePref, string> = { system: '跟随系统', light: '浅色', dark: '深色' };
+export const THEME_LABEL_EN: Record<ThemePref, string> = { system: 'system', light: 'light', dark: 'dark' };
 const META = { light: '#f5f5f7', dark: '#000000' } as const;
 
 export const isThemePref = (v: unknown): v is ThemePref => v === 'system' || v === 'light' || v === 'dark';

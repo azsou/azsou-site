@@ -39,7 +39,11 @@
   "sourceRepo": "https://github.com/google-gemini/gemini-cli",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 3
+  "order": 3,
+  "en": {
+    "subtitle": "Google's open-source terminal AI agent",
+    "summary": "Google's open-source terminal AI agent that brings Gemini to the command line: read and write code, run commands, search the web and extend it with MCP. Sign in with a Google account to start."
+  }
 }
 ---
 

@@ -44,7 +44,14 @@
       "note": "房间生成器与走廊连通"
     }
   ],
-  "issues": "平衡性未调；作为机制试验田长期保持实验状态。"
+  "issues": "平衡性未调；作为机制试验田长期保持实验状态。",
+  "en": {
+    "title": "Pixel Dungeon Lab",
+    "kind": "Playable demo",
+    "status": "Experiment · Playable",
+    "summary": "A pixel-art dungeon crawl experiment with turn-based movement, fog of war and torch lighting. Many EMBERDEEP mechanics are tried out here at small scale first.",
+    "genre": "Pixel roguelike"
+  }
 }
 ---
 

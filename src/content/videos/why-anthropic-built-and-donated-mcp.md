@@ -94,7 +94,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 2
+  "order": 2,
+  "en": {
+    "summary": "Model Context Protocol co-creator David Soria Parra traces MCP from an internal hackathon to an open standard: the problem it solves, why it is called the USB-C of AI, how the community adopted it, the criticism it faces and why it was donated to the Linux Foundation."
+  }
 }
 ---
 

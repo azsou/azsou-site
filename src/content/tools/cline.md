@@ -58,7 +58,11 @@
   "sourceRepo": "https://github.com/cline/cline",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 9
+  "order": 9,
+  "en": {
+    "subtitle": "Open-source coding agent in your editor",
+    "summary": "An open-source AI coding agent that runs as an extension in VS Code, JetBrains and other editors, with a CLI too. Every edit and command can be reviewed, and you choose the model."
+  }
 }
 ---
 

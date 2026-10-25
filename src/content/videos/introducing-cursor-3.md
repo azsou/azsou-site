@@ -25,7 +25,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 4
+  "order": 4,
+  "en": {
+    "summary": "Cursor 3's official launch film. The team calls it a home for agents: it keeps a full development environment with language servers, a file explorer and remote SSH, while running several agents at once and moving seamlessly between local and cloud all the way to a merged PR."
+  }
 }
 ---
 

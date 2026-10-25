@@ -444,6 +444,12 @@
     width: 20px;
     height: 20px;
   }
+  /* 语言切换（T7.6）：文字按钮，和图标按钮同样的触控尺寸 */
+  .lang-btn {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
   /* 主题按钮：图标跟着 <html data-theme-pref>（内联脚本首帧前写入），不闪 */
   .theme-btn__icon {
     display: none;
@@ -1080,7 +1086,7 @@
     border-left: 3px solid var(--c-accent);
   }
   /* 正文里的链接要有下划线，不能只靠颜色区分（WCAG 1.4.1） */
-  :where(p, .prose li, .timeline, .check) a:not([class]) {
+  :where(p, .prose li, .timeline, .check, .footer-bottom span, .info-table dd) a:not([class]) {
     text-decoration: underline;
   }
   .article-meta {

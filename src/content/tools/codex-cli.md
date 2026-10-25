@@ -39,7 +39,11 @@
   "sourceRepo": "https://github.com/openai/codex",
   "featured": true,
   "lastChecked": "2026-10-25",
-  "order": 2
+  "order": 2,
+  "en": {
+    "subtitle": "OpenAI's open-source terminal coding agent",
+    "summary": "OpenAI's open-source command-line coding agent: it reads code, edits files, runs commands and reviews code in your local repo. Sign in with a ChatGPT account or use an API key."
+  }
 }
 ---
 

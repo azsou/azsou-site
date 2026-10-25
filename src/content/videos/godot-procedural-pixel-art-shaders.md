@@ -24,7 +24,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 13
+  "order": 13,
+  "en": {
+    "summary": "A GodotCon 2026 talk: hand-drawing burning, freezing or glitch effects frame by frame for dozens of pixel-art weapons is a nightmare. The speaker reverse-engineers these effects with hand-written shaders in Godot 4, keeping a consistent pixel style without generative AI."
+  }
 }
 ---
 

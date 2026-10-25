@@ -1,0 +1,198 @@
+---
+/**
+ * 英文版应用 / AI 工具详情（T7.6）：只展示如实翻译的副标题与简介 + 官方链接 + 基本信息；
+ * 中文全文、截图说明、评价与讨论都在中文页面，这里明确链接过去（不做机器翻译）。
+ * 第三方工具的按钮直接指向官方地址（与中文页一样不托管安装包）；自研应用还没有下载地址时显示「Coming soon」。
+ */
+import AppIcon from '@/components/apps/AppIcon.astro';
+import { EN_LINK_TYPE, EN_PLATFORM, EN_PRICE } from '@/lib/i18n-labels';
+import { hostOf, type PlatformOs, type LinkType, type PriceModel } from '@/lib/app-store';
+
+interface Platform {
+  os: PlatformOs;
+  linkType: LinkType;
+  url?: string;
+  version?: string;
+  availability?: 'coming-soon';
+}
+interface Props {
+  kind: 'app' | 'tool';
+  title: string;
+  subtitle: string;
+  summary: string;
+  icon: { src: string; variants: boolean };
+  hue: string;
+  developer: { name: string; url?: string; type: 'self' | 'third-party' };
+  categoryLabel: string;
+  categoryHref?: string;
+  platforms: Platform[];
+  price: { model: PriceModel; amount?: string };
+  license: string;
+  openSource: boolean;
+  website?: string;
+  sourceRepo?: string;
+  version?: string;
+  lastChecked?: string;
+  zhPath: string;
+}
+const p = Astro.props;
+const third = p.developer.type === 'third-party';
+const devUrl = p.developer.url && /^https:/.test(p.developer.url) ? p.developer.url : undefined;
+const usable = p.platforms.filter((x) => x.url);
+const priceText = p.price.model === 'paid' && p.price.amount ? p.price.amount : EN_PRICE[p.price.model];
+// 许可证名称多为英文（MIT、Apache-2.0）；中文表述（如「保留所有权利」）换成对应英文
+const LICENSE_EN: Record<string, string> = {
+  'Apache-2.0 / MIT（许可迁移中）': 'Apache-2.0 / MIT (licence migration in progress)',
+  'Dify Open Source License（基于 Apache-2.0，附加多租户与品牌条款）':
+    'Dify Open Source License (Apache-2.0 based, with multi-tenant and branding terms)',
+  'GPL-3.0（编辑器）/ Apache-2.0（部分组件）': 'GPL-3.0 (editor) / Apache-2.0 (some components)',
+  'Open WebUI License（BSD-3 派生，附品牌保留条款）':
+    'Open WebUI License (BSD-3 derived, with branding terms)',
+  'Sustainable Use License（fair-code，源码公开）': 'Sustainable Use License (fair-code, source available)',
+  专有服务: 'Proprietary service',
+  专有软件: 'Proprietary',
+  '专有软件（Anthropic 商业条款）': 'Proprietary (Anthropic commercial terms)',
+  '专有软件（lms 命令行为 MIT）': 'Proprietary (the lms CLI is MIT)',
+  '专有软件（早期版本以 MIT 开源）': 'Proprietary (early versions were MIT open source)',
+  '保留所有权利（免费使用）': 'All rights reserved (free to use)',
+  '平台为专有服务；Coze Studio 为 Apache-2.0': 'Proprietary platform; Coze Studio is Apache-2.0',
+  '服务专有；模型权重以 MIT 等协议开放':
+    'Proprietary service; model weights released under MIT and similar licences',
+};
+const licenseText =
+  LICENSE_EN[p.license] ?? (/[\u4e00-\u9fff]/.test(p.license) ? 'See the Chinese page' : p.license);
+---
+
+<div class="app-page" lang="en">
+  <header class="app-hero hue-cover" data-hue={p.hue}>
+    <div class="app-hero__icon">
+      <AppIcon src={p.icon.src} variants={p.icon.variants} alt={`${p.title} icon`} size="lg" eager />
+    </div>
+    <div class="app-hero__main">
+      <h1 class="app-hero__title">{p.title}</h1>
+      <p class="app-hero__subtitle">{p.subtitle}</p>
+      <p class="app-hero__dev">
+        {devUrl ? <a href={devUrl}>{p.developer.name}</a> : <span>{p.developer.name}</span>}
+        <span class="badge">{third ? 'Third-party developer' : 'Made by the site author'}</span>
+      </p>
+      <div class="app-downloads">
+        {p.platforms.map((x, i) =>
+          x.url ? (
+            <a
+              class:list={['btn', 'dl-btn', { 'btn--primary': x === usable[0] }]}
+              href={x.url}
+              rel="noopener nofollow"
+              data-os={x.os}
+            >
+              <span>{x.linkType === 'web' ? 'Open' : 'Get'}</span>
+              <span class="dl-btn__os">{EN_PLATFORM[x.os]}</span>
+            </a>
+          ) : (
+            <span class="btn dl-btn dl-btn--off" data-os={x.os} aria-disabled="true" data-i={i}>
+              <span class="dl-btn__os">{EN_PLATFORM[x.os]}</span>
+              <span>{x.availability === 'coming-soon' ? 'Coming soon' : 'Not available yet'}</span>
+            </span>
+          ),
+        )}
+      </div>
+      {usable.length > 0 && (
+        <p class="app-downloads__hint muted">
+          {third
+            ? 'Links go to the official site, store or GitHub page. This site does not host installers.'
+            : 'Links go to the official download page.'}
+        </p>
+      )}
+    </div>
+  </header>
+
+  <section class="section" aria-labelledby="h-about">
+    <div class="section__head">
+      <h2 id="h-about">About</h2>
+    </div>
+    <div class="prose">
+      <p>{p.summary}</p>
+    </div>
+    <p class="notice mt-4">
+      The full write-up{p.kind === 'app' ? ', screenshots, version history' : ', FAQ'} and reviews are in
+      Chinese:
+      <a href={p.zhPath} hreflang="zh-CN" lang="zh-CN">
+        阅读中文版
+      </a>
+      .
+    </p>
+  </section>
+
+  <section class="section" aria-labelledby="h-info">
+    <div class="section__head">
+      <h2 id="h-info">Information</h2>
+    </div>
+    <dl class="info-table mt-4">
+      <div>
+        <dt>Developer</dt>
+        <dd>
+          {devUrl ? <a href={devUrl}>{p.developer.name}</a> : p.developer.name}
+          {third ? ' (third party)' : ' (site author)'}
+        </dd>
+      </div>
+      <div>
+        <dt>Category</dt>
+        <dd>{p.categoryHref ? <a href={p.categoryHref}>{p.categoryLabel}</a> : p.categoryLabel}</dd>
+      </div>
+      <div>
+        <dt>Platforms</dt>
+        <dd>{p.platforms.map((x) => EN_PLATFORM[x.os]).join(' · ')}</dd>
+      </div>
+      <div>
+        <dt>Price</dt>
+        <dd>{priceText}</dd>
+      </div>
+      <div>
+        <dt>License</dt>
+        <dd>
+          {licenseText}
+          {p.openSource ? ' · open source' : ''}
+        </dd>
+      </div>
+      {p.version && (
+        <div>
+          <dt>Version</dt>
+          <dd>{p.version}</dd>
+        </div>
+      )}
+      {p.website && /^https:/.test(p.website) && (
+        <div>
+          <dt>Website</dt>
+          <dd>
+            <a href={p.website} rel="noopener">
+              {hostOf(p.website)}
+            </a>
+          </dd>
+        </div>
+      )}
+      {p.sourceRepo && (
+        <div>
+          <dt>Source code</dt>
+          <dd>
+            <a href={p.sourceRepo} rel="noopener">
+              {hostOf(p.sourceRepo)}
+            </a>
+          </dd>
+        </div>
+      )}
+      {usable.length > 0 && (
+        <div>
+          <dt>Link types</dt>
+          <dd>{[...new Set(usable.map((x) => EN_LINK_TYPE[x.linkType]))].join(' · ')}</dd>
+        </div>
+      )}
+      {p.lastChecked && (
+        <div>
+          <dt>Last checked</dt>
+          <dd>
+            <time datetime={p.lastChecked}>{p.lastChecked}</time>
+          </dd>
+        </div>
+      )}
+    </dl>
+  </section>
+</div>

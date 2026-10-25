@@ -1,28 +1,46 @@
 ---
 import { FOOTER, SITE } from '@/lib/site';
+import { EN_FOOTER } from '@/lib/i18n-labels';
+import type { Lang } from '@/lib/i18n';
 import SocialLinks from './SocialLinks.astro';
+interface Props {
+  lang?: Lang;
+  switchHref?: string;
+}
+const { lang = 'zh', switchHref = lang === 'en' ? '/' : '/en/' } = Astro.props;
+const en = lang === 'en';
+const cols = en ? EN_FOOTER : FOOTER;
 ---
 
 <footer class="site-footer">
   <div class="shell">
     <div class="footer-grid">
       <div>
-        <a class="brand" href="/">
+        <a class="brand" href={en ? '/en/' : '/'}>
           <span class="brand__mark" aria-hidden="true">
             AZ
           </span>
           AZ Studio
         </a>
-        <p>个人技术社区、产品档案与创作实验室。内容来自真实项目，不伪造评分、下载量、用户数或评论。</p>
-        <ul class="trust-points" aria-label="内容原则">
-          <li class="badge">真实项目</li>
-          <li class="badge">版本记录</li>
-          <li class="badge">测试环境</li>
-          <li class="badge">最后核对</li>
+        {en ? (
+          <p>
+            A personal developer site and creative lab. Everything comes from real projects — no fake ratings,
+            downloads, user counts or reviews. Most long-form content is in Chinese.
+          </p>
+        ) : (
+          <p>个人技术社区、产品档案与创作实验室。内容来自真实项目，不伪造评分、下载量、用户数或评论。</p>
+        )}
+        <ul class="trust-points" aria-label={en ? 'Principles' : '内容原则'}>
+          {(en
+            ? ['Real projects', 'Version history', 'Test setups', 'Last checked']
+            : ['真实项目', '版本记录', '测试环境', '最后核对']
+          ).map((t) => (
+            <li class="badge">{t}</li>
+          ))}
         </ul>
-        <SocialLinks />
+        <SocialLinks lang={lang} />
       </div>
-      {FOOTER.map((col) => (
+      {cols.map((col) => (
         <div>
           <h2>{col.title}</h2>
           <ul>
@@ -39,7 +57,12 @@ import SocialLinks from './SocialLinks.astro';
       <span>
         © 2026 {SITE.name} · {SITE.author.name}
       </span>
-      <span>Astro 静态构建 · 中文</span>
+      <span>
+        {en ? 'Static Astro build · ' : 'Astro 静态构建 · '}
+        <a href={switchHref} hreflang={en ? 'zh-CN' : 'en'} lang={en ? 'zh-CN' : 'en'}>
+          {en ? '中文' : 'English'}
+        </a>
+      </span>
     </div>
   </div>
 </footer>

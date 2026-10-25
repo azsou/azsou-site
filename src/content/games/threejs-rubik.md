@@ -44,7 +44,14 @@
       "note": "四元数旋转替换欧拉角，修复万向锁"
     }
   ],
-  "issues": "不再新增功能；仅跟随浏览器兼容性做维护。"
+  "issues": "不再新增功能；仅跟随浏览器兼容性做维护。",
+  "en": {
+    "title": "Three.js Rubik's Cube",
+    "kind": "Web 3D",
+    "status": "Finished · Playable",
+    "summary": "A Three.js practice project: a fully interactive Rubik's cube with drag-to-turn layers, scrambling and solve animation. As the first lesson of the Web 3D series, it keeps dependencies to a minimum.",
+    "genre": "Web 3D interaction"
+  }
 }
 ---
 

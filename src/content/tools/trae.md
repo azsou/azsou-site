@@ -42,7 +42,11 @@
   "website": "https://www.trae.ai/",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 11
+  "order": 11,
+  "en": {
+    "subtitle": "ByteDance's AI-native IDE",
+    "summary": "ByteDance's AI-native IDE with chat-based coding, an agent mode and code completion, and a Chinese-friendly interface. The international and China editions are run separately."
+  }
 }
 ---
 

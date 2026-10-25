@@ -50,7 +50,12 @@
   "website": "https://devin.ai/desktop",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 7
+  "order": 7,
+  "en": {
+    "title": "Devin Desktop (formerly Windsurf)",
+    "subtitle": "Multi-agent command center + AI editor",
+    "summary": "Cognition's AI development environment, formerly the Windsurf editor: a full IDE that also lets you manage multiple local and cloud coding agents from one interface."
+  }
 }
 ---
 

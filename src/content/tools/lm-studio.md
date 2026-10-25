@@ -54,7 +54,11 @@
   "sourceRepo": "https://github.com/lmstudio-ai/lms",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 22
+  "order": 22,
+  "en": {
+    "subtitle": "Desktop workbench for local LLMs",
+    "summary": "A desktop app for downloading and running LLMs on your own computer: search models in a GUI, chat offline, load documents and serve a local API. Now also ships Bionic, a local agent."
+  }
 }
 ---
 

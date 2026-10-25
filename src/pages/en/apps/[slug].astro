@@ -1,0 +1,75 @@
+---
+/** 英文版应用详情（T7.6）：只为写了英文文案（en）的应用生成 */
+import Base from '@/layouts/Base.astro';
+import EnStoreDetail from '@/components/en/EnStoreDetail.astro';
+import { getApps, type App } from '@/lib/content';
+import { CATEGORY_SCHEMA, PLATFORM_SCHEMA } from '@/lib/app-store';
+import { EN_CATEGORY, EN_PLATFORM } from '@/lib/i18n-labels';
+import { softwareApp } from '@/lib/seo';
+import { iconSrcset } from '@/lib/icons';
+import { url } from '@/lib/routes';
+
+export async function getStaticPaths() {
+  const apps = (await getApps()).filter((a) => a.data.en);
+  return apps.map((app) => ({ params: { slug: app.id }, props: { app } }));
+}
+const { app } = Astro.props as { app: App };
+const d = app.data;
+const en = d.en!;
+const title = en.title ?? d.title;
+const subtitle = en.subtitle ?? d.subtitle;
+const path = `/en/apps/${app.id}/`;
+const oses = d.platforms.map((p) => p.os);
+const description = `${title}: ${en.summary} Platforms: ${oses.map((o) => EN_PLATFORM[o]).join(' / ')}. Version ${d.version}.`;
+---
+
+<Base
+  searchType="app"
+  preloadSrcset={
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
+  }
+  preloadImage={d.icon.variants ? undefined : d.icon.src}
+  title={`${title} — ${subtitle}`}
+  description={description}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Apps', path: '/en/apps/' },
+    { name: title, path },
+  ]}
+  schema={[
+    softwareApp({
+      name: title,
+      description: en.summary,
+      path,
+      category: EN_CATEGORY[d.category],
+      applicationCategory: CATEGORY_SCHEMA[d.category],
+      version: d.version,
+      image: d.icon.src,
+      os: [...new Set(oses.map((o) => PLATFORM_SCHEMA[o]))].join(', '),
+      price: d.price,
+      dateModified: d.updated,
+      codeRepository: d.sourceRepo,
+      inLanguage: 'en',
+    }),
+  ]}
+>
+  <EnStoreDetail
+    kind="app"
+    title={title}
+    subtitle={subtitle}
+    summary={en.summary}
+    icon={d.icon}
+    hue={d.hue}
+    developer={d.developer}
+    categoryLabel={EN_CATEGORY[d.category]}
+    platforms={d.platforms}
+    price={d.price}
+    license={d.license}
+    openSource={d.openSource}
+    website={d.website}
+    sourceRepo={d.sourceRepo}
+    version={d.version}
+    lastChecked={d.lastChecked ?? d.updated}
+    zhPath={url.app(app.id)}
+  />
+</Base>

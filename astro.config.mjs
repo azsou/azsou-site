@@ -24,6 +24,11 @@ const NOINDEX = [
   '/auth/',
   '/api/',
   '/go/',
+  '/subscribe/confirm/',
+  '/subscribe/unsubscribe/',
+  '/en/subscribe/confirm/',
+  '/en/subscribe/unsubscribe/',
+  '/cms/',
 ];
 
 /**
@@ -58,11 +63,15 @@ export default defineConfig({
   output: 'static',
   adapter: vercel({ webAnalytics: { enabled: false } }),
   trailingSlash: 'always',
+  // 中英双语（T7.6）：中文默认、在根路径；英文在 /en/ 下（只有写了英文文案的页面才有英文版，见 src/lib/i18n.ts）
+  i18n: { defaultLocale: 'zh', locales: ['zh', 'en'], routing: { prefixDefaultLocale: false } },
   // 整站 CSS 内联（gzip 后约 6KB）：省掉一次阻塞渲染的往返，移动端 LCP 预算 < 2.0s 的关键
   build: { format: 'directory', inlineStylesheets: 'always' },
   compressHTML: true,
   integrations: [
     sitemap({
+      // 中英对应页面互相写 xhtml:link 备用语言（页面 <head> 里另有 hreflang + x-default）
+      i18n: { defaultLocale: 'zh', locales: { zh: 'zh-CN', en: 'en' } },
       filter: (page) => {
         const path = new URL(page).pathname;
         // /forum/t/ 是数据库主题的外壳（?id=…，由 /forum/sitemap-threads.xml 列出）；/forum/t/t-xxx/ 种子主题照常收录

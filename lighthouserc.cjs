@@ -1,6 +1,6 @@
 /**
  * Lighthouse CI：性能 / 无障碍 / 最佳实践 / SEO 四项都 ≥ 95（移动端模拟、慢速 4G + 4× CPU 节流，与 docs/PLAN.md §1 的预算一致）。
- * 覆盖首页、各列表与详情模板、论坛（列表 / 主题页 / 发帖页）、搜索、登录、404。
+ * 覆盖首页、各列表与详情模板、论坛（列表 / 主题页 / 发帖页）、搜索、登录、英文版（/en/）、订阅页、404。
  * 数据库主题外壳 /forum/t/?id= 不在这里：正文来自线上数据库（这里屏蔽了 Supabase 请求），只剩「加载失败」骨架，
  * 分数不代表真实体验；它与种子主题共用同一套模板与脚本（/forum/t/t-announce/ 已覆盖）。
  */
@@ -28,6 +28,13 @@ const PAGES = [
   '/links/',
   '/login/',
   '/about/',
+  // 中英双语（T7.6）与订阅（T7.8）
+  '/en/',
+  '/en/apps/fablemotion/',
+  '/en/ai/claude-code/',
+  '/en/videos/designing-claude-code/',
+  '/en/articles/',
+  '/subscribe/',
   '/404.html',
 ];
 

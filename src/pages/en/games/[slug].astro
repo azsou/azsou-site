@@ -1,0 +1,87 @@
+---
+/** 英文版游戏详情（T7.6）：英文简介 + 基本信息；更新记录与完整说明在中文页面 */
+import { artSrc } from '@/lib/art';
+import Base from '@/layouts/Base.astro';
+import Art from '@/components/Art.astro';
+import { getGames, type Game } from '@/lib/content';
+import { url, ogArt } from '@/lib/routes';
+import { videoGame } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  const games = (await getGames()).filter((g) => g.data.en);
+  return games.map((game) => ({ params: { slug: game.id }, props: { game } }));
+}
+const { game } = Astro.props as { game: Game };
+const d = game.data;
+const en = d.en!;
+const title = en.title ?? d.title;
+const path = `/en/games/${game.id}/`;
+---
+
+<Base
+  searchType="game"
+  preloadImage={artSrc(d.art)}
+  title={`${title} · ${en.genre}`}
+  description={en.summary}
+  image={ogArt(d.art)}
+  imageAlt={title}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Games', path: '/en/games/' },
+    { name: title, path },
+  ]}
+  schema={[
+    videoGame({
+      name: title,
+      description: en.summary,
+      path,
+      genre: en.genre,
+      version: d.version,
+      image: ogArt(d.art),
+      date: d.date,
+      inLanguage: 'en',
+    }),
+  ]}
+>
+  <article lang="en">
+    <header class="page-head">
+      <p class="eyebrow">{en.kind}</p>
+      <h1>{title}</h1>
+      <p>{en.genre}</p>
+    </header>
+    <div class="hero-media" data-hue={d.hue}>
+      <Art slot={d.art} eager alt={`${title} artwork`} />
+    </div>
+    <section class="section" aria-labelledby="h-about">
+      <div class="section__head">
+        <h2 id="h-about">About</h2>
+      </div>
+      <div class="prose">
+        <p>{en.summary}</p>
+      </div>
+      <dl class="info-table mt-4">
+        <div>
+          <dt>Version</dt>
+          <dd>{d.version}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{en.status}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>
+            <time datetime={d.date}>{d.date}</time>
+          </dd>
+        </div>
+      </dl>
+      <p class="notice mt-4">
+        The change log, known issues and discussion are in Chinese:
+        <a href={url.game(game.id)} hreflang="zh-CN" lang="zh-CN">
+          阅读中文版
+        </a>
+        .
+      </p>
+    </section>
+  </article>
+</Base>

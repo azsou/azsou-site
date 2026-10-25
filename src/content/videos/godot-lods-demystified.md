@@ -22,7 +22,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 10
+  "order": 10,
+  "en": {
+    "summary": "A GodotCon 2026 technical talk: from LOD and HLOD basics and common pitfalls to better cross-fading, the shadow issues it causes and workarounds, Godot's default sphere-based LOD selection (and what it means for widescreen games), the ArrayMesh LOD parameter and the threshold-pixels setting."
+  }
 }
 ---
 

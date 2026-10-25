@@ -258,3 +258,27 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* 英文版视频详情（T7.6）：本地缩略图 + 去平台观看的按钮（不嵌入播放器） */
+.video-watch {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-lg, 18px);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.video-watch img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.video-watch__btn {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.video-watch:hover {
+  text-decoration: none;
+}

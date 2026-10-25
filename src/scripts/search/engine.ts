@@ -47,7 +47,7 @@ function loadIndex(): Promise<SearchItem[]> {
 /** 预热（打开面板时就开始下载，不等第一次输入） */
 export function warmUp() {
   void loadPagefind();
-  void loadIndex().catch(() => {});
+  if (document.documentElement.lang !== 'en') void loadIndex().catch(() => {});
 }
 
 export interface SearchOutcome {
@@ -59,7 +59,12 @@ export interface SearchOutcome {
 export async function searchSite(query: string, limit = 30): Promise<SearchOutcome> {
   const q = query.trim();
   if (!q) return { hits: [], fullText: false };
-  const [items, engine] = await Promise.all([loadIndex().catch(() => [] as SearchItem[]), loadPagefind()]);
+  // 英文页面（<html lang="en">）只查 Pagefind 的英文索引：站内 JSON 索引是中文标题与拼音（T7.6）
+  const en = document.documentElement.lang === 'en';
+  const [items, engine] = await Promise.all([
+    en ? ([] as SearchItem[]) : loadIndex().catch(() => [] as SearchItem[]),
+    loadPagefind(),
+  ]);
   let pfHits: SearchHit[] = [];
   if (engine) {
     try {

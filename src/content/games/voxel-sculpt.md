@@ -44,7 +44,14 @@
       "note": "导出到 EMBERDEEP 体素格式"
     }
   ],
-  "issues": "旋转手势与笔刷快捷键冲突待解；大模型（128³）内存占用偏高。"
+  "issues": "旋转手势与笔刷快捷键冲突待解；大模型（128³）内存占用偏高。",
+  "en": {
+    "title": "Voxel Sculpt",
+    "kind": "In development",
+    "status": "In development · Try it",
+    "summary": "A voxel sculpting tool in the browser with add/subtract brushes, mirror symmetry and a palette. Built for modelling EMBERDEEP characters and props, with export that plugs into the game pipeline.",
+    "genre": "Creative tool (for games)"
+  }
 }
 ---
 

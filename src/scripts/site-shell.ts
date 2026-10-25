@@ -4,10 +4,14 @@
  *     这里只负责按钮切换、跨标签页同步与 theme-color。
  *  2. Ctrl/⌘K（T7.1）：打开站内搜索面板。面板与 Pagefind 只在第一次打开时才下载。
  */
-import { applyTheme, nextTheme, readTheme, THEME_LABEL, type ThemePref } from './theme';
+import { applyTheme, nextTheme, readTheme, THEME_LABEL, THEME_LABEL_EN, type ThemePref } from './theme';
 
 const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
-const label = (t: ThemePref) => `外观：${THEME_LABEL[t]}（点击切换为${THEME_LABEL[nextTheme(t)]}）`;
+const en = document.documentElement.lang === 'en';
+const label = (t: ThemePref) =>
+  en
+    ? `Appearance: ${THEME_LABEL_EN[t]} (click for ${THEME_LABEL_EN[nextTheme(t)]})`
+    : `外观：${THEME_LABEL[t]}（点击切换为${THEME_LABEL[nextTheme(t)]}）`;
 
 let live: HTMLElement | null = null;
 function announce(text: string) {
@@ -26,7 +30,7 @@ if (toggle) {
     const t = nextTheme(readTheme());
     applyTheme(t, true);
     toggle.setAttribute('aria-label', label(t));
-    announce(`已切换为${THEME_LABEL[t]}`);
+    announce(en ? `Switched to ${THEME_LABEL_EN[t]}` : `已切换为${THEME_LABEL[t]}`);
   });
   addEventListener('storage', (e) => {
     if (e.key !== 'az-theme') return;

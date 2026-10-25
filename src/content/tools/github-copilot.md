@@ -45,7 +45,11 @@
   "website": "https://github.com/features/copilot",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 8
+  "order": 8,
+  "en": {
+    "subtitle": "GitHub's AI coding assistant",
+    "summary": "GitHub's AI coding assistant covering in-editor completion and chat, agent mode, the CLI and code review on GitHub.com. Has a free tier and deep GitHub integration."
+  }
 }
 ---
 

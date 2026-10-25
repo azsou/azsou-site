@@ -49,7 +49,11 @@
   "website": "https://gemini.google.com/",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 26
+  "order": 26,
+  "en": {
+    "subtitle": "Google's AI assistant",
+    "summary": "Google's AI assistant, deeply integrated with Search, Gmail, Docs and Android. Supports multimodal chat, Deep Research and image and video generation on web and mobile."
+  }
 }
 ---
 

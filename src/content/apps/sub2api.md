@@ -69,7 +69,11 @@
     "真实下载地址（每个平台的官方 / 商店 / GitHub Release 链接；直链附 SHA-256）",
     "可选：真实截图（替换当前的概念图）",
     "核对默认值：价格「免费」、许可「保留所有权利（免费使用）」、不开源、隐私说明、平台与发布渠道"
-  ]
+  ],
+  "en": {
+    "subtitle": "Local OpenAI-compatible gateway lab",
+    "summary": "An experimental gateway that exposes subscription AI services as a local OpenAI-compatible API; it only forwards on your own machine."
+  }
 }
 ---
 

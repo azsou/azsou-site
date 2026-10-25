@@ -44,7 +44,14 @@
       "note": "MST 与回环补边可视化"
     }
   ],
-  "issues": "导出 GIF 未做；大种子（>10⁶ 节点）会卡 UI 线程。"
+  "issues": "导出 GIF 未做；大种子（>10⁶ 节点）会卡 UI 线程。",
+  "en": {
+    "title": "Dungeon Generation Visualizer",
+    "kind": "In development",
+    "status": "In development · Visualizer usable",
+    "summary": "Visualizes EMBERDEEP's graph-based level generation step by step — room graph, minimum spanning tree, extra loops, corridor carving — each step can be stepped through. Both a debugging tool and a teaching demo.",
+    "genre": "Algorithm visualization"
+  }
 }
 ---
 

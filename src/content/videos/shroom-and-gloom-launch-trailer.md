@@ -23,7 +23,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 18
+  "order": 18,
+  "en": {
+    "summary": "The Shroom and Gloom launch trailer from Unity's “Made with Unity” series: a gloomy first-person roguelike “dual-deckbuilder” where you collect and grow cards, fight fungal enemies and chain huge stacking combos."
+  }
 }
 ---
 

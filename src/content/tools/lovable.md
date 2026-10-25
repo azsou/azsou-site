@@ -37,7 +37,11 @@
   "website": "https://lovable.dev/",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 13
+  "order": 13,
+  "en": {
+    "subtitle": "Build full-stack web apps by chatting",
+    "summary": "A browser platform for building full-stack web apps through conversation: describe an idea to generate the UI, database, sign-in and more, edit visually, sync to GitHub and publish in one click."
+  }
 }
 ---
 

@@ -60,7 +60,11 @@
   "website": "https://claude.com/",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 25
+  "order": 25,
+  "en": {
+    "subtitle": "Anthropic's AI assistant",
+    "summary": "Anthropic's AI assistant, strong at long-form writing, reading and analysing large documents, and coding. Supports Projects, Artifacts, web search and MCP connectors on web, desktop and mobile."
+  }
 }
 ---
 

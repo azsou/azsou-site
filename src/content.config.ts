@@ -23,6 +23,17 @@ const date = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, '日期格式应为 YYYY
 const fact = z.object({ label: z.string(), value: z.string() });
 const slugRef = z.string().regex(/^[a-z0-9-]+$/);
 
+/**
+ * 英文版（T7.6，/en/）：只放如实翻译的短文案（标题 / 副标题 / 简介），正文仍是中文——英文详情页显示简介并链接到中文全文。
+ * 不写 = 该条目没有英文版（不生成 /en/ 页面）。
+ */
+const enText = z.object({
+  /** 英文名与中文名相同时不写 */
+  title: z.string().optional(),
+  subtitle: z.string().max(60).optional(),
+  summary: z.string().min(20).max(420),
+});
+
 export const statusClass = z.enum(['active', 'review', 'stable', 'experiment']);
 
 /* 正文均为迁移来的 HTML，页面用 set:html 原样输出（不经 Markdown 二次处理） */
@@ -167,6 +178,7 @@ const apps = defineCollection({
       ownerReview: z.boolean().default(false),
       /** 站长待办：缺少的素材 / 信息（只在文档与后台显示，不对访客展示） */
       ownerTodo: z.array(z.string()).default([]),
+      en: enText.optional(),
     })
     .refine(uniquePlatforms, { message: '同一平台只能出现一次' }),
 });
@@ -217,6 +229,7 @@ const tools = defineCollection({
       lastChecked: date,
       order: z.number().int(),
       pinyin: z.string().default(''),
+      en: enText.optional(),
     })
     .refine(uniquePlatforms, { message: '同一平台只能出现一次' }),
 });
@@ -263,6 +276,8 @@ const videos = defineCollection({
       verifiedBy: z.string().default('YouTube oEmbed + 频道 RSS'),
       order: z.number().int(),
       pinyin: z.string().default(''),
+      /** 英文版简介（英文标题用 originalTitle） */
+      en: enText.omit({ title: true, subtitle: true }).optional(),
     })
     .refine((v) => VIDEO_ID_RE[v.provider].test(v.videoId), { message: '视频 ID 与平台格式不符' }),
 });
@@ -283,6 +298,10 @@ const games = defineCollection({
     facts: z.array(fact),
     log: z.array(z.object({ version: z.string(), date, note: z.string() })),
     issues: z.string(),
+    en: enText
+      .omit({ subtitle: true })
+      .extend({ kind: z.string(), status: z.string(), genre: z.string() })
+      .optional(),
   }),
 });
 

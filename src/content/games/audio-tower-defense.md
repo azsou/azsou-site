@@ -44,7 +44,14 @@
       "note": "波形地形生成与寻路"
     }
   ],
-  "issues": "Safari 的 AudioWorklet 兼容性待验证；关卡只有 3 个。"
+  "issues": "Safari 的 AudioWorklet 兼容性待验证；关卡只有 3 个。",
+  "en": {
+    "title": "Audio Tower Defense",
+    "kind": "Playable demo",
+    "status": "In development · Playable",
+    "summary": "A tower defense driven by real-time Web Audio analysis: enemies march over waveform terrain and tower fire rates follow the audio bands. A playable spin-off of the Procedural Soundfield project.",
+    "genre": "Audio tower defense"
+  }
 }
 ---
 

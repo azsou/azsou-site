@@ -1,4 +1,4 @@
-import { TYPE_LABEL, type SearchHit } from '@/lib/search';
+import { TYPE_LABEL, TYPE_LABEL_EN, type SearchHit } from '@/lib/search';
 
 /** 摘要片段 → DOM（textContent + <mark>，不使用 innerHTML） */
 export function excerptNode(hit: SearchHit): HTMLElement {
@@ -35,7 +35,7 @@ export function hitRow(hit: SearchHit, opts: { id?: string; option?: boolean } =
   main.append(t, document.createElement('br'), excerptNode(hit));
   const aside = document.createElement('span');
   aside.className = 'list-row__aside badge';
-  aside.textContent = TYPE_LABEL[hit.type];
+  aside.textContent = (document.documentElement.lang === 'en' ? TYPE_LABEL_EN : TYPE_LABEL)[hit.type];
   a.append(main, aside);
   return a;
 }

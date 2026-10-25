@@ -27,7 +27,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 7
+  "order": 7,
+  "en": {
+    "summary": "An OpenAI show-style episode: plan a bowl of ramen with ChatGPT, then tour Codex's cloud environment (tasks keep running after you close the laptop) and new Codex CLI features (voice input, agent management, forking a chat into its own worktree); the guest also builds an 8-bit ramen game live."
+  }
 }
 ---
 

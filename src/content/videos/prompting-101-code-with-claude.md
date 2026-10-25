@@ -27,7 +27,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 22
+  "order": 22,
+  "en": {
+    "summary": "A prompting fundamentals session at Code w/ Claude by two members of Anthropic's Applied AI team: starting from a concrete task, they turn a rough prompt into a clear, reliable, reusable one, explaining the role of background, examples, steps and output format."
+  }
 }
 ---
 

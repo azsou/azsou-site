@@ -16,6 +16,7 @@ import {
   type PlatformOs,
   type ToolItem,
 } from './app-store';
+import { enDetailPaths, enPathSet } from './i18n';
 import { VIDEO_CATEGORIES, channelKey, lengthOf, parseClock, publishedDate, type VideoItem } from './videos';
 
 export type App = CollectionEntry<'apps'>;
@@ -300,3 +301,12 @@ export async function getTaggedItems(): Promise<TaggedItem[]> {
 }
 
 export const getTags = async () => aggregateTags(await getTaggedItems());
+
+/** 有英文版（/en/…）的中文路径集合（T7.6）：Base.astro 用来输出 hreflang 与语言切换链接 */
+let enPathsMemo: Promise<Set<string>> | null = null;
+export function getEnPaths(): Promise<Set<string>> {
+  enPathsMemo ??= Promise.all([getApps(), getTools(), getVideos(), getGames()]).then(
+    ([apps, tools, videos, games]) => enPathSet(enDetailPaths({ apps, tools, videos, games })),
+  );
+  return enPathsMemo;
+}

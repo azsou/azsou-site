@@ -1,12 +1,19 @@
 ---
 import { NAV } from '@/lib/site';
+import { EN_NAV } from '@/lib/i18n-labels';
+import type { Lang } from '@/lib/i18n';
 import Icon from './Icon.astro';
+interface Props {
+  lang?: Lang;
+}
+const { lang = 'zh' } = Astro.props;
 const path = Astro.url.pathname;
-const tabs = NAV.filter((n) => n.tab);
-const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+const home = lang === 'en' ? '/en/' : '/';
+const tabs = (lang === 'en' ? EN_NAV : NAV).filter((n) => n.tab);
+const isCurrent = (href: string) => (href === home ? path === home : path.startsWith(href));
 ---
 
-<nav class="tabbar glass" aria-label="底部导航">
+<nav class="tabbar glass" aria-label={lang === 'en' ? 'Bottom navigation' : '底部导航'}>
   <ul>
     {tabs.map((n) => (
       <li>

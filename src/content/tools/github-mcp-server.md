@@ -38,7 +38,11 @@
   "sourceRepo": "https://github.com/github/github-mcp-server",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 29
+  "order": 29,
+  "en": {
+    "subtitle": "GitHub's official MCP server",
+    "summary": "GitHub's official MCP server lets AI assistants read repository code, manage issues and pull requests and check Actions runs through a standard protocol. Use the hosted version or run it locally."
+  }
 }
 ---
 

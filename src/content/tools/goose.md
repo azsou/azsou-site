@@ -58,7 +58,11 @@
   "sourceRepo": "https://github.com/aaif-goose/goose",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 5
+  "order": 5,
+  "en": {
+    "subtitle": "Open-source general AI agent that runs locally",
+    "summary": "An open-source local AI agent with a desktop app, CLI and API. Connects to 15+ model providers and many MCP extensions for coding, research, writing and automation."
+  }
 }
 ---
 

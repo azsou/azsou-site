@@ -39,7 +39,11 @@
   "sourceRepo": "https://github.com/Aider-AI/aider",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 4
+  "order": 4,
+  "en": {
+    "subtitle": "AI pair programming in your terminal",
+    "summary": "A long-standing open-source AI pair programmer: edit code with an LLM in the terminal, with automatic Git commits. Works with almost every major model, including local ones; you pay with your own API key."
+  }
 }
 ---
 

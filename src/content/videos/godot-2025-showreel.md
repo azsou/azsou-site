@@ -106,7 +106,10 @@
   "featured": true,
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 16
+  "order": 16,
+  "en": {
+    "summary": "Godot's official 2025 showreel: just over five minutes featuring dozens of games and tools made with Godot across many genres, including Xogot, the Godot editor for iPad and iPhone. Store links for every title are in the video description."
+  }
 }
 ---
 

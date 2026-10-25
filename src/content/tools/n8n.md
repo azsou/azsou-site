@@ -44,7 +44,11 @@
   "sourceRepo": "https://github.com/n8n-io/n8n",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 19
+  "order": 19,
+  "en": {
+    "subtitle": "Self-hostable workflow automation and AI agents",
+    "summary": "A workflow automation platform for technical teams: connect hundreds of apps and APIs with nodes, use built-in AI agent nodes, run it in the cloud or self-host. Source-available under a fair-code licence."
+  }
 }
 ---
 

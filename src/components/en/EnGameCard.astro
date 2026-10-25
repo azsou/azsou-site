@@ -1,0 +1,32 @@
+---
+/** 英文版游戏卡片（T7.6） */
+import Art from '@/components/Art.astro';
+import type { Game } from '@/lib/content';
+interface Props {
+  game: Game;
+  headingLevel?: 'h2' | 'h3';
+}
+const { game, headingLevel = 'h2' } = Astro.props;
+const H = headingLevel;
+const d = game.data;
+const en = d.en!;
+---
+
+<article class="card card--media" data-hue={d.hue}>
+  <div class="card__media">
+    <Art slot={d.art} alt={`${en.title ?? d.title} artwork`} />
+  </div>
+  <div class="card__body">
+    <H class="card__title">
+      <a class="card__link" href={`/en/games/${game.id}/`}>
+        {en.title ?? d.title}
+      </a>
+    </H>
+    <p class="card__text">{en.genre}</p>
+    <div class="card__meta">
+      <span class="badge">{en.kind}</span>
+      <span>Version {d.version}</span>
+      <span>{en.status}</span>
+    </div>
+  </div>
+</article>

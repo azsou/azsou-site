@@ -23,7 +23,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 12
+  "order": 12,
+  "en": {
+    "summary": "A fun GodotCon 2026 talk: taking on a challenge, the speaker found Godot can make a bullet-dodging game with no scripts at all. The talk covers moving the player with resources and other hacks, tracking health with rigid-body simulation and randomising game state."
+  }
 }
 ---
 

@@ -22,7 +22,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 11
+  "order": 11,
+  "en": {
+    "summary": "A GodotCon 2026 talk that first breaks down what makes multiplayer game development hard, then works through ways to solve it, and finally introduces netfox, an open-source Godot add-on that makes networked multiplayer games easier to build."
+  }
 }
 ---
 

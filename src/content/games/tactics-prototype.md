@@ -44,7 +44,14 @@
       "note": "移动/攻击范围计算"
     }
   ],
-  "issues": "没有存档；AI 只会走最近路线；美术全部占位。"
+  "issues": "没有存档；AI 只会走最近路线；美术全部占位。",
+  "en": {
+    "title": "Turn-Based Tactics Prototype",
+    "kind": "In development",
+    "status": "Prototype · Internal testing",
+    "summary": "A turn-based tactics prototype on a hex board: movement range, initiative order and terrain bonuses. The board design is in the works section; the code checks whether the rules hold up.",
+    "genre": "Turn-based tactics"
+  }
 }
 ---
 

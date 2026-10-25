@@ -47,7 +47,11 @@
   "sourceRepo": "https://github.com/anthropics/claude-code",
   "featured": true,
   "lastChecked": "2026-10-25",
-  "order": 1
+  "order": 1,
+  "en": {
+    "subtitle": "Anthropic's agentic coding tool",
+    "summary": "Anthropic's coding agent: it understands your whole codebase in the terminal, IDE, desktop app or browser, edits files, runs commands, makes commits and connects to external tools through MCP."
+  }
 }
 ---
 

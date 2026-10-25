@@ -38,7 +38,12 @@
   "sourceRepo": "https://github.com/modelcontextprotocol/servers",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 28
+  "order": 28,
+  "en": {
+    "title": "MCP Reference Servers",
+    "subtitle": "Model Context Protocol reference implementations",
+    "summary": "The official collection of Model Context Protocol reference servers, with example implementations for the filesystem, Git, web fetching, memory and more — a starting point for learning and building MCP servers."
+  }
 }
 ---
 

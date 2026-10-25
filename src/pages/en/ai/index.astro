@@ -1,0 +1,66 @@
+---
+/** 英文版 AI 工具列表（T7.6）：按编辑顺序，只链官方地址 */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import EnCard from '@/components/en/EnCard.astro';
+import { getTools } from '@/lib/content';
+import { AI_CATEGORY_IDS } from '@/lib/app-store';
+import { EN_AI_CATEGORY, EN_PRICE } from '@/lib/i18n-labels';
+import { toolHue } from '@/lib/hue';
+import { itemList } from '@/lib/seo';
+
+const tools = (await getTools()).filter((t) => t.data.en);
+const title = (t: (typeof tools)[number]) => t.data.en!.title ?? t.data.title;
+const groups = AI_CATEGORY_IDS.map((c) => ({
+  id: c,
+  name: EN_AI_CATEGORY[c],
+  items: tools.filter((t) => t.data.categories[0] === c),
+})).filter((g) => g.items.length);
+---
+
+<Base
+  title="AI Tools"
+  description={`${tools.length} curated AI agents, vibe-coding editors, CLI tools, AI assistants and MCP servers, with original descriptions and official links only.`}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'AI Tools', path: '/en/ai/' },
+  ]}
+  schema={[
+    itemList(
+      'AI tools',
+      '/en/ai/',
+      tools.map((t) => ({ name: title(t), path: `/en/ai/${t.id}/` })),
+    ),
+  ]}
+>
+  <PageHead
+    eyebrow="Third-party tools"
+    title="AI Tools"
+    lede="Agents, vibe-coding editors, CLI tools, AI assistants and MCP servers. Descriptions are written for this site; every link goes to the official site, store or GitHub page."
+  />
+  {groups.map((g) => (
+    <section class="section" aria-labelledby={`h-${g.id}`}>
+      <div class="section__head">
+        <h2 id={`h-${g.id}`}>
+          {g.name} <span class="section__count">{g.items.length}</span>
+        </h2>
+      </div>
+      <div class="grid">
+        {g.items.map((t) => (
+          <EnCard
+            headingLevel="h3"
+            href={`/en/ai/${t.id}/`}
+            title={title(t)}
+            subtitle={t.data.en!.subtitle ?? t.data.subtitle}
+            meta={`${EN_PRICE[t.data.price.model]} · ${t.data.developer.name}`}
+            icon={t.data.icon}
+            hue={toolHue(t.data)}
+          />
+        ))}
+      </div>
+    </section>
+  ))}
+  <p class="muted mt-6">
+    Ordered by the editor. This site does not have enough real usage data to rank tools by popularity.
+  </p>
+</Base>

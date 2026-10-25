@@ -2,11 +2,12 @@
 import type { Crumb } from '@/lib/seo';
 interface Props {
   items: Crumb[];
+  lang?: 'zh' | 'en';
 }
-const { items } = Astro.props;
+const { items, lang = 'zh' } = Astro.props;
 ---
 
-<nav class="crumbs" aria-label="面包屑" data-pagefind-ignore>
+<nav class="crumbs" aria-label={lang === 'en' ? 'Breadcrumb' : '面包屑'} data-pagefind-ignore>
   <ol>
     {items.map((c, i) => (
       <li>

@@ -23,7 +23,10 @@
   "lang": "en",
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 17
+  "order": 17,
+  "en": {
+    "summary": "The Valheim launch trailer from Unity's “Made with Unity” series. A 1–10 player co-op exploration and survival game set in a procedurally generated afterlife inspired by Viking culture, where you battle, build and conquer your way to a saga worthy of Odin."
+  }
 }
 ---
 

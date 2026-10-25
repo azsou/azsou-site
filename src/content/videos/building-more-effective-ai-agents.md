@@ -85,7 +85,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 3
+  "order": 3,
+  "en": {
+    "summary": "A co-author of “Building Effective Agents” and Alex Albert look back at six months of agent progress: building with the Claude Agent SDK, using Agent Skills, common multi-agent patterns (parallel, MapReduce, sub-agents), typical failure modes and advice for getting started."
+  }
 }
 ---
 

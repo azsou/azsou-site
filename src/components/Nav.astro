@@ -1,21 +1,32 @@
 ---
 import { NAV } from '@/lib/site';
+import { EN_NAV } from '@/lib/i18n-labels';
+import type { Lang } from '@/lib/i18n';
 import Icon from './Icon.astro';
 import UserMenu from './UserMenu.astro';
+interface Props {
+  lang?: Lang;
+  /** 另一种语言的对应页面（没有对应页面时是另一种语言的首页） */
+  switchHref?: string;
+}
+const { lang = 'zh', switchHref = lang === 'en' ? '/' : '/en/' } = Astro.props;
+const en = lang === 'en';
 const path = Astro.url.pathname;
-const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+const home = en ? '/en/' : '/';
+const items = en ? EN_NAV : NAV;
+const isCurrent = (href: string) => (href === home ? path === home : path.startsWith(href));
 ---
 
 <header class="site-nav glass">
-  <nav class="shell site-nav__inner" aria-label="主导航">
-    <a class="brand" href="/">
+  <nav class="shell site-nav__inner" aria-label={en ? 'Main' : '主导航'}>
+    <a class="brand" href={home}>
       <span class="brand__mark" aria-hidden="true">
         AZ
       </span>
       <span>AZ Studio</span>
     </a>
     <ul class="nav-links">
-      {NAV.map((n) => (
+      {items.map((n) => (
         <li>
           <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
             {n.label}
@@ -27,14 +38,19 @@ const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWi
       <a
         class="icon-btn"
         href="/search/"
-        aria-label="搜索（Ctrl K）"
+        aria-label={en ? 'Search (Ctrl K)' : '搜索（Ctrl K）'}
         aria-keyshortcuts="Control+K Meta+K"
         aria-current={path.startsWith('/search/') ? 'page' : undefined}
         data-palette-open
       >
         <Icon name="search" />
       </a>
-      <button class="icon-btn theme-btn" type="button" aria-label="外观：跟随系统" data-theme-toggle>
+      <button
+        class="icon-btn theme-btn"
+        type="button"
+        aria-label={en ? 'Appearance: system' : '外观：跟随系统'}
+        data-theme-toggle
+      >
         <svg class="theme-btn__icon theme-btn__icon--system" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 2v14a7 7 0 0 1 0-14z"></path>
         </svg>
@@ -48,7 +64,17 @@ const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWi
           <path fill="currentColor" d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5z"></path>
         </svg>
       </button>
-      <UserMenu />
+      <a
+        class="icon-btn lang-btn"
+        href={switchHref}
+        hreflang={en ? 'zh-CN' : 'en'}
+        lang={en ? 'zh-CN' : 'en'}
+        data-lang-switch
+      >
+        <span aria-hidden="true">{en ? '中' : 'EN'}</span>
+        <span class="visually-hidden">{en ? '中文版' : 'English'}</span>
+      </a>
+      {!en && <UserMenu />}
     </div>
   </nav>
 </header>

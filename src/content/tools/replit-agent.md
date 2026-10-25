@@ -38,7 +38,11 @@
   "website": "https://replit.com/products/agent",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 16
+  "order": 16,
+  "en": {
+    "subtitle": "App-building agent inside an online IDE",
+    "summary": "The AI agent built into Replit's online platform: build an app from scratch in natural language, with the environment, database and deployment set up for you. Good for prototypes, internal tools and learning."
+  }
 }
 ---
 

@@ -26,7 +26,10 @@
   ],
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 5
+  "order": 5,
+  "en": {
+    "summary": "Cursor introduces Bugbot, its code-review bot. Cursor says it found over a million issues in human-written PRs in one month, more than half of them real logic bugs fixed before merge, and explains how multiple models, more compute and codebase understanding keep false positives down."
+  }
 }
 ---
 

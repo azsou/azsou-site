@@ -44,7 +44,11 @@
   "sourceRepo": "https://github.com/OpenHands/OpenHands",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 17
+  "order": 17,
+  "en": {
+    "subtitle": "Open-source AI software development agents",
+    "summary": "An open-source platform for software-development agents (formerly OpenDevin): run coding agents locally, in Docker or in the cloud to work on issues, write code and tests, and orchestrate other agents."
+  }
 }
 ---
 

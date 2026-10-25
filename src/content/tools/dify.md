@@ -44,7 +44,11 @@
   "sourceRepo": "https://github.com/langgenius/dify",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 18
+  "order": 18,
+  "en": {
+    "subtitle": "Open-source LLM app and agent platform",
+    "summary": "An open-source platform for building LLM apps: assemble chat assistants, agents and knowledge-base Q&A with visual workflows, using hundreds of models. Use the cloud service or self-host with Docker."
+  }
 }
 ---
 

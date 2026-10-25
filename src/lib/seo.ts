@@ -57,6 +57,16 @@ export const website = (): Json => ({
   },
 });
 
+/** 每页一个 WebPage 节点：写明本页语言（T7.6，中文 zh-CN / 英文 en） */
+export const webPage = (p: { path: string; name: string; inLanguage: string }): Json => ({
+  '@type': 'WebPage',
+  '@id': `${abs(p.path)}#webpage`,
+  url: abs(p.path),
+  name: p.name,
+  inLanguage: p.inLanguage,
+  isPartOf: { '@id': `${SITE.url}/#website` },
+});
+
 export const breadcrumbs = (items: Crumb[]): Json => ({
   '@type': 'BreadcrumbList',
   itemListElement: items.map((c, i) => ({
@@ -147,9 +157,12 @@ export function softwareApp(a: {
   codeRepository?: string;
   /** 第三方开发者（不写 = 本站作者） */
   developer?: { name: string; url?: string };
+  /** 页面语言（英文版传 'en'；不写 = 不输出） */
+  inLanguage?: string;
 }): Json {
   return {
     '@type': 'SoftwareApplication',
+    ...(a.inLanguage ? { inLanguage: a.inLanguage } : {}),
     name: a.name,
     description: a.description,
     url: abs(a.path),
@@ -239,6 +252,7 @@ export function videoGame(g: {
   version: string;
   image: string;
   date: string;
+  inLanguage?: string;
 }): Json {
   return {
     '@type': 'VideoGame',
@@ -249,7 +263,7 @@ export function videoGame(g: {
     version: g.version,
     image: abs(g.image),
     dateModified: iso(g.date),
-    inLanguage: SITE.lang,
+    inLanguage: g.inLanguage ?? SITE.lang,
     gamePlatform: 'Web browser',
     operatingSystem: 'Web',
     applicationCategory: 'GameApplication',

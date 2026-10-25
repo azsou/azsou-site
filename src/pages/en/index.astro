@@ -1,0 +1,185 @@
+---
+/**
+ * 英文首页（T7.6）：只用有英文文案的真实条目；文章只有中文版，如实标注「Chinese only」。
+ * 首屏是文字（LCP），图片全部懒加载；没有额外脚本（搜索按钮复用全站 Ctrl/⌘K 面板，英文页面只搜英文索引）。
+ */
+import Base from '@/layouts/Base.astro';
+import EnCard from '@/components/en/EnCard.astro';
+import EnVideoCard from '@/components/en/EnVideoCard.astro';
+import EnGameCard from '@/components/en/EnGameCard.astro';
+import { getApps, getArticles, getGames, getTools, getVideos } from '@/lib/content';
+import { EN_AI_CATEGORY, EN_CATEGORY, EN_PLATFORM, EN_PRICE, EN_SITE } from '@/lib/i18n-labels';
+import { publishedDate } from '@/lib/videos';
+import { toolHue } from '@/lib/hue';
+import { url } from '@/lib/routes';
+
+const [apps, tools, videos, games, articles] = await Promise.all([
+  getApps(),
+  getTools(),
+  getVideos(),
+  getGames(),
+  getArticles(),
+]);
+const ownApps = apps.filter((a) => a.data.en && a.data.developer.type === 'self');
+const enTools = tools.filter((t) => t.data.en);
+const pickTools = enTools.slice(0, 6);
+const enVideos = videos.filter((v) => v.data.en);
+const pickVideos = enVideos.slice(0, 6);
+const enGames = games.filter((g) => g.data.en);
+const pickGames = enGames.slice(0, 6);
+const latest = articles.slice(0, 5);
+---
+
+<Base title={EN_SITE.title} description={EN_SITE.description}>
+  <header class="page-head en-hero">
+    <p class="eyebrow">AZ Studio · apps and notes</p>
+    <h1>Indie apps, AI tools and dev notes</h1>
+    <p>
+      A personal developer site by Randy Hopkins: {ownApps.length} apps of my own, {enTools.length} curated AI
+      tools,
+      {enVideos.length} official videos and {enGames.length} browser games. Everything listed is real — no
+      fake ratings or download counts. Most long-form writing is in Chinese.
+    </p>
+    <nav class="chip-nav" aria-label="Browse">
+      <a class="chip" href="/en/apps/">
+        Apps <span class="chip__n">{ownApps.length}</span>
+      </a>
+      <a class="chip" href="/en/ai/">
+        AI tools <span class="chip__n">{enTools.length}</span>
+      </a>
+      <a class="chip" href="/en/videos/">
+        Videos <span class="chip__n">{enVideos.length}</span>
+      </a>
+      <a class="chip" href="/en/games/">
+        Games <span class="chip__n">{enGames.length}</span>
+      </a>
+      <a class="chip" href="/search/" data-palette-open aria-keyshortcuts="Control+K Meta+K">
+        Search <kbd>Ctrl K</kbd>
+      </a>
+    </nav>
+  </header>
+
+  <section class="section" aria-labelledby="h-apps">
+    <div class="section__head">
+      <h2 id="h-apps">AZ Studio apps</h2>
+      <a href="/en/apps/">
+        All apps <span aria-hidden="true">→</span>
+      </a>
+    </div>
+    <div class="grid">
+      {ownApps.map((a) => (
+        <EnCard
+          headingLevel="h3"
+          href={`/en/apps/${a.id}/`}
+          title={a.data.en!.title ?? a.data.title}
+          subtitle={a.data.en!.subtitle ?? a.data.subtitle}
+          meta={`${EN_CATEGORY[a.data.category]} · ${EN_PRICE[a.data.price.model]} · ${a.data.platforms.map((p) => EN_PLATFORM[p.os]).join(' · ')}`}
+          icon={a.data.icon}
+          hue={a.data.hue}
+        />
+      ))}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="h-ai">
+    <div class="section__head">
+      <h2 id="h-ai">AI tools</h2>
+      <a href="/en/ai/">
+        All {enTools.length} <span aria-hidden="true">→</span>
+      </a>
+    </div>
+    <p class="muted">In editor's order — there is not enough real usage data here to rank by popularity.</p>
+    <div class="grid mt-4">
+      {pickTools.map((t) => (
+        <EnCard
+          headingLevel="h3"
+          href={`/en/ai/${t.id}/`}
+          title={t.data.en!.title ?? t.data.title}
+          subtitle={t.data.en!.subtitle ?? t.data.subtitle}
+          meta={`${EN_AI_CATEGORY[t.data.categories[0]]} · ${EN_PRICE[t.data.price.model]} · ${t.data.developer.name}`}
+          icon={t.data.icon}
+          hue={toolHue(t.data)}
+        />
+      ))}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="h-videos">
+    <div class="section__head">
+      <h2 id="h-videos">Videos</h2>
+      <a href="/en/videos/">
+        All videos <span aria-hidden="true">→</span>
+      </a>
+    </div>
+    <div class="video-grid">
+      {pickVideos.map((v) => (
+        <EnVideoCard
+          headingLevel="h3"
+          slug={v.id}
+          title={v.data.originalTitle}
+          channel={v.data.channel.name}
+          duration={v.data.duration}
+          meta={v.data.published ? publishedDate(v.data.published) : ''}
+        />
+      ))}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="h-games">
+    <div class="section__head">
+      <h2 id="h-games">Games &amp; demos</h2>
+      <a href="/en/games/">
+        All games <span aria-hidden="true">→</span>
+      </a>
+    </div>
+    <div class="grid">
+      {pickGames.map((g) => (
+        <EnGameCard game={g} headingLevel="h3" />
+      ))}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="h-articles">
+    <div class="section__head">
+      <h2 id="h-articles">Latest articles</h2>
+      <a href="/en/articles/">
+        All articles <span aria-hidden="true">→</span>
+      </a>
+    </div>
+    <ul class="list-group" role="list" aria-labelledby="h-articles">
+      {latest.map((a) => (
+        <li>
+          <a class="list-row" href={url.article(a.id)} hreflang="zh-CN">
+            <span class="list-row__main">
+              <span class="list-row__title" lang="zh-CN">
+                {a.data.title}
+              </span>
+              <span class="list-row__sub">
+                <time datetime={a.data.date}>{a.data.date}</time> · {a.data.readingMinutes} min read
+              </span>
+            </span>
+            <span class="list-row__aside badge">Chinese only</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="section panel" aria-labelledby="h-follow">
+    <h2 id="h-follow">Follow updates</h2>
+    <p>
+      Get new apps, videos and articles by email (double opt-in, unsubscribe any time) or with a feed reader.
+    </p>
+    <p class="btn-row">
+      <a class="btn btn--primary" href="/en/subscribe/">
+        Email updates
+      </a>
+      <a class="btn" href="/en/rss.xml">
+        RSS
+      </a>
+      <a class="btn" href="/feed.json">
+        JSON Feed (Chinese)
+      </a>
+    </p>
+  </section>
+</Base>

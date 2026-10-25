@@ -54,7 +54,11 @@
   "website": "https://kiro.dev/",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 12
+  "order": 12,
+  "en": {
+    "subtitle": "AWS's spec-driven AI IDE",
+    "summary": "AWS's agentic development environment built around spec-driven development: requirements become specs and task lists first, then agents implement them one by one. Available as an IDE, CLI and web app."
+  }
 }
 ---
 

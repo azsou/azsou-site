@@ -1,0 +1,46 @@
+---
+/**
+ * 英文版文章列表（T7.6）：文章都只有中文版——这里如实列出标题并标注「Chinese only」，链接到中文原文，
+ * 不做机器翻译。标题保留中文（lang="zh-CN"），旁边给出英文分类与阅读时间。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { getArticles } from '@/lib/content';
+import { EN_ARTICLE_CATEGORY } from '@/lib/i18n-labels';
+import { url } from '@/lib/routes';
+
+const articles = await getArticles();
+---
+
+<Base
+  title="Articles"
+  description={`${articles.length} original articles on browser extensions, offline-first web apps, animation tools and game development. All articles are currently in Chinese only.`}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Articles', path: '/en/articles/' },
+  ]}
+>
+  <PageHead
+    eyebrow="Original writing"
+    title="Articles"
+    lede="Hands-on write-ups from real projects. They are written in Chinese and have not been translated yet — each link opens the Chinese original."
+  />
+  <ul class="list-group" role="list" aria-label="Articles (Chinese only)">
+    {articles.map((a) => (
+      <li>
+        <a class="list-row" href={url.article(a.id)} hreflang="zh-CN">
+          <span class="list-row__main">
+            <span class="list-row__title" lang="zh-CN">
+              {a.data.title}
+            </span>
+            <span class="list-row__sub">
+              {EN_ARTICLE_CATEGORY[a.data.category] ?? a.data.category} · {a.data.readingMinutes} min read ·{' '}
+              <time datetime={a.data.date}>{a.data.date}</time>
+            </span>
+          </span>
+          <span class="list-row__aside badge">Chinese only</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</Base>

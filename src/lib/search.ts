@@ -22,6 +22,18 @@ export const TYPE_LABEL: Record<SearchItem['type'], string> = {
   page: '页面',
 };
 
+/** 英文版（/en/，T7.6）的类型徽章 */
+export const TYPE_LABEL_EN: Record<SearchItem['type'], string> = {
+  app: 'App',
+  tool: 'AI tool',
+  video: 'Video',
+  game: 'Game',
+  article: 'Article',
+  work: 'Work',
+  thread: 'Forum',
+  page: 'Page',
+};
+
 export function normalize(s: string): string {
   return s.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 }

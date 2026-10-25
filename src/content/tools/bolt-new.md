@@ -38,7 +38,11 @@
   "sourceRepo": "https://github.com/stackblitz/bolt.new",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 14
+  "order": 14,
+  "en": {
+    "subtitle": "AI full-stack dev environment in the browser",
+    "summary": "StackBlitz's in-browser AI dev environment: generate and run a complete front-end or full-stack project from a prompt, install packages, preview live and deploy, with no local setup."
+  }
 }
 ---
 

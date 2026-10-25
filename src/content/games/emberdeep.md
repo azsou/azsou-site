@@ -49,7 +49,13 @@
       "note": "地牢生成从房间模板切换到图生成"
     }
   ],
-  "issues": "移动端触控操作仍在设计；超大地图（>64³）在低端设备上生成耗时明显；音效占位。"
+  "issues": "移动端触控操作仍在设计；超大地图（>64³）在低端设备上生成耗时明显；音效占位。",
+  "en": {
+    "kind": "Playable demo",
+    "status": "Active development · Playable demo",
+    "summary": "A voxel roguelike with voxel dungeons, torch lighting, classes and skill trees. Version 0.8 focuses on migrating old saves to the new class system. The demo runs the current build in the browser; it is not presented as a commercial release, and the version number reflects how complete it is.",
+    "genre": "Voxel Roguelike"
+  }
 }
 ---
 

@@ -1,0 +1,78 @@
+---
+/** 英文版 AI 工具详情（T7.6）：只为写了英文文案（en）的工具生成；按钮直接指向官方地址 */
+import Base from '@/layouts/Base.astro';
+import EnStoreDetail from '@/components/en/EnStoreDetail.astro';
+import { getTools, type Tool } from '@/lib/content';
+import { AI_CATEGORY_SCHEMA, PLATFORM_SCHEMA } from '@/lib/app-store';
+import { EN_AI_CATEGORY, EN_PLATFORM } from '@/lib/i18n-labels';
+import { softwareApp } from '@/lib/seo';
+import { iconSrcset } from '@/lib/icons';
+import { toolHue } from '@/lib/hue';
+import { url } from '@/lib/routes';
+
+export async function getStaticPaths() {
+  const tools = (await getTools()).filter((t) => t.data.en);
+  return tools.map((tool) => ({ params: { slug: tool.id }, props: { tool } }));
+}
+const { tool } = Astro.props as { tool: Tool };
+const d = tool.data;
+const en = d.en!;
+const title = en.title ?? d.title;
+const subtitle = en.subtitle ?? d.subtitle;
+const main = d.categories[0];
+const path = `/en/ai/${tool.id}/`;
+const oses = d.platforms.map((p) => p.os);
+const description = `${title}: ${en.summary} Platforms: ${oses.map((o) => EN_PLATFORM[o]).join(' / ')}. Official links only.`;
+---
+
+<Base
+  searchType="tool"
+  preloadSrcset={
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
+  }
+  preloadImage={d.icon.variants ? undefined : d.icon.src}
+  title={`${title} — ${subtitle}`}
+  description={description}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'AI Tools', path: '/en/ai/' },
+    { name: title, path },
+  ]}
+  schema={[
+    softwareApp({
+      name: title,
+      description: en.summary,
+      path,
+      category: EN_AI_CATEGORY[main],
+      applicationCategory: AI_CATEGORY_SCHEMA[main],
+      version: d.version,
+      image: d.icon.src,
+      os: [...new Set(oses.map((o) => PLATFORM_SCHEMA[o]))].join(', '),
+      price: d.price,
+      dateModified: d.lastChecked,
+      codeRepository: d.sourceRepo,
+      developer: { name: d.developer.name, url: d.developer.url },
+      inLanguage: 'en',
+    }),
+  ]}
+>
+  <EnStoreDetail
+    kind="tool"
+    title={title}
+    subtitle={subtitle}
+    summary={en.summary}
+    icon={d.icon}
+    hue={toolHue(d)}
+    developer={d.developer}
+    categoryLabel={d.categories.map((c) => EN_AI_CATEGORY[c]).join(' · ')}
+    platforms={d.platforms}
+    price={d.price}
+    license={d.license}
+    openSource={d.openSource}
+    website={d.website}
+    sourceRepo={d.sourceRepo}
+    version={d.version}
+    lastChecked={d.lastChecked}
+    zhPath={url.tool(tool.id)}
+  />
+</Base>

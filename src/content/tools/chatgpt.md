@@ -60,7 +60,11 @@
   "website": "https://chatgpt.com/",
   "featured": true,
   "lastChecked": "2026-10-25",
-  "order": 24
+  "order": 24,
+  "en": {
+    "subtitle": "OpenAI's AI assistant",
+    "summary": "OpenAI's general-purpose AI assistant for chat, writing, coding, image generation, web search and voice, with built-in agent features such as Codex, on web, desktop and mobile."
+  }
 }
 ---
 

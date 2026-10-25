@@ -29,7 +29,10 @@
   "featured": true,
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 9
+  "order": 9,
+  "en": {
+    "summary": "Epic introduces Unreal MCP: built on the open Model Context Protocol, it connects your usual agentic coding tools directly to the Unreal Editor to act in your project through the capabilities each editor exposes, and lets you write integrations, skills and workflows around your own pipeline."
+  }
 }
 ---
 

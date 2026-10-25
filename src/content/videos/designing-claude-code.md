@@ -61,7 +61,10 @@
   "featured": true,
   "lastChecked": "2026-10-25",
   "verifiedBy": "YouTube oEmbed（标题 / 频道 / 可嵌入）+ 频道 RSS（发布时间）+ 频道或播放列表页（时长）",
-  "order": 1
+  "order": 1,
+  "en": {
+    "summary": "Claude Code's designer and Anthropic's Alex Albert discuss the product's design principles: why the terminal, how developer workflows map onto a conversation, how new features are prototyped quickly with agentic coding, and practical tips for designers."
+  }
 }
 ---
 

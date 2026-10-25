@@ -49,7 +49,11 @@
   "sourceRepo": "https://github.com/ollama/ollama",
   "featured": true,
   "lastChecked": "2026-10-25",
-  "order": 21
+  "order": 21,
+  "en": {
+    "subtitle": "Run LLMs locally with one command",
+    "summary": "Run open models on your own computer: one command downloads and starts Llama, Qwen, DeepSeek and others, with a local OpenAI-compatible API that plugs into all kinds of AI apps."
+  }
 }
 ---
 

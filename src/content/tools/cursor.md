@@ -47,7 +47,11 @@
   "website": "https://cursor.com/",
   "featured": true,
   "lastChecked": "2026-10-25",
-  "order": 6
+  "order": 6,
+  "en": {
+    "subtitle": "The AI-first code editor",
+    "summary": "An AI code editor built on VS Code that combines Tab completion, chat-based edits and coding agents that can run in the background. Compatible with most VS Code extensions."
+  }
 }
 ---
 

@@ -38,7 +38,11 @@
   "sourceRepo": "https://github.com/microsoft/playwright-mcp",
   "featured": false,
   "lastChecked": "2026-10-25",
-  "order": 30
+  "order": 30,
+  "en": {
+    "subtitle": "MCP server that lets AI drive a browser",
+    "summary": "The Playwright team's official MCP server lets AI assistants operate a real browser through structured accessibility snapshots: open pages, click, fill forms, take screenshots and run end-to-end tests."
+  }
 }
 ---
 
