@@ -19,8 +19,35 @@ async function run(fn: () => unknown) {
   }
 }
 
+/**
+ * 等首次内容绘制（FCP）真的发生后再回调；load + 两帧并不保证已有内容绘制（CI 无头 Chromium 的英文页上
+ * FCP 偶尔晚于两帧，空闲任务的 Supabase 请求于是落在 FCP 之前，Lighthouse 模拟把跨域连接算进 LCP，+0.9 s）。
+ * 不支持 paint 计时的浏览器直接回调；最多等 3 秒。
+ */
+function afterFirstPaint(cb: () => void) {
+  const painted = () => performance.getEntriesByName('first-contentful-paint').length > 0;
+  if (
+    typeof PerformanceObserver === 'undefined' ||
+    !PerformanceObserver.supportedEntryTypes?.includes('paint') ||
+    painted()
+  )
+    return cb();
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    po.disconnect();
+    cb();
+  };
+  const po = new PerformanceObserver(() => {
+    if (painted()) finish();
+  });
+  po.observe({ type: 'paint', buffered: true });
+  setTimeout(finish, 3000);
+}
+
 export function whenIdle(fn: () => unknown, timeout = 1500) {
-  const schedule = () => requestAnimationFrame(() => requestAnimationFrame(idle));
+  const schedule = () => afterFirstPaint(() => requestAnimationFrame(() => requestAnimationFrame(idle)));
   const idle = () => {
     const ric = (
       window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
