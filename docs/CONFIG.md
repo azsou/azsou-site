@@ -214,3 +214,18 @@ Authentication → Emails → Templates。每个模板复制「主题」和「�
 - **数据库网络限制**（可选）：Project Settings → Database → Network Restrictions。GitHub Actions 备份从 GitHub 托管机器连接，
   开启限制前需要放行 GitHub Actions 的 IP 段，或改用自托管 runner。
 - **keepalive**：`.github/workflows/supabase-keepalive.yml` 每 3 天读一行公开数据，防止免费项目暂停；升级 Pro 后可删除。
+
+## 9. Google（AdSense / GA4 / Search Console）与公开联系方式（P8）
+
+全部是**可选**的构建期环境变量（Vercel → Settings → Environment Variables），默认不设 = 关闭；格式不对的值视为未设置。
+详细步骤、申请前提与上线检查见 [ADSENSE.md](ADSENSE.md)。
+
+| 变量                                                                                       | 作用                                                                      |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `PUBLIC_ADSENSE_CLIENT`                                                                    | `ca-pub-` + 16 位数字；开启 `/ads.txt`、账户 meta、长文与文章列表的广告位 |
+| `PUBLIC_ADSENSE_SLOT_ARTICLE` / `PUBLIC_ADSENSE_SLOT_SIDEBAR` / `PUBLIC_ADSENSE_SLOT_LIST` | 三个广告单元 ID（没填的位置不出广告）                                     |
+| `PUBLIC_GA4_ID`                                                                            | `G-…`；GA4，受 Consent Mode v2 约束                                       |
+| `PUBLIC_GSC_VERIFICATION`                                                                  | Search Console「HTML 标记」验证码（首页 meta）                            |
+| `PUBLIC_CONTACT_EMAIL`                                                                     | 在联系页 / 隐私政策公开的邮箱                                             |
+
+设置 `PUBLIC_ADSENSE_CLIENT` 或 `PUBLIC_GA4_ID` 时，必须同时运行 `npm run csp:google -- on --ads --ga`（或只 `--ga`）并提交 `vercel.json`，否则构建的 `prebuild` 检查会失败。

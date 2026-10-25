@@ -128,13 +128,13 @@ P6 完成（2026-10-25）。
 P7 完成（2026-10-25）。生产还需：执行 0016、配置发信服务与 CMS 的 GitHub OAuth App（DEPLOY.md §2A / §2B）。
 
 ### P8 AdSense 变现
-- [ ] T8.1 清理所有占位内容 + 25–30 篇原创文章计划
-- [ ] T8.2 隐私政策 / Cookie / 广告条款、关于、联系页补全
-- [ ] T8.3 `ads.txt` + AdSense 加载器 + CSP 白名单 + `AdSlot` 组件（预留尺寸，CLS 0）；位置：文内 / 侧栏 / 列表间；永远不靠近下载按钮；由环境变量 `PUBLIC_ADSENSE_CLIENT` 控制开关
-- [ ] T8.4 Google 认证 CMP（AdSense「隐私和消息」）+ Consent Mode v2
-- [ ] T8.5 Search Console / GA4 + 提交站点地图
-- [ ] T8.6 申请 AdSense
-- [ ] T8.7 联盟链接 / 赞助
+- [x] T8.1 清理所有占位内容 + 25–30 篇原创文章计划（docs/CONTENT-PLAN.md：28 篇计划 + 薄页面清单；已发布 3 篇原创长文）
+- [x] T8.2 隐私政策 / Cookie / 广告条款、关于、联系页补全（中英文各一份，页脚可达，注明最后更新日期）
+- [x] T8.3 `ads.txt` + AdSense 加载器 + CSP 白名单 + `AdSlot` 组件（预留尺寸，CLS 0）；位置：文内 / 侧栏 / 列表间；永远不靠近下载按钮；由环境变量 `PUBLIC_ADSENSE_CLIENT` 控制开关（默认关闭；广告开启变体在 CI 构建并测试）
+- [x] T8.4 Google 认证 CMP（AdSense「隐私和消息」）+ Consent Mode v2（代码就位；「隐私和消息」消息需站长在 AdSense 后台发布，见 docs/ADSENSE.md §4）
+- [ ] T8.5 Search Console / GA4 + 提交站点地图 —— 代码已完成（`PUBLIC_GA4_ID` / `PUBLIC_GSC_VERIFICATION`）；验证与提交站点地图待站长（docs/ADSENSE.md §2–3）
+- [ ] T8.6 申请 AdSense —— 待站长：先满足 docs/ADSENSE.md §0（生产上线、≥ 25 篇长文）
+- [x] T8.7 联盟链接 / 赞助（`sponsoredLinks` / `disclosure` 字段、披露标识、赞助位组件默认关闭，没有任何赞助方）
 
 ### P9 上线与运营
 - [ ] T9.1 生产迁移 0002 → 最新（需站长批准）+ 配置 + 切换
