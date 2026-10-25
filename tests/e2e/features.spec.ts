@@ -129,21 +129,23 @@ test.describe('数据 island（未登录 · 假数据）', () => {
 test.describe('导航与设计系统', () => {
   test('当前页高亮 + 移动端底部 Tab / 桌面顶部导航', async ({ page }) => {
     await page.goto('/articles/');
-    const mobile = (page.viewportSize()?.width ?? 1440) < 768;
+    const mobile = (page.viewportSize()?.width ?? 1440) < 900; // T9.10：< 900 用 TabBar
     if (mobile) {
       await expect(page.locator('.tabbar')).toBeVisible();
       await expect(page.locator('.tabbar a[aria-current="page"]')).toHaveText(/文章/);
       await expect(page.locator('.nav-links')).toBeHidden();
     } else {
       await expect(page.locator('.tabbar')).toBeHidden();
-      await expect(page.locator('.nav-links a[aria-current="page"]')).toHaveText('文章');
+      // 「更多」菜单（T9.10，900–1199 收起的项）里也有同一链接，只看顶层
+      await expect(page.locator('.nav-links > li > a[aria-current="page"]')).toHaveText('文章');
     }
   });
   test('触控目标 ≥ 44px', async ({ page }) => {
     await page.goto('/');
     const small = await page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>('.site-nav a, .tabbar a, .btn, .site-footer a, .icon-btn')]
-        .filter((e) => e.offsetParent !== null)
+        // 精选卡里的「查看应用」是整卡链接的视觉提示（aria-hidden，T9.8 整卡点击），不是独立命中区
+        .filter((e) => e.offsetParent !== null && !e.closest('[aria-hidden="true"]'))
         .map((e) => ({
           t: e.textContent?.trim() || e.getAttribute('aria-label'),
           h: e.getBoundingClientRect().height,

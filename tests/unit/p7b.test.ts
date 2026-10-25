@@ -442,11 +442,19 @@ describe('T9.15 订阅确认邮件模板 + 一键退订（Q17）', async () => {
   const tok = 'a'.repeat(64);
   for (const lang of ['zh', 'en'] as const) {
     it(`${lang}：preheader、品牌头、bulletproof 按钮、深色、退订链接与 List-Unsubscribe-Post`, () => {
-      const m = confirmationMail({ origin: 'https://azsou.com', email: 'r@example.com', lang, confirm: 'c1', unsub: tok });
+      const m = confirmationMail({
+        origin: 'https://azsou.com',
+        email: 'r@example.com',
+        lang,
+        confirm: 'c1',
+        unsub: tok,
+      });
       expect(m.html).toContain('<meta name="color-scheme" content="light dark">');
       expect(m.html).toContain('prefers-color-scheme: dark');
       expect(m.html).toMatch(/display:none;max-height:0[^>]*>[^<]{6,}/); // preheader
-      expect(m.html).toMatch(/<td align="center" bgcolor="#[0-9a-f]{6}"[^>]*>\s*<a href="https:\/\/azsou\.com\/(en\/)?subscribe\/confirm\/#token=c1"/);
+      expect(m.html).toMatch(
+        /<td align="center" bgcolor="#[0-9a-f]{6}"[^>]*>\s*<a href="https:\/\/azsou\.com\/(en\/)?subscribe\/confirm\/#token=c1"/,
+      );
       expect(m.html).toContain('role="presentation"');
       expect(m.html).toContain(lang === 'en' ? 'lang="en"' : 'lang="zh-CN"');
       expect(m.html).not.toMatch(/<script|javascript:/i);
@@ -465,16 +473,27 @@ describe('T9.15 订阅确认邮件模板 + 一键退订（Q17）', async () => {
     }) as unknown as typeof globalThis.fetch;
     const deps = { defaults: { url: 'https://db.example', key: 'anon' }, fetch };
     const ok = await handleOneClickUnsubscribe(
-      new Request(`https://azsou.com/api/unsubscribe?token=${tok}`, { method: 'POST', body: 'List-Unsubscribe=One-Click' }),
+      new Request(`https://azsou.com/api/unsubscribe?token=${tok}`, {
+        method: 'POST',
+        body: 'List-Unsubscribe=One-Click',
+      }),
       {},
       deps,
     );
     expect(ok.status).toBe(200);
     expect(calls[0].url).toBe('https://db.example/rest/v1/rpc/subscribe_unsubscribe');
     expect(JSON.parse(calls[0].body)).toEqual({ p_token: tok });
-    expect((await handleOneClickUnsubscribe(new Request('https://azsou.com/api/unsubscribe'), {}, deps)).status).toBe(405);
     expect(
-      (await handleOneClickUnsubscribe(new Request('https://azsou.com/api/unsubscribe?token=x', { method: 'POST' }), {}, deps)).status,
+      (await handleOneClickUnsubscribe(new Request('https://azsou.com/api/unsubscribe'), {}, deps)).status,
+    ).toBe(405);
+    expect(
+      (
+        await handleOneClickUnsubscribe(
+          new Request('https://azsou.com/api/unsubscribe?token=x', { method: 'POST' }),
+          {},
+          deps,
+        )
+      ).status,
     ).toBe(400);
   });
 });

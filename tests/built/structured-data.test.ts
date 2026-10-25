@@ -149,7 +149,7 @@ describe('every page', () => {
   });
 
   it('BreadcrumbList on every page except the home page and noindex system pages', () => {
-    const exempt = new Set(['/', '/en/', '/404.html', '/offline/']);
+    const exempt = new Set(['/', '/en/', '/404.html', '/500.html', '/offline/']);
     for (const p of pages) {
       if (exempt.has(p.route)) {
         expect(ofType(p, 'BreadcrumbList')).toHaveLength(0);

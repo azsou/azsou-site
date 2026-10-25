@@ -19,12 +19,17 @@ for (const path of ['/_kit/prose/', '/articles/pinyin-initial-search/']) {
         const rights = blocks.map((b) => Math.round(b.getBoundingClientRect().right));
         const pres = Array.from(prose.querySelectorAll('pre')).map((p) => getComputedStyle(p).whiteSpace);
         const body = parseFloat(getComputedStyle(prose).fontSize);
-        const h3 = Array.from(prose.querySelectorAll('h3')).map((h) => parseFloat(getComputedStyle(h).fontSize));
+        const h3 = Array.from(prose.querySelectorAll('h3')).map((h) =>
+          parseFloat(getComputedStyle(h).fontSize),
+        );
         const width = prose.getBoundingClientRect().width;
         return { spread: Math.max(...rights) - Math.min(...rights), pres, body, h3, perLine: width / body };
       });
       expect(r.spread, '正文列内块右缘差').toBeLessThanOrEqual(1);
-      expect(r.pres.every((w) => w === 'pre'), '代码块不折行').toBe(true);
+      expect(
+        r.pres.every((w) => w === 'pre'),
+        '代码块不折行',
+      ).toBe(true);
       for (const s of r.h3) expect(s, 'h3 ≥ 正文字号').toBeGreaterThanOrEqual(r.body);
       expect(r.perLine, '每行字数（按字号估算）').toBeLessThanOrEqual(45);
     });

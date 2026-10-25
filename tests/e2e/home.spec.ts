@@ -63,8 +63,10 @@ test.describe('首页 /', () => {
 
     await page.goto('/');
     const chips = page.locator('.home-chips a');
+    // T9.11：平台 / 分类胶囊 ≤ 6
     expect(await chips.count()).toBeGreaterThan(3);
-    await expect(page.locator('.home-chips a[href="/ai/category/mcp/"]')).toContainText(/MCP\D*\d+/);
+    expect(await chips.count()).toBeLessThanOrEqual(6);
+    await expect(page.locator('.home-chips a[href="/ai/category/agent/"]')).toContainText(/Agent\D*\d+/);
     await expect(page.locator('.home-chips a[href="/apps/platform/browser-ext/"]')).toBeVisible();
   });
 
@@ -154,7 +156,8 @@ test.describe('首页 /', () => {
     const hrefs = await page
       .locator('main a[href^="/"]')
       .evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('href')!))]);
-    expect(hrefs.length).toBeGreaterThan(60);
+    // T9.11 区块 ≤ 8（分类 / 游戏 / 作品 / 论坛 / 关于并入「更多」或页脚），站内链接从 60+ 降到 50 左右
+    expect(hrefs.length).toBeGreaterThan(40);
     const bad: string[] = [];
     for (const h of hrefs) {
       const r = await request.get(h);
