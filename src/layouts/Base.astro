@@ -33,6 +33,8 @@ interface Props {
   noindex?: boolean;
   /** 系统页（404 / 500 / 离线）：精简页脚，只留首页、搜索与版权（T9.15） */
   slimFooter?: boolean;
+  /** 'app' = 独立应用外壳（后台 T9.16）：不渲染前台导航 / 页脚 / TabBar / 面包屑，顶栏由 slot="app-header" 提供 */
+  chrome?: 'site' | 'app';
   crumbs?: Crumb[];
   schema?: Record<string, unknown>[];
   published?: string;
@@ -56,6 +58,7 @@ const {
   type = 'website',
   noindex = false,
   slimFooter = false,
+  chrome = 'site',
   crumbs,
   schema = [],
   published,
@@ -188,20 +191,24 @@ const isProd = import.meta.env.PROD;
     <a class="skip-link" href="#main">
       {lang === 'en' ? 'Skip to content' : '跳到正文'}
     </a>
-    <Nav lang={lang} switchHref={langSwitch} />
+    {chrome === 'app' ? <slot name="app-header" /> : <Nav lang={lang} switchHref={langSwitch} />}
     <main
       id="main"
-      class="page"
+      class:list={['page', chrome === 'app' && 'page--app']}
       tabindex="-1"
       data-pagefind-body={searchType ? '' : undefined}
       data-pagefind-meta={searchType ? `type:${searchType}` : undefined}
     >
-      <div class="shell">
-        {crumbs && crumbs.length > 1 && <Breadcrumbs items={crumbs} lang={lang} />}
+      {chrome === 'app' ? (
         <slot />
-      </div>
+      ) : (
+        <div class="shell">
+          {crumbs && crumbs.length > 1 && <Breadcrumbs items={crumbs} lang={lang} />}
+          <slot />
+        </div>
+      )}
     </main>
-    {slimFooter ? (
+    {chrome === 'app' ? null : slimFooter ? (
       <footer class="site-footer site-footer--slim">
         <div class="shell footer-slim">
           <span>© {new Date().getFullYear()} AZ Studio</span>
@@ -213,7 +220,7 @@ const isProd = import.meta.env.PROD;
     ) : (
       <Footer lang={lang} switchHref={langSwitch} />
     )}
-    <TabBar lang={lang} />
+    {chrome !== 'app' && <TabBar lang={lang} />}
     <script>
       // 主题切换按钮 + Ctrl/⌘K 搜索面板（面板与 Pagefind 只在打开时才加载）
       import '@/scripts/site-shell';

@@ -6,6 +6,7 @@ import { getRepository, type AdminRepo, type Profile } from '@/lib/data';
 import { friendlyError } from '@/lib/community-errors';
 import { url } from '@/lib/routes';
 import { h, viewer } from '../community/ui';
+import { initAdminEnv } from './env';
 
 export { h };
 
@@ -23,6 +24,7 @@ export const isModRole = (p: Profile | null) =>
 
 /** 权限门：未登录 → 登录引导；角色不够 → 无权限；通过 → 显示内容并返回当前用户 */
 export async function initAdmin(): Promise<Profile | null> {
+  initAdminEnv();
   const el = root();
   const need = el.dataset.require === 'admin' ? 'admin' : 'moderator';
   const gate = el.querySelector<HTMLElement>('[data-admin-gate]')!;

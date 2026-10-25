@@ -3,6 +3,7 @@ import type { AdminStats } from '@/lib/data';
 import { groupedBars } from '@/lib/chart';
 import { toast } from '../community/ui';
 import { adminRepo, errorText, h, initAdmin, setStatusText } from './shell';
+import { stateBlock } from './table';
 
 const statsEl = document.querySelector<HTMLElement>('[data-stats]')!;
 const chartEl = document.querySelector<HTMLElement>('[data-chart]')!;
@@ -157,8 +158,14 @@ async function init() {
     setStatusText(status, '');
   } catch (e) {
     statsEl.removeAttribute('aria-busy');
-    statsEl.replaceChildren();
-    setStatusText(status, errorText(e), 'error');
+    statsEl.replaceChildren(
+      h(
+        'li',
+        { class: 'stat-grid__state' },
+        stateBlock('error', { text: errorText(e), retry: () => location.reload() }),
+      ),
+    );
+    setStatusText(status, '');
   }
 }
 

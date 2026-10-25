@@ -14,6 +14,7 @@ import {
   setStatusText,
   writeParams,
 } from './shell';
+import { showEmpty, showError, showLoading } from './table';
 
 const DEFAULTS = { q: '', role: '', banned: '', offset: '0' };
 const state = readParams(DEFAULTS);
@@ -30,33 +31,33 @@ function row(u: AdminUser) {
     { class: 'no-check', 'data-row': true, 'data-id': u.id },
     h(
       'td',
-      { class: 'cell-main', 'data-label': '用户' },
+      { class: 'cell-main' },
       h('a', { class: 'cell-title', href: url.adminUser(u.id), text: u.displayName }),
       u.email ? h('span', { class: 'cell-sub', text: u.email }) : null,
     ),
     h(
       'td',
-      { 'data-label': '角色' },
+      { 'data-priority': '2' },
       h('span', { class: `badge${u.role === 'user' ? '' : ' badge--info'}`, text: ROLE_LABEL[u.role] }),
     ),
     h(
       'td',
-      { 'data-label': '状态' },
+      { 'data-priority': '2' },
       u.banned
         ? h('span', { class: 'badge badge--danger', text: banText(u) })
         : h('span', { class: 'badge badge--ok', text: '正常' }),
     ),
-    h('td', { class: 'num', 'data-label': '主题', text: String(u.threads) }),
-    h('td', { class: 'num', 'data-label': '回复', text: String(u.replies) }),
-    h('td', { class: 'num', 'data-label': '评论', text: String(u.comments) }),
+    h('td', { class: 'num', 'data-priority': '3', text: String(u.threads) }),
+    h('td', { class: 'num', 'data-priority': '3', text: String(u.replies) }),
+    h('td', { class: 'num', 'data-priority': '3', text: String(u.comments) }),
     h(
       'td',
-      { class: 'num', 'data-label': '被举报' },
+      { class: 'num', 'data-priority': '3' },
       u.reportsAgainst ? h('span', { class: 'badge badge--danger', text: String(u.reportsAgainst) }) : '0',
     ),
     h(
       'td',
-      { class: 'nowrap', 'data-label': '注册时间' },
+      { class: 'nowrap', 'data-priority': '3' },
       h('time', { datetime: u.createdAt, text: dateTime(u.createdAt) }),
     ),
   );
@@ -79,7 +80,7 @@ async function load() {
   input('role').value = state.role;
   input('banned').value = state.banned;
   writeParams(state, DEFAULTS);
-  rows.setAttribute('aria-busy', 'true');
+  showLoading(rows, 8);
   setStatusText(status, '正在加载…');
   try {
     const offset = Number(state.offset) || 0;
@@ -91,17 +92,23 @@ async function load() {
       offset,
     });
     if (my !== seq) return;
-    rows.replaceChildren(
-      ...(items.length
-        ? items.map(row)
-        : [
-            h(
-              'tr',
-              { class: 'no-check' },
-              h('td', { colspan: '8', class: 'table-empty', text: '没有符合条件的用户。' }),
-            ),
-          ]),
-    );
+    const filtered = !!(state.q || state.role || state.banned);
+    if (items.length) rows.replaceChildren(...items.map(row));
+    else
+      showEmpty(rows, 8, {
+        filtered,
+        title: filtered ? '没有符合条件的用户' : '还没有用户',
+        text: filtered ? '换个关键词，或清除筛选条件再看看。' : undefined,
+        action: filtered
+          ? {
+              label: '清除筛选',
+              run: () => {
+                Object.assign(state, { q: '', role: '', banned: '', offset: '0' });
+                void load();
+              },
+            }
+          : undefined,
+      });
     renderPagination(pager, {
       offset,
       limit: LIMIT,
@@ -114,8 +121,9 @@ async function load() {
     setStatusText(status, '');
   } catch (e) {
     if (my !== seq) return;
-    rows.replaceChildren();
-    setStatusText(status, errorText(e), 'error');
+    showError(rows, 8, errorText(e), () => void load());
+    pager.replaceChildren();
+    setStatusText(status, '');
   } finally {
     if (my === seq) rows.removeAttribute('aria-busy');
   }

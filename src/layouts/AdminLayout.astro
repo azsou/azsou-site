@@ -1,11 +1,16 @@
 ---
 /**
- * 管理后台外壳：noindex、侧栏导航（窄屏为横向分段导航）、权限门。
+ * 管理后台独立 App Shell（T9.16，DESIGN-SYSTEM §14）：顶栏 52（站点名、环境标签、返回前台、外观、账户）+
+ * 左侧栏 240（< 900 收为顶部横向分段导航）+ 内容区（最大 1280）；不显示前台导航、页脚与 TabBar。
+ * noindex、权限门（未登录 / 无权限 / 被限制三种状态卡片）。
  * 权限门只是体验层（隐藏界面）；真正的权限由数据库 RLS / RPC 校验（db/migrations/0009_admin.sql）。
  */
 import '@/styles/community.css';
 import '@/styles/admin.css';
 import Base from './Base.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import Icon from '@/components/Icon.astro';
+import UserMenu from '@/components/UserMenu.astro';
 import { ADMIN_SECTIONS, type AdminSection } from '@/lib/admin-nav';
 
 interface Props {
@@ -31,12 +36,31 @@ const crumbs = [
   description="AZ Studio 管理后台（仅版主与管理员）。"
   noindex
   crumbs={crumbs}
+  chrome="app"
 >
+  <header class="admin-top" slot="app-header">
+    <a class="admin-top__brand" href="/admin/">
+      <img src="/favicon.svg" alt="" width="24" height="24" />
+      <span>AZ Studio</span>
+      <span class="admin-top__sub">管理后台</span>
+    </a>
+    <span class="admin-env" data-admin-env title="当前连接的环境">
+      环境
+    </span>
+    <span class="admin-top__spacer"></span>
+    <a class="btn btn--sm admin-top__site" href="/" aria-label="返回前台">
+      <Icon name="arrow-up-right" size={16} />
+      <span>返回前台</span>
+    </a>
+    <button class="icon-btn theme-btn" type="button" aria-label="外观：跟随系统" data-theme-toggle>
+      <Icon name="monitor" class="theme-btn__icon theme-btn__icon--system" />
+      <Icon name="sun" class="theme-btn__icon theme-btn__icon--light" />
+      <Icon name="moon" class="theme-btn__icon theme-btn__icon--dark" />
+    </button>
+    <UserMenu />
+  </header>
   <div class="admin" data-admin data-require={require} data-section={section}>
-    <nav class="admin-nav glass" aria-label="后台导航">
-      <p class="admin-nav__title" aria-hidden="true">
-        管理后台
-      </p>
+    <nav class="admin-nav" aria-label="后台导航">
       <ul role="list">
         {ADMIN_SECTIONS.map((s) => (
           <li data-nav-role={s.role} hidden={s.role === 'admin'}>
@@ -49,6 +73,7 @@ const crumbs = [
       </ul>
     </nav>
     <div class="admin-main">
+      {crumbs.length > 3 && <Breadcrumbs items={crumbs.slice(1)} />}
       <header class="admin-head">
         <div>
           <h1>{title}</h1>
@@ -57,19 +82,26 @@ const crumbs = [
         <slot name="actions" />
       </header>
       <div class="admin-gate" data-admin-gate>
-        <p class="data-status" role="status" data-gate-status>
-          正在验证权限…
-        </p>
-        <div class="auth-card" data-gate-signed-out hidden>
-          <p>管理后台需要登录。</p>
+        <div class="state-card" role="status" data-gate-status>
+          <span class="skeleton skeleton--title" aria-hidden="true"></span>
+          <p>正在验证权限…</p>
+        </div>
+        <div class="state-card" data-gate-signed-out hidden>
+          <Icon name="user" class="state-card__icon" />
+          <p class="state-card__title">管理后台需要登录。</p>
+          <p class="state-card__text">请用版主或管理员账号登录，登录后会回到这一页。</p>
           <div class="btn-row">
             <a class="btn btn--primary" href="/login/" data-gate-login>
               登录
             </a>
           </div>
         </div>
-        <div class="auth-card" data-gate-forbidden hidden>
-          <p data-gate-forbidden-text>你的账号没有访问管理后台的权限。</p>
+        <div class="state-card" data-gate-forbidden hidden data-state="denied">
+          <Icon name="alert-circle" class="state-card__icon" />
+          <p class="state-card__title" data-gate-forbidden-text>
+            你的账号没有访问管理后台的权限。
+          </p>
+          <p class="state-card__text">如需权限，请联系站长。权限由数据库再次校验，界面隐藏只为体验。</p>
           <div class="btn-row">
             <a class="btn" href="/">
               返回首页

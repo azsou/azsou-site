@@ -19,6 +19,7 @@ import {
   stamp,
   writeParams,
 } from './shell';
+import { showEmpty, showError, showLoading } from './table';
 
 const DEFAULTS = { action: '', target: '', actor: '', from: '', to: '', offset: '0' };
 const state = readParams(DEFAULTS);
@@ -60,12 +61,12 @@ function row(e: AuditEntry, names: Record<string, string>) {
     { class: 'no-check' },
     h(
       'td',
-      { class: 'nowrap', 'data-label': '时间' },
+      { class: 'nowrap', 'data-priority': '2' },
       h('time', { datetime: e.createdAt, text: dateTime(e.createdAt) }),
     ),
     h(
       'td',
-      { 'data-label': '操作人' },
+      { 'data-priority': '2' },
       e.actor
         ? h('a', { href: url.adminUser(e.actor), text: names[e.actor] ?? e.actor.slice(0, 8) })
         : '系统',
@@ -73,14 +74,14 @@ function row(e: AuditEntry, names: Record<string, string>) {
     ),
     h(
       'td',
-      { 'data-label': '动作' },
+      { class: 'cell-main' },
       h('span', { class: 'cell-title', text: auditLabel(e.action) }),
       h('span', { class: 'cell-sub', text: e.action }),
     ),
-    h('td', { 'data-label': '对象' }, targetCell(e)),
+    h('td', { 'data-priority': '3' }, targetCell(e)),
     h(
       'td',
-      { 'data-label': '详情' },
+      { 'data-priority': '3' },
       h('span', { class: 'detail-json', text: auditSummary(e.detail) || '—' }),
     ),
   );
@@ -146,7 +147,7 @@ async function load() {
   const my = ++seq;
   for (const k of ['action', 'target', 'actor', 'from', 'to'] as const) input(k).value = state[k];
   writeParams(state, DEFAULTS);
-  rows.setAttribute('aria-busy', 'true');
+  showLoading(rows, 5);
   setStatusText(status, '正在加载…');
   try {
     const repo = adminRepo();
@@ -154,17 +155,16 @@ async function load() {
     const { items, total } = await repo.audit({ ...query(), limit: LIMIT, offset });
     const names = await repo.names(items.map((e) => e.actor ?? '').filter(Boolean));
     if (my !== seq) return;
-    rows.replaceChildren(
-      ...(items.length
-        ? items.map((e) => row(e, names))
-        : [
-            h(
-              'tr',
-              { class: 'no-check' },
-              h('td', { colspan: '5', class: 'table-empty', text: '没有符合条件的记录。' }),
-            ),
-          ]),
+    const filtered = ['action', 'target', 'actor', 'from', 'to'].some(
+      (k) => !!state[k as keyof typeof state],
     );
+    if (items.length) rows.replaceChildren(...items.map((e) => row(e, names)));
+    else
+      showEmpty(rows, 5, {
+        filtered,
+        title: filtered ? '没有符合条件的记录' : '还没有审计记录',
+        text: filtered ? '调整动作、对象或日期范围再看看。' : '版主与管理员的操作会记录在这里。',
+      });
     renderPagination(pager, {
       offset,
       limit: LIMIT,
@@ -177,8 +177,9 @@ async function load() {
     setStatusText(status, '');
   } catch (e) {
     if (my !== seq) return;
-    rows.replaceChildren();
-    setStatusText(status, errorText(e), 'error');
+    showError(rows, 5, errorText(e), () => void load());
+    pager.replaceChildren();
+    setStatusText(status, '');
   } finally {
     if (my === seq) rows.removeAttribute('aria-busy');
   }

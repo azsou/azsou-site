@@ -51,15 +51,23 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
     </button>
   </form>
   <div class="table-wrap">
-    <table class="data-table">
+    <table class="data-table" data-cards>
       <caption class="visually-hidden">审计日志</caption>
       <thead>
         <tr>
-          <th scope="col">时间</th>
-          <th scope="col">操作人</th>
+          <th scope="col" data-priority="2">
+            时间
+          </th>
+          <th scope="col" data-priority="2">
+            操作人
+          </th>
           <th scope="col">动作</th>
-          <th scope="col">对象</th>
-          <th scope="col">详情</th>
+          <th scope="col" data-priority="3">
+            对象
+          </th>
+          <th scope="col" data-priority="3">
+            详情
+          </th>
         </tr>
       </thead>
       <tbody data-rows aria-busy="true"></tbody>

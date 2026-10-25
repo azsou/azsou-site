@@ -229,9 +229,19 @@ test.describe('内容管理', () => {
     await expect(row).toHaveCount(0);
     await page.getByLabel('状态').selectOption('');
     await expect(row.getByText('已发布')).toBeVisible();
-    await row.getByRole('button', { name: '置顶' }).click();
+    // 次要操作在「⋯」菜单里（T9.16）：键盘可达，Esc 关闭并把焦点还给按钮
+    const menuBtn = row.getByRole('button', { name: '更多操作' });
+    await menuBtn.click();
+    await expect(menuBtn).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('menuitem', { name: '置顶' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(menuBtn).toBeFocused();
+    await expect(page.getByRole('menu')).toBeHidden();
+    await menuBtn.click();
+    await page.getByRole('menuitem', { name: '置顶' }).click();
     await expect(row.getByText('置顶', { exact: true })).toBeVisible();
-    await row.getByRole('button', { name: '删除' }).click();
+    await row.getByRole('button', { name: '更多操作' }).click();
+    await page.getByRole('menuitem', { name: '删除…' }).click();
     await expect(dialog(page)).toContainText('永久删除');
     await dialog(page).getByRole('button', { name: '删除' }).click();
     await expect(row).toHaveCount(0);
@@ -353,7 +363,7 @@ test.describe('审计日志', () => {
     await expect(row.getByText('原因：E2E 审计')).toBeVisible();
     await expect(row.getByRole('link', { name: a.name })).toBeVisible();
     await page.getByLabel('动作').selectOption('report.');
-    await expect(page.getByText('没有符合条件的记录。')).toBeVisible();
+    await expect(page.getByText('没有符合条件的记录', { exact: true })).toBeVisible();
     await page.getByLabel('动作').selectOption('user.');
     await expect(row.getByText('封禁用户')).toBeVisible();
     const [dl] = await Promise.all([

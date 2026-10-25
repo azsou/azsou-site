@@ -5,6 +5,7 @@
 import { getGuestbook, type FriendLink, type GuestbookEntry, type ModStatus } from '@/lib/data/guestbook';
 import { confirmDialog, toast } from '../community/ui';
 import { dateTime, errorText, h, initAdmin, readParams, setStatusText, writeParams } from './shell';
+import { stateBlock } from './table';
 
 const list = document.querySelector<HTMLElement>('[data-mod-list]')!;
 const kind = list.dataset.kind === 'links' ? 'links' : 'guestbook';
@@ -108,25 +109,39 @@ function linkCard(l: FriendLink) {
   );
 }
 
+const stateLi = (el: HTMLElement) => h('li', { class: 'state-li' }, el);
+
 async function load(append: boolean) {
   list.setAttribute('aria-busy', 'true');
   more.disabled = true;
+  if (!append) list.replaceChildren(stateLi(stateBlock('loading')));
+  const pendingOnly = filter() === 'pending';
+  const noun = kind === 'guestbook' ? '留言' : '友链申请';
+  const empty = () =>
+    stateLi(
+      stateBlock('empty', {
+        title: pendingOnly ? `没有待审核的${noun}` : `没有符合条件的${noun}`,
+        text: pendingOnly ? '新的提交会出现在这里。' : '切换上方的状态再看看。',
+      }),
+    );
   try {
     if (kind === 'guestbook') {
       const { items, total } = await api.modEntries(filter(), { offset, limit: LIMIT });
-      if (!append) list.replaceChildren();
+      if (!append) list.replaceChildren(...(items.length ? [] : [empty()]));
       list.append(...items.map(entryCard));
       offset += items.length;
       more.hidden = offset >= total;
-      setStatusText(status, total ? `共 ${total} 条` : '没有符合条件的留言。');
+      setStatusText(status, total ? `共 ${total} 条` : '');
     } else {
       const items = await api.adminLinks(filter());
-      list.replaceChildren(...items.map(linkCard));
+      list.replaceChildren(...(items.length ? items.map(linkCard) : [empty()]));
       more.hidden = true;
-      setStatusText(status, items.length ? `共 ${items.length} 条` : '没有符合条件的友链申请。');
+      setStatusText(status, items.length ? `共 ${items.length} 条` : '');
     }
   } catch (e) {
-    setStatusText(status, errorText(e), 'error');
+    if (!append)
+      list.replaceChildren(stateLi(stateBlock('error', { text: errorText(e), retry: () => void reload() })));
+    else setStatusText(status, errorText(e), 'error');
   } finally {
     list.removeAttribute('aria-busy');
     more.disabled = false;

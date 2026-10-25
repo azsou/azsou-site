@@ -13,6 +13,7 @@ import {
   setStatusText,
   writeParams,
 } from './shell';
+import { actionsCell, plainText, rowMenu, showEmpty, showError, showLoading } from './table';
 
 const DEFAULTS = { type: 'thread', q: '', cat: '', hidden: '', reported: '', author: '', offset: '0' };
 const state = readParams(DEFAULTS);
@@ -76,7 +77,19 @@ function btn(text: string, fn: () => Promise<unknown>, cls = '') {
   return b;
 }
 
-const label = (r: ContentRow) => (r.type === 'thread' ? r.title : r.excerpt).slice(0, 40);
+const label = (r: ContentRow) => plainText(r.type === 'thread' ? r.title : r.excerpt, 40);
+const COLS = 8;
+
+/** 单条操作：执行 → 提示 → 重新加载；失败提示原因（不吞错） */
+async function act(fn: () => Promise<unknown>, ok?: string) {
+  try {
+    await fn();
+    if (ok) toast(ok);
+    await load();
+  } catch (e) {
+    toast(errorText(e, '操作失败'), 'error');
+  }
+}
 
 function row(r: ContentRow) {
   const repo = adminRepo();
@@ -87,94 +100,92 @@ function row(r: ContentRow) {
       : t === 'reply'
         ? `${r.title}${r.category ? ` · ${CATEGORY_NAMES[r.category] ?? ''}` : ''}`
         : (CATEGORY_NAMES[r.category ?? ''] ?? '—');
+  const titleText = t === 'thread' ? r.title : plainText(r.excerpt, 80) || '（空）';
+  const sub = t === 'thread' ? plainText(r.excerpt, 120) : '';
   const main = h(
     'td',
-    { class: 'cell-main', 'data-label': '内容' },
+    { class: 'cell-main' },
     r.href
-      ? h('a', {
-          class: 'cell-title',
-          href: r.href,
-          text: t === 'thread' ? r.title : r.excerpt.slice(0, 80) || '（空）',
-        })
-      : h('span', { class: 'cell-title', text: r.title }),
-    t === 'thread' ? h('span', { class: 'cell-sub', text: r.excerpt.slice(0, 120) }) : null,
+      ? h('a', { class: 'cell-title', href: r.href, text: titleText, title: titleText })
+      : h('span', { class: 'cell-title', text: titleText }),
+    sub ? h('span', { class: 'cell-sub', text: sub }) : null,
   );
-  const actions = h(
-    'td',
-    { 'data-label': '操作' },
-    h(
-      'div',
-      { class: 'row-actions' },
-      btn(r.published ? '隐藏' : '恢复', async () => {
-        await repo.setPublished(t, [r.id], !r.published);
-        toast(r.published ? '已隐藏。' : '已恢复。');
-        await load();
-      }),
-      t === 'thread'
-        ? btn(r.pinned ? '取消置顶' : '置顶', async () => {
-            await repo.setThreadFlags([r.id], { pinned: !r.pinned });
-            await load();
-          })
-        : null,
-      t === 'thread'
-        ? btn(r.featured ? '取消精华' : '精华', async () => {
-            await repo.setThreadFlags([r.id], { featured: !r.featured });
-            await load();
-          })
-        : null,
-      t === 'thread'
-        ? btn(r.locked ? '解锁' : '锁定', async () => {
-            await repo.setThreadFlags([r.id], { locked: !r.locked });
-            await load();
-          })
-        : null,
-      btn(
-        '删除',
-        async () => {
-          if (
-            !(await confirmDialog(
-              `永久删除这条${TYPE_LABEL[t]}「${label(r)}」？${t === 'thread' ? '主题下的回复会一并删除。' : ''}此操作不可撤销。`,
-              '删除',
-            ))
-          )
-            return;
-          await repo.deleteContent(t, [r.id]);
-          toast('已删除。');
-          await load();
-        },
-        'btn--danger',
-      ),
-    ),
-  );
+  const quick = btn(r.published ? '隐藏' : '恢复', async () => {
+    await repo.setPublished(t, [r.id], !r.published);
+    toast(r.published ? '已隐藏。' : '已恢复。');
+    await load();
+  });
+  const menu = rowMenu(label(r), [
+    {
+      label: r.pinned ? '取消置顶' : '置顶',
+      hidden: t !== 'thread',
+      run: () =>
+        act(() => repo.setThreadFlags([r.id], { pinned: !r.pinned }), r.pinned ? '已取消置顶。' : '已置顶。'),
+    },
+    {
+      label: r.featured ? '取消精华' : '设为精华',
+      hidden: t !== 'thread',
+      run: () => act(() => repo.setThreadFlags([r.id], { featured: !r.featured }), '已更新。'),
+    },
+    {
+      label: r.locked ? '解锁' : '锁定',
+      hidden: t !== 'thread',
+      run: () =>
+        act(() => repo.setThreadFlags([r.id], { locked: !r.locked }), r.locked ? '已解锁。' : '已锁定。'),
+    },
+    {
+      label: '查看作者',
+      hidden: !r.author.id,
+      run: () => location.assign(`/admin/users/view/?id=${encodeURIComponent(r.author.id ?? '')}`),
+    },
+    {
+      label: '删除…',
+      danger: true,
+      run: async () => {
+        if (
+          !(await confirmDialog(
+            `永久删除这条${TYPE_LABEL[t]}「${label(r)}」？${t === 'thread' ? '主题下的回复会一并删除。' : ''}此操作不可撤销。`,
+            '删除',
+          ))
+        )
+          return;
+        await act(() => repo.deleteContent(t, [r.id]), '已删除。');
+      },
+    },
+  ]);
   return h(
     'tr',
     { 'data-row': true, 'data-id': r.id },
     h(
       'td',
       { class: 'col-check' },
-      h('input', { type: 'checkbox', 'data-select': true, value: r.id, 'aria-label': `选择：${label(r)}` }),
+      h(
+        'label',
+        { class: 'check-hit' },
+        h('input', { type: 'checkbox', 'data-select': true, value: r.id, 'aria-label': `选择：${label(r)}` }),
+      ),
     ),
     main,
     h(
       'td',
-      { 'data-label': '作者' },
+      { 'data-priority': '2' },
       r.author.id
         ? h('a', { href: `/admin/users/view/?id=${encodeURIComponent(r.author.id)}`, text: r.author.name })
         : r.author.name,
     ),
-    h('td', { 'data-label': t === 'comment' ? '页面' : t === 'reply' ? '所属主题' : '分类', text: where }),
-    h('td', { 'data-label': '状态' }, badges(r)),
+    h('td', { 'data-priority': '3', text: where }),
+    h('td', { 'data-priority': '2' }, badges(r)),
     h(
       'td',
-      { class: 'num', 'data-label': '举报' },
+      { class: 'num', 'data-priority': '3' },
       r.openReports ? h('span', { class: 'badge badge--danger', text: String(r.openReports) }) : '0',
     ),
     h(
       'td',
-      { class: 'nowrap', 'data-label': '时间' },
+      { class: 'nowrap', 'data-priority': '3' },
       h('time', { datetime: r.createdAt, text: dateTime(r.createdAt) }),
     ),
-    actions,
+    actionsCell(quick, menu),
   );
 }
 
@@ -222,6 +233,11 @@ filters.addEventListener('submit', (e) => {
   state.offset = '0';
   void load();
 });
+bar.querySelector('[data-bulk-cancel]')?.addEventListener('click', () => sel.clear());
+filters.addEventListener('reset', (e) => {
+  e.preventDefault();
+  resetFilters();
+});
 for (const n of ['cat', 'hidden', 'reported'])
   input(n).addEventListener('change', () => filters.requestSubmit());
 
@@ -244,13 +260,18 @@ async function paintAuthorChip() {
   );
 }
 
+function resetFilters() {
+  Object.assign(state, { q: '', cat: '', hidden: '', reported: '', author: '', offset: '0' });
+  void load();
+}
+
 let seq = 0;
 async function load() {
   const my = ++seq;
   paintFilters();
   writeParams(state, DEFAULTS);
   void paintAuthorChip();
-  rows.setAttribute('aria-busy', 'true');
+  showLoading(rows, COLS);
   setStatusText(status, '正在加载…');
   try {
     const offset = Number(state.offset) || 0;
@@ -265,17 +286,15 @@ async function load() {
       offset,
     });
     if (my !== seq) return;
-    rows.replaceChildren(
-      ...(items.length
-        ? items.map(row)
-        : [
-            h(
-              'tr',
-              { class: 'no-check' },
-              h('td', { colspan: '8', class: 'table-empty', text: '没有符合条件的内容。' }),
-            ),
-          ]),
-    );
+    const filtered = !!(state.q || state.cat || state.hidden || state.reported || state.author);
+    if (items.length) rows.replaceChildren(...items.map(row));
+    else
+      showEmpty(rows, COLS, {
+        filtered,
+        title: filtered ? '没有符合条件的内容' : `还没有${TYPE_LABEL[state.type as ContentType]}`,
+        text: filtered ? '换个关键词，或清除筛选条件再看看。' : '用户发布后会出现在这里。',
+        action: filtered ? { label: '清除筛选', run: resetFilters } : undefined,
+      });
     sel.bind();
     renderPagination(pager, {
       offset,
@@ -289,8 +308,9 @@ async function load() {
     setStatusText(status, '');
   } catch (e) {
     if (my !== seq) return;
-    rows.replaceChildren();
-    setStatusText(status, errorText(e), 'error');
+    showError(rows, COLS, errorText(e), () => void load());
+    pager.replaceChildren();
+    setStatusText(status, '');
   } finally {
     if (my === seq) rows.removeAttribute('aria-busy');
   }

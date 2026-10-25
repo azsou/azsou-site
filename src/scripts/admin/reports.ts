@@ -17,6 +17,7 @@ import {
   setStatusText,
   writeParams,
 } from './shell';
+import { stateBlock } from './table';
 
 const list = document.querySelector<HTMLElement>('[data-list]')!;
 const pager = document.querySelector<HTMLElement>('[data-pager]')!;
@@ -241,6 +242,7 @@ async function load() {
   paintFilters();
   writeParams(state, DEFAULTS);
   list.setAttribute('aria-busy', 'true');
+  list.replaceChildren(h('li', { class: 'state-li' }, stateBlock('loading')));
   setStatusText(status, '正在加载…');
   try {
     const repo = adminRepo();
@@ -260,10 +262,17 @@ async function load() {
       ...(items.length
         ? items.map((r) => row(r, previews[`${r.targetType}:${r.targetId}`], names))
         : [
-            h('li', {
-              class: 'panel table-empty',
-              text: state.status === 'open' ? '没有待处理的举报。' : '没有符合条件的举报。',
-            }),
+            h(
+              'li',
+              { class: 'state-li panel' },
+              stateBlock('empty', {
+                title: state.status === 'open' ? '没有待处理的举报。' : '没有符合条件的举报。',
+                text:
+                  state.status === 'open'
+                    ? '新的举报会出现在这里，侧栏会显示待处理数。'
+                    : '切换上方的状态或类型再看看。',
+              }),
+            ),
           ]),
     );
     topAll.disabled = !items.some((r) => r.status === 'open');
@@ -280,8 +289,11 @@ async function load() {
     setStatusText(status, '');
   } catch (e) {
     if (my !== seq) return;
-    list.replaceChildren();
-    setStatusText(status, errorText(e), 'error');
+    list.replaceChildren(
+      h('li', { class: 'state-li' }, stateBlock('error', { text: errorText(e), retry: () => void load() })),
+    );
+    pager.replaceChildren();
+    setStatusText(status, '');
   } finally {
     if (my === seq) list.removeAttribute('aria-busy');
   }
