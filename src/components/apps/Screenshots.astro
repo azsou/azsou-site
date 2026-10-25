@@ -38,7 +38,7 @@ const label = (s: Shot) => (s.illustrative && !s.alt.includes('概念图') ? `${
             alt={label(s)}
             width={s.width}
             height={s.height}
-            loading={i === 0 ? 'eager' : 'lazy'}
+            loading={i < 3 ? 'eager' : 'lazy'}
             decoding="async"
           />
           {s.illustrative && <span class="shot__tag">概念图</span>}

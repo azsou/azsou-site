@@ -73,9 +73,10 @@ const ossCount = items.filter((t) => t.openSource).length;
     共 {items.length} 个工具 · 只链接官方地址，本站不托管安装包
   </p>
 
+  {/* 瀑布流按列排布（第 2、3 列从第 ~11、~21 张开始），「前 6 张」不等于首屏：图标全部 eager（30 张 2× 共 ≈ 32 KB），只有前 3 张高优先级 */}
   <div class="masonry" data-ai-grid>
     {items.map((t, i) => (
-      <ToolCard item={t} eager={i < 6} />
+      <ToolCard item={t} eager priority={i < 3} />
     ))}
   </div>
   <p class="empty-state" data-ai-empty hidden>

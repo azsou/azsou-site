@@ -33,11 +33,12 @@ export function whenIdle(fn: () => unknown, timeout = 1500) {
 }
 
 /**
- * 首屏以下的 island（评价区、评论区）：元素接近视口时才加载（提前约一屏）。
+ * 首屏以下的 island（评价区、评论区）：元素接近视口时才加载（提前约半屏）。
+ * 提前一屏时，手机上首屏下方约 1.5 屏处的评价区会在页面加载时就触发（AI 工具详情页脚本预算 50 KB 超标），所以只提前半屏。
  * 只看一眼头部就离开的访客不用下载这部分脚本；滚动、目录锚点跳转、键盘 Tab 进入时都会触发。
  * 不支持 IntersectionObserver 的浏览器退回空闲时加载。
  */
-export function whenNear(el: Element, fn: () => unknown, margin = '100% 0px') {
+export function whenNear(el: Element, fn: () => unknown, margin = '50% 0px') {
   if (!('IntersectionObserver' in window)) return whenIdle(fn);
   const io = new IntersectionObserver(
     (entries) => {

@@ -398,6 +398,12 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  /* 手机单列卡片只有 ~290px 宽：简介（≤ 64 字）放开到 5 行，避免被截断（Q5） */
+  @media (max-width: 600px) {
+    .feature-card__summary {
+      -webkit-line-clamp: 5;
+    }
+  }
   .feature-card__foot {
     margin-top: auto;
     display: flex;
@@ -470,9 +476,15 @@
   .app-tile__sub,
   .app-tile__meta {
     font-size: var(--fs-meta);
+  }
+  .app-tile__sub {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* 分类 · 价格 · 平台可能比 tagline 长：允许换行，不截断（Q5） */
+  .app-tile__meta {
+    text-wrap: pretty;
   }
   .app-tile__sub {
     color: var(--c-label-2);

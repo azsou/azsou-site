@@ -14,16 +14,18 @@ interface Props {
   alt?: string;
   size?: IconSize;
   eager?: boolean;
+  /** eager 时是否同时提高优先级（fetchpriority=high + 同步解码）；默认跟随 eager */
+  priority?: boolean;
   /** 兼容旧调用：有无多尺寸版本现在由 icon-manifest 决定 */
   variants?: boolean;
   hue?: string;
 }
-const { src, alt = '', size = 'md', eager = false, hue } = Astro.props;
+const { src, alt = '', size = 'md', eager = false, priority = eager, hue } = Astro.props;
 const px = ICON_PX[size];
 const info = iconInfo(src);
 const loading = eager ? 'eager' : 'lazy';
-const decoding = eager ? 'sync' : 'async';
-const fetchpriority = eager ? 'high' : undefined;
+const decoding = eager && priority ? 'sync' : 'async';
+const fetchpriority = eager && priority ? 'high' : undefined;
 const cls = `app-icon-img app-icon-img--${size}`;
 ---
 

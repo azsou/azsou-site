@@ -120,8 +120,8 @@ test.describe('应用详情页', () => {
     const imgs = page.locator('[data-shot] img');
     for (const alt of await imgs.evaluateAll((els) => els.map((e) => e.getAttribute('alt') ?? '')))
       expect(alt).toContain('概念图');
-    // 第一张之后的截图懒加载
-    await expect(imgs.nth(1)).toHaveAttribute('loading', 'lazy');
+    // 桌面首屏能看到前 3 张：eager（设计测试 Q18 首屏无 lazy），之后的懒加载
+    await expect(imgs.nth(2)).toHaveAttribute('loading', 'eager');
     const shots = page.locator('[data-shot]');
     await expect(shots).toHaveCount(3);
     await expect(shots.first().locator('.shot__tag')).toHaveText('概念图');
