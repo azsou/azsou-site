@@ -757,8 +757,13 @@
   /* 卡片动效：只用 transform / box-shadow（不触发布局，CLS 0）；只在真正能悬停的设备上 */
   @media (hover: hover) and (pointer: fine) {
     .card:has(a.card__link:hover) {
-      transform: translateY(-2px);
       box-shadow: var(--shadow-2);
+    }
+  }
+  /* 位移 / 缩放只在没开「减少动态效果」时（:has() 选择器特异度高，靠下面的 reduce 规则盖不住） */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .card:has(a.card__link:hover) {
+      transform: translateY(-2px);
     }
     :is(.card, .feature-card, .app-tile, .cat-tile, .update-row):has(a:hover) .app-icon-img {
       transform: scale(1.04);
@@ -1236,11 +1241,13 @@
     color: var(--c-label-2);
   }
   .prose .contains-task-list,
-  .prose ul:has(> li > input[type='checkbox']) {
+  .prose ul:has(> li > input[type='checkbox']),
+  .prose ul:has(> li > label > input[type='checkbox']) {
     list-style: none;
     padding-left: 0;
   }
-  .prose li > input[type='checkbox'] {
+  .prose li > input[type='checkbox'],
+  .prose li > label > input[type='checkbox'] {
     width: 18px;
     height: 18px;
     margin: 0.3em var(--space-2) 0 0;

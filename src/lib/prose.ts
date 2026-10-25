@@ -11,12 +11,16 @@ import { highlightBlocks } from './highlight';
 export function enhanceProse(html: string, lang: 'zh' | 'en' = 'zh'): string {
   const codeLabel = lang === 'en' ? 'Code' : '代码';
   const tableLabel = lang === 'en' ? 'Table (scrollable)' : '表格（可横向滚动）';
-  return highlightBlocks(html)
-    .replace(/<table\b/g, `<section class="table-wrap" tabindex="0" aria-label="${tableLabel}"><table`)
-    .replace(/<\/table>/g, '</table></section>')
-    .replace(/<pre(?![^>]*tabindex)([^>]*)>/g, `<pre$1 tabindex="0" aria-label="${codeLabel}" data-copy>`)
-    .replace(
-      /<(section|ol) class="footnotes"([^>]*)>/g,
-      (m) => `<h2 class="footnotes__title">${lang === 'en' ? 'Notes' : '注释'}</h2>${m}`,
-    );
+  return (
+    highlightBlocks(html)
+      .replace(/<table\b/g, `<section class="table-wrap" tabindex="0" aria-label="${tableLabel}"><table`)
+      .replace(/<\/table>/g, '</table></section>')
+      // 任务列表：复选框包进 <label>，读屏读得出每一项（axe label）
+      .replace(/<li>(\s*<input type="checkbox"[^>]*>)([\s\S]*?)<\/li>/g, '<li><label>$1$2</label></li>')
+      .replace(/<pre(?![^>]*tabindex)([^>]*)>/g, `<pre$1 tabindex="0" aria-label="${codeLabel}" data-copy>`)
+      .replace(
+        /<(section|ol) class="footnotes"([^>]*)>/g,
+        (m) => `<h2 class="footnotes__title">${lang === 'en' ? 'Notes' : '注释'}</h2>${m}`,
+      )
+  );
 }

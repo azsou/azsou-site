@@ -210,7 +210,8 @@
   }
   .badge--danger {
     background: color-mix(in srgb, var(--c-danger) 12%, transparent);
-    color: var(--c-danger);
+    /* 纯 danger 色在 12% 底上只有 ~4.3:1（axe color-contrast）；向正文色混 25%，深浅两套都 ≥ 4.5:1 */
+    color: color-mix(in srgb, var(--c-danger) 75%, var(--c-label));
   }
 
   /* ---------- 输入框 / Select ---------- */
