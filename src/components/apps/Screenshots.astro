@@ -2,6 +2,7 @@
 /**
  * 截图轮播：横向滚动吸附（无 JS 也能滑），按钮翻页；点击截图用 <dialog> 灯箱放大（src/scripts/apps/detail.ts）。
  * 宽高写死在 <img> 上（来自内容 schema），加载前就占好位置，CLS 0。
+ * 前 3 张 eager（桌面首屏可见）但 fetchpriority=low：手机上在首屏以下，不与 LCP 图标抢带宽（Lighthouse /apps/fablemotion/ LCP 1.95 s）。
  */
 interface Shot {
   src: string;
@@ -39,6 +40,7 @@ const label = (s: Shot) => (s.illustrative && !s.alt.includes('概念图') ? `${
             width={s.width}
             height={s.height}
             loading={i < 3 ? 'eager' : 'lazy'}
+            fetchpriority={i < 3 ? 'low' : undefined}
             decoding="async"
           />
           {s.illustrative && <span class="shot__tag">概念图</span>}

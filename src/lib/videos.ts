@@ -140,7 +140,8 @@ export const thumbSrcset = (slug: string, ext: 'avif' | 'webp') =>
   THUMB_WIDTHS.map((w) => `${thumbPath(slug, w, ext)} ${w}w`).join(', ');
 /** <img sizes>（预加载的 imagesizes 必须与之一致，否则会重复下载） */
 export const CARD_SIZES = '(min-width: 1100px) 340px, (min-width: 700px) 45vw, 92vw';
-export const PLAYER_SIZES = '(min-width: 1000px) 920px, 100vw';
+/** 播放器 / 详情缩略图：手机两侧减去 --gutter 16px，412 × 1.75 取 720w 而不是 960w（Lighthouse /en/videos/ LCP） */
+export const PLAYER_SIZES = '(min-width: 1000px) 920px, (min-width: 600px) 100vw, calc(100vw - 32px)';
 
 /** 发布时间（ISO，带时区）→ 北京时间的 YYYY-MM-DD（页面显示用） */
 export function publishedDate(iso: string): string {
