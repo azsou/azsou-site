@@ -38,24 +38,95 @@ export function normalize(s: string): string {
   return s.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/** 返回 0 表示不命中；分数越高越靠前 */
+/** 实体类型权重（T9.13）：同分时应用 / AI 工具在前，其次游戏 / 视频 / 文章，页面最后 */
+const TYPE_WEIGHT: Record<SearchItem['type'], number> = {
+  app: 3,
+  tool: 3,
+  game: 2,
+  video: 1,
+  article: 1,
+  work: 1,
+  thread: 0,
+  page: 0,
+};
+
+const words = (s: string) => s.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+
+/**
+ * 返回 0 表示不命中；分数越高越靠前（DESIGN-SYSTEM / PLAN T9.13）：
+ * 标题完全匹配 100 > 标题前缀 / 标题里有整词 80 > 拼音全拼首字母 70 > 标题里有词以它开头 65 > 标题包含 60
+ * > 拼音前缀 50 > 拼音包含 30 > 摘要包含 20；再加实体类型权重（0–3）。
+ */
 export function score(item: SearchItem, query: string): number {
   const q = normalize(query);
   if (!q) return 0;
   const title = normalize(item.title);
   const py = normalize(item.pinyin || '');
   const rest = normalize(`${item.summary || ''} ${item.meta || ''}`);
-  if (title === q) return 100;
-  if (title.startsWith(q)) return 80;
-  if (title.includes(q)) return 60;
+  const w = TYPE_WEIGHT[item.type] ?? 0;
+  if (title === q) return 100 + w;
+  if (title.startsWith(q)) return 80 + w;
+  const tw = words(title);
+  if (tw.includes(q)) return 80 + w;
   const compact = q.replace(/\s/g, '');
+  if (py && /^[a-z0-9]+$/.test(compact) && py === compact) return 70 + w;
+  if (tw.some((x) => x.startsWith(q))) return 65 + w;
+  if (title.includes(q)) return 60 + w;
   if (py && /^[a-z0-9]+$/.test(compact)) {
-    if (py === compact) return 70;
-    if (py.startsWith(compact)) return 50;
-    if (py.includes(compact)) return 30;
+    if (py.startsWith(compact)) return 50 + w;
+    if (py.includes(compact)) return 30 + w;
   }
-  if (rest.includes(q)) return 20;
+  if (rest.includes(q)) return 20 + w;
   return 0;
+}
+
+/** Damerau–Levenshtein（相邻换位算 1）；超过 max 提前返回 max + 1 */
+export function editDistance(a: string, b: string, max = 2): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  );
+  for (let i = 1; i <= a.length; i++) {
+    let rowMin = Infinity;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      rowMin = Math.min(rowMin, d[i][j]);
+    }
+    if (rowMin > max) return max + 1;
+  }
+  return d[a.length][b.length];
+}
+
+/**
+ * 错拼建议（T9.13）：没有标题强命中时，在标题与标题里的词中找编辑距离 ≤ 2 的最接近者
+ * （「cluade」→「Claude」）。只对 ≥ 4 个字符的拉丁词生效，避免短词乱猜；返回原样大小写的词。
+ */
+export function suggest(items: SearchItem[], query: string): string | null {
+  const q = normalize(query);
+  if (q.length < 4 || !/^[a-z0-9 .+-]+$/.test(q)) return null;
+  if (items.some((it) => score(it, q) >= 50)) return null;
+  let best: { word: string; d: number; w: number } | null = null;
+  for (const it of items) {
+    const cands = [it.title, ...it.title.split(/[^\p{L}\p{N}.+-]+/u)];
+    for (const c of cands) {
+      const n = normalize(c);
+      if (n.length < 3 || n === q) continue;
+      const max = q.length >= 6 ? 2 : 1;
+      const dist = editDistance(q, n, max);
+      if (dist > max) continue;
+      const w = TYPE_WEIGHT[it.type] ?? 0;
+      if (!best || dist < best.d || (dist === best.d && w > best.w)) best = { word: c.trim(), d: dist, w };
+    }
+  }
+  return best?.word ?? null;
+}
+
+/** 摘要清理：Pagefind 把相邻块用「. 」连起来，中文后面不该出现英文句点（T9.13） */
+export function tidyExcerpt(text: string): string {
+  return text.replace(/([\u3000-\u303f\u4e00-\u9fff\uff00-\uffef])\.\s+/g, '$1 ').replace(/\s{2,}/g, ' ');
 }
 
 export function search(items: SearchItem[], query: string, limit = 50): SearchItem[] {
@@ -105,7 +176,7 @@ export function excerptParts(html: string): ExcerptPart[] {
   for (const piece of html.split(/(<mark>|<\/mark>)/i)) {
     if (/^<mark>$/i.test(piece)) mark = true;
     else if (/^<\/mark>$/i.test(piece)) mark = false;
-    else if (piece) out.push({ text: decode(piece.replace(/<[^>]*>/g, '')), mark });
+    else if (piece) out.push({ text: tidyExcerpt(decode(piece.replace(/<[^>]*>/g, ''))), mark });
   }
   return out;
 }

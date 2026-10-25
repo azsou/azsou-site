@@ -29,7 +29,8 @@ const ZH = {
   more: '搜索页（含社区主题）',
   count: (n: number) => `${n} 条结果，按 Enter 打开第一条`,
   none: (t: string) => `没有找到“${t}”。换个更短的关键词，或到搜索页查看社区主题。`,
-  failed: '搜索索引加载失败，请检查网络后重试。',
+  failed: '搜索索引加载失败，检查网络后再试一次。',
+  suggest: (w: string) => `你要找的是不是「${w}」？`,
 };
 const EN: typeof ZH = {
   title: 'Search this site',
@@ -43,6 +44,7 @@ const EN: typeof ZH = {
   count: (n: number) => `${n} result${n === 1 ? '' : 's'}, press Enter to open the first`,
   none: (t: string) => `Nothing found for “${t}”. Try a shorter word.`,
   failed: 'The search index failed to load. Check your connection and try again.',
+  suggest: (w: string) => ` Did you mean “${w}”?`,
 };
 let T = ZH;
 
@@ -172,13 +174,14 @@ async function run(q: string) {
   }
   dialog.setAttribute('aria-busy', 'true');
   try {
-    const { hits } = await searchSite(term, 20);
+    const { hits, suggestion } = await searchSite(term, 20);
     if (my !== seq) return;
     list.replaceChildren(...hits.map((h, i) => hitRow(h, { id: `palette-opt-${i}`, option: true })));
     list.hidden = hits.length === 0;
     input.setAttribute('aria-expanded', String(hits.length > 0));
     select(hits.length ? 0 : -1);
     status.textContent = hits.length ? T.count(hits.length) : T.none(term);
+    if (suggestion) status.textContent += T.suggest(suggestion);
   } catch {
     if (my !== seq) return;
     status.textContent = T.failed;

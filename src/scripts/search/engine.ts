@@ -4,7 +4,14 @@
  *    只有那个 Worker 的响应 CSP 带 'wasm-unsafe-eval'（vercel.json），页面本身的 CSP 不放开。
  *  - Pagefind 不可用（开发模式没有索引、网络错误）时退回站内 JSON 索引，搜索照常可用。
  */
-import { excerptParts, isSearchType, mergeHits, type SearchHit, type SearchItem } from '@/lib/search';
+import {
+  excerptParts,
+  isSearchType,
+  mergeHits,
+  suggest,
+  type SearchHit,
+  type SearchItem,
+} from '@/lib/search';
 
 interface PagefindResult {
   id: string;
@@ -54,11 +61,13 @@ export interface SearchOutcome {
   hits: SearchHit[];
   /** Pagefind 是否参与了这次搜索（false = 只用了站内索引） */
   fullText: boolean;
+  /** 错拼建议（编辑距离 ≤ 2，如「cluade」→「Claude」）；有标题强命中时为 null */
+  suggestion: string | null;
 }
 
 export async function searchSite(query: string, limit = 30): Promise<SearchOutcome> {
   const q = query.trim();
-  if (!q) return { hits: [], fullText: false };
+  if (!q) return { hits: [], fullText: false, suggestion: null };
   // 英文页面（<html lang="en">）只查 Pagefind 的英文索引：站内 JSON 索引是中文标题与拼音（T7.6）
   const en = document.documentElement.lang === 'en';
   const [items, engine] = await Promise.all([
@@ -82,5 +91,5 @@ export async function searchSite(query: string, limit = 30): Promise<SearchOutco
     }
   }
   if (!engine && !items.length) throw new Error('search unavailable');
-  return { hits: mergeHits(items, q, pfHits, limit), fullText: !!engine };
+  return { hits: mergeHits(items, q, pfHits, limit), fullText: !!engine, suggestion: suggest(items, q) };
 }

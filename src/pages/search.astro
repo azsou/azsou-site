@@ -2,6 +2,7 @@
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import Icon from '@/components/Icon.astro';
+import ErrorBar from '@/components/ui/ErrorBar.astro';
 ---
 
 <Base
@@ -32,7 +33,9 @@ import Icon from '@/components/Icon.astro';
     </button>
   </form>
   <p class="data-status" data-status role="status" aria-live="polite"></p>
-  <ul class="list-group mt-4" role="list" aria-label="站内内容" data-results hidden></ul>
+  <div class="tabs mt-4" role="tablist" aria-label="按类型筛选结果" data-type-tabs hidden></div>
+  <ul class="list-group mt-4 search-results" role="list" aria-label="站内内容" data-results hidden></ul>
+  <div data-empty-slot></div>
   <section class="section" data-forum-results hidden aria-labelledby="h-forum-results">
     <div class="section__head">
       <h2 id="h-forum-results">社区主题</h2>
@@ -40,6 +43,11 @@ import Icon from '@/components/Icon.astro';
     </div>
     <ul class="list-group" role="list" aria-labelledby="h-forum-results" data-forum-list></ul>
     <p class="data-status" data-forum-status role="status" aria-live="polite"></p>
+    <ErrorBar text="社区主题暂时搜不到（数据服务没有响应），上方站内结果不受影响。" hidden id="forum-error">
+      <button type="button" class="btn btn--sm" data-forum-retry>
+        重试
+      </button>
+    </ErrorBar>
   </section>
 </Base>
 
