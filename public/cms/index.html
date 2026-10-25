@@ -6,8 +6,13 @@
     <meta name="robots" content="noindex, nofollow" />
     <title>内容后台 · AZ Studio</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/cms/cms-admin.css" />
   </head>
   <body>
+    <p class="azc-bar" role="note">
+      <strong>编辑后会开 PR，由站长合并。</strong>
+      流程：草稿 → 待审核 → 就绪 → 站长合并后上线；字数超出上限的字段不能保存（汉字 1、字母数字 0.5）。
+    </p>
     <!--
       Git 内容后台（T7.7）：Decap CMS 3，配置在同目录的 config.yml。
       生产：GitHub 存储（azsou/azsou-site，编辑走 Pull Request，CI 通过后再合并）；登录经 /api/cms/auth（GitHub OAuth App）。
@@ -19,5 +24,7 @@
       integrity="sha384-d2pbrhjc5asvSK35gKkrgRIk0Wq+2CQynWnXtSsYWQawXCgBXhcAK737jBAKXT4T"
       crossorigin="anonymous"
     ></script>
+    <!-- T9.17：字数控件 / 图标控件 / 预览模板（模块脚本在 Decap 初始化前执行；纯逻辑在 cms-core.js） -->
+    <script type="module" src="/cms/cms-ext.js"></script>
   </body>
 </html>

@@ -44,20 +44,39 @@ collections:
     sortable_fields: [title, order, updated]
     preview_path: apps/{{slug}}/
     fields:
-      - { name: title, label: 名称, widget: string }
-      - { name: subtitle, label: 副标题（≤ 30 字）, widget: string, pattern: ['^.{1,30}$', '最多 30 个字'] }
+      - {
+          name: title,
+          label: 名称,
+          widget: string-count,
+          max: 14,
+          hint: '卡片标题 1 行 · ≤ 14 字（汉字 1、字母数字 0.5）',
+        }
+      - {
+          name: subtitle,
+          label: 副标题,
+          widget: string-count,
+          max: 30,
+          count: chars,
+          hint: '详情页标题下一句话 · ≤ 30 个字符',
+          pattern: ['^.{1,30}$', '最多 30 个字'],
+        }
       - {
           name: tagline,
-          label: 卡片一句话（6–16 字）,
-          widget: string,
-          hint: '卡片上 1 行显示，不截断。汉字算 1、字母数字算 0.5（zhLength），超出范围构建失败',
+          label: 卡片一句话,
+          widget: string-count,
+          min: 6,
+          max: 16,
+          hint: '卡片上 1 行显示、不截断 · 6–16 字（汉字 1、字母数字 0.5），超出不能保存',
           pattern: ['^.{3,32}$', '6–16 字（字母数字算半个）'],
         }
       - {
           name: summary,
-          label: 简介（32–56 字）,
-          widget: text,
-          hint: '精选卡与列表 2 行显示；汉字算 1、字母数字算 0.5',
+          label: 简介,
+          widget: string-count,
+          multiline: true,
+          min: 32,
+          max: 56,
+          hint: '精选卡与列表 2 行显示、SEO 描述 · 32–56 字（汉字 1、字母数字 0.5）',
         }
       - name: icon
         label: 图标
@@ -66,8 +85,8 @@ collections:
           - {
               name: src,
               label: 图标路径,
-              widget: string,
-              hint: '/apps/icons/<slug>.png；变体由 scripts/icons/render.mjs 生成',
+              widget: icon-path,
+              hint: '卡片 / 详情页图标 · /apps/icons/<slug>.png；方形 1:1、≥ 512×512，上传后 npm run icons 自动规范化',
               pattern: ['^/(apps|ai)/icons/[a-z0-9-]+\.(svg|png|webp)$', '格式：/apps/icons/<slug>.png'],
             }
           - { name: placeholder, label: 临时图标, widget: boolean, default: false, required: false }
@@ -78,7 +97,14 @@ collections:
         widget: object
         fields:
           - { name: name, label: 名称, widget: string }
-          - { name: short, label: 卡片短名（≤ 12 字，全称更长时必填）, widget: string, required: false }
+          - {
+              name: short,
+              label: 卡片短名（全称更长时必填）,
+              widget: string-count,
+              max: 12,
+              required: false,
+              hint: '卡片上的开发者名 · ≤ 12 字',
+            }
           - { name: url, label: 网址, widget: string, required: false }
           - {
               name: type,
@@ -123,7 +149,12 @@ collections:
         widget: list
         required: false
         fields: &shotFields
-          - { name: src, label: 路径, widget: string }
+          - {
+              name: src,
+              label: 路径,
+              widget: string,
+              hint: '桌面 16:10（2560×1600）、手机 9:19.5（1170×2532）、平板 4:3；PNG / WebP ≤ 1.5 MB',
+            }
           - { name: alt, label: 替代文字, widget: string }
           - { name: device, label: 设备, widget: select, options: [desktop, tablet, phone] }
           - { name: width, label: 宽, widget: number, value_type: int }
@@ -221,20 +252,39 @@ collections:
     sortable_fields: [title, order, lastChecked]
     preview_path: ai/{{slug}}/
     fields:
-      - { name: title, label: 名称, widget: string }
-      - { name: subtitle, label: 副标题（≤ 30 字）, widget: string, pattern: ['^.{1,30}$', '最多 30 个字'] }
+      - {
+          name: title,
+          label: 名称,
+          widget: string-count,
+          max: 14,
+          hint: '卡片标题 1 行 · ≤ 14 字（汉字 1、字母数字 0.5）',
+        }
+      - {
+          name: subtitle,
+          label: 副标题,
+          widget: string-count,
+          max: 30,
+          count: chars,
+          hint: '详情页标题下一句话 · ≤ 30 个字符',
+          pattern: ['^.{1,30}$', '最多 30 个字'],
+        }
       - {
           name: tagline,
-          label: 卡片一句话（6–16 字）,
-          widget: string,
-          hint: '卡片上 1 行显示，不截断。汉字算 1、字母数字算 0.5（zhLength），超出范围构建失败',
+          label: 卡片一句话,
+          widget: string-count,
+          min: 6,
+          max: 16,
+          hint: '卡片上 1 行显示、不截断 · 6–16 字（汉字 1、字母数字 0.5），超出不能保存',
           pattern: ['^.{3,32}$', '6–16 字（字母数字算半个）'],
         }
       - {
           name: summary,
-          label: 简介（40–64 字，原创）,
-          widget: text,
-          hint: 'AI 工具卡 2 行显示；汉字算 1、字母数字算 0.5',
+          label: 简介（原创）,
+          widget: string-count,
+          multiline: true,
+          min: 40,
+          max: 64,
+          hint: 'AI 工具卡 2 行显示、搜索与 meta 描述 · 40–64 字（汉字 1、字母数字 0.5）',
           pattern: ['^[\s\S]{20,128}$', '40–64 字（字母数字算半个）'],
         }
       - name: icon
@@ -244,7 +294,8 @@ collections:
           - {
               name: src,
               label: 图标路径,
-              widget: string,
+              widget: icon-path,
+              hint: '卡片 / 详情页图标 · /ai/icons/<slug>.png；官方标志原样，方形 1:1、≥ 512×512',
               pattern: ['^/(apps|ai)/icons/[a-z0-9-]+\.(svg|png|webp)$', '格式：/ai/icons/<slug>.png'],
             }
           - { name: placeholder, label: 临时图标, widget: boolean, default: false, required: false }
@@ -261,7 +312,14 @@ collections:
         widget: object
         fields:
           - { name: name, label: 名称, widget: string }
-          - { name: short, label: 卡片短名（≤ 12 字，全称更长时必填）, widget: string, required: false }
+          - {
+              name: short,
+              label: 卡片短名（全称更长时必填）,
+              widget: string-count,
+              max: 12,
+              required: false,
+              hint: '卡片上的开发者名 · ≤ 12 字',
+            }
           - { name: en, label: 英文名（全称含中文时必填，英文页显示）, widget: string, required: false }
           - { name: url, label: 官网（https）, widget: string }
           - { name: type, label: 类型, widget: hidden, default: third-party }
@@ -320,9 +378,10 @@ collections:
     fields:
       - {
           name: title,
-          label: 标题（≤ 36 字）,
-          widget: string,
-          hint: '媒体卡 2 行显示；汉字算 1、字母数字算 0.5',
+          label: 标题,
+          widget: string-count,
+          max: 36,
+          hint: '文章卡标题 2 行 · ≤ 36 字（汉字 1、字母数字 0.5）',
         }
       - { name: category, label: 分类, widget: string }
       - { name: badge, label: 徽章（如「实测」）, widget: string }
@@ -343,11 +402,26 @@ collections:
       - { name: toc, label: 目录（每个小标题一项）, widget: list }
       - { name: tags, label: 标签, widget: list }
       - { name: forumThread, label: 讨论主题 ID（没有就留空）, widget: string, required: false }
-      - { name: ogImage, label: 分享图（站内路径）, widget: string, pattern: ['^/', '以 / 开头'] }
+      - {
+          name: ogImage,
+          label: 分享图（站内路径）,
+          widget: string,
+          hint: '社交分享卡 · 1200×630（1.91:1）PNG，文字留在中间 1000×500 内',
+          pattern: ['^/', '以 / 开头'],
+        }
       - { name: art, label: 素材槽位, widget: string, required: false }
       - { name: pinyin, label: 拼音首字母, widget: string, required: false }
       - { name: order, label: 同日排序, widget: number, value_type: int }
-      - { name: description, label: 摘要（60–110 字，可留空）, widget: text, required: false }
+      - {
+          name: description,
+          label: 摘要（可留空）,
+          widget: string-count,
+          multiline: true,
+          min: 60,
+          max: 110,
+          required: false,
+          hint: '列表、搜索结果与 meta 描述 · 60–110 字；留空 = 取正文前 120 字',
+        }
       - label: 联盟 / 赞助披露（没有就留空）
         name: disclosure
         widget: object
