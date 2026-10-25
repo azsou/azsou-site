@@ -1,0 +1,33 @@
+{
+  "$comment": "站长的公开账号（T7.4）。只登记确实存在、能在仓库 / 站点数据里核实的账号；url 为 null 的不会显示。新增账号时填 url 与 verified（在哪里核实的）。",
+  "accounts": [
+    {
+      "id": "github",
+      "name": "GitHub",
+      "handle": "azsou",
+      "url": "https://github.com/azsou",
+      "verified": "本站源码仓库 github.com/azsou/azsou-site 的所有者账号"
+    },
+    {
+      "id": "rss",
+      "name": "RSS 订阅",
+      "handle": "全站更新",
+      "url": "/rss.xml",
+      "verified": "本站自己的订阅源"
+    },
+    {
+      "id": "bilibili",
+      "name": "哔哩哔哩",
+      "handle": null,
+      "url": null,
+      "verified": "V72 页脚有图标但没有链接；仓库与站点数据里找不到频道地址（站长待补）"
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "handle": null,
+      "url": null,
+      "verified": "V72 页脚有图标但没有链接；仓库与站点数据里找不到频道地址（站长待补）"
+    }
+  ]
+}

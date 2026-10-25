@@ -647,3 +647,18 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   }
 }
+
+@layer components {
+  /* ---------- 留言 / 友链审核队列（T7.3 / T7.4） ---------- */
+  .mod-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mod-item__body {
+    margin: var(--space-2) 0 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .mod-item__actions {
+    margin-top: var(--space-3);
+  }
+}

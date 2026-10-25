@@ -1,0 +1,106 @@
+---
+/**
+ * 友情链接（T7.4）：作者的公开账号（只显示核实过的）+ 已通过的友链（浏览器从数据库读取，0015）+ 申请表单
+ * （Turnstile；提交后进待审核，只有管理员能看到联系方式并通过）。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import SocialLinks from '@/components/SocialLinks.astro';
+import TurnstileField from '@/components/TurnstileField.astro';
+import { LINK_LIMITS } from '@/lib/community-forms';
+import { SOCIAL } from '@/lib/social';
+---
+
+<Base
+  title="友情链接"
+  description="AZ Studio 的友情链接与作者账号。欢迎独立开发、游戏开发、AI 工具方向的个人站点申请友链。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '友情链接', path: '/links/' },
+  ]}
+>
+  <PageHead
+    eyebrow="社区"
+    title="友情链接"
+    lede="作者的账号，以及互相推荐的独立站点。欢迎在下方申请友链，站长审核通过后会出现在这里。"
+  />
+  {SOCIAL.length > 0 && (
+    <section class="section" aria-labelledby="h-me">
+      <div class="section__head">
+        <h2 id="h-me">作者的账号</h2>
+      </div>
+      <SocialLinks variant="list" />
+    </section>
+  )}
+  <section class="section" aria-labelledby="h-links">
+    <div class="section__head">
+      <h2 id="h-links">
+        友链 <span class="section__count" data-total></span>
+      </h2>
+    </div>
+    <ul class="link-grid" role="list" data-links aria-labelledby="h-links"></ul>
+    <p class="data-status" role="status" aria-live="polite" data-links-status>
+      正在加载友链…
+    </p>
+  </section>
+  <section class="panel gb-write" aria-labelledby="h-apply">
+    <h2 id="h-apply">申请友链</h2>
+    <ul class="link-rules">
+      <li>原创内容为主、可以正常访问、使用 https；</li>
+      <li>不收录违法、博彩、成人、采集站与纯广告站；</li>
+      <li>审核通常在一周内完成，通过后会出现在上方列表。联系方式只有站长能看到。</li>
+    </ul>
+    <form class="form" data-link-form novalidate>
+      <div class="field">
+        <label for="ln-name">站点名称</label>
+        <input id="ln-name" name="name" type="text" maxlength={LINK_LIMITS.name} required />
+        <p class="field__error" data-error-for="name"></p>
+      </div>
+      <div class="field">
+        <label for="ln-url">网址</label>
+        <input
+          id="ln-url"
+          name="url"
+          type="url"
+          inputmode="url"
+          placeholder="https://"
+          maxlength={LINK_LIMITS.url}
+          required
+        />
+        <p class="field__error" data-error-for="url"></p>
+      </div>
+      <div class="field">
+        <label for="ln-desc">一句话简介（可选）</label>
+        <input id="ln-desc" name="description" type="text" maxlength={LINK_LIMITS.description} />
+        <p class="field__error" data-error-for="description"></p>
+      </div>
+      <div class="field">
+        <label for="ln-contact">联系方式（可选，仅站长可见）</label>
+        <input
+          id="ln-contact"
+          name="contact"
+          type="text"
+          autocomplete="email"
+          maxlength={LINK_LIMITS.contact}
+          aria-describedby="ln-contact-hint"
+        />
+        <p class="field__hint" id="ln-contact-hint">
+          邮箱或其他方式，审核有问题时用来联系你。
+        </p>
+        <p class="field__error" data-error-for="contact"></p>
+      </div>
+      <TurnstileField action="link" />
+      <p class="field__error" data-error-for="turnstile"></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          提交申请
+        </button>
+      </div>
+      <p class="data-status" role="status" aria-live="polite" data-form-status></p>
+    </form>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/community/links';
+</script>

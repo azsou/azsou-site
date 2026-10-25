@@ -59,6 +59,8 @@ export const FOOTER = [
     links: [
       { href: '/about/', label: '关于作者' },
       { href: '/contact/', label: '联系' },
+      { href: '/guestbook/', label: '留言板' },
+      { href: '/links/', label: '友情链接' },
       { href: '/privacy/', label: '隐私政策' },
       { href: '/terms/', label: '使用条款' },
       { href: '/editorial/', label: '编辑规范' },

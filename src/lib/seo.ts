@@ -1,4 +1,5 @@
 import { SITE } from './site';
+import { sameAs } from './social';
 import { toDate } from './dates';
 
 export const abs = (path: string) => new URL(path, SITE.url).toString();
@@ -26,6 +27,8 @@ export const person = (): Json => ({
   '@id': `${SITE.url}/#author`,
   name: SITE.author.name,
   url: SITE.author.url,
+  // 只放核实过的站外账号（src/data/social.json，T7.4）
+  ...(sameAs().length ? { sameAs: sameAs() } : {}),
 });
 
 /** 站点运营方（全站每页都带；logo 为 512 px PNG） */

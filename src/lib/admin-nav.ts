@@ -4,7 +4,9 @@ export const ADMIN_SECTIONS = [
   { id: 'reports', label: '举报队列', path: '/admin/reports/', role: 'moderator' },
   { id: 'content', label: '内容管理', path: '/admin/content/', role: 'moderator' },
   { id: 'users', label: '用户', path: '/admin/users/', role: 'moderator' },
+  { id: 'guestbook', label: '留言审核', path: '/admin/guestbook/', role: 'moderator' },
   { id: 'official', label: '官方内容', path: '/admin/official/', role: 'moderator' },
+  { id: 'links', label: '友链审核', path: '/admin/links/', role: 'admin' },
   { id: 'audit', label: '审计日志', path: '/admin/audit/', role: 'admin' },
   { id: 'settings', label: '站点设置', path: '/admin/settings/', role: 'admin' },
   { id: 'data', label: '导入导出', path: '/admin/data/', role: 'admin' },
@@ -36,6 +38,14 @@ export const AUDIT_LABELS: Record<string, string> = {
   'content.insert': '新增站点内容 / 设置',
   'content.update': '修改站点内容 / 设置',
   'content.delete': '删除站点内容 / 设置',
+  'guestbook.approved': '留言：通过',
+  'guestbook.rejected': '留言：拒绝',
+  'guestbook.pending': '留言：退回待审核',
+  'guestbook.delete': '留言：删除',
+  'friend_link.approved': '友链：通过',
+  'friend_link.rejected': '友链：拒绝',
+  'friend_link.pending': '友链：退回待审核',
+  'friend_link.delete': '友链：删除',
 };
 
 export const auditLabel = (action: string) => AUDIT_LABELS[action] ?? action;

@@ -1,0 +1,45 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="guestbook"
+  title="留言审核"
+  lede="访客留言先进待审核：通过后公开显示在留言板；拒绝的只在这里可见。每个操作都会写入审计日志。"
+  require="moderator"
+>
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="按状态筛选" data-status-filter>
+      <button type="button" data-value="pending" aria-pressed="true">
+        待审核
+      </button>
+      <button type="button" data-value="approved" aria-pressed="false">
+        已通过
+      </button>
+      <button type="button" data-value="rejected" aria-pressed="false">
+        已拒绝
+      </button>
+      <button type="button" data-value="all" aria-pressed="false">
+        全部
+      </button>
+    </div>
+  </div>
+  <ul
+    class="report-list"
+    role="list"
+    data-mod-list
+    data-kind="guestbook"
+    aria-busy="true"
+    aria-label="留言审核"
+  ></ul>
+  <div class="btn-row">
+    <button class="btn" type="button" data-more hidden>
+      加载更多
+    </button>
+  </div>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/moderation-queue';
+</script>

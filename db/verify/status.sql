@@ -3,7 +3,7 @@
 --
 -- 每一行是一项检查：step = 对应的迁移文件，ok = 是否已生效。
 -- 生产切换时每执行完一个迁移文件就跑一次：该步及之前的所有行都应为 true，之后的行为 false。
--- 全部为 true = 0002…0014 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
+-- 全部为 true = 0002…0015 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
 -- =============================================================================
 with c(step, item, ok) as (
   values
@@ -67,6 +67,13 @@ with c(step, item, ok) as (
              and pg_get_constraintdef(oid) like '%tool%')),
   ('0014', '评论可以挂在视频页（page_key 允许 video:）',
      exists (select 1 from pg_constraint where conname = 'comments_page_key_check'
-             and pg_get_constraintdef(oid) like '%video%'))
+             and pg_get_constraintdef(oid) like '%video%')),
+  ('0015', '留言板与友链表（RLS 已开启）与提交 RPC 存在',
+     coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.guestbook_entries')), false)
+     and coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.friend_links')), false)
+     and to_regprocedure('public.guestbook_submit(text,text,text)') is not null
+     and to_regprocedure('public.friend_link_submit(text,text,text,text,text)') is not null),
+  ('0015', '提交记录表存在（限流 / 票据一次性；另需写入 community_ticket_secret，见 0015 文件头）',
+     to_regclass('private.community_submissions') is not null)
 )
 select step, item, ok from c order by step, item;

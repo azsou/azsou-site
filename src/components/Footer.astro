@@ -1,5 +1,6 @@
 ---
 import { FOOTER, SITE } from '@/lib/site';
+import SocialLinks from './SocialLinks.astro';
 ---
 
 <footer class="site-footer">
@@ -19,6 +20,7 @@ import { FOOTER, SITE } from '@/lib/site';
           <li class="badge">测试环境</li>
           <li class="badge">最后核对</li>
         </ul>
+        <SocialLinks />
       </div>
       {FOOTER.map((col) => (
         <div>
