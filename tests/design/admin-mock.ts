@@ -115,9 +115,11 @@ function profile(role: AdminMockRole) {
 }
 
 /** 在页面脚本运行前写入登录态（V72 会话格式），并拦截所有 Supabase 请求 */
-export async function mockAdmin(page: Page, opts: { role?: AdminMockRole; state?: AdminMockState } = {}) {
-  const role = opts.role ?? 'admin';
-  const state = opts.state ?? 'data';
+type MockSet = { role?: AdminMockRole; state?: AdminMockState };
+export async function mockAdmin(page: Page, opts: MockSet = {}): Promise<{ set(next: MockSet): void }> {
+  // 可变：测试中途切换状态 / 角色（不重新注册路由）；未登录（anon）只能在开头决定
+  let role = opts.role ?? 'admin';
+  let state = opts.state ?? 'data';
   if (role !== 'anon')
     await page.addInitScript((id) => {
       localStorage.setItem(
@@ -164,7 +166,7 @@ export async function mockAdmin(page: Page, opts: { role?: AdminMockRole; state?
     return json(route, [], { 'content-range': '*/0' });
   });
   return {
-    set(next) {
+    set(next: MockSet) {
       if (next.role) role = next.role;
       if (next.state) state = next.state;
     },
