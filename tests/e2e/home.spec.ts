@@ -76,12 +76,12 @@ test.describe('首页 /', () => {
     await expect(page.locator('.home-chips a[href="/apps/platform/browser-ext/"]')).toBeVisible();
   });
 
-  test('Ctrl/⌘K 聚焦首页搜索框', async ({ page }, info) => {
+  test('Ctrl/⌘K 打开全站搜索面板（首页同样适用）', async ({ page }, info) => {
     test.skip(!isDesktop(info.project.name), '键盘快捷键只在桌面验证');
     await page.goto('/');
     await page.locator('body').click({ position: { x: 5, y: 300 } });
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
-    await expect(page.locator('#home-q')).toBeFocused();
+    await expect(page.getByRole('combobox', { name: '搜索关键词' })).toBeFocused();
   });
 
   test('横向行：上一组 / 下一组按钮（到头禁用、可键盘操作、有无障碍名称）', async ({ page }, info) => {

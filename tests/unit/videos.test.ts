@@ -168,7 +168,7 @@ describe('视频：内容完整性', () => {
   it('CSP frame-src 只放实际用到的视频平台嵌入域名', () => {
     const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
     const csp: string = vercel.headers
-      .find((h: { source: string }) => h.source === '/((?!_astro/).*)')
+      .find((h: { source: string }) => h.source === '/((?!_astro/|pagefind/).*)')
       .headers.find((h: { key: string }) => h.key === 'Content-Security-Policy').value;
     const frame = /frame-src ([^;]*)/.exec(csp)![1].split(/\s+/);
     const providers = new Set(list.map(([, v]) => v.data.provider ?? 'youtube'));

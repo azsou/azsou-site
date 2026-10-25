@@ -5,6 +5,7 @@ import { url } from './routes';
 import { toolHue } from './hue';
 import type { SearchItem } from './search';
 import { excerpt } from './escape';
+import { aggregateTags, type TaggedItem } from './tags';
 import {
   AI_CATEGORIES,
   CATEGORIES,
@@ -255,3 +256,47 @@ export function relatedVideos(video: Video, all: Video[], n = 3): Video[] {
     .slice(0, n)
     .map((r) => r.x);
 }
+
+// ------------------------------------------------------------ 标签（T7.2） ----
+
+/** 全站带标签的条目（应用、AI 工具、视频、文章；游戏 / 作品 / 论坛种子没有标签字段） */
+export async function getTaggedItems(): Promise<TaggedItem[]> {
+  const [apps, tools, videos, articles] = await Promise.all([
+    getApps(),
+    getTools(),
+    getVideos(),
+    getArticles(),
+  ]);
+  return [
+    ...apps.map((a) => ({
+      type: 'app' as const,
+      title: a.data.title,
+      url: url.app(a.id),
+      summary: a.data.subtitle,
+      tags: a.data.tags,
+    })),
+    ...tools.map((t) => ({
+      type: 'tool' as const,
+      title: t.data.title,
+      url: url.tool(t.id),
+      summary: t.data.summary,
+      tags: t.data.tags,
+    })),
+    ...videos.map((v) => ({
+      type: 'video' as const,
+      title: v.data.title,
+      url: url.video(v.id),
+      summary: v.data.summary,
+      tags: v.data.tags,
+    })),
+    ...articles.map((a) => ({
+      type: 'article' as const,
+      title: a.data.title,
+      url: url.article(a.id),
+      summary: excerpt(a.body ?? '', 60),
+      tags: a.data.tags,
+    })),
+  ];
+}
+
+export const getTags = async () => aggregateTags(await getTaggedItems());

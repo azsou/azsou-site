@@ -16,7 +16,13 @@ const seeds = [...(all[`${scope}:*`] ?? []), ...(all[pageKey] ?? [])];
 const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 ---
 
-<section class="discussion panel" data-comments data-page-key={pageKey} aria-labelledby={id}>
+<section
+  class="discussion panel"
+  data-pagefind-ignore
+  data-comments
+  data-page-key={pageKey}
+  aria-labelledby={id}
+>
   <div class="section__head">
     <h2 id={id}>{title}</h2>
     <span class="muted" data-count>

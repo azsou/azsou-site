@@ -1,35 +1,66 @@
 ---
+/** 标签页（T7.2）：这个标签下的全部条目，按类型分组。只有 1 个条目的标签页 noindex（也不进 sitemap）。 */
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
-import ArticleCard from '@/components/ArticleCard.astro';
-import { getArticles, type Article } from '@/lib/content';
-import { TAGS } from '@/lib/tags';
+import { getTags } from '@/lib/content';
+import { TAG_INDEX_MIN, TAGGED_ORDER, TAGGED_TYPE_LABEL, tagDescription, type TagEntry } from '@/lib/tags';
+import { itemList } from '@/lib/seo';
 import { url } from '@/lib/routes';
 
 export async function getStaticPaths() {
-  const articles = await getArticles();
-  return Object.keys(TAGS)
-    .map((tag) => ({ params: { tag }, props: { list: articles.filter((a) => a.data.tags.includes(tag)) } }))
-    .filter((p) => p.props.list.length > 0);
+  const tags = await getTags();
+  return tags.map((t) => ({ params: { tag: t.slug }, props: { t } }));
 }
-const { tag } = Astro.params as { tag: string };
-const { list } = Astro.props as { list: Article[] };
-const t = TAGS[tag];
+const { t } = Astro.props as { t: TagEntry };
+const groups = TAGGED_ORDER.map((type) => ({ type, items: t.items.filter((i) => i.type === type) })).filter(
+  (g) => g.items.length,
+);
+const description = tagDescription(t.slug, t.count);
 ---
 
 <Base
-  title={`#${t.name} 文章`}
-  description={`${t.description}共 ${list.length} 篇。`}
+  title={`#${t.name}`}
+  description={description}
+  noindex={t.count < TAG_INDEX_MIN}
   crumbs={[
     { name: '首页', path: '/' },
     { name: '标签', path: '/tags/' },
-    { name: t.name, path: url.tag(tag) },
+    { name: t.name, path: url.tag(t.slug) },
+  ]}
+  schema={[
+    itemList(
+      `#${t.name}`,
+      url.tag(t.slug),
+      t.items.map((i) => ({ name: i.title, path: i.url })),
+    ),
   ]}
 >
-  <PageHead eyebrow="标签" title={`#${t.name}`} lede={t.description} />
-  <div class="grid grid--wide">
-    {list.map((a) => (
-      <ArticleCard article={a} />
-    ))}
-  </div>
+  <PageHead eyebrow="标签" title={`#${t.name}`} lede={description} />
+  {groups.map((g) => (
+    <section class="section" aria-labelledby={`h-${g.type}`}>
+      <div class="section__head">
+        <h2 id={`h-${g.type}`}>
+          {TAGGED_TYPE_LABEL[g.type]}
+          <span class="section__count">{g.items.length}</span>
+        </h2>
+      </div>
+      <ul class="list-group" role="list">
+        {g.items.map((i) => (
+          <li>
+            <a class="list-row" href={i.url}>
+              <span class="list-row__main">
+                <span class="list-row__title">{i.title}</span>
+                <br />
+                <span class="list-row__sub">{i.summary}</span>
+              </span>
+              <span class="list-row__aside badge">{TAGGED_TYPE_LABEL[i.type]}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+  <p class="mt-8">
+    <a href="/tags/">← 全部标签</a>
+  </p>
 </Base>

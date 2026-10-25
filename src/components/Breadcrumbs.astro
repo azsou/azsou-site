@@ -6,7 +6,7 @@ interface Props {
 const { items } = Astro.props;
 ---
 
-<nav class="crumbs" aria-label="面包屑">
+<nav class="crumbs" aria-label="面包屑" data-pagefind-ignore>
   <ol>
     {items.map((c, i) => (
       <li>

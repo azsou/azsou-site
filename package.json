@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/pagefind.mjs",
     "check": "astro check",
     "serve": "node scripts/serve.mjs",
     "migrate:content": "node scripts/migrate-content.mjs",
@@ -49,6 +49,7 @@
     "eslint-plugin-astro": "^3.2.1",
     "html-validate": "^11.17.0",
     "jsdom": "^26.1.0",
+    "pagefind": "^1.5.2",
     "pg": "^8.23.1",
     "prettier": "^3.6.0",
     "prettier-plugin-astro": "^1.1.2",

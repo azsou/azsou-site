@@ -26,6 +26,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
 ---
 
 <Base
+  searchType="app"
   preloadImage={d.icon.variants ? undefined : d.icon.src}
   preloadSrcset={
     d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
@@ -71,7 +72,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
     hue={d.hue}
   >
     {related.length > 0 && (
-      <section class="section" aria-labelledby="h-related" slot="related">
+      <section class="section" aria-labelledby="h-related" slot="related" data-pagefind-ignore>
         <div class="section__head">
           <h2 id="h-related">相关应用</h2>
           <a href={url.appCategory(d.category)}>更多{CATEGORIES[d.category]} →</a>
@@ -84,7 +85,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
       </section>
     )}
     {articles.length > 0 && (
-      <section class="section" aria-labelledby="h-articles" slot="articles">
+      <section class="section" aria-labelledby="h-articles" slot="articles" data-pagefind-ignore>
         <h2 id="h-articles">相关文章</h2>
         <div class="grid mt-4">
           {articles.map((a) => (

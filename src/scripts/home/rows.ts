@@ -1,5 +1,5 @@
 /**
- * 首页横向滚动行的「上一组 / 下一组」按钮 + Ctrl/⌘K 聚焦首页搜索框。
+ * 首页横向滚动行的「上一组 / 下一组」按钮 + 快捷键提示（Ctrl/⌘K 打开全站搜索面板）。
  * - 按钮只在内容确实溢出时显示；到头 / 到尾时禁用。
  * - 减少动态效果（prefers-reduced-motion）时直接跳转，不做平滑滚动。
  * - 没有 JS 时行仍可原生滚动（触屏滑动、触控板、Shift+滚轮、聚焦后方向键）。
@@ -35,16 +35,9 @@ export function initRows(root: ParentNode = document) {
   }
 }
 
+/** Ctrl/⌘K 由全站外壳（site-shell.ts）打开搜索面板；这里只把提示里的 Ctrl 在苹果设备上换成 ⌘ */
 export function initSearchShortcut() {
-  const input = document.querySelector<HTMLInputElement>('[data-home-search]');
-  if (!input) return;
   const mac = /Mac|iPhone|iPad/.test(navigator.userAgent);
   const kbd = document.querySelector<HTMLElement>('[data-kbd-mod]');
   if (kbd && mac) kbd.textContent = '⌘';
-  addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-    e.preventDefault();
-    input.focus();
-    input.select();
-  });
 }

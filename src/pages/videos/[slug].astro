@@ -45,6 +45,7 @@ const description = `${d.title}：${d.summary}（${d.channel.name} 官方视频�
 ---
 
 <Base
+  searchType="video"
   title={d.title}
   description={description}
   preloadSrcset={{ srcset: thumbSrcset(slug, 'avif'), type: 'image/avif', sizes: PLAYER_SIZES }}
@@ -149,7 +150,7 @@ const description = `${d.title}：${d.summary}（${d.channel.name} 官方视频�
     </section>
 
     {tools.length > 0 && (
-      <section class="section" aria-labelledby="h-tools">
+      <section class="section" aria-labelledby="h-tools" data-pagefind-ignore>
         <div class="section__head">
           <h2 id="h-tools">视频里提到的工具</h2>
           <a href={url.ai()}>全部 AI 工具 →</a>
@@ -163,7 +164,7 @@ const description = `${d.title}：${d.summary}（${d.channel.name} 官方视频�
     )}
 
     {related.length > 0 && (
-      <section class="section" aria-labelledby="h-related">
+      <section class="section" aria-labelledby="h-related" data-pagefind-ignore>
         <div class="section__head">
           <h2 id="h-related">相关视频</h2>
           <a href={url.videoCategory(main)}>更多{VIDEO_CATEGORIES[main]}视频 →</a>

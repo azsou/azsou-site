@@ -23,7 +23,10 @@ const vercel = JSON.parse(fs.readFileSync(vercelPath, 'utf8'));
 // 其他安全头在 "/(.*)" 规则里（含 /_astro/ 静态资源，nosniff 对脚本有效）；
 // CSP 单独一条 "/((?!_astro/).*)"：CSP 只对文档与 Worker 生效，带哈希的 /_astro/ 脚本与样式不需要它，
 // 不下发能省下每个资源 ~700 字节响应头（Lighthouse 的 resource-summary 预算按含响应头的传输量计）。
-const CSP_SOURCE = '/((?!_astro/).*)';
+// /pagefind/（T7.1 全文搜索）单独一条 CSP：只有 Pagefind 的 Web Worker 需要 'wasm-unsafe-eval'，
+// Worker 的 CSP 取自它自己的响应头，所以页面 CSP 不放开 WASM；两条规则不能同时匹配（两个 CSP 头会叠加生效）。
+const CSP_SOURCE = '/((?!_astro/|pagefind/).*)';
+const PAGEFIND_SOURCE = '/pagefind/(.*)';
 const globalRule = vercel.headers.find((h) => h.source === '/(.*)');
 const cspRule = vercel.headers.find((h) => h.source === CSP_SOURCE);
 const header = (k) => globalRule?.headers.find((h) => h.key.toLowerCase() === k.toLowerCase());
@@ -140,6 +143,23 @@ for (const p of usedProviders)
 for (const v of csp['frame-src'] ?? [])
   if (!allowedFrames.has(v))
     fail.push(`CSP frame-src 不应包含 ${v}（只允许 Turnstile 与实际用到的视频嵌入域名）`);
+// Pagefind：Worker 的 CSP 只多一个 'wasm-unsafe-eval'，其余全部收紧；页面 CSP 不能有它
+const pfRule = vercel.headers.find((h) => h.source === PAGEFIND_SOURCE);
+const pfCsp = pfRule?.headers.find((h) => h.key === 'Content-Security-Policy');
+if (!pfCsp)
+  fail.push(`vercel.json 缺少 "${PAGEFIND_SOURCE}" 的 CSP（Pagefind Worker 需要 'wasm-unsafe-eval'）`);
+else {
+  const p = parse(pfCsp.value);
+  if (!(p['script-src'] ?? []).includes("'wasm-unsafe-eval'"))
+    fail.push("Pagefind CSP 缺少 'wasm-unsafe-eval'");
+  if ((p['default-src'] ?? []).join(' ') !== "'none'") fail.push("Pagefind CSP 的 default-src 应为 'none'");
+  for (const bad of ["'unsafe-eval'", "'unsafe-inline'", '*', 'http:', 'https:'])
+    if ((p['script-src'] ?? []).includes(bad)) fail.push(`Pagefind CSP script-src 不应包含 ${bad}`);
+  const toRe = (src) => new RegExp('^' + src + '$');
+  if (toRe(CSP_SOURCE).test('/pagefind/pagefind-worker.js')) fail.push('页面 CSP 规则不应匹配 /pagefind/');
+}
+if ((csp['script-src'] ?? []).includes("'wasm-unsafe-eval'"))
+  fail.push("页面 CSP 不应包含 'wasm-unsafe-eval'（只放在 /pagefind/ 的 Worker 上）");
 for (const bad of ["'unsafe-eval'", "'unsafe-inline'", '*', 'http:', 'https:'])
   if ((csp['script-src'] ?? []).includes(bad)) fail.push(`CSP script-src 不应包含 ${bad}`);
 if (!('upgrade-insecure-requests' in csp)) fail.push('CSP 缺少 upgrade-insecure-requests');

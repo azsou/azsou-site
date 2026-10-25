@@ -1,48 +1,14 @@
-import { search, TYPE_LABEL, type SearchItem } from '@/lib/search';
+/**
+ * /search/：站内内容（Pagefind 全文 + 拼音首字母，见 search/engine.ts）+ 社区数据库主题（pg_trgm RPC）。
+ */
+import { searchSite } from './search/engine';
+import { hitRow } from './search/render';
 
 const form = document.querySelector<HTMLFormElement>('[data-search-form]')!;
 const input = form.querySelector<HTMLInputElement>('input[name="q"]')!;
 const out = document.querySelector<HTMLElement>('[data-results]')!;
 const status = document.querySelector<HTMLElement>('[data-status]')!;
-let index: SearchItem[] | null = null;
-
-async function load() {
-  if (index) return index;
-  const res = await fetch('/search-index.json');
-  index = (await res.json()) as SearchItem[];
-  return index;
-}
-
-function render(items: SearchItem[], q: string) {
-  out.replaceChildren();
-  for (const it of items) {
-    const li = document.createElement('li');
-    const a = document.createElement('a');
-    a.className = 'list-row';
-    a.href = it.url;
-    const main = document.createElement('span');
-    main.className = 'list-row__main';
-    const t = document.createElement('span');
-    t.className = 'list-row__title';
-    t.textContent = it.title;
-    const s = document.createElement('span');
-    s.className = 'list-row__sub';
-    s.textContent = it.meta || it.summary || '';
-    main.append(t, document.createElement('br'), s);
-    const aside = document.createElement('span');
-    aside.className = 'list-row__aside badge';
-    aside.textContent = TYPE_LABEL[it.type];
-    a.append(main, aside);
-    li.append(a);
-    out.append(li);
-  }
-  out.hidden = items.length === 0;
-  status.textContent = q
-    ? items.length
-      ? `“${q}” 共 ${items.length} 条结果`
-      : `没有找到与“${q}”相关的内容。换个更短的关键词试试，如「塔防」「MCP」，也可以输入拼音首字母。`
-    : '';
-}
+let seq = 0;
 
 // ------------------------------------------------ 论坛数据库主题（pg_trgm RPC）
 const forumBox = document.querySelector<HTMLElement>('[data-forum-results]')!;
@@ -101,11 +67,33 @@ async function runForum(q: string) {
 
 async function run(q: string) {
   void runForum(q);
+  const my = ++seq;
+  const term = q.trim();
+  if (!term) {
+    out.replaceChildren();
+    out.hidden = true;
+    status.textContent = '';
+    return;
+  }
+  out.setAttribute('aria-busy', 'true');
   try {
-    const idx = await load();
-    render(q.trim() ? search(idx, q) : [], q.trim());
+    const { hits } = await searchSite(term, 50);
+    if (my !== seq) return;
+    out.replaceChildren(
+      ...hits.map((h) => {
+        const li = document.createElement('li');
+        li.append(hitRow(h));
+        return li;
+      }),
+    );
+    out.hidden = hits.length === 0;
+    status.textContent = hits.length
+      ? `“${term}” 共 ${hits.length} 条结果`
+      : `没有找到与“${term}”相关的内容。换个更短的关键词试试，如「塔防」「MCP」，也可以输入拼音首字母。`;
   } catch {
-    status.textContent = '搜索索引加载失败，请检查网络后重试。';
+    if (my === seq) status.textContent = '搜索索引加载失败，请检查网络后重试。';
+  } finally {
+    if (my === seq) out.removeAttribute('aria-busy');
   }
 }
 

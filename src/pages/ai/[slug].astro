@@ -23,6 +23,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
 ---
 
 <Base
+  searchType="tool"
   preloadSrcset={
     d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
   }
@@ -63,7 +64,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
     hue={toolHue(d)}
   >
     {related.length > 0 && (
-      <section class="section" aria-labelledby="h-related" slot="related">
+      <section class="section" aria-labelledby="h-related" slot="related" data-pagefind-ignore>
         <div class="section__head">
           <h2 id="h-related">相关工具</h2>
           <a href={url.aiCategory(main)}>更多{AI_CATEGORIES[main]} →</a>
