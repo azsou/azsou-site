@@ -120,7 +120,17 @@ test.describe('首页 /', () => {
     const track = page.locator('#row-featured');
     expect(await track.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+    // 失败时列出撑宽页面的元素（不在横向滚动容器里、右边超出视口的）
+    const culprits = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('body *')]
+        .filter((e) => e.getBoundingClientRect().right > innerWidth + 1)
+        .filter((e) => !e.parentElement?.closest('.srow, .home-chips ul, .tabbar'))
+        .slice(0, 5)
+        .map(
+          (e) => `${e.tagName.toLowerCase()}.${e.className} ${Math.round(e.getBoundingClientRect().right)}`,
+        ),
+    );
+    expect(overflow, culprits.join(' | ')).toBeLessThanOrEqual(1);
   });
 
   test('移动端：底部 TabBar 不遮挡最后的内容', async ({ page }, info) => {
