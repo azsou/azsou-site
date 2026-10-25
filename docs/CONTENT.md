@@ -68,7 +68,7 @@
 | `icon.src`                                    | ✅   | `/apps/icons/<slug>.png｜svg｜webp`，正方形，建议 1024×1024；圆角由页面裁切，**图片本身不要做圆角**                                                                               |
 | `icon.placeholder`                            |      | `true` = 临时图标（页面图标下方显示「临时图标」）                                                                                                                                 |
 | `icon.variants`                               |      | `true` = 同目录有 `<slug>-{64,128,256,512}.{avif,webp}`（`scripts/icons/render.mjs` 生成），页面用 `<picture>` 按尺寸选图                                                         |
-| `hue`                                         | ✅   | 主题色：`accent` `green` `teal` `blue` `orange`                                                                                                                                   |
+| `hue`                                         | ✅   | 主题色：`accent` `green` `teal` `blue` `orange` `purple`——卡片渐变封面与详情页横幅用它（纯 CSS），选和图标主色接近的一个                                                          |
 | `developer`                                   | ✅   | `name`、`url`（可选，站内路径或 https）、`type`：`self`（本站作者）或 `third-party`（第三方）                                                                                     |
 | `category`                                    | ✅   | `creative` 创作工具 · `browser-tools` 浏览器工具 · `utilities` 效率工具 · `ai` AI 工具 · `dev-tools` 开发工具 · `games` 游戏（新增分类改 `src/lib/app-store.ts` 的 `CATEGORIES`） |
 | `tags`                                        |      | 小写英文标签，用于「相关应用」                                                                                                                                                    |
@@ -235,6 +235,31 @@ node scripts/videos/sync.mjs --check-only   # 只核对（每周内容检查用�
 | 游戏 / 最新文章 / 作品 / 论坛 | 游戏按 `order`；文章按发布日期前 6 篇；作品按日期前 8 个；论坛为种子主题（新的在前 5 条） | —                                                                  |
 
 首页不显示评分、下载量、用户数；广告（P8）接入前也不预留占位框。
+
+## 6D. 视觉与结构化数据（T6.9 / T6.10）
+
+**色相与渐变封面**：应用、游戏、作品写 `hue`；AI 工具可选写 `hue`（不写就按主分类：Agent 蓝、Vibe Coding 青、CLI 绿、AI Bot 橙、MCP 绿）。
+卡片一角的柔光、游戏 / 作品卡片图片底色、详情页头部横幅都由这个色相用 CSS `color-mix()` 生成，不需要额外图片。
+颜色值在 `src/styles/global.css` 的 `[data-hue]`；新增色相要同时改 `src/lib/hue.ts` 的 `HUES`。
+
+**图标**：所有卡片 / 列表都用 `<picture>`（AVIF + WebP 的 1x / 2x，带宽高），前提是 `icon.variants: true` 且跑过 `scripts/icons/render.mjs`。
+首页 hero 图标墙按「链接 / 图标文件 / 品牌（开发者名）/ 图片内容」去重——同一家公司的多个工具只出现一次。
+
+**首页「试试」关键词**在 `src/lib/home.ts` 的 `TRY_QUERIES`：只放有意义、确实能搜到结果的词（E2E 逐个校验）。
+
+**结构化数据（JSON-LD）**——每页都有 WebSite（含 SearchAction）、Organization（logo）、Person；除首页 / 404 / 离线页外都有 BreadcrumbList（≥ 2 项，最后一项 = 本页）。
+
+| 页面                           | 类型                                                                                                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/apps/<slug>/`、`/ai/<slug>/` | SoftwareApplication：operatingSystem、applicationCategory、softwareVersion、image、作者 / 开发者；`offers` 只在价格明确时写（免费 → 0；付费且写了「¥18」这类金额 → 该金额），「免费 + 付费功能」、订阅、待定都不写 |
+| `/games/<slug>/`               | VideoGame（同时是 SoftwareApplication：operatingSystem Web、GameApplication），不写价格                                                                                                                            |
+| `/videos/<slug>/`              | VideoObject：只写核实过的字段（发布时间、时长查不到就不写），章节写成 Clip；不写播放量                                                                                                                             |
+| `/articles/<slug>/`            | BlogPosting：headline、image、datePublished / dateModified、作者（内联姓名）、publisher = Organization                                                                                                             |
+| `/works/<slug>/`、论坛主题     | CreativeWork、DiscussionForumPosting（commentCount = 页面上的回复数）                                                                                                                                              |
+| 首页与各列表页                 | ItemList                                                                                                                                                                                                           |
+
+**评分**：`aggregateRating` 只有在构建期数据里有真实评价（条数 ≥ 1）时才写。当前评价存在数据库里、页面加载后才读，所以静态 HTML 里一律不写；
+`npm run test:ld`（`tests/built/structured-data.test.ts`，构建后运行）逐页校验上面这些规则，并保证任何页面都没有评分、评价数、播放量。
 
 ## 7. 本地预览与检查
 
