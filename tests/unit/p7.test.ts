@@ -87,7 +87,7 @@ describe('T7.1 搜索：Pagefind 与站内索引合并', () => {
         .find((h: { source: string }) => h.source === src)
         .headers.find((x: { key: string }) => x.key === 'Content-Security-Policy').value as string;
     expect(csp('/pagefind/(.*)')).toContain("'wasm-unsafe-eval'");
-    expect(csp('/((?!_astro/|pagefind/).*)')).not.toContain('wasm');
+    expect(csp('/((?!_astro/|pagefind/|cms/|api/cms/).*)')).not.toContain('wasm');
     expect(new RegExp('^/((?!_astro/|pagefind/).*)$').test('/pagefind/pagefind-worker.js')).toBe(false);
   });
 });

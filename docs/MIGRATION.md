@@ -283,6 +283,29 @@ select relname, relrowsecurity from pg_class where relname in ('guestbook_entrie
 select count(*) from private.app_settings where key = 'community_ticket_secret';                    -- 1
 ```
 
+## 5E. 邮件订阅（0016，T7.8）
+
+```bash
+run db/migrations/0016_subscribers.sql;          status   # subscribers（RLS，无公开读写）+ 订阅 / 确认 / 退订 / 计数 RPC
+```
+
+- 依赖 0015（复用 `community_ticket_secret` 与票据函数）；纯增量、可重复执行，不改任何已有表。
+- 新表 `subscribers`：邮箱、语言（zh / en）、状态（pending → confirmed → unsubscribed）。**任何 API 角色（含版主、管理员）都不能直接读写**；
+  管理员只能用 `admin_subscriber_counts()` 看按状态 × 语言的数量，没有任何列出 / 导出邮箱的接口。
+- 不存明文令牌：确认令牌 32 字节随机数，只出现在确认邮件里，表里存 sha256（48 小时有效、用过即清空）；
+  退订令牌 = HMAC-SHA256(`COMMUNITY_TICKET_SECRET`, `'unsubscribe|' + 邮箱`)，同样只存 sha256——以后群发时用同一个密钥重新算出链接（换密钥会让旧退订链接失效）。
+- 写入只经 `/api/subscribe`（Turnstile + 票据）：每个访客 3 次 / 小时、10 次 / 天；同一邮箱 10 分钟内不重复发信；已订阅的邮箱再提交不发信，对访客的回答与新订阅相同（不泄露是否订阅）。
+- 确认 / 退订页是静态页面，带 `#token=` 调 `subscribe_confirm` / `subscribe_unsubscribe`（anon 可调用；需要访客点按钮，邮件客户端的链接预取不会误操作）。
+- **发信服务没配置时 `/api/subscribe` 返回 503，不写数据库、不发任何邮件**（页面提示改用 RSS）。配置方法见 DEPLOY.md §2A。
+
+**验证**：
+
+```sql
+select relrowsecurity from pg_class where relname = 'subscribers';                      -- true
+select has_table_privilege('anon', 'public.subscribers', 'select');                     -- false
+select has_table_privilege('authenticated', 'public.subscribers', 'select');            -- false
+```
+
 ## 附：最终执行顺序
 
 ```
@@ -294,6 +317,7 @@ select count(*) from private.app_settings where key = 'community_ticket_secret';
      → 0013_tool_comments（AI 工具页的评论）
      → 0014_video_comments（视频页的评论）
      → 0015_guestbook（留言板 + 友链申请；写入 community_ticket_secret）
+     → 0016_subscribers（邮件订阅，双重确认；依赖 0015 的密钥）
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

@@ -18,6 +18,8 @@ if (!fs.existsSync(path.join(ROOT, 'index.html'))) {
 function htmlFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(dir, e.name);
+    // /cms/ 是 Decap CMS 的单页后台（T7.7，noindex），不是站点页面
+    if (e.isDirectory() && path.relative(ROOT, p) === 'cms') return [];
     return e.isDirectory() ? htmlFiles(p) : e.name.endsWith('.html') ? [p] : [];
   });
 }
@@ -147,7 +149,7 @@ describe('every page', () => {
   });
 
   it('BreadcrumbList on every page except the home page and noindex system pages', () => {
-    const exempt = new Set(['/', '/404.html', '/offline/']);
+    const exempt = new Set(['/', '/en/', '/404.html', '/offline/']);
     for (const p of pages) {
       if (exempt.has(p.route)) {
         expect(ofType(p, 'BreadcrumbList')).toHaveLength(0);
@@ -164,7 +166,8 @@ describe('every page', () => {
         expect(isAbs(it.item)).toBe(true);
         expect(it.item.startsWith(SITE)).toBe(true);
       });
-      expect(items[0].item).toBe(`${SITE}/`);
+      // 英文页面（T7.6）的面包屑从英文首页开始
+      expect(items[0].item).toBe(p.route.startsWith('/en/') ? `${SITE}/en/` : `${SITE}/`);
       // 最后一项就是本页（canonical）——分页 / 动态外壳页的 canonical 允许不同
       if (p.canonical && !/\/page\/\d+\/$|\/forum\/t\/$/.test(p.route))
         expect(items.at(-1)!.item).toBe(p.canonical);
@@ -302,5 +305,47 @@ describe('other content types and listings', () => {
         expect(byRoute.has(it.url.replace(SITE, '')), `${r} → ${it.url} 不存在`).toBe(true);
       });
     }
+  });
+});
+
+describe('T7.6 bilingual pages: inLanguage and hreflang', () => {
+  const lang = (p: Page) => /<html lang="([^"]+)"/.exec(p.html)?.[1];
+  it('every page has one WebPage whose inLanguage matches <html lang>', () => {
+    for (const p of pages) {
+      const w = one(p, 'WebPage');
+      expect(w.inLanguage, p.route).toBe(lang(p));
+      expect(lang(p), p.route).toBe(p.route.startsWith('/en/') ? 'en' : 'zh-CN');
+    }
+  });
+  it('English detail pages: SoftwareApplication / VideoGame are inLanguage en; videos keep the video language', () => {
+    const en = pages.filter((p) => /^\/en\/(apps|ai|games|videos)\/[^/]+\/$/.test(p.route));
+    expect(en.length).toBeGreaterThanOrEqual(70);
+    for (const p of en) {
+      if (p.route.startsWith('/en/videos/')) expect(one(p, 'VideoObject').inLanguage, p.route).toBe('en');
+      else if (p.route.startsWith('/en/games/')) expect(one(p, 'VideoGame').inLanguage, p.route).toBe('en');
+      else expect(one(p, 'SoftwareApplication').inLanguage, p.route).toBe('en');
+    }
+  });
+  it('hreflang pairs are reciprocal and include x-default = Chinese', () => {
+    const alt = (p: Page) =>
+      Object.fromEntries(
+        [...p.html.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map((m) => [
+          m[1],
+          m[2],
+        ]),
+      );
+    let pairs = 0;
+    for (const p of pages) {
+      const a = alt(p);
+      if (!Object.keys(a).length) continue;
+      pairs++;
+      expect(Object.keys(a).sort(), p.route).toEqual(['en', 'x-default', 'zh-CN']);
+      expect(a['x-default']).toBe(a['zh-CN']);
+      expect([a.en, a['zh-CN']]).toContain(p.canonical);
+      const other = byRoute.get(new URL(a.en === p.canonical ? a['zh-CN'] : a.en).pathname);
+      expect(other, `${p.route} → 对应页面不存在`).toBeTruthy();
+      expect(alt(other!)).toEqual(a);
+    }
+    expect(pairs).toBeGreaterThanOrEqual(150);
   });
 });

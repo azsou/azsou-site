@@ -9,7 +9,8 @@ for (const route of ROUTES) {
     await expect(page).toHaveTitle(/AZ Studio/);
     await expect(page.locator('h1')).toHaveCount(1);
     await expect(page.locator('h1')).toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    // 中英双语（T7.6）：/en/ 下是英文页面
+    await expect(page.locator('html')).toHaveAttribute('lang', route.startsWith('/en/') ? 'en' : 'zh-CN');
     const desc = await page.locator('meta[name="description"]').getAttribute('content');
     expect(desc && desc.length, 'meta description').toBeGreaterThan(8);
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');

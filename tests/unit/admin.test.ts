@@ -183,6 +183,7 @@ describe('封禁时长 / 审计摘要 / 路由', () => {
     );
     expect(ADMIN_SECTIONS.filter((s) => s.role === 'admin').map((s) => s.id)).toEqual([
       'links',
+      'subscribers',
       'audit',
       'settings',
       'data',

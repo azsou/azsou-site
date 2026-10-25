@@ -41,6 +41,34 @@
 
 `PUBLIC_*` 变量在**构建时**写入页面，修改后需要 Redeploy 才生效。
 
+### 2A. 邮件订阅（T7.8，可选；不配置时订阅表单提示「暂未开放」，RSS 照常可用）
+
+| 变量             | 环境                 | 说明                                                                                                    |
+| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------- |
+| `EMAIL_FROM`     | Production / Preview | 发件人，如 `AZ Studio <hello@azsou.com>`（域名需在发信服务商验证 SPF / DKIM）。**不设 = 整个功能关闭**  |
+| `EMAIL_PROVIDER` | Production / Preview | `resend` 或 `smtp`；不写时有 `RESEND_API_KEY` 用 Resend，有 `SMTP_HOST` 用 SMTP                         |
+| `RESEND_API_KEY` | Production / Preview | Resend 的 API Key（只需 Sending access）                                                                |
+| `SMTP_HOST` 等   | Production / Preview | `SMTP_HOST`、`SMTP_PORT`（默认 465）、`SMTP_USER`、`SMTP_PASS`、`SMTP_SECURE`（默认端口 465 时为 true） |
+
+- 还需要：生产库执行 0016（MIGRATION.md §5E）、`COMMUNITY_TICKET_SECRET`（与留言板共用）、Turnstile 密钥。
+- 流程：`/subscribe/` → `/api/subscribe`（Turnstile → 票据 → `subscribe_request`）→ 发确认信（含确认与退订链接）→ 访客在 `/subscribe/confirm/#token=…` 点「确认订阅」。
+- 任一配置缺失时 `/api/subscribe` 返回 503，**不写数据库、不发信**。CI / E2E 注入内存发信器，永远不会真的发信。
+- 后台 `/admin/subscribers/` 只显示数量；发通讯（群发）不在本期，以后实现时用同一个密钥算退订链接（见 0016 文件头）。
+- 上线后验证：用自己的邮箱订阅一次 → 收到确认信 → 确认 → 后台「已订阅」+1 → 点信里的退订链接 → 「已退订」+1。
+
+### 2B. 内容后台 `/cms/`（T7.7，Decap CMS + GitHub）
+
+1. GitHub → Settings → Developer settings → **OAuth Apps → New OAuth App**：
+   Homepage URL `https://azsou.com`，Authorization callback URL `https://azsou.com/api/cms/callback`。
+2. Vercel 环境变量（Production）：`CMS_GITHUB_CLIENT_ID`、`CMS_GITHUB_CLIENT_SECRET`。不配置时 `/api/cms/*` 返回 503，`/cms/` 打不开登录。
+3. 打开 `https://azsou.com/cms/` → 用 GitHub 登录（账号要对 `azsou/azsou-site` 有写权限）。每次保存都会开一个 `cms/…` 分支 + Pull Request（编辑工作流），
+   CI 跑完 schema / 构建 / 测试后在 GitHub 合并才会上线；不会直接推 `main`。
+4. 本地编辑（不需要 OAuth）：一个终端 `npx decap-server`，另一个 `npm run dev`，打开 `http://localhost:4321/cms/`，改动直接写进工作区文件。
+5. 安全：`/cms/` 单独一条 CSP（`vercel.json` 的 `"/cms/(.*)"`，Decap 需要 `'unsafe-eval'` 与 jsDelivr，脚本带 SRI），全站 CSP 不受影响；
+   `/api/cms/*` 不走全站 CSP，回调页自带 nonce CSP。`/cms/` 有 noindex 与 robots Disallow，不进 sitemap / 站内搜索。
+6. 升级 Decap：改 `public/cms/index.html` 里的版本号并重新计算 SRI（`curl -sL <url> | openssl dgst -sha384 -binary | base64`）。
+7. 限制：图标 / 截图要用 `scripts/icons/render.mjs` 生成变体，CMS 里只填路径；正文是 HTML，用纯文本框编辑。
+
 ## 3. 域名（Settings → Domains）
 
 1. `azsou.com` → Production（主域名）。

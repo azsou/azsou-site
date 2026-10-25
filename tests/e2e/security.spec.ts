@@ -10,7 +10,7 @@ const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
   headers: { source: string; headers: { key: string; value: string }[] }[];
 };
 const CSP = vercel.headers
-  .find((h) => h.source === '/((?!_astro/|pagefind/).*)')!
+  .find((h) => h.source === '/((?!_astro/|pagefind/|cms/|api/cms/).*)')!
   .headers.find((h) => h.key === 'Content-Security-Policy')!.value;
 
 const PAGES = [

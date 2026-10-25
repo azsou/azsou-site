@@ -276,3 +276,11 @@ E2E 测试用的夹具应用在 `src/content/apps/_e2e/`，只有设置 `AZ_E2E_
 - **标签**：内容里写 ASCII slug（`"tags": ["mcp", "open-source"]`），第一次用到的新标签在 `src/lib/tags.ts` 登记显示名（可选写一句说明）；`npm run test:unit` 会检查没有漏登记。`/tags/` 的数量自动统计；只有 1 个条目的标签页不进搜索引擎索引。
 - **作者账号**（页脚图标、`/links/`、Person.sameAs）：`src/data/social.json`。只填确实存在的账号，并在 `verified` 写明在哪里核实的；`url` 为 `null` 的不会显示。目前只有 GitHub（`azsou`，本仓库所有者）与本站 RSS；B 站 / YouTube 地址待站长提供。
 - **全文搜索**：`npm run build` 之后自动生成 Pagefind 索引（`scripts/pagefind.mjs`），只收内容详情页的正文（`Base.astro` 的 `searchType`）；面包屑、讨论区、「相关」区块带 `data-pagefind-ignore` 不进索引。新增内容类型时给它的详情页加 `searchType`。
+
+## 8. 英文版与内容后台（T7.6 / T7.7）
+
+- **英文文案**：应用 / AI 工具 / 视频 / 游戏的 frontmatter 可以加 `en`：`{ "title"?, "subtitle"?, "summary" }`（视频只有 `summary`，英文标题用 `originalTitle`；游戏另有 `kind` / `status` / `genre`）。
+  写了 `en` 才会生成 `/en/…` 页面、hreflang 与英文 RSS 条目。只写如实的翻译，不要机器直译整段正文；英文详情页会链接中文全文。
+- **文章**目前都没有英文版：`/en/articles/` 列出标题并标「Chinese only」，链接中文原文。以后要加英文文章，先在 schema 里加英文正文字段再生成 `/en/articles/<slug>/`。
+- **内容后台** `/cms/`（Decap CMS）可以编辑应用、AI 工具、文章（包括 `en` 字段）。保存 = 在 GitHub 开 Pull Request，CI 会用同一套 zod schema 校验；
+  不合规的字段（例如副标题超过 30 字、日期格式不对）在 CMS 里就会提示。新增字段时同时改 `src/content.config.ts` 与 `public/cms/config.yml`（`tests/unit/p7b.test.ts` 会检查）。

@@ -121,9 +121,11 @@ P6 完成（2026-10-25）。
 - [x] T7.3 访客留言板 `/guestbook/`（允许匿名，需 Turnstile；审核；迁移 0015——0014 已用于 T6.7 视频页评论）（2026-10-25：昵称 + 留言，Turnstile 服务端校验后由 `/api/submit/guestbook` 签发 HMAC 票据，数据库 RPC 核对票据 / 一次性 / 限流后写入 pending；公开只读 approved；后台 `/admin/guestbook/` 版主 / 管理员通过、拒绝、退回、删除，写审计；登录用户不自动通过（规格未要求）。生产需配置 `COMMUNITY_TICKET_SECRET`，见 MIGRATION.md §5D）
 - [x] T7.4 SNS 图标与友链页 `/links/`（含友链申请表单）（2026-10-25：作者账号只显示能核实的——GitHub `azsou`（本仓库所有者）与本站 RSS；B 站 / YouTube 找不到地址，整项隐藏（`src/data/social.json`）；Person.sameAs 同步；友链申请与留言同一套 Turnstile + 票据，存 0015 的 `friend_links`（同一迁移，见 MIGRATION.md §5D），联系方式只有管理员可见，`/admin/links/` 仅管理员审核）
 - [x] T7.5 主题跟随系统 + 手动切换（2026-10-25：导航按钮在 跟随系统 → 浅色 → 深色 间切换，存 localStorage `az-theme`，跨标签页同步；`<head>` 内联脚本首帧前写入 `data-theme`（CSP 哈希），无闪烁；深色变量 = 系统深色且未手动选浅色，或手动深色；theme-color 同步）
-- [ ] T7.6 中英双语 `/en/`
-- [ ] T7.7 可视化内容后台（Keystatic 或 Decap，基于 Git）：应用 / 文章 / AI 工具
-- [ ] T7.8 邮件 / RSS 订阅
+- [x] T7.6 中英双语 `/en/`（2026-10-25：Astro i18n，中文默认在根路径、英文在 `/en/`；只有写了英文文案的条目才有英文页（内容集合新增可选 `en` 字段：8 个应用、30 个 AI 工具、24 个视频、9 个游戏全部人工翻译副标题 / 简介，正文仍是中文，英文详情页明确链接「阅读中文版」）；英文首页、应用、AI 工具、视频、游戏列表与详情，文章只列标题并标「Chinese only」链接中文原文（不机翻）；`<html lang>`、hreflang zh-CN / en / x-default（= 中文）、og:locale、保留路径的语言切换（没有英文版的页面切到 `/en/`）、英文导航 / 页脚 / 面包屑 / 搜索面板；每页 WebPage.inLanguage，英文详情的 SoftwareApplication / VideoGame 写 inLanguage en；sitemap 用 xhtml:link 互相标注；Pagefind 按 `<html lang>` 自动分中英两套索引，英文页只搜英文，各自 ≤ 120 KB；英文 RSS `/en/rss.xml`）
+- [x] T7.7 可视化内容后台（2026-10-25：选 **Decap CMS**，不用 Keystatic——Keystatic 需要 React + 按需渲染的 `/keystatic` 与 `/api/keystatic` 路由（本地 / CI 的静态测试链没有等价运行时），而且只能把 frontmatter 写成 YAML，会把仓库现有的 JSON frontmatter 全部改写；Decap 是纯静态单页，`format: json-frontmatter` 原样读写。`/cms/`：应用 / AI 工具 / 文章三个集合，字段与 zod schema 对应（单元测试检查选项一致、现有字段都声明了，保存不丢字段）；GitHub 存储 `azsou/azsou-site` + 编辑工作流（每次保存开 PR，CI 通过后站长合并）；本地 `npx decap-server` 直接读写文件；登录经 `/api/cms/auth` → GitHub OAuth App（`CMS_GITHUB_CLIENT_ID` / `CMS_GITHUB_CLIENT_SECRET`，未配置 503），state Cookie 防 CSRF，回调页 nonce 脚本只向同源 postMessage；Decap 3.17.1 从 jsDelivr 加载并带 SRI；`/cms/` 单独一条 CSP（Decap 的 schema 校验要 `'unsafe-eval'`，只放在这一条上），全站 CSP 不变；noindex + X-Robots-Tag + robots Disallow，不进 sitemap / Pagefind / 逐页检查）
+- [x] T7.8 邮件 / RSS 订阅（2026-10-25：新增 `/apps/rss.xml`、`/videos/rss.xml`、`/en/rss.xml` 与 JSON Feed 1.1 `/feed.json`（原有全站 / 文章 / 论坛 RSS 保留）；`/subscribe/` 与 `/en/subscribe/`：邮件订阅（双重确认）+ 全部订阅源；迁移 0016（`subscribers`，任何角色都不能直接读写，不存明文令牌，限流，确认 48 小时有效，退订幂等）；Vercel Function `/api/subscribe`：Turnstile + 与留言板同一套票据，发信抽象 Resend / SMTP（`EMAIL_PROVIDER`、`EMAIL_FROM`、`RESEND_API_KEY` 或 `SMTP_*`），**没配置就 503，不写库不发信**；CI 与 E2E 用内存发信器，从不真的发信；确认 / 退订页（中英，noindex，点按钮才执行）；后台 `/admin/subscribers/` 只显示数量，没有导出邮箱的接口）
+
+P7 完成（2026-10-25）。生产还需：执行 0016、配置发信服务与 CMS 的 GitHub OAuth App（DEPLOY.md §2A / §2B）。
 
 ### P8 AdSense 变现
 - [ ] T8.1 清理所有占位内容 + 25–30 篇原创文章计划
@@ -164,13 +166,13 @@ P6 完成（2026-10-25）。
 2. `db/shim/supabase.sql`（只做存在性检查）
 3. `0002_roles_columns.sql` → `0003_social_tables.sql` → `0004_functions_triggers.sql` → `0005_privileges.sql` → `0006_rls.sql`
 4. `0007_signup_guard.sql`（钩子函数，**先不启用**）
-5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）→ `0013_tool_comments.sql`（AI 工具页评论）→ `0014_video_comments.sql`（视频页评论）→ `0015_guestbook.sql`（留言板 + 友链，另需写入 `community_ticket_secret`）
+5. `0008_forum_search.sql` → `0009_admin.sql` → `0010_ugc_images.sql` → `0011_forum_category_guard.sql` → `0012_app_store.sql`（P6 应用商店）→ `0013_tool_comments.sql`（AI 工具页评论）→ `0014_video_comments.sql`（视频页评论）→ `0015_guestbook.sql`（留言板 + 友链，另需写入 `community_ticket_secret`）→ `0016_subscribers.sql`（邮件订阅，双重确认）
 6. 每执行完一个文件跑一次 `db/verify/status.sql`：该步及之前的行都为 true
 7. 合并 PR #2（合并即上线）→ `node scripts/check-csp.mjs --url https://azsou.com`
 8. 写入 `signup_ticket_secret`，在 Dashboard 启用 Before User Created 钩子，开启邮箱确认
 9. 上线检查（MIGRATION.md §7）→ 提交站点地图 `sitemap-index.xml` 与 `forum/sitemap-threads.xml`（Google / Bing / 百度）
 
-（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0015 均可重复执行、向后兼容 V72。）
+（`0001_baseline.sql` 是生产现状的精确还原，只用于本地/CI 建库，**不要**在生产执行。0002–0016 均可重复执行、向后兼容 V72。）
 
 
 ## 5. P4 设计说明
