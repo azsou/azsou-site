@@ -320,6 +320,13 @@ const games = defineCollection({
     facts: z.array(fact),
     log: z.array(z.object({ version: z.string(), date, note: z.string() })),
     issues: z.string(),
+    /** 试玩地址（站内路径或 https 外链）；有值时详情页首屏主按钮是「试玩」（T9.12） */
+    playUrl: z
+      .string()
+      .regex(/^(\/|https:\/\/)/)
+      .optional(),
+    /** 演示视频：本站 videos 集合的 slug；没有试玩时主按钮是「观看演示」 */
+    demoVideo: z.string().optional(),
     en: enText
       .omit({ subtitle: true })
       .extend({ kind: z.string(), status: z.string(), genre: z.string() })

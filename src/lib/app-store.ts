@@ -184,7 +184,8 @@ export type Sort = (typeof SORTS)[number];
 export const SORT_LABEL: Record<Sort, string> = { new: '最新', hot: '热门', rating: '评分' };
 
 /** 目录每页条数（静态分页 /apps/page/N/ 与客户端筛选结果共用） */
-export const PAGE_SIZE = 6;
+/** 每页 24（T9.12：列表页统一每页 24，与 --cols 断点表 2 / 3 / 4 / 6 列都能整除） */
+export const PAGE_SIZE = 24;
 
 // ------------------------------------------------------------ 平台识别 ----
 

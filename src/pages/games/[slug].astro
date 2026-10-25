@@ -4,6 +4,7 @@ import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
 import Comments from '@/components/Comments.astro';
+import GameCta from '@/components/games/GameCta.astro';
 import { getGames, type Game } from '@/lib/content';
 import { url, ogArt } from '@/lib/routes';
 import { ogFor } from '@/lib/og-routes';
@@ -61,6 +62,7 @@ const description = excerpt(bodyHtml, 110);
         最后核对 <time datetime={d.date}>{formatDate(d.date)}</time>
       </span>
     </div>
+    <GameCta playUrl={d.playUrl} demoVideo={d.demoVideo} />
   </header>
   <div class="split">
     <div>

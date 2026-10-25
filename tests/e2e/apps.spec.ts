@@ -198,20 +198,20 @@ test.describe('应用详情页', () => {
   });
 });
 
+/** 构建含 _e2e 夹具时的应用总数（PAGE_SIZE = 24 一页放下） */
+const ALL_APPS = 9;
+
 test.describe('应用目录', () => {
-  test('静态分页：第 1 页 6 个，第 2 页其余；分页链接可用', async ({ page }) => {
+  test('每页 24（T9.12）：当前应用一页放下，不出分页导航，也不生成 /apps/page/2/', async ({
+    page,
+    request,
+  }) => {
     await page.goto('/apps/');
     await expect(page.locator('h1')).toHaveText('应用');
-    await expect(cards(page)).toHaveCount(6);
-    await expect(page.locator('[data-catalog-status]')).toContainText('第 1 / 2 页');
-    await page.locator('[data-catalog-pages]').getByRole('link', { name: '下一页' }).click();
-    await expect(page).toHaveURL(/\/apps\/page\/2\/$/);
-    await expect(cards(page)).toHaveCount(3);
-    await expect(page.locator('[data-catalog-pages] [aria-current="page"]')).toHaveText('2');
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
-      'href',
-      'https://azsou.com/apps/page/2/',
-    );
+    await expect(cards(page)).toHaveCount(ALL_APPS);
+    await expect(page.locator('[data-catalog-status]')).not.toContainText('页');
+    await expect(page.locator('[data-catalog-pages]')).toBeHidden();
+    expect((await request.get('/apps/page/2/')).status()).toBe(404);
   });
 
   test('按平台 / 分类 / 价格筛选，状态写进地址，刷新后恢复', async ({ page }) => {
@@ -238,9 +238,9 @@ test.describe('应用目录', () => {
     await catalogReady(page);
     await expect(page.getByLabel('分类', { exact: true })).toHaveValue('browser-tools');
     await expect(cards(page)).toHaveCount(2);
-    // 回到默认：恢复静态第 1 页
+    // 回到默认：恢复静态第 1 页（每页 24，全部应用）
     await page.getByLabel('分类', { exact: true }).selectOption('');
-    await expect(cards(page)).toHaveCount(6);
+    await expect(cards(page)).toHaveCount(ALL_APPS);
     await expect(page).toHaveURL(/\/apps\/$/);
   });
 
@@ -270,10 +270,9 @@ test.describe('应用目录', () => {
     await expect(cards(page).nth(1)).toContainText('Capture Kit');
     await expect(cards(page).nth(1).locator('[data-card-stats]')).toHaveText('★ 4.7（3 条评价）');
     await expect(page.locator('[data-catalog-status]')).toContainText('按评分排序');
-    // 结果分页（客户端）
-    await page.locator('[data-catalog-pages]').getByRole('button', { name: '第 2 页' }).click();
-    await expect(cards(page)).toHaveCount(3);
-    await expect(page).toHaveURL(/sort=rating&page=2/);
+    // 每页 24：一页放下，不出客户端分页
+    await expect(cards(page)).toHaveCount(ALL_APPS);
+    await expect(page.locator('[data-catalog-pages]')).toBeHidden();
   });
 
   test('统计不可用时热门 / 评分退回最新并提示', async ({ page }) => {
@@ -281,7 +280,7 @@ test.describe('应用目录', () => {
     await page.goto('/apps/?sort=hot');
     await catalogReady(page);
     await expect(page.locator('[data-catalog-status]')).toContainText('统计数据暂时不可用，已按最新排序');
-    await expect(cards(page)).toHaveCount(6);
+    await expect(cards(page)).toHaveCount(ALL_APPS);
   });
 
   test('分类页与平台页', async ({ page }) => {
@@ -361,7 +360,7 @@ test.describe('下载中转 /go/', () => {
     const sm = await (await request.get('/sitemap-0.xml')).text();
     expect(sm).not.toContain('/go/');
     expect(sm).toContain('https://azsou.com/apps/category/ai/');
-    expect(sm).toContain('https://azsou.com/apps/page/2/');
+    expect(sm).not.toContain('https://azsou.com/apps/page/');
     expect(await (await request.get('/robots.txt')).text()).toContain('Disallow: /go/');
   });
 });

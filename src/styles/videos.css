@@ -211,6 +211,13 @@
     margin-top: var(--space-4);
     font-size: var(--fs-meta);
   }
+  /* T9.12：视频详情正文行长 ≤ --reading-max（播放器与章节仍用 960 宽） */
+  .video-lede,
+  .video-copyright,
+  .video-body,
+  .video-note {
+    max-width: var(--reading-max);
+  }
   .video-body > * + * {
     margin-top: var(--space-3);
   }

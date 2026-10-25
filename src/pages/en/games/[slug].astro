@@ -4,6 +4,7 @@ import { formatDate } from '@/lib/dates';
 import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
+import GameCta from '@/components/games/GameCta.astro';
 import { getGames, type Game } from '@/lib/content';
 import { url, ogArt } from '@/lib/routes';
 import { ogFor } from '@/lib/og-routes';
@@ -50,6 +51,7 @@ const path = `/en/games/${game.id}/`;
       <p class="eyebrow">{en.kind}</p>
       <h1>{title}</h1>
       <p>{en.genre}</p>
+      <GameCta playUrl={d.playUrl} demoVideo={d.demoVideo} en />
     </header>
     <div class="hero-media" data-hue={d.hue}>
       <Art slot={d.art} eager alt={`${title} artwork`} />
