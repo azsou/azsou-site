@@ -1,0 +1,40 @@
+{
+  "$description": "间距 13 档 / 控件高 / 圆角 5 档 / 动效 / z-index 7 档 / 断点 / 布局 —— DESIGN-SYSTEM §1、§4、§5、§8、§21。数值单位 px。",
+  "space": {
+    "0": 0,
+    "half": 2,
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "8": 32,
+    "10": 40,
+    "12": 48,
+    "16": 64,
+    "20": 80
+  },
+  "control": { "xs": 28, "sm": 36, "md": 44, "lg": 52 },
+  "radius": { "xs": 6, "sm": 10, "md": 14, "lg": 20, "pill": 999 },
+  "duration": { "instant": "80ms", "fast": "160ms", "base": "240ms", "slow": "360ms", "shimmer": "1.2s" },
+  "easing": {
+    "out": "cubic-bezier(0.22, 1, 0.36, 1)",
+    "in": "cubic-bezier(0.4, 0, 1, 1)",
+    "spring": "cubic-bezier(0.32, 0.72, 0, 1)"
+  },
+  "z": { "base": 0, "raised": 10, "sticky": 100, "overlay": 200, "modal": 300, "toast": 400, "tooltip": 500 },
+  "breakpoint": { "sm": 600, "md": 900, "lg": 1200, "xl": 1600 },
+  "layout": {
+    "container": 1200,
+    "container-xl": 1360,
+    "reading-max": 680,
+    "gutter-base": 16,
+    "gutter-sm": 24,
+    "gutter-md": 32,
+    "nav-h": 52,
+    "tabbar-h": 56,
+    "touch": 44
+  },
+  "icon": { "xs": 32, "sm": 40, "md": 56, "lg": 72, "xl": 112, "squircle": "22.37%" }
+}

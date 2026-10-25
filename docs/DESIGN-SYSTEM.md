@@ -48,13 +48,15 @@
 | `separator`                                | rgba(60,60,67,.16)                                                                                                    | rgba(84,84,88,.6)                     | 分隔线、描边                                                              |
 | `label`                                    | #1D1D1F                                                                                                               | #F5F5F7                               | 主文字                                                                    |
 | `label-2`                                  | rgba(60,60,67,.82)                                                                                                    | rgba(235,235,245,.72)                 | 次文字（≥ 4.5:1）                                                         |
-| `label-3`                                  | rgba(60,60,67,.70)                                                                                                    | rgba(235,235,245,.6)                  | 元信息（≥ 4.5:1，仅 ≥ 13px）                                              |
+| `label-3`                                  | rgba(60,60,67,.76)                                                                                                    | rgba(235,235,245,.6)                  | 元信息（≥ 4.5:1，仅 ≥ 13px）                                              |
 | `accent`（品牌）                           | #2F7D4F                                                                                                               | #3FB56C                               | 主按钮、选中态、品牌强调                                                  |
 | `on-accent`                                | #FFFFFF                                                                                                               | #00210E                               | 主按钮文字                                                                |
 | `link`                                     | #0062C4                                                                                                               | #5EA8FF                               | 文内链接（**只在正文段落里**；UI 内的「查看全部」等用 accent 或 label-2） |
 | `success / warning / danger / info`        | #176B2E / #B35C00 / #C42B1C / #0058B0                                                                                 | #4CD27A / #FFB340 / #FF6B5E / #6AB0FF | 状态色，配 12% 透明底做徽标                                               |
-| `focus`                                    | 0 0 0 3px rgba(0,88,176,.45)                                                                                          | 0 0 0 3px rgba(94,168,255,.6)         | 焦点环                                                                    |
+| `focus`                                    | #0058B0（不透明 outline）                                                                                             | #64A8FF                               | 焦点环                                                                    |
 | `hue-{blue,green,teal,orange,purple,pink}` | 6 个封面色相，浓度 `--cover-strong 22%` / `--cover-soft 8%`（深色 28% / 12%），渐变一律「左上 strong → 右下 surface」 |                                       | 卡片封面柔光                                                              |
+
+> T9.1 落地注：`label-3` 浅色由 .70 改为 .76（.70 在 #F5F5F7 上只有 4.30:1，不满足 4.5:1，单测 `tests/unit/tokens.test.ts` 守护）；`focus` 改为不透明色画 outline（§16）。数值以 `tokens/*.json` 为准。
 
 规则：一个视图里**只有一个主色按钮**；状态徽标只用 4 个状态色；禁止在组件里写 hex / rgb（token 文件除外）。
 

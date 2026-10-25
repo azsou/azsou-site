@@ -1,0 +1,11 @@
+{
+  "$comment": "T9.2 时的存量文件：token lint 只报 warning；T9.21 清零后删除本文件",
+  "files": [
+    "src/styles/admin.css",
+    "src/styles/apps.css",
+    "src/styles/community.css",
+    "src/styles/global.css",
+    "src/styles/home.css",
+    "src/styles/videos.css"
+  ]
+}

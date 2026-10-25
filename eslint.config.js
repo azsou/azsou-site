@@ -33,6 +33,7 @@ const browserAndNode = Object.fromEntries(
 export default [
   {
     ignores: [
+      '.design-audit/',
       'legacy/**',
       'dist/**',
       'dist-ads/**',

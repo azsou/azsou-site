@@ -13,7 +13,7 @@
     "check": "astro check",
     "serve": "node scripts/serve.mjs",
     "migrate:content": "node scripts/migrate-content.mjs",
-    "lint": "eslint . && prettier --check .",
+    "lint": "eslint . && prettier --check . && npm run lint:css",
     "format": "prettier --write .",
     "test": "npm run test:unit && npm run test:links && npm run test:html && npm run test:ld && npm run test:e2e",
     "test:unit": "vitest run",
@@ -33,7 +33,12 @@
     "prebuild": "node scripts/csp-google.mjs check",
     "csp:google": "node scripts/csp-google.mjs",
     "test:ads": "vitest run -c vitest.ads.config.ts",
-    "build:ads": "bash scripts/build-ads-variant.sh"
+    "build:ads": "bash scripts/build-ads-variant.sh",
+    "tokens": "node scripts/design/build-tokens.mjs",
+    "tokens:check": "node scripts/design/build-tokens.mjs --check",
+    "lint:css": "stylelint \"src/**/*.{css,astro}\"",
+    "test:design": "playwright test -c playwright.design.config.ts --project=design",
+    "test:visual": "playwright test -c playwright.design.config.ts --project=visual"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.19",
@@ -57,8 +62,10 @@
     "jsdom": "^26.1.0",
     "pagefind": "^1.5.2",
     "pg": "^8.23.1",
+    "postcss-html": "^1.8.1",
     "prettier": "^3.6.0",
     "prettier-plugin-astro": "^1.1.2",
+    "stylelint": "^16.26.1",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.72.0",
     "vitest": "^3.2.4"
