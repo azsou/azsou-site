@@ -365,7 +365,13 @@
     gap: 2px;
     min-height: var(--tabbar-h);
     font-size: var(--fs-caption);
-    color: var(--c-label-3);
+    color: var(--c-label-2);
+  }
+  /* 底部 Tab 的文字很小（caption）：毛玻璃只留 8% 透明度，下面滚过深色 / 彩色块时对比度仍 ≥ 4.5（WebKit axe 曾在 /guestbook/ 报 color-contrast） */
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .tabbar.glass {
+      background: color-mix(in srgb, var(--c-glass-solid) 92%, transparent);
+    }
   }
   .tabbar a:hover {
     text-decoration: none;
