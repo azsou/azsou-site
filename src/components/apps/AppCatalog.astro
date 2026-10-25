@@ -5,6 +5,7 @@
  * 有 JS 时：筛选（平台 / 分类 / 价格）与排序（最新 / 热门 / 评分）在浏览器里完成（src/scripts/apps/catalog.ts），
  * 热门 = 真实下载次数，评分 = 真实用户评价的平均分；数据库不可达时退回「最新」并提示。
  */
+import MoreFilters from '@/components/ui/MoreFilters.astro';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import AppCard from '@/components/AppCard.astro';
@@ -77,80 +78,66 @@ const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
 >
   <PageHead eyebrow={eyebrow} title={title} lede={lede} />
 
-  <nav class="chip-nav" aria-label="按分类浏览">
-    <a class="chip" href={url.apps()} aria-current={!fixedCategory && !fixedPlatform ? 'page' : undefined}>
-      全部 <span class="chip__n">{all.length}</span>
-    </a>
-    {cats.map((c) => (
-      <a class="chip" href={url.appCategory(c)} aria-current={fixedCategory === c ? 'page' : undefined}>
-        {CATEGORIES[c]} <span class="chip__n">{count((a) => a.category === c)}</span>
+  <!--
+    T9.12 单套筛选：分类只用常驻胶囊（链接到可索引的分类页）；平台 / 价格 / 排序收进「更多筛选」。
+    原来的平台胶囊与分类下拉和这里重复，已去掉（平台页 /apps/platform/… 仍由首页与详情页链接）。
+  -->
+  <div class="filter-bar">
+    <nav class="chip-nav" aria-label="按分类浏览">
+      <a class="chip" href={url.apps()} aria-current={!fixedCategory && !fixedPlatform ? 'page' : undefined}>
+        全部 <span class="chip__n">{all.length}</span>
       </a>
-    ))}
-  </nav>
-  <nav class="chip-nav" aria-label="按平台浏览">
-    {plats.map((p) => (
-      <a
-        class="chip chip--quiet"
-        href={url.appPlatform(p)}
-        aria-current={fixedPlatform === p ? 'page' : undefined}
-      >
-        {PLATFORM_LABEL[p]} <span class="chip__n">{count((a) => a.platforms.includes(p))}</span>
-      </a>
-    ))}
-  </nav>
+      {cats.map((c) => (
+        <a class="chip" href={url.appCategory(c)} aria-current={fixedCategory === c ? 'page' : undefined}>
+          {CATEGORIES[c]} <span class="chip__n">{count((a) => a.category === c)}</span>
+        </a>
+      ))}
+    </nav>
 
-  <div
-    class="catalog-filter panel"
-    data-catalog-filter
-    data-base={base}
-    data-fixed-category={fixedCategory}
-    data-fixed-platform={fixedPlatform}
-    role="group"
-    aria-label="筛选与排序"
-  >
-    <div class="field">
-      <label for="cf-platform">平台</label>
-      <select id="cf-platform" name="platform" disabled={!!fixedPlatform}>
-        <option value="">全部平台</option>
-        {plats.map((p) => (
-          <option value={p} selected={fixedPlatform === p}>
-            {PLATFORM_LABEL[p]}
-          </option>
-        ))}
-      </select>
-    </div>
-    <div class="field">
-      <label for="cf-category">分类</label>
-      <select id="cf-category" name="category" disabled={!!fixedCategory}>
-        <option value="">全部分类</option>
-        {cats.map((c) => (
-          <option value={c} selected={fixedCategory === c}>
-            {CATEGORIES[c]}
-          </option>
-        ))}
-      </select>
-    </div>
-    <div class="field">
-      <label for="cf-price">价格</label>
-      <select id="cf-price" name="price">
-        <option value="">全部</option>
-        {prices.map((p) => (
-          <option value={p}>{PRICE_LABEL[p]}</option>
-        ))}
-      </select>
-    </div>
-    <div class="field">
-      <span class="field__label" id="cf-sort-label">
-        排序
-      </span>
-      <div class="segmented segmented--inline" role="group" aria-labelledby="cf-sort-label">
-        {SORTS.map((s) => (
-          <button type="button" data-sort={s} aria-pressed={s === 'new' ? 'true' : 'false'}>
-            {SORT_LABEL[s]}
-          </button>
-        ))}
+    <MoreFilters>
+      <div
+        class="catalog-filter"
+        data-catalog-filter
+        data-base={base}
+        data-fixed-category={fixedCategory}
+        data-fixed-platform={fixedPlatform}
+        role="group"
+        aria-label="更多筛选"
+      >
+        <div class="field">
+          <label for="cf-platform">平台</label>
+          <select id="cf-platform" name="platform" disabled={!!fixedPlatform}>
+            <option value="">全部平台</option>
+            {plats.map((p) => (
+              <option value={p} selected={fixedPlatform === p}>
+                {PLATFORM_LABEL[p]}（{count((a) => a.platforms.includes(p))}）
+              </option>
+            ))}
+          </select>
+        </div>
+        <div class="field">
+          <label for="cf-price">价格</label>
+          <select id="cf-price" name="price">
+            <option value="">全部</option>
+            {prices.map((p) => (
+              <option value={p}>{PRICE_LABEL[p]}</option>
+            ))}
+          </select>
+        </div>
+        <div class="field">
+          <span class="field__label" id="cf-sort-label">
+            排序
+          </span>
+          <div class="segmented segmented--inline" role="group" aria-labelledby="cf-sort-label">
+            {SORTS.map((s) => (
+              <button type="button" data-sort={s} aria-pressed={s === 'new' ? 'true' : 'false'}>
+                {SORT_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </MoreFilters>
   </div>
 
   <p class="catalog-status muted" data-catalog-status role="status">

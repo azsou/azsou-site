@@ -214,32 +214,46 @@ test.describe('应用目录', () => {
     expect((await request.get('/apps/page/2/')).status()).toBe(404);
   });
 
-  test('按平台 / 分类 / 价格筛选，状态写进地址，刷新后恢复', async ({ page }) => {
+  test('单套筛选（T9.12）：分类胶囊 + 「更多筛选」里的平台 / 价格，状态写进地址，刷新后恢复', async ({
+    page,
+  }) => {
     await page.goto('/apps/');
     await catalogReady(page);
+    // 不再有重复的平台胶囊 / 分类下拉
+    await expect(page.getByRole('navigation', { name: '按平台浏览' })).toHaveCount(0);
+    await expect(page.getByLabel('分类', { exact: true })).toHaveCount(0);
+    const more = page.locator('[data-more-filters] summary');
+    await more.click();
     await page.getByLabel('平台', { exact: true }).selectOption('cli');
     await expect(cards(page)).toHaveCount(1);
     await expect(cards(page).first()).toContainText('Sub2API');
     await expect(page).toHaveURL(/\/apps\/\?platform=cli$/);
+    await expect(page.locator('[data-more-filters-n]')).toHaveText('1');
     await expect(page.locator('[data-catalog-pages]')).toBeHidden();
     await page.getByLabel('平台', { exact: true }).selectOption('');
-    await page.getByLabel('分类', { exact: true }).selectOption('browser-tools');
+    await expect(page.locator('[data-more-filters-n]')).toBeHidden();
+    // 分享的筛选链接：?category= 仍然恢复，再叠加价格 / 平台
+    await page.goto('/apps/?category=browser-tools');
+    await catalogReady(page);
     await expect(cards(page)).toHaveCount(2);
     expect((await titles(page)).sort()).toEqual(['Capture Kit', 'Image Atlas Pro']);
-    // 自研应用默认都是免费：价格筛选保留这两个；再叠加「命令行」平台就没有结果
+    await more.click();
     await page.getByLabel('价格', { exact: true }).selectOption('free');
     await expect(cards(page)).toHaveCount(2);
     await page.getByLabel('平台', { exact: true }).selectOption('cli');
     await expect(cards(page)).toHaveCount(0);
     await expect(page.locator('[data-catalog-grid]')).toContainText('没有符合条件的应用');
-    await page.getByLabel('平台', { exact: true }).selectOption('');
-    await page.getByLabel('价格', { exact: true }).selectOption('');
+    await expect(page.locator('[data-more-filters-n]')).toHaveText('2');
     await page.reload();
     await catalogReady(page);
-    await expect(page.getByLabel('分类', { exact: true })).toHaveValue('browser-tools');
+    await expect(cards(page)).toHaveCount(0);
+    await more.click();
+    await expect(page.getByLabel('价格', { exact: true })).toHaveValue('free');
+    await page.getByLabel('平台', { exact: true }).selectOption('');
+    await page.getByLabel('价格', { exact: true }).selectOption('');
     await expect(cards(page)).toHaveCount(2);
-    // 回到默认：恢复静态第 1 页（每页 24，全部应用）
-    await page.getByLabel('分类', { exact: true }).selectOption('');
+    // 分类胶囊回到全部：静态第 1 页（每页 24，全部应用）
+    await page.getByRole('navigation', { name: '按分类浏览' }).getByRole('link', { name: /全部/ }).click();
     await expect(cards(page)).toHaveCount(ALL_APPS);
     await expect(page).toHaveURL(/\/apps\/$/);
   });
@@ -259,6 +273,7 @@ test.describe('应用目录', () => {
     );
     await page.goto('/apps/');
     await catalogReady(page);
+    await page.locator('[data-more-filters] summary').click();
     await page.getByRole('button', { name: '热门' }).click();
     await expect(page.getByRole('button', { name: '热门' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page).toHaveURL(/sort=hot/);
@@ -287,13 +302,16 @@ test.describe('应用目录', () => {
     await page.goto('/apps/category/ai/');
     await expect(page.locator('h1')).toHaveText('AI 工具');
     expect((await titles(page)).sort()).toEqual(['Sub2API', '程序化声场']);
-    await expect(page.getByLabel('分类', { exact: true })).toBeDisabled();
     await expect(page.locator('.chip[aria-current="page"]')).toContainText('AI 工具');
     await page.goto('/apps/platform/browser-ext/');
     await expect(page.locator('h1')).toHaveText('浏览器扩展应用');
     expect((await titles(page)).sort()).toEqual(['Capture Kit', 'Image Atlas Pro']);
+    await page.locator('[data-more-filters] summary').click();
+    await expect(page.getByLabel('平台', { exact: true })).toBeDisabled();
+    await page.locator('[data-more-filters] summary').click();
     // 平台页上再按价格筛选，地址不重复写固定的平台
     await catalogReady(page);
+    await page.locator('[data-more-filters] summary').click();
     await page.getByRole('button', { name: '热门' }).click();
     await expect(page).toHaveURL(/\/apps\/platform\/browser-ext\/\?sort=hot$/);
   });

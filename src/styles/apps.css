@@ -547,12 +547,16 @@
     opacity: 1;
     font-weight: var(--fw-semibold);
   }
+  /* 「更多筛选」弹层内：平台 / 价格两列，排序占一整行 */
   .catalog-filter {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
     gap: var(--space-3) var(--space-4);
     align-items: end;
-    margin-block: var(--space-4);
+    min-width: min(100%, 380px);
+  }
+  .catalog-filter .field:last-child {
+    grid-column: 1 / -1;
   }
   .catalog-filter .field {
     margin: 0;

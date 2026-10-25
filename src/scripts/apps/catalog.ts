@@ -4,6 +4,7 @@
  * 卡片上的评分 / 下载数一行：读真实统计（app_download_counts / app_review_stats），读不到就保持「暂无」。
  */
 import { getAppStore } from '@/lib/data/app-store';
+import { initMoreFilters, setMoreFiltersCount } from '@/scripts/more-filters';
 import {
   PAGE_SIZE,
   SORT_LABEL,
@@ -60,6 +61,9 @@ if (form && grid && statusEl && pager) {
   const fixedCategory = (form.dataset.fixedCategory || '') as Category | '';
   const fixedPlatform = (form.dataset.fixedPlatform || '') as PlatformOs | '';
   const sel = (name: string) => form.querySelector<HTMLSelectElement>(`select[name=${name}]`)!;
+  /** 分类只由胶囊（分类页）决定；分享链接里的 ?category= 仍然恢复（T9.12 去掉了重复的分类下拉） */
+  let urlCategory = '' as Category | '';
+  const moreRoot = form.closest<HTMLElement>('[data-more-filters]');
   const sortBtns = [...form.querySelectorAll<HTMLButtonElement>('[data-sort]')];
   const staticGrid = [...grid.children];
   const staticPager = [...pager.children];
@@ -68,7 +72,7 @@ if (form && grid && statusEl && pager) {
 
   const state = (): CatalogQuery => ({
     platform: fixedPlatform || (sel('platform').value as PlatformOs | ''),
-    category: fixedCategory || (sel('category').value as Category | ''),
+    category: fixedCategory || urlCategory,
     price: sel('price').value as CatalogQuery['price'],
     sort: (sortBtns.find((b) => b.getAttribute('aria-pressed') === 'true')?.dataset.sort ?? 'new') as Sort,
   });
@@ -100,6 +104,11 @@ if (form && grid && statusEl && pager) {
 
   async function apply(page = 1, push = true) {
     const q = state();
+    if (moreRoot)
+      setMoreFiltersCount(
+        moreRoot,
+        Number(!fixedPlatform && !!q.platform) + Number(!!q.price) + Number((q.sort ?? 'new') !== 'new'),
+      );
     if (push) history.replaceState(null, '', location.pathname + urlQuery(q, page));
     if (isDefault(q) && page === 1 && !new URLSearchParams(location.search).has('page')) {
       restoreStatic();
@@ -162,12 +171,13 @@ if (form && grid && statusEl && pager) {
   const initial = parseQuery(location.search);
   if (location.search) {
     if (!fixedPlatform && initial.platform) sel('platform').value = initial.platform;
-    if (!fixedCategory && initial.category) sel('category').value = initial.category;
+    if (!fixedCategory && initial.category) urlCategory = initial.category;
     if (initial.price) sel('price').value = initial.price;
     setSort(initial.sort);
     void apply(initial.page, false);
   }
 
+  initMoreFilters();
   form.dataset.ready = 'yes';
   // 卡片统计行（只读真实数据；失败就保持空）
   void loadStats().then((s) => {
