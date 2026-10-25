@@ -618,6 +618,13 @@
   .page-head {
     margin-bottom: var(--space-8);
   }
+  /* 游戏详情首屏主操作（T9.12，GameCta.astro） */
+  .game-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
   .page-head > p:not(.eyebrow) {
     margin-top: var(--space-3);
     color: var(--c-label-2);
@@ -1155,6 +1162,22 @@
   }
   .prose pre code {
     overflow-wrap: normal;
+  }
+  /* 构建期高亮（src/lib/highlight.ts）：只用类名 + 色相 token（深浅自动切换，对比度在 surface-2 上 ≥ 4.5:1）；强制色下跟随系统文字色 */
+  .prose .tok-c {
+    color: var(--c-label-3);
+  }
+  .prose .tok-k {
+    color: var(--c-hue-pink);
+  }
+  .prose .tok-s {
+    color: var(--c-hue-green);
+  }
+  .prose .tok-n {
+    color: var(--c-hue-orange);
+  }
+  .prose .tok-f {
+    color: var(--c-hue-teal);
   }
   .code-wrap {
     position: relative;
