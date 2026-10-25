@@ -104,9 +104,10 @@ test.describe('首页 /', () => {
     await page.keyboard.press('Enter');
     await expect.poll(() => track.evaluate((e) => e.scrollLeft)).toBeLessThan(3);
     await expect(prev).toBeDisabled();
-    // 一直点到尾：下一组禁用
-    for (let i = 0; i < 10 && (await next.isEnabled()); i++) await next.click();
+    // 滚到尾：下一组禁用、上一组可用（按钮状态在 scroll 事件后的下一帧更新，所以等状态而不是连点）
+    await track.evaluate((e) => e.scrollTo({ left: e.scrollWidth, behavior: 'instant' }));
     await expect(next).toBeDisabled();
+    await expect(prev).toBeEnabled();
     // 滚动区域可聚焦（键盘用户能用方向键滚动）
     await expect(track).toHaveAttribute('tabindex', '0');
     await expect(track).toHaveAttribute('aria-label', 'AI 工具');
