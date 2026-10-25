@@ -11,6 +11,7 @@ import {
   type VideoLength,
   type VideoQuery,
 } from '@/lib/videos';
+import { initMoreFilters, setMoreFiltersCount } from '@/scripts/more-filters';
 
 const box = document.querySelector<HTMLElement>('[data-video-filter]');
 const grid = document.querySelector<HTMLElement>('[data-video-grid]');
@@ -31,6 +32,8 @@ if (box && grid) {
   if (state.len && !lenButtons.some((b) => b.dataset.len === state.len)) state.len = '';
   if (state.ch && ![...select.options].some((o) => o.value === state.ch)) state.ch = '';
 
+  const more = box.closest<HTMLElement>('[data-more-filters]') ?? box;
+  initMoreFilters();
   const apply = (push: boolean) => {
     const shown = new Set(filterVideos(cards, state).map((c) => c.el));
     for (const c of cards) c.el.hidden = !shown.has(c.el);
@@ -41,6 +44,7 @@ if (box && grid) {
     if (state.ch) parts.push(channelName(state.ch));
     if (statusEl) statusEl.textContent = `${parts.join(' · ')} · 点击后才加载播放器`;
     if (empty) empty.hidden = shown.size > 0;
+    setMoreFiltersCount(more, (state.len ? 1 : 0) + (state.ch ? 1 : 0));
     if (push)
       history.replaceState(null, '', `${location.pathname}${videoQueryString(state)}${location.hash}`);
   };

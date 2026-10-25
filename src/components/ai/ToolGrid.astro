@@ -1,11 +1,13 @@
 ---
 /**
- * AI 工具列表（/ai/ 与 /ai/category/<分类>/ 共用）：分类标签页（静态链接，零 JS 可浏览）+ 价格 / 开源筛选（island）+ 瀑布流卡片。
+ * AI 工具列表（/ai/ 与 /ai/category/<分类>/ 共用）：分类标签页（静态链接，零 JS 可浏览）是唯一常驻的筛选，
+ * 价格 / 开源收进「更多筛选」弹层（T9.12，island）+ 瀑布流卡片。
  * 筛选只隐藏 / 显示已渲染的卡片，状态写进查询串（?price=free&oss=1），可分享、可后退。
  */
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import ToolCard from './ToolCard.astro';
+import MoreFilters from '@/components/ui/MoreFilters.astro';
 import {
   AI_CATEGORIES,
   AI_CATEGORY_IDS,
@@ -36,37 +38,41 @@ const ossCount = items.filter((t) => t.openSource).length;
 <Base title={title} description={description} crumbs={crumbs} schema={schema}>
   <PageHead eyebrow="AI 工具" title={title} lede={lede} />
 
-  <nav class="chip-nav ai-tabs" aria-label="AI 工具分类">
-    <a class="chip" href={url.ai()} aria-current={!category ? 'page' : undefined}>
-      全部 <span class="chip__n">{all.length}</span>
-    </a>
-    {AI_CATEGORY_IDS.map((c) => (
-      <a class="chip" href={url.aiCategory(c)} aria-current={category === c ? 'page' : undefined}>
-        {AI_CATEGORIES[c]} <span class="chip__n">{count(c)}</span>
+  <div class="filter-bar">
+    <nav class="chip-nav ai-tabs" aria-label="AI 工具分类">
+      <a class="chip" href={url.ai()} aria-current={!category ? 'page' : undefined}>
+        全部 <span class="chip__n">{all.length}</span>
       </a>
-    ))}
-  </nav>
+      {AI_CATEGORY_IDS.map((c) => (
+        <a class="chip" href={url.aiCategory(c)} aria-current={category === c ? 'page' : undefined}>
+          {AI_CATEGORIES[c]} <span class="chip__n">{count(c)}</span>
+        </a>
+      ))}
+    </nav>
 
-  <div class="ai-filter panel" data-ai-filter role="group" aria-label="筛选">
-    <div class="field">
-      <span class="field__label" id="af-price-label">
-        价格
-      </span>
-      <div class="segmented segmented--inline" role="group" aria-labelledby="af-price-label">
-        <button type="button" data-price="" aria-pressed="true" disabled>
-          全部
-        </button>
-        {prices.map((p) => (
-          <button type="button" data-price={p} aria-pressed="false" disabled>
-            {PRICE_LABEL[p]}
-          </button>
-        ))}
+    <MoreFilters>
+      <div class="ai-filter" data-ai-filter role="group" aria-label="更多筛选">
+        <div class="field">
+          <span class="field__label" id="af-price-label">
+            价格
+          </span>
+          <div class="segmented segmented--inline" role="group" aria-labelledby="af-price-label">
+            <button type="button" data-price="" aria-pressed="true" disabled>
+              全部
+            </button>
+            {prices.map((p) => (
+              <button type="button" data-price={p} aria-pressed="false" disabled>
+                {PRICE_LABEL[p]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label class="ai-filter__oss">
+          <input type="checkbox" data-oss disabled />
+          只看开源（{ossCount}）
+        </label>
       </div>
-    </div>
-    <label class="ai-filter__oss">
-      <input type="checkbox" data-oss disabled />
-      只看开源（{ossCount}）
-    </label>
+    </MoreFilters>
   </div>
 
   <p class="catalog-status muted" data-ai-status role="status">

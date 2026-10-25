@@ -6,13 +6,20 @@ interface Props {
   game: Game;
   eager?: boolean;
   headingLevel?: 'h2' | 'h3';
+  /** 列表页单套筛选（src/scripts/list-filter.ts）用的值 */
+  filterValue?: string;
 }
-const { game, eager, headingLevel = 'h2' } = Astro.props;
+const { game, eager, headingLevel = 'h2', filterValue } = Astro.props;
 const H = headingLevel;
 const d = game.data;
 ---
 
-<article class="card card--media" data-hue={d.hue}>
+<article
+  class="card card--media"
+  data-hue={d.hue}
+  data-filter-item={filterValue !== undefined ? '' : undefined}
+  data-filter-value={filterValue}
+>
   <div class="card__media">
     <Art slot={d.art} eager={eager} />
   </div>

@@ -11,6 +11,7 @@ import {
   type AiCategory,
   type PriceModel,
 } from '@/lib/app-store';
+import { initMoreFilters, setMoreFiltersCount } from '@/scripts/more-filters';
 
 const box = document.querySelector<HTMLElement>('[data-ai-filter]');
 const grid = document.querySelector<HTMLElement>('[data-ai-grid]');
@@ -31,6 +32,8 @@ if (box && grid) {
     openSource: el.dataset.oss === '1',
     categories: (el.dataset.cats ?? '').split(' ').filter(Boolean) as AiCategory[],
   }));
+  const more = box.closest<HTMLElement>('[data-more-filters]') ?? box;
+  initMoreFilters();
   const priceButtons = [...box.querySelectorAll<HTMLButtonElement>('[data-price]')];
   const oss = box.querySelector<HTMLInputElement>('[data-oss]')!;
   const initial = parseToolQuery(location.search);
@@ -49,6 +52,7 @@ if (box && grid) {
     if (state.oss) parts.push('开源');
     if (statusEl) statusEl.textContent = `${parts.join(' · ')} · 只链接官方地址，本站不托管安装包`;
     if (empty) empty.hidden = shown.size > 0;
+    setMoreFiltersCount(more, (state.price ? 1 : 0) + (state.oss ? 1 : 0));
     if (push) history.replaceState(null, '', `${location.pathname}${toolQueryString(state)}${location.hash}`);
   };
 

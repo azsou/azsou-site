@@ -652,3 +652,92 @@
     justify-content: center;
   }
 }
+
+@layer components {
+  /* ---------- T9.12「更多筛选」弹层：主筛选常驻，次要条件收进这里 ---------- */
+  /* 弹层相对整条筛选条定位（左对齐容器），不论按钮排在行尾还是折到下一行都不会出界 */
+  .filter-bar {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  .filter-bar > .segmented,
+  .filter-bar > .chip-nav {
+    margin-bottom: 0;
+  }
+  .filter-bar__status {
+    margin: 0;
+    font-size: var(--fs-meta);
+  }
+  .more-filters__btn {
+    gap: var(--space-2);
+    cursor: pointer;
+    list-style: none;
+  }
+  .more-filters__btn::-webkit-details-marker {
+    display: none;
+  }
+  .more-filters__chev {
+    transition: rotate var(--dur-fast) var(--ease-out);
+  }
+  .more-filters[open] .more-filters__chev {
+    rotate: 180deg;
+  }
+  .more-filters__n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding-inline: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--c-accent);
+    color: var(--c-accent-contrast);
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-semibold);
+  }
+  .more-filters__n[hidden] {
+    display: none;
+  }
+  .more-filters__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-3) var(--space-5);
+    margin-top: var(--space-2);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--c-bg-elevated);
+    border: 1px solid var(--c-separator);
+  }
+  .more-filters__body > * {
+    margin: 0;
+  }
+  .more-filters__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .more-filters__count {
+    color: var(--c-label-2);
+    font-size: var(--fs-caption);
+  }
+  @media (min-width: 600px) {
+    .more-filters__body {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: var(--z-overlay);
+      width: max-content;
+      max-width: min(560px, calc(100vw - 2 * var(--space-4)));
+      box-shadow: var(--elev-2);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .more-filters__chev {
+      transition: none;
+    }
+  }
+}

@@ -30,6 +30,11 @@ const cards = (page: Page) => page.locator('[data-video-grid] [data-video]');
 const visible = (page: Page) => page.locator('[data-video-grid] [data-video]:not([hidden])');
 const ready = (page: Page) =>
   expect(page.locator('[data-video-filter]')).toHaveAttribute('data-ready', 'yes');
+/** T9.12：时长 / 频道收在「更多筛选」弹层里，操作前先展开 */
+const openMore = async (page: Page) => {
+  const more = page.locator('[data-more-filters]');
+  if (!(await more.evaluate((d) => (d as HTMLDetailsElement).open))) await more.locator('summary').click();
+};
 
 test.describe('视频列表 /videos/', () => {
   test('24 个视频、五个分类标签、版权说明、ItemList；列表页不向视频平台发请求', async ({ page, errors }) => {
@@ -68,6 +73,7 @@ test.describe('视频列表 /videos/', () => {
   test('时长与频道筛选：只隐藏卡片，状态写进查询串，刷新后恢复', async ({ page, errors }) => {
     await page.goto('/videos/');
     await ready(page);
+    await openMore(page);
     await page.getByRole('button', { name: '10 分钟内' }).click();
     await expect(page).toHaveURL(/\/videos\/\?len=short$/);
     await expect(page.getByRole('button', { name: '10 分钟内' })).toHaveAttribute('aria-pressed', 'true');
@@ -90,10 +96,16 @@ test.describe('视频列表 /videos/', () => {
     await page.reload();
     await ready(page);
     await expect(page.getByLabel('频道')).toHaveValue('unity');
-    await expect(page.getByRole('button', { name: '10 分钟内' })).toHaveAttribute('aria-pressed', 'true');
+    // 刷新后弹层收起（不在无障碍树里），直接查按钮的 data 属性
+    await expect(page.locator('[data-video-filter] [data-len="short"]')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await expect(visible(page)).toHaveCount(both.length);
 
     // 没有结果时显示提示；回到「全部」后恢复
+    await expect(page.locator('[data-more-filters-n]')).toHaveText('2');
+    await openMore(page);
     await page.getByRole('button', { name: '30 分钟以上' }).click();
     await expect(page).toHaveURL(/\?len=long&ch=unity$/);
     await expect(visible(page)).toHaveCount(0);

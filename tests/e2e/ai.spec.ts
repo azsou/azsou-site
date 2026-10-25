@@ -18,6 +18,11 @@ const json = (route: Route, body: unknown, status = 200) =>
 const cards = (page: Page) => page.locator('[data-ai-grid] [data-tool]');
 const visible = (page: Page) => page.locator('[data-ai-grid] [data-tool]:not([hidden])');
 const ready = (page: Page) => expect(page.locator('[data-ai-filter]')).toHaveAttribute('data-ready', 'yes');
+/** T9.12：价格 / 开源收在「更多筛选」弹层里，操作前先展开 */
+const openMore = async (page: Page) => {
+  const more = page.locator('[data-more-filters]');
+  if (!(await more.evaluate((d) => (d as HTMLDetailsElement).open))) await more.locator('summary').click();
+};
 
 test.describe('AI 工具列表 /ai/', () => {
   test('30 个工具、五个分类标签、只链官方地址的说明、ItemList 结构化数据', async ({ page, errors }) => {
@@ -57,6 +62,8 @@ test.describe('AI 工具列表 /ai/', () => {
     await page.goto('/ai/');
     await ready(page);
     const total = await cards(page).count();
+    await expect(page.locator('[data-more-filters] summary')).toContainText('更多筛选');
+    await openMore(page);
     await page.getByRole('button', { name: '免费', exact: true }).click();
     await expect(page).toHaveURL(/\/ai\/\?price=free$/);
     await expect(page.getByRole('button', { name: '免费', exact: true })).toHaveAttribute(
@@ -71,6 +78,7 @@ test.describe('AI 工具列表 /ai/', () => {
     ))
       expect(p).toBe('free');
     await expect(page.locator('[data-ai-status]')).toContainText(`共 ${free} 个工具 · 免费`);
+    await expect(page.locator('[data-more-filters-n]')).toHaveText('1');
 
     await page.getByLabel(/只看开源/).check();
     await expect(page).toHaveURL(/\/ai\/\?price=free&oss=1$/);
@@ -79,6 +87,7 @@ test.describe('AI 工具列表 /ai/', () => {
     );
     expect(both.length).toBeGreaterThan(0);
     for (const [p, o] of both) expect([p, o]).toEqual(['free', '1']);
+    await expect(page.locator('[data-more-filters-n]')).toHaveText('2');
 
     // 带查询串打开：按查询串恢复
     await page.reload();
@@ -86,11 +95,18 @@ test.describe('AI 工具列表 /ai/', () => {
     await expect(page.getByLabel(/只看开源/)).toBeChecked();
     await expect(visible(page)).toHaveCount(both.length);
 
-    // 回到全部
+    // 回到全部（刷新后弹层收起，摘要仍显示生效条件数）
+    await expect(page.locator('[data-more-filters-n]')).toHaveText('2');
+    await openMore(page);
     await page.getByRole('button', { name: '全部', exact: true }).click();
     await page.getByLabel(/只看开源/).uncheck();
     await expect(page).toHaveURL(/\/ai\/$/);
     await expect(visible(page)).toHaveCount(total);
+    await expect(page.locator('[data-more-filters-n]')).toBeHidden();
+    // Esc 收起弹层，焦点回到摘要
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-more-filters]')).not.toHaveAttribute('open', '');
+    await expect(page.locator('[data-more-filters] summary')).toBeFocused();
     expect(errors).toEqual([]);
   });
 
@@ -103,6 +119,7 @@ test.describe('AI 工具列表 /ai/', () => {
     // MCP 分类里没有付费工具：价格按钮里没有「付费」，查询串里的付费被忽略
     await expect(page.getByRole('button', { name: '付费', exact: true })).toHaveCount(0);
     await expect(visible(page)).toHaveCount(4);
+    await openMore(page);
     await page.getByLabel(/只看开源/).check();
     await expect(visible(page)).toHaveCount(4);
     await expect(page.locator('[data-ai-empty]')).toBeHidden();

@@ -6,6 +6,8 @@ import PageHead from '@/components/PageHead.astro';
 import GameCard from '@/components/GameCard.astro';
 import { getGames } from '@/lib/content';
 const games = await getGames();
+/** T9.12 单套筛选：按形态（可玩 Demo / 开发中 / Web 3D）分段筛选，条目少于两种形态时不显示 */
+const kinds = [...new Set(games.map((g) => g.data.kind))];
 ---
 
 <Base
@@ -28,9 +30,31 @@ const games = await getGames();
     title="游戏与可玩 Demo"
     lede="浏览器里的 Roguelike、Web 3D 与物理小品。不包装成商业发行，版本号如实反映完成度。"
   />
+  {kinds.length > 1 && (
+    <div class="filter-bar">
+      <div class="segmented" role="group" aria-label="按形态筛选" data-list-filter data-param="kind">
+        <button type="button" data-value="" aria-pressed="true" disabled>
+          全部
+        </button>
+        {kinds.map((k) => (
+          <button type="button" data-value={k} aria-pressed="false" disabled>
+            {k}
+          </button>
+        ))}
+      </div>
+      <p class="filter-bar__status muted" data-list-status data-noun="个游戏" role="status">
+        共 {games.length} 个游戏
+      </p>
+    </div>
+  )}
   <div class="grid" data-grid="media">
     {games.map((g, i) => (
-      <GameCard game={g} eager={i < 2} />
+      <GameCard game={g} eager={i < 2} filterValue={g.data.kind} />
     ))}
   </div>
 </Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/list-filter'));
+</script>

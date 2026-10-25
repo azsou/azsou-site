@@ -7,6 +7,7 @@ import WorkCard from '@/components/WorkCard.astro';
 import { getWorks } from '@/lib/content';
 const works = await getWorks();
 const kinds = [...new Set(works.map((w) => w.data.kind))];
+const inKind = (k: string) => works.filter((w) => w.data.kind === k);
 ---
 
 <Base
@@ -29,18 +30,44 @@ const kinds = [...new Set(works.map((w) => w.data.kind))];
     title="作品与视频"
     lede="动画、游戏画面与 AI 图像实验。当前配图由站内生成式 SVG 系统绘制，未来逐项替换为实机截图。"
   />
+  {kinds.length > 1 && (
+    <div class="filter-bar">
+      <div class="segmented" role="group" aria-label="按类别筛选" data-list-filter data-param="kind">
+        <button type="button" data-value="" aria-pressed="true" disabled>
+          全部
+        </button>
+        {kinds.map((k) => (
+          <button type="button" data-value={k} aria-pressed="false" disabled>
+            {k}
+          </button>
+        ))}
+      </div>
+      <p class="filter-bar__status muted" data-list-status data-noun="件作品" role="status">
+        共 {works.length} 件作品
+      </p>
+    </div>
+  )}
   {kinds.map((k) => (
-    <section class="section" aria-label={k}>
+    <section
+      class="section"
+      aria-label={k}
+      data-filter-item
+      data-filter-value={k}
+      data-filter-count={inKind(k).length}
+    >
       <div class="section__head">
         <h2>{k}</h2>
       </div>
       <div class="work-grid grid" data-grid="media">
-        {works
-          .filter((w) => w.data.kind === k)
-          .map((w) => (
-            <WorkCard work={w} headingLevel="h3" />
-          ))}
+        {inKind(k).map((w) => (
+          <WorkCard work={w} headingLevel="h3" />
+        ))}
       </div>
     </section>
   ))}
 </Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/list-filter'));
+</script>

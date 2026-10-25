@@ -1,0 +1,25 @@
+---
+/**
+ * T9.12 列表页「单套筛选 + 更多筛选」（DESIGN-AUDIT P1-8、DESIGN-SYSTEM §14 筛选条）：
+ * 主筛选（分类标签 / 分段控件）常驻在列表上方，次要条件收进这个「更多筛选」弹层。
+ * 原生 <details>：零 JS 可展开，不写内联脚本 / 样式（严格 CSP）。≥ 600 宽为浮层，窄屏就地展开。
+ * 筛选脚本通过 src/scripts/more-filters.ts 在摘要上显示生效条件数，并处理 Esc / 点外部关闭。
+ */
+import Icon from '@/components/Icon.astro';
+interface Props {
+  label?: string;
+}
+const { label = '更多筛选' } = Astro.props;
+---
+
+<details class="more-filters" data-more-filters>
+  <summary class="btn more-filters__btn">
+    <Icon name="filter" size={16} />
+    <span>{label}</span>
+    <span class="more-filters__n" data-more-filters-n hidden></span>
+    <Icon name="chevron-down" size={16} class="more-filters__chev" />
+  </summary>
+  <div class="more-filters__body">
+    <slot />
+  </div>
+</details>

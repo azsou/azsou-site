@@ -4,6 +4,7 @@ import { itemList } from '@/lib/seo';
 import PageHead from '@/components/PageHead.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import Segmented from '@/components/Segmented.astro';
+import MoreFilters from '@/components/ui/MoreFilters.astro';
 import { getArticles } from '@/lib/content';
 import { TAGS } from '@/lib/tags';
 import { url } from '@/lib/routes';
@@ -11,7 +12,13 @@ import AdSlot from '@/components/ads/AdSlot.astro';
 /** 列表间广告：每 6 篇之后一个（不在最后一篇之后），广告关闭时不输出 */
 const AD_EVERY = 6;
 const articles = await getArticles();
-const used = [...new Set(articles.flatMap((a) => a.data.tags))];
+/** T9.12 单套筛选：按篇数取前 4 个标签常驻在分段控件里，其余标签收进「更多筛选」（同样是跳到标签页的链接） */
+const PRIMARY_TAGS = 4;
+const tagCount = new Map<string, number>();
+for (const t of articles.flatMap((a) => a.data.tags)) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+const used = [...tagCount.keys()].sort((a, b) => tagCount.get(b)! - tagCount.get(a)!);
+const primary = used.slice(0, PRIMARY_TAGS);
+const rest = used.slice(PRIMARY_TAGS);
 ---
 
 <Base
@@ -38,13 +45,26 @@ const used = [...new Set(articles.flatMap((a) => a.data.tags))];
       <a href="/articles/rss.xml">订阅 RSS</a> · <a href={url.archive()}>按月归档</a>
     </p>
   </PageHead>
-  <Segmented
-    label="按标签筛选"
-    items={[
-      { href: url.articles(), label: '全部', current: true },
-      ...used.map((t) => ({ href: url.tag(t), label: TAGS[t]?.name ?? t })),
-    ]}
-  />
+  <div class="filter-bar">
+    <Segmented
+      label="按标签筛选"
+      items={[
+        { href: url.articles(), label: '全部', current: true },
+        ...primary.map((t) => ({ href: url.tag(t), label: TAGS[t]?.name ?? t })),
+      ]}
+    />
+    {rest.length > 0 && (
+      <MoreFilters>
+        <nav class="more-filters__links" aria-label="更多标签">
+          {rest.map((t) => (
+            <a class="chip" href={url.tag(t)}>
+              {TAGS[t]?.name ?? t} <span class="more-filters__count">{tagCount.get(t)}</span>
+            </a>
+          ))}
+        </nav>
+      </MoreFilters>
+    )}
+  </div>
   <div class="grid" data-grid="media">
     {articles.map((a, i) => (
       <>
