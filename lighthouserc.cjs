@@ -91,6 +91,9 @@ module.exports = {
         chromeFlags: '--no-sandbox --headless=new',
         // 线上数据岛请求不计入预算（P1 只读）
         blockedUrlPatterns: ['*supabase.co*'],
+        // 整页截图会把视口撑到整页高度，触发首屏以下 island（评价 / 评论，whenNear）的懒加载，
+        // 让这些脚本偶尔被算进「页面加载期间的脚本」预算（/ai/claude-code/ 51.3 KB vs 正常 43 KB）。真实访客不滚动不会加载。
+        disableFullPageScreenshot: true,
       },
     },
     assert: { assertMatrix: matrix },

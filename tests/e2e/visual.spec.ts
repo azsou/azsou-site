@@ -55,7 +55,8 @@ test.describe('T6.9 视觉', () => {
       // 只有 CI 的 E2E 夹具应用（src/content/apps/_e2e/）用单个 SVG 占位图标，线上构建没有它
       for (const i of icons.filter((x) => !x.src.endsWith('/placeholder.svg'))) {
         expect(i.w && i.h, i.src).toBeTruthy();
-        expect(i.src, i.src).toMatch(/-(64|128)\.webp$/);
+        // T9.3 规范化管线：/icons/n/<slug>-<px>.webp（32–224 档，src = 2x）
+        expect(i.src, i.src).toMatch(/\/icons\/n\/[a-z0-9-]+-\d+\.webp$/);
         expect(i.avif, i.src).toMatch(/\.avif 1x, .+\.avif 2x$/);
         expect(i.webp, i.src).toMatch(/\.webp 1x, .+\.webp 2x$/);
       }

@@ -537,9 +537,7 @@
     color: var(--c-label-3);
   }
   .update-row__sub {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-wrap: pretty;
   }
   .update-row__date {
     flex: none;

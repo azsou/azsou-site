@@ -6,6 +6,8 @@
  *   加载失败由 src/scripts/icon-fallback.ts 换成几何兜底图形（不用文字 Monogram）；
  * - alt：名称已在旁边可见时传 alt=""（默认），独立出现时传名称（不加「图标」二字）。
  */
+// 应用卡片 / 详情页 / 目录样式随图标一起进入每个用到图标的页面（T9.3 误删后恢复）
+import '@/styles/apps.css';
 import { ICON_PX, iconFallbackSrc, iconInfo, iconSrcset, type IconSize } from '@/lib/icons';
 interface Props {
   src: string;

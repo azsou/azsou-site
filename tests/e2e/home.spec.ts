@@ -181,8 +181,10 @@ test.describe('首页 /', () => {
     );
     expect(imgs.length).toBeGreaterThan(20);
     for (const i of imgs) {
-      expect(i.alt, i.src).toBeTruthy();
-      expect(i.loading, i.src).toBe('lazy');
+      // alt="" = 名称就在旁边的装饰图标（T9.3）；首屏小图标 eager（T9.4），其余懒加载
+      expect(i.alt, i.src).not.toBeNull();
+      if (i.loading === 'eager') expect(i.src, i.src).toMatch(/\/icons\//);
+      else expect(i.loading, i.src).toBe('lazy');
       expect(i.src.startsWith('/'), i.src).toBe(true);
       expect(i.w && i.h, i.src).toBeTruthy();
     }

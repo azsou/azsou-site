@@ -133,7 +133,7 @@ export function filterVideos<T extends { length: VideoLength | ''; channel: stri
 }
 
 /** 卡片 / 详情页的缩略图（本地 AVIF + WebP，构建前由 scripts/videos/thumbs.mjs 生成） */
-export const THUMB_WIDTHS = [480, 960] as const;
+export const THUMB_WIDTHS = [480, 720, 960] as const;
 export const thumbPath = (slug: string, w: (typeof THUMB_WIDTHS)[number], ext: 'avif' | 'webp') =>
   `/videos/thumbs/${slug}-${w}.${ext}`;
 export const thumbSrcset = (slug: string, ext: 'avif' | 'webp') =>

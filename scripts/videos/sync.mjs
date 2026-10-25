@@ -3,8 +3,8 @@
  * 视频栏目维护脚本（T6.7）：
  *  1. 逐个用 YouTube oEmbed 核对 src/content/videos/*.md：视频仍存在、允许嵌入（oEmbed 对禁止嵌入的视频返回 401），
  *     原标题 / 频道名与档案一致（不一致只报告，不自动改）。
- *  2. 缺少本地缩略图时下载平台缩略图（maxres → sd → hq），裁成 16:9，生成 480 / 960 宽的 AVIF + WebP
- *     到 public/videos/thumbs/<slug>-{480,960}.{avif,webp}。页面只用这些本地文件，不热链平台图片。
+ *  2. 缺少本地缩略图时下载平台缩略图（maxres → sd → hq），裁成 16:9，生成 480 / 720 / 960 宽的 AVIF + WebP（720 给 1.75–2× 屏的手机单列卡片）
+ *     到 public/videos/thumbs/<slug>-{480,720,960}.{avif,webp}。页面只用这些本地文件，不热链平台图片。
  * 用法：node scripts/videos/sync.mjs [--thumbs-only | --check-only] [--force]
  *   --force  重新生成已存在的缩略图
  * 需要联网；CI 不跑（构建与单元测试只检查本地文件是否齐全）。
@@ -51,7 +51,7 @@ for (const { slug, data } of entries) {
     } else console.log(`✓ ${slug}`);
   }
   if (args.has('--check-only')) continue;
-  const have = [480, 960].every((w) =>
+  const have = [480, 720, 960].every((w) =>
     ['avif', 'webp'].every((e) => fs.existsSync(path.join(dest, `${slug}-${w}.${e}`))),
   );
   if (have && !args.has('--force')) continue;
@@ -77,7 +77,7 @@ for (const { slug, data } of entries) {
   const master = await sharp(buf)
     .extract({ left: 0, top: Math.round((m.height - h) / 2), width: m.width, height: h })
     .toBuffer();
-  for (const w of [480, 960]) {
+  for (const w of [480, 720, 960]) {
     const img = sharp(master).resize(w, Math.round((w * 9) / 16), { fit: 'cover' });
     await img
       .clone()
