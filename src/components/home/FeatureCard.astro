@@ -1,0 +1,31 @@
+---
+import AppIcon from '@/components/apps/AppIcon.astro';
+import type { FeaturedItem } from '@/lib/home';
+/** 编辑精选大卡片（App Store「Today」式）：只显示档案里的真实字段，没有评分 / 下载数 */
+interface Props {
+  item: FeaturedItem;
+}
+const { item } = Astro.props;
+---
+
+<article class="feature-card" data-hue={item.hue} data-featured={item.slug}>
+  <p class="feature-card__eyebrow">编辑精选 · {item.label}</p>
+  <div class="feature-card__head">
+    <AppIcon src={item.icon.src} alt={`${item.title} 图标`} variants={item.icon.variants} />
+    <div class="feature-card__titles">
+      <h3 class="feature-card__title">
+        <a class="card__link" href={item.url}>
+          {item.title}
+        </a>
+      </h3>
+      <p class="feature-card__sub">{item.subtitle}</p>
+    </div>
+  </div>
+  <p class="feature-card__summary">{item.summary}</p>
+  <p class="feature-card__foot">
+    <span class="feature-card__platforms">{item.platforms.join(' · ')}</span>
+    <span class="feature-card__cta" aria-hidden="true">
+      查看
+    </span>
+  </p>
+</article>

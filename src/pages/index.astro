@@ -1,153 +1,454 @@
 ---
-import { artSrc } from '@/lib/art';
+/**
+ * 首页（T6.8）：应用商店 + 内容门户。只用内容集合里的真实数据：
+ * 没有数据的区块整块不渲染（homeSections()），不放占位框，不显示评分 / 下载量 / 用户数。
+ * 首页只有一个小脚本（横向行的上一组 / 下一组按钮 + Ctrl/⌘K），没有框架 island。
+ */
+import '@/styles/home.css';
 import Base from '@/layouts/Base.astro';
-import AppCard from '@/components/AppCard.astro';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import HomeSection from '@/components/home/HomeSection.astro';
+import FeatureCard from '@/components/home/FeatureCard.astro';
+import AppTile from '@/components/home/AppTile.astro';
 import GameCard from '@/components/GameCard.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import WorkCard from '@/components/WorkCard.astro';
-import Art from '@/components/Art.astro';
-import Status from '@/components/Status.astro';
-import { catalogItem, getApps, getArticles, getGames, getWorks, forum } from '@/lib/content';
+import VideoCard from '@/components/videos/VideoCard.astro';
+import {
+  getApps,
+  getArticles,
+  getGames,
+  getTools,
+  getVideos,
+  getWorks,
+  forum,
+  videoItem,
+} from '@/lib/content';
+import { AI_CATEGORIES, CATEGORIES, PLATFORM_LABEL, PRICE_LABEL } from '@/lib/app-store';
+import {
+  categoryTiles,
+  featuredItemList,
+  featuredItems,
+  homeSections,
+  homeVideos,
+  latestByDate,
+  latestThreads,
+  newReleases,
+  quickChips,
+  recentUpdates,
+  toolsByEditorOrder,
+} from '@/lib/home';
+import { abs } from '@/lib/seo';
 import { SITE } from '@/lib/site';
 import { url } from '@/lib/routes';
-import updates from '@/data/updates.json';
 
-const [apps, games, articles, works] = await Promise.all([getApps(), getGames(), getArticles(), getWorks()]);
-const flagship = apps.find((a) => a.id === 'fablemotion')!;
-const homeGames = ['emberdeep', 'threejs-rubik', 'pixel-dungeon-lab'].map((s) =>
-  games.find((g) => g.id === s)!,
+const [apps, tools, videos, games, articles, works] = await Promise.all([
+  getApps(),
+  getTools(),
+  getVideos(),
+  getGames(),
+  getArticles(),
+  getWorks(),
+]);
+
+const featured = featuredItems(apps, tools);
+const chips = quickChips(apps, tools);
+const ownApps = apps.filter((a) => a.data.developer.type === 'self');
+const fresh = newReleases(apps);
+const aiTools = toolsByEditorOrder(tools, 15);
+const updates = recentUpdates(apps, games, 6);
+const cats = categoryTiles(apps, tools);
+const homeVids = homeVideos(videos, 8).map(videoItem);
+const homeGames = [...games].sort((a, b) => a.data.order - b.data.order);
+const homeArticles = articles.slice(0, 6);
+const homeWorks = latestByDate(works, 8);
+const threads = latestThreads(forum.seeds, 5);
+const catName = Object.fromEntries(forum.categories.map((c) => [c.id, c.name]));
+
+const show = new Set(
+  homeSections({
+    featured: featured.length,
+    apps: ownApps.length,
+    new: fresh.length,
+    ai: aiTools.length,
+    updates: updates.length,
+    categories: cats.length,
+    videos: homeVids.length,
+    games: homeGames.length,
+    articles: homeArticles.length,
+    works: homeWorks.length,
+    forum: threads.length,
+  }),
 );
-const latestThreads = [...forum.seeds].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
+
+// hero 右侧的图标墙（装饰，只给鼠标用户点；读屏与键盘用户走下方的精选行）
+const seen = new Set<string>();
+const mosaic = [
+  ...featured.map((f) => ({ title: f.title, icon: f.icon, href: f.url })),
+  ...ownApps.map((a) => ({ title: a.data.title, icon: a.data.icon, href: url.app(a.id) })),
+  ...aiTools.map((t) => ({ title: t.data.title, icon: t.data.icon, href: url.tool(t.id) })),
+]
+  .filter((m) => !seen.has(m.href) && seen.add(m.href))
+  .slice(0, 12);
+
+const appMeta = (a: (typeof apps)[number]) =>
+  [
+    CATEGORIES[a.data.category],
+    a.data.price.model === 'paid' && a.data.price.amount
+      ? a.data.price.amount
+      : PRICE_LABEL[a.data.price.model],
+    a.data.platforms.map((p) => PLATFORM_LABEL[p.os]).join(' / '),
+  ].join(' · ');
+
+const tryQueries = ['Claude Code', 'MCP', '塔防', 'dwjgjx'];
+
+const schema = [
+  {
+    '@type': 'Organization',
+    '@id': `${SITE.url}/#org`,
+    name: SITE.name,
+    url: `${SITE.url}/`,
+    logo: abs('/icons/icon-512.png'),
+    founder: { '@id': `${SITE.url}/#author` },
+  },
+  ...(featured.length ? [featuredItemList(featured, abs)] : []),
+];
 ---
 
-<Base title={SITE.title} description={SITE.description} preloadImage={artSrc('hero-1')}>
-  <section class="hero" aria-labelledby="hero-title">
-    <div>
-      <p class="eyebrow">旗舰项目 · {flagship.data.version}</p>
-      <h1 id="hero-title">AZ Studio</h1>
+<Base title={SITE.title} description={SITE.description} schema={schema}>
+  <section class="home-hero" aria-labelledby="hero-title">
+    <div class="home-hero__text">
+      <p class="eyebrow">AZ Studio · 应用与内容</p>
+      <h1 id="hero-title">
+        <span>好用的应用、</span>
+        <span>AI 工具与游戏，</span>
+        <span>一站找到</span>
+      </h1>
       <p class="hero__lede">
-        个人技术社区、产品档案与创作实验室。这里记录 FableMotion、EMBERDEEP
-        等真实项目的版本、测试环境与最后核对日期——不伪造评分、下载量和用户数。
+        自研应用与 {tools.length} 个 AI 工具的官方入口，加上可玩的游戏
+        Demo、开发文章和精选视频。每一项都写明版本、来源与最后核对日期——不伪造评分、下载量和用户数。
       </p>
-      <div class="btn-row">
-        <a class="btn btn--primary" href={url.app('fablemotion')}>
-          查看 FableMotion 档案
-        </a>
-        <a class="btn" href={url.article('fablemotion-s3-timeline')}>
-          阅读开发复盘
-        </a>
-      </div>
-      <p class="mt-4">
-        <Status
-          cls={flagship.data.statusClass}
-          text={`${flagship.data.status} · 最后核对 ${flagship.data.lastChecked}`}
+      <form class="home-search" action={url.search()} method="get" role="search" aria-label="站内搜索">
+        <label class="visually-hidden" for="home-q">
+          搜索关键词
+        </label>
+        <svg class="home-search__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M10.5 3a7.5 7.5 0 0 1 5.96 12.05l4.25 4.24-1.42 1.42-4.24-4.25A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"
+          ></path>
+        </svg>
+        <input
+          id="home-q"
+          name="q"
+          type="search"
+          placeholder="搜索应用、AI 工具、文章…"
+          autocomplete="off"
+          enterkeyhint="search"
+          aria-keyshortcuts="Control+K Meta+K"
+          data-home-search
         />
+        <kbd class="home-search__kbd" aria-hidden="true">
+          <span data-kbd-mod>Ctrl</span> K
+        </kbd>
+        <button class="btn btn--primary home-search__btn" type="submit">
+          搜索
+        </button>
+      </form>
+      <p class="home-try">
+        <span>试试：</span>
+        {tryQueries.map((q) => (
+          <a href={url.search(q)}>{q}</a>
+        ))}
       </p>
+      {chips.length > 0 && (
+        <nav class="home-chips" aria-label="按平台与类型浏览">
+          <ul role="list">
+            {chips.map((c) => (
+              <li>
+                <a class={`chip chip--${c.kind}`} href={c.url}>
+                  {c.label}
+                  <span class="chip__count">
+                    <span class="visually-hidden">，</span>
+                    {c.count}
+                    <span class="visually-hidden">{c.kind === 'ai' ? '个工具' : '个应用'}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </div>
-    <div class="hero-media">
-      <Art slot="hero-1" eager />
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="h-apps">
-    <div class="section__head">
-      <h2 id="h-apps">应用与工具</h2>
-      <a href={url.apps()}>应用商店 →</a>
-    </div>
-    <div class="grid grid--wide">
-      {apps.slice(0, 4).map((a) => (
-        <AppCard item={catalogItem(a)} headingLevel="h3" />
-      ))}
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="h-games">
-    <div class="section__head">
-      <h2 id="h-games">游戏与可玩 Demo</h2>
-      <a href={url.games()}>游戏目录 →</a>
-    </div>
-    <div class="grid">
-      {homeGames.map((g) => (
-        <GameCard game={g} headingLevel="h3" />
-      ))}
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="h-articles">
-    <div class="section__head">
-      <h2 id="h-articles">最新文章</h2>
-      <a href={url.articles()}>文章中心 →</a>
-    </div>
-    <div class="grid grid--wide">
-      {articles.slice(0, 4).map((a) => (
-        <ArticleCard article={a} headingLevel="h3" />
-      ))}
-    </div>
-  </section>
-
-  <div class="split section">
-    <section aria-labelledby="h-updates">
-      <div class="section__head">
-        <h2 id="h-updates">最近更新</h2>
-        <a href="/changelog/">更新日志 →</a>
+    {mosaic.length >= 6 && (
+      <div class="home-hero__art" aria-hidden="true">
+        <ul class="icon-wall" role="list">
+          {mosaic.map((m) => (
+            <li>
+              <a href={m.href} tabindex="-1">
+                <AppIcon src={m.icon.src} alt={`${m.title} 图标`} variants={m.icon.variants} />
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul class="list-group" role="list">
+    )}
+  </section>
+
+  {show.has('featured') && (
+    <HomeSection id="featured" title="编辑精选" note="站长挑选的自研应用与 AI 工具" row="feature">
+      {featured.map((f) => (
+        <li>
+          <FeatureCard item={f} />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('apps') && (
+    <HomeSection
+      id="apps"
+      title="AZ Studio 自研应用"
+      note={`${ownApps.length} 个应用 · 按站长排序`}
+      more={{ href: url.apps(), label: '应用商店' }}
+      row="tile"
+    >
+      {ownApps.map((a) => (
+        <li>
+          <AppTile
+            slug={a.id}
+            title={a.data.title}
+            subtitle={a.data.subtitle}
+            meta={appMeta(a)}
+            href={url.app(a.id)}
+            icon={a.data.icon}
+          />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('new') && (
+    <HomeSection id="new" title="最新上架" note="按首次发布日期" row="tile">
+      {fresh.map((a) => (
+        <li>
+          <AppTile
+            slug={a.id}
+            title={a.data.title}
+            subtitle={a.data.subtitle}
+            meta={`${a.data.releaseDate} 上架 · ${CATEGORIES[a.data.category]}`}
+            href={url.app(a.id)}
+            icon={a.data.icon}
+          />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('ai') && (
+    <HomeSection
+      id="ai"
+      title="AI 工具"
+      note="按编辑推荐顺序 · 本站暂无足够的真实下载数据，不做热度排行"
+      more={{ href: url.ai(), label: `全部 ${tools.length} 个` }}
+      row="grid3"
+    >
+      {aiTools.map((t) => (
+        <li>
+          <AppTile
+            slug={t.id}
+            title={t.data.title}
+            subtitle={t.data.subtitle}
+            meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]} · ${t.data.developer.name}`}
+            href={url.tool(t.id)}
+            icon={t.data.icon}
+          />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('updates') && (
+    <HomeSection
+      id="updates"
+      title="最近更新"
+      note="按档案里记录的更新日期"
+      more={{ href: '/changelog/', label: '更新日志' }}
+    >
+      <ul class="update-list" role="list">
         {updates.map((u) => (
-          <li class="list-row">
-            <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
-              {u.icon}
-            </span>
-            <span class="list-row__main">
-              <span class="list-row__title">{u.title}</span>
-              <br />
-              <span class="list-row__sub">
-                {u.change} · {u.note}
+          <li class="update-row">
+            {u.icon ? (
+              <AppIcon src={u.icon.src} alt={`${u.title} 图标`} variants={u.icon.variants} size="sm" />
+            ) : (
+              <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
+                {u.title.slice(0, 2)}
+              </span>
+            )}
+            <span class="update-row__main">
+              <a class="update-row__title" href={u.url}>
+                {u.title}
+              </a>
+              <span class="update-row__sub">
+                {u.label} · 版本 {u.version}
               </span>
             </span>
-            <span class="list-row__aside">
-              <span class="badge">{u.kind}</span> <time datetime={u.date}>{u.date.slice(5)}</time>
+            <time class="update-row__date" datetime={u.date}>
+              {u.date}
+            </time>
+          </li>
+        ))}
+      </ul>
+    </HomeSection>
+  )}
+
+  {show.has('categories') && (
+    <HomeSection id="categories" title="分类浏览" note="应用分类与 AI 工具分类，数量为实际收录数">
+      <ul class="cat-grid" role="list">
+        {cats.map((c) => (
+          <li class="cat-tile" data-cat={`${c.kind}:${c.id}`}>
+            <a class="cat-tile__link" href={c.url}>
+              <span class="cat-tile__name">{c.name}</span>
+              <span class="cat-tile__count">
+                {c.count} 个{c.kind === 'ai' ? '工具' : '应用'}
+              </span>
+            </a>
+            <span class="cat-tile__icons" aria-hidden="true">
+              {c.icons.map((i) => (
+                <AppIcon src={i.src} alt={i.alt} variants={i.variants} size="sm" />
+              ))}
             </span>
           </li>
         ))}
       </ul>
-    </section>
-    <section aria-labelledby="h-forum">
-      <div class="section__head">
-        <h2 id="h-forum">论坛</h2>
-        <a href={url.forum()}>进入论坛 →</a>
-      </div>
+    </HomeSection>
+  )}
+
+  {show.has('videos') && (
+    <HomeSection
+      id="videos"
+      title="精选视频"
+      note="官方频道视频 · 点击后才加载播放器"
+      more={{ href: url.videos(), label: '视频' }}
+      row="video"
+    >
+      {homeVids.map((v) => (
+        <li>
+          <VideoCard item={v} headingLevel="h3" />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('games') && (
+    <HomeSection
+      id="games"
+      title="游戏与可玩 Demo"
+      more={{ href: url.games(), label: '游戏目录' }}
+      row="card"
+    >
+      {homeGames.map((g) => (
+        <li>
+          <GameCard game={g} headingLevel="h3" />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('articles') && (
+    <HomeSection
+      id="articles"
+      title="最新文章"
+      note="按发布日期"
+      more={{ href: url.articles(), label: '文章中心' }}
+      row="article"
+    >
+      {homeArticles.map((a) => (
+        <li>
+          <ArticleCard article={a} headingLevel="h3" />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('works') && (
+    <HomeSection id="works" title="作品" more={{ href: url.works(), label: '全部作品' }} row="card">
+      {homeWorks.map((w) => (
+        <li>
+          <WorkCard work={w} headingLevel="h3" />
+        </li>
+      ))}
+    </HomeSection>
+  )}
+
+  {show.has('forum') && (
+    <HomeSection id="forum" title="论坛最新话题" more={{ href: url.forum(), label: '进入论坛' }}>
       <ul class="list-group" role="list">
-        {latestThreads.map((t) => (
+        {threads.map((t) => (
           <li>
             <a class="list-row" href={url.forumThread(t.id)}>
               <span class="list-row__main">
                 <span class="list-row__title">{t.title}</span>
                 <br />
-                <span class="list-row__sub">{t.date}</span>
+                <span class="list-row__sub">
+                  {catName[t.category] ?? '论坛'} · {t.author}
+                </span>
+              </span>
+              <span class="list-row__aside">
+                {t.pinned && <span class="badge">置顶</span>} <time datetime={t.date}>{t.date}</time>
               </span>
             </a>
           </li>
         ))}
       </ul>
+    </HomeSection>
+  )}
+
+  <div class="home-strips section">
+    <section class="home-strip" aria-labelledby="h-about" data-section="about">
+      <h2 id="h-about">关于作者</h2>
+      <p>
+        {SITE.author.name}，独立开发者，AZ Studio 的作者与维护者。站内的自研应用、游戏 Demo
+        和文章都来自正在做的真实项目。
+      </p>
+      <p class="btn-row">
+        <a class="btn" href="/about/">
+          关于作者
+        </a>
+        <a class="btn" href="/contact/">
+          联系
+        </a>
+        <a class="btn" href="/roadmap/">
+          路线图
+        </a>
+      </p>
+    </section>
+    <section class="home-strip" aria-labelledby="h-rss" data-section="rss">
+      <h2 id="h-rss">订阅更新</h2>
+      <p>用 RSS 阅读器订阅，新应用、新文章和论坛主题第一时间送达；不需要注册，也不收集邮箱。</p>
+      <p class="btn-row">
+        <a class="btn btn--primary" href={url.rss()}>
+          全站 RSS
+        </a>
+        <a class="btn" href="/articles/rss.xml">
+          文章 RSS
+        </a>
+        <a class="btn" href="/forum/rss.xml">
+          论坛 RSS
+        </a>
+      </p>
     </section>
   </div>
-
-  <section class="section" aria-labelledby="h-works">
-    <div class="section__head">
-      <h2 id="h-works">作品与视频</h2>
-      <a href={url.works()}>全部作品 →</a>
-    </div>
-    <div class="work-grid">
-      {works.slice(0, 4).map((w) => (
-        <WorkCard work={w} headingLevel="h3" />
-      ))}
-    </div>
-  </section>
 </Base>
 
 <script>
   // 旧版 hash 路由（#/article/xxx、#project …）→ 新的真实 URL
   import { mapLegacyHash } from '@/lib/hash-redirect';
+  import { initRows, initSearchShortcut } from '@/scripts/home/rows';
   const target = mapLegacyHash(location.hash);
   if (target) location.replace(target);
+  else {
+    initRows();
+    initSearchShortcut();
+  }
 </script>

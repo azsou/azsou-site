@@ -1,0 +1,26 @@
+---
+import AppIcon from '@/components/apps/AppIcon.astro';
+/** 横向行里的紧凑应用 / 工具条目（图标 + 名称 + 副标题 + 一行元信息） */
+interface Props {
+  title: string;
+  subtitle: string;
+  meta: string;
+  href: string;
+  icon: { src: string; variants: boolean };
+  slug: string;
+}
+const { title, subtitle, meta, href, icon, slug } = Astro.props;
+---
+
+<article class="app-tile" data-tile={slug}>
+  <AppIcon src={icon.src} alt={`${title} 图标`} variants={icon.variants} />
+  <div class="app-tile__body">
+    <h3 class="app-tile__title">
+      <a class="card__link" href={href}>
+        {title}
+      </a>
+    </h3>
+    <p class="app-tile__sub">{subtitle}</p>
+    <p class="app-tile__meta">{meta}</p>
+  </div>
+</article>
