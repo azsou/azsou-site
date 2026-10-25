@@ -647,6 +647,11 @@
   .ad-icon {
     display: inline-flex;
   }
+  /* 样张里用 Icon 组件（只允许 16 / 20 / 24）时，32 由外层决定，与运行时 icon(name, 32) 一致 */
+  .ad-icon--32 > svg {
+    width: 32px;
+    height: 32px;
+  }
   .state-block {
     display: grid;
     gap: var(--space-3);
