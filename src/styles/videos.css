@@ -14,11 +14,6 @@
   }
 
   /* ---------- 网格与卡片 ---------- */
-  .video-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-    gap: var(--space-4);
-  }
   .video-card[hidden] {
     display: none;
   }
@@ -142,13 +137,20 @@
     fill: #212121;
     fill-opacity: 0.85;
   }
-  .video-player__facade:hover .video-player__play-bg,
   .video-player__facade:focus-visible .video-player__play-bg {
     fill: #f00;
     fill-opacity: 1;
   }
-  .video-player__facade:hover .video-player__play {
-    transform: translate(-50%, -50%) scale(1.06);
+  @media (hover: hover) and (pointer: fine) {
+    .video-player__facade:hover .video-player__play-bg {
+      fill: #f00;
+      fill-opacity: 1;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .video-player__facade:hover .video-player__play {
+      transform: translate(-50%, -50%) scale(1.06);
+    }
   }
   .video-player__facade:focus-visible {
     outline: 2px solid var(--c-focus);
@@ -243,8 +245,10 @@
     text-align: left;
     cursor: pointer;
   }
-  .chapters__btn:hover:not(:disabled) {
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .chapters__btn:hover:not(:disabled) {
+      background: var(--c-fill);
+    }
   }
   .chapters__btn:disabled {
     cursor: default;
@@ -278,6 +282,8 @@
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.video-watch:hover {
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .video-watch:hover {
+    text-decoration: none;
+  }
 }

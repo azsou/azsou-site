@@ -72,7 +72,7 @@ const channels = [...new Map(curated.map((v) => [v.channel, v.channelName])).ent
   {mine.length > 0 && (
     <section class="section" aria-labelledby="h-mine">
       <h2 id="h-mine">我的视频</h2>
-      <div class="video-grid mt-4">
+      <div class="video-grid grid mt-4" data-grid="media">
         {mine.map((v) => (
           <VideoCard item={v} headingLevel="h3" />
         ))}
@@ -113,7 +113,7 @@ const channels = [...new Map(curated.map((v) => [v.channel, v.channelName])).ent
     共 {curated.length} 个视频 · 点击后才加载播放器
   </p>
 
-  <div class="video-grid" data-video-grid>
+  <div class="video-grid grid" data-grid="media" data-video-grid>
     {curated.map((v, i) => (
       <VideoCard item={v} eager={i === 0} />
     ))}

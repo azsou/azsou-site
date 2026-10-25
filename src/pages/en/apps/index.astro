@@ -31,7 +31,7 @@ const title = (a: (typeof apps)[number]) => a.data.en!.title ?? a.data.title;
     title="Apps"
     lede="Apps made by the site author. Where a build is not public yet, the download button says “Coming soon”."
   />
-  <div class="grid">
+  <div class="grid grid--wide" data-grid="row">
     {apps.map((a) => (
       <EnCard
         href={`/en/apps/${a.id}/`}

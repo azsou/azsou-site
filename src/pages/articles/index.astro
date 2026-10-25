@@ -45,7 +45,7 @@ const used = [...new Set(articles.flatMap((a) => a.data.tags))];
       ...used.map((t) => ({ href: url.tag(t), label: TAGS[t]?.name ?? t })),
     ]}
   />
-  <div class="grid grid--wide">
+  <div class="grid" data-grid="media">
     {articles.map((a, i) => (
       <>
         <ArticleCard article={a} />

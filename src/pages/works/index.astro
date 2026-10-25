@@ -34,7 +34,7 @@ const kinds = [...new Set(works.map((w) => w.data.kind))];
       <div class="section__head">
         <h2>{k}</h2>
       </div>
-      <div class="work-grid">
+      <div class="work-grid grid" data-grid="media">
         {works
           .filter((w) => w.data.kind === k)
           .map((w) => (

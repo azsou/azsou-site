@@ -157,7 +157,7 @@ const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
     共 {paged.total} 个应用{paged.pages > 1 && ` · 第 ${paged.page} / ${paged.pages} 页`} · 按最新排序
   </p>
 
-  <div class="grid grid--wide" data-catalog-grid>
+  <div class="grid grid--wide" data-grid="row" data-catalog-grid>
     {paged.items.map((a, i) => (
       <AppCard item={a} headingLevel="h2" eager={i < 6} />
     ))}

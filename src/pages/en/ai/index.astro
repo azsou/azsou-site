@@ -45,7 +45,7 @@ const groups = AI_CATEGORY_IDS.map((c) => ({
           {g.name} <span class="section__count">{g.items.length}</span>
         </h2>
       </div>
-      <div class="grid">
+      <div class="grid" data-grid="media">
         {g.items.map((t) => (
           <EnCard
             headingLevel="h3"

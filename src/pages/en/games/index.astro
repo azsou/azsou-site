@@ -29,7 +29,7 @@ const games = (await getGames()).filter((g) => g.data.en);
     title="Games & demos"
     lede="Browser games, prototypes and algorithm visualizers. Version numbers reflect how finished each one really is."
   />
-  <div class="grid">
+  <div class="grid" data-grid="media">
     {games.map((g) => (
       <EnGameCard game={g} />
     ))}

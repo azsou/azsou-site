@@ -1,4 +1,5 @@
 ---
+import Icon from '@/components/Icon.astro';
 /** 标签页（T7.2）：这个标签下的全部条目，按类型分组。只有 1 个条目的标签页 noindex（也不进 sitemap）。 */
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
@@ -61,6 +62,9 @@ const description = tagDescription(t.slug, t.count);
     </section>
   ))}
   <p class="mt-8">
-    <a href="/tags/">← 全部标签</a>
+    <a href="/tags/">
+      <Icon name="chevron-left" size={16} class="icon--lead" />
+      全部标签
+    </a>
   </p>
 </Base>
