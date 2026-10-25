@@ -288,8 +288,11 @@ describe('首页源码与构建产物', () => {
     );
     expect(new Set(hashes).size).toBe(srcs.length);
   });
-  it.skipIf(!html)('首页没有 LCP 图片预加载以外的 eager 图片（图标 / 缩略图懒加载）', () => {
-    const eager = [...html.matchAll(/<img[^>]*loading="eager"[^>]*>/g)];
-    expect(eager).toEqual([]);
+  // T9.4（DESIGN-SYSTEM §19.3）：首屏图片 eager（设计测试 Q18 断言首屏无 lazy），其余懒加载；eager 只给小图标，数量有上限
+  it.skipIf(!html)('首页 eager 图片只有首屏图标（≤ 32 张小图标），其余懒加载', () => {
+    const eager = [...html.matchAll(/<img[^>]*loading="eager"[^>]*>/g)].map((m) => m[0]);
+    expect(eager.length).toBeLessThanOrEqual(32);
+    for (const tag of eager) expect(tag, tag).toMatch(/class="app-icon-img/);
+    expect(html).toMatch(/<img[^>]*loading="lazy"/);
   });
 });
