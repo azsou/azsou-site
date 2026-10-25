@@ -447,9 +447,12 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
     </section>
     <section class="home-strip" aria-labelledby="h-rss" data-section="rss">
       <h2 id="h-rss">订阅更新</h2>
-      <p>用 RSS 阅读器订阅，新应用、新文章和论坛主题第一时间送达；不需要注册，也不收集邮箱。</p>
+      <p>用 RSS 阅读器订阅，或留下邮箱（需确认、随时退订），新应用、新文章和视频第一时间送达；不需要注册。</p>
       <p class="btn-row">
-        <a class="btn btn--primary" href={url.rss()}>
+        <a class="btn btn--primary" href="/subscribe/">
+          邮件订阅
+        </a>
+        <a class="btn" href={url.rss()}>
           全站 RSS
         </a>
         <a class="btn" href="/articles/rss.xml">

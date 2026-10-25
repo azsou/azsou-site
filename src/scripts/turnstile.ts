@@ -45,6 +45,7 @@ export function mountTurnstile(form: HTMLElement, onToken?: () => void): Captcha
   let token = '';
   let id: string | undefined;
   let api: TurnstileApi | undefined;
+  const en = el?.dataset.language === 'en';
   if (el)
     load()
       .then((t) => {
@@ -53,7 +54,7 @@ export function mountTurnstile(form: HTMLElement, onToken?: () => void): Captcha
           sitekey: el.dataset.sitekey,
           action: el.dataset.action,
           theme: effectiveTheme(),
-          language: 'zh-cn',
+          language: en ? 'en' : 'zh-cn',
           callback: (v: string) => {
             token = v;
             onToken?.();
@@ -61,12 +62,18 @@ export function mountTurnstile(form: HTMLElement, onToken?: () => void): Captcha
           'expired-callback': () => (token = ''),
           'error-callback': () => {
             token = '';
-            if (hint) hint.textContent = '人机验证加载失败，请刷新页面重试。';
+            if (hint)
+              hint.textContent = en
+                ? 'Verification failed to load. Please reload the page.'
+                : '人机验证加载失败，请刷新页面重试。';
           },
         });
       })
       .catch(() => {
-        if (hint) hint.textContent = '无法连接人机验证服务（challenges.cloudflare.com），请检查网络后刷新。';
+        if (hint)
+          hint.textContent = en
+            ? 'Cannot reach the verification service (challenges.cloudflare.com). Check your connection and reload.'
+            : '无法连接人机验证服务（challenges.cloudflare.com），请检查网络后刷新。';
       });
   return {
     token: () => token,

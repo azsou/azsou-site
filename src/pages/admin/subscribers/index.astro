@@ -1,0 +1,34 @@
+---
+/** 邮件订阅（T7.8）：仅管理员，只显示数量（按状态 × 语言）；数据库没有任何列出 / 导出邮箱的接口 */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="subscribers"
+  title="邮件订阅"
+  lede="订阅人数（按状态与语言）。为保护订阅者隐私，后台不显示、也不能导出任何邮箱地址；发信与退订由订阅者自己在邮件里完成。"
+  require="admin"
+>
+  <div class="table-wrap">
+    <table class="data-table" aria-describedby="sub-note">
+      <caption class="visually-hidden">订阅人数</caption>
+      <thead>
+        <tr>
+          <th scope="col">状态</th>
+          <th scope="col">中文</th>
+          <th scope="col">English</th>
+          <th scope="col">合计</th>
+        </tr>
+      </thead>
+      <tbody data-sub-counts aria-busy="true"></tbody>
+    </table>
+  </div>
+  <p class="muted mt-2" id="sub-note">
+    待确认 = 已提交但还没点确认邮件里的链接（48 小时后失效）；已退订的地址不会再收到邮件。
+  </p>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/subscribers';
+</script>

@@ -53,7 +53,7 @@ export const clientHash = (secret: string, ip: string) =>
 
 export function makeCommunityTicket(
   secret: string,
-  kind: SubmitKind,
+  kind: SubmitKind | 'subscribe',
   payload: string,
   client: string,
   nowSec = Math.floor(Date.now() / 1000),

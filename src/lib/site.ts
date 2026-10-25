@@ -64,6 +64,7 @@ export const FOOTER = [
       { href: '/privacy/', label: '隐私政策' },
       { href: '/terms/', label: '使用条款' },
       { href: '/editorial/', label: '编辑规范' },
+      { href: '/subscribe/', label: '订阅更新' },
       { href: '/rss.xml', label: 'RSS' },
     ],
   },

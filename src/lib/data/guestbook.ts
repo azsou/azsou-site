@@ -50,6 +50,14 @@ export interface GuestbookApi {
   adminLinks(status: ModStatus | 'all'): Promise<FriendLink[]>;
   adminSetLinks(ids: string[], status: ModStatus): Promise<number>;
   adminDeleteLinks(ids: string[]): Promise<number>;
+  /** 管理员：邮件订阅数量（按状态 × 语言；0016 不提供任何列出邮箱的接口） */
+  subscriberCounts(): Promise<SubscriberCount[]>;
+}
+
+export interface SubscriberCount {
+  status: 'pending' | 'confirmed' | 'unsubscribed';
+  lang: 'zh' | 'en';
+  n: number;
 }
 
 export interface GuestbookConfig {
@@ -145,7 +153,7 @@ export function createGuestbookApi(cfg: GuestbookConfig): GuestbookApi {
     if (!res.ok) {
       const code = (json as { code?: string } | null)?.code;
       if (code === 'PGRST202' || code === 'PGRST205' || code === '42P01' || code === '42883')
-        throw new DataUnavailableError('数据库还没有执行留言板迁移（0015）');
+        throw new DataUnavailableError('数据库还没有执行留言板 / 订阅迁移（0015 / 0016）');
       throw restError(res.status, json as Record<string, unknown>);
     }
     return { json, res };
@@ -227,6 +235,14 @@ export function createGuestbookApi(cfg: GuestbookConfig): GuestbookApi {
     },
     async adminDeleteLinks(list) {
       return Number(await rpc('admin_friend_link_delete', { p_ids: ids(list) })) || 0;
+    },
+    async subscriberCounts() {
+      const rows = (await rpc('admin_subscriber_counts', {})) as Row[];
+      return (rows ?? []).map((r) => ({
+        status: r.status as SubscriberCount['status'],
+        lang: r.lang as SubscriberCount['lang'],
+        n: Number(r.n) || 0,
+      }));
     },
   };
 }

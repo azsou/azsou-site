@@ -7,6 +7,7 @@ export const ADMIN_SECTIONS = [
   { id: 'guestbook', label: '留言审核', path: '/admin/guestbook/', role: 'moderator' },
   { id: 'official', label: '官方内容', path: '/admin/official/', role: 'moderator' },
   { id: 'links', label: '友链审核', path: '/admin/links/', role: 'admin' },
+  { id: 'subscribers', label: '邮件订阅', path: '/admin/subscribers/', role: 'admin' },
   { id: 'audit', label: '审计日志', path: '/admin/audit/', role: 'admin' },
   { id: 'settings', label: '站点设置', path: '/admin/settings/', role: 'admin' },
   { id: 'data', label: '导入导出', path: '/admin/data/', role: 'admin' },

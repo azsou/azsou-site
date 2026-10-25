@@ -1,0 +1,123 @@
+---
+/**
+ * 订阅页（T7.8，中英共用）：邮件订阅（双重确认 + Turnstile）+ 各栏目 RSS / JSON Feed。
+ * 邮件订阅走 /api/subscribe；发信服务没配置时接口返回 503，页面显示「暂未开放，可以先用 RSS」。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import TurnstileField from '@/components/TurnstileField.astro';
+import { EMAIL_MAX } from '@/lib/subscribe-form';
+interface Props {
+  lang: 'zh' | 'en';
+}
+const { lang } = Astro.props;
+const en = lang === 'en';
+const T = en
+  ? {
+      title: 'Email updates',
+      desc: 'Get new AZ Studio apps, videos and articles by email (double opt-in, unsubscribe any time), or follow the RSS and JSON feeds.',
+      eyebrow: 'Follow',
+      lede: 'One email when there is something new — no tracking pixels, no ads, and your address is never shared or shown publicly. You confirm by email first and can unsubscribe with one click.',
+      form: 'Subscribe by email',
+      email: 'Email address',
+      hint: 'We send one confirmation email first. Nothing else is sent until you click its link.',
+      submit: 'Subscribe',
+      feeds: 'Feeds',
+      feedsNote: 'Prefer a feed reader? These feeds update with every build of the site.',
+      crumbs: [
+        { name: 'Home', path: '/en/' },
+        { name: 'Email updates', path: '/en/subscribe/' },
+      ],
+      list: [
+        ['/en/rss.xml', 'English RSS', 'Apps, AI tools, videos and games with English descriptions'],
+        ['/rss.xml', 'All updates (Chinese)', 'Articles, game versions and works'],
+        ['/feed.json', 'JSON Feed (Chinese)', 'Articles, apps, videos, games and works'],
+        ['/articles/rss.xml', 'Articles (Chinese)', 'Original articles'],
+        ['/apps/rss.xml', 'Apps (Chinese)', 'App versions and updates'],
+        ['/videos/rss.xml', 'Videos (Chinese)', 'Curated official videos'],
+      ],
+    }
+  : {
+      title: '订阅更新',
+      desc: '用邮件或 RSS 订阅 AZ Studio：新应用、视频与文章。邮件订阅需要确认邮箱，随时一键退订。',
+      eyebrow: '订阅',
+      lede: '有新内容时才发一封邮件：没有追踪像素、没有广告，邮箱不会公开或提供给任何人。先在邮件里确认才会生效，每封邮件都能一键退订。',
+      form: '邮件订阅',
+      email: '邮箱地址',
+      hint: '先发一封确认邮件，点了里面的链接才会开始订阅；在那之前不会再发任何邮件。',
+      submit: '订阅',
+      feeds: 'RSS 与 JSON Feed',
+      feedsNote: '习惯用阅读器？这些订阅源随站点每次构建更新。',
+      crumbs: [
+        { name: '首页', path: '/' },
+        { name: '订阅更新', path: '/subscribe/' },
+      ],
+      list: [
+        ['/rss.xml', '全站更新（RSS）', '文章、游戏版本与作品'],
+        ['/feed.json', '全站更新（JSON Feed）', '文章、应用、视频、游戏与作品'],
+        ['/articles/rss.xml', '原创文章', '只含文章'],
+        ['/apps/rss.xml', '应用更新', '应用的版本与更新'],
+        ['/videos/rss.xml', '视频', '收录的官方视频与原创导读'],
+        ['/forum/rss.xml', '论坛', '论坛主题'],
+        ['/en/rss.xml', 'English RSS', '有英文介绍的应用、AI 工具、视频与游戏'],
+      ],
+    };
+---
+
+<Base title={T.title} description={T.desc} crumbs={T.crumbs}>
+  <PageHead eyebrow={T.eyebrow} title={T.title} lede={T.lede} />
+  <section class="panel" aria-labelledby="h-sub-form">
+    <h2 id="h-sub-form">{T.form}</h2>
+    <form class="form" data-sub-form data-lang={lang} novalidate>
+      <input type="hidden" name="lang" value={lang} />
+      <div class="field">
+        <label for="sub-email">{T.email}</label>
+        <input
+          id="sub-email"
+          name="email"
+          type="email"
+          inputmode="email"
+          autocomplete="email"
+          maxlength={EMAIL_MAX}
+          required
+          aria-describedby="sub-email-hint"
+        />
+        <p class="field__hint" id="sub-email-hint">
+          {T.hint}
+        </p>
+        <p class="field__error" data-error-for="email"></p>
+      </div>
+      <TurnstileField action="subscribe" lang={lang} />
+      <p class="field__error" data-error-for="turnstile"></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          {T.submit}
+        </button>
+      </div>
+      <p class="data-status" role="status" aria-live="polite" data-form-status></p>
+    </form>
+  </section>
+  <section class="section" aria-labelledby="h-feeds">
+    <div class="section__head">
+      <h2 id="h-feeds">{T.feeds}</h2>
+    </div>
+    <p class="muted">{T.feedsNote}</p>
+    <ul class="list-group mt-4" role="list" aria-labelledby="h-feeds">
+      {T.list.map(([href, name, sub]) => (
+        <li>
+          <a class="list-row" href={href}>
+            <span class="list-row__main">
+              <span class="list-row__title">{name}</span>
+              <span class="list-row__sub">{sub}</span>
+            </span>
+            <span class="list-row__aside badge">{href.endsWith('.json') ? 'JSON' : 'RSS'}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/community/subscribe';
+</script>

@@ -1,15 +1,25 @@
 ---
 import { turnstileSiteKey } from '@/lib/turnstile-keys';
 interface Props {
-  action: 'signup' | 'recover' | 'resend' | 'guestbook' | 'link';
+  action: 'signup' | 'recover' | 'resend' | 'guestbook' | 'link' | 'subscribe';
+  lang?: 'zh' | 'en';
 }
-const { action } = Astro.props;
+const { action, lang = 'zh' } = Astro.props;
+const en = lang === 'en';
 ---
 
 <div class="field">
-  <span class="field__label">人机验证</span>
-  <div class="turnstile" data-turnstile data-sitekey={turnstileSiteKey()} data-action={action}></div>
+  <span class="field__label">{en ? 'Verification' : '人机验证'}</span>
+  <div
+    class="turnstile"
+    data-turnstile
+    data-sitekey={turnstileSiteKey()}
+    data-action={action}
+    data-language={en ? 'en' : undefined}
+  ></div>
   <p class="field__hint" data-turnstile-hint>
-    由 Cloudflare Turnstile 提供，通常无需任何操作。
+    {en
+      ? 'Provided by Cloudflare Turnstile; usually no action is needed.'
+      : '由 Cloudflare Turnstile 提供，通常无需任何操作。'}
   </p>
 </div>

@@ -36,7 +36,8 @@
     "@astrojs/sitemap": "3.6.0",
     "@astrojs/vercel": "^8.2.11",
     "astro": "^5.18.2",
-    "dompurify": "^3.4.17"
+    "dompurify": "^3.4.17",
+    "nodemailer": "^7.0.13"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
@@ -44,6 +45,7 @@
     "@eslint/js": "^10.0.0",
     "@playwright/test": "1.64.1",
     "@resvg/resvg-js": "^2.6.2",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "eslint": "^10.0.0",
     "eslint-plugin-astro": "^3.2.1",
