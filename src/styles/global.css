@@ -1182,7 +1182,8 @@
   .code-wrap {
     position: relative;
   }
-  .code-copy {
+  /* 两个类：.btn（components.css，同层、后引入）的 position: relative 不能盖过这里 */
+  .code-wrap > .code-copy {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
