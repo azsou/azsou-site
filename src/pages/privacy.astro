@@ -1,47 +1,199 @@
 ---
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
-import OwnerNote from '@/components/OwnerNote.astro';
+import { contactEmail, GITHUB_ISSUES, LEGAL_UPDATED } from '@/lib/contact';
+import { adsenseClient, ga4Id } from '@/lib/ads';
+const email = contactEmail(import.meta.env);
+const adsOn = !!adsenseClient(import.meta.env);
+const gaOn = !!ga4Id(import.meta.env);
 ---
 
 <Base
   title="隐私政策"
-  description="AZ Studio 收集哪些数据、存放在哪里、如何删除。"
+  description="AZ Studio（azsou.com）收集哪些数据、为什么收集、存放在哪里、与哪些服务商共享，以及你如何查看、导出和删除自己的数据。"
   crumbs={[
     { name: '首页', path: '/' },
     { name: '隐私政策', path: '/privacy/' },
   ]}
 >
-  <PageHead eyebrow="站点与合规" title="隐私政策" lede="最后更新：2026-10-24" />
-  <OwnerNote />
+  <PageHead eyebrow="站点与合规" title="隐私政策" lede={`最后更新：${LEGAL_UPDATED}`} />
   <div class="prose mt-8">
-    <p>本页说明 azsou.com（AZ Studio）如何处理访客数据。本页为站长自拟的说明，不构成法律意见。</p>
-    <h2>浏览网站</h2>
-    <ul>
-      <li>
-        网站托管在 Vercel。与所有网站一样，托管方会在服务器日志中记录 IP
-        地址、浏览器类型、访问时间等技术信息，用于安全与运维，适用 Vercel 的隐私政策。
-      </li>
-      <li>本站不使用广告追踪，也没有接入第三方统计脚本。</li>
-      <li>为了离线访问，浏览器可能通过 Service Worker 在本地缓存页面；你可以在浏览器设置中随时清除。</li>
-    </ul>
-    <h2>账户、评论与论坛</h2>
-    <ul>
-      <li>
-        注册账户、发表评论或论坛内容时，相关数据（邮箱、显示名、你发布的内容及时间）存储在 Supabase
-        托管的数据库中，并受行级安全策略保护。
-      </li>
-      <li>评论与论坛内容公开可见，请不要在其中发布敏感个人信息。</li>
-      <li>
-        你可以随时删除自己发布的内容。需要注销账户或删除全部数据，请通过<a href="/contact/">联系页</a>
-        所列渠道告知。
-      </li>
-    </ul>
-    <h2>Cookie 与本地存储</h2>
-    <p>登录功能会在浏览器本地存储会话凭据，仅用于保持登录状态。本站不出于广告目的使用 Cookie。</p>
-    <h2>变更</h2>
     <p>
-      本政策更新时会修改页首日期，并在<a href="/changelog/">更新日志</a>中注明。
+      本政策说明 azsou.com（AZ
+      Studio，以下简称「本站」）在你浏览、注册、评论、留言、订阅时会处理哪些个人信息。本站由个人开发者 Randy
+      Hopkins
+      运营，是一个记录真实项目、应用档案与技术文章的个人站点。我们尽量少收集：能不收集的就不收集，能只存摘要的就不存原文。
+    </p>
+
+    <h2>一、浏览网站时</h2>
+    <ul>
+      <li>
+        <strong>托管日志</strong>：网站由 Vercel 托管。与所有网站一样，托管方会在服务器日志中记录 IP
+        地址、请求时间、浏览器类型等技术信息，用于安全防护和故障排查，按 Vercel 的隐私政策处理与保留。
+      </li>
+      <li>
+        <strong>本地存储</strong>：浏览器会在你的设备上保存主题偏好（浅色 /
+        深色）、登录会话、站点公告缓存与离线页面缓存（Service Worker）。这些数据不会发送给第三方，具体清单见
+        <a href="/cookies/">Cookie 政策</a>。
+      </li>
+      <li>
+        <strong>站内搜索</strong>：搜索在你的浏览器里完成（Pagefind 静态索引），搜索词不会发送到服务器。
+      </li>
+      <li>
+        <strong>视频</strong>：视频页默认只显示本站托管的缩略图；只有你点击播放后，才会从 youtube-nocookie.com
+        加载 YouTube 播放器，此后适用 Google 的隐私政策。
+      </li>
+    </ul>
+
+    <h2>二、账户、评论与论坛</h2>
+    <ul>
+      <li>
+        注册或登录时（邮箱密码，或 GitHub / Google 第三方登录），账户由 Supabase
+        托管的认证服务处理。本站数据库保存你的邮箱、显示名、头像地址与角色；密码只以加密散列的形式由认证服务保存，站长也无法看到。
+      </li>
+      <li>
+        你在论坛、评论区发布的主题、回复、点赞、收藏、举报与上传的图片，保存在 Supabase 托管的 PostgreSQL
+        数据库与存储桶中，受行级安全策略保护。论坛与评论内容是公开的，请不要在其中发布手机号、住址等敏感信息。
+      </li>
+      <li>
+        版主与管理员处理举报、封禁时，操作会记入审计日志（谁、何时、做了什么），用于防止滥用。导出与后台列表不包含邮箱，只有管理员在搜索用户时可见。
+      </li>
+    </ul>
+
+    <h2>三、留言板与友链申请</h2>
+    <ul>
+      <li>留言板只收集你填写的昵称和留言内容，不需要登录。留言先进入待审核状态，审核通过后才公开。</li>
+      <li>
+        友链申请收集站点名称、网址、简介，以及你自愿填写的联系方式；联系方式只有管理员可见，仅用于回复申请。
+      </li>
+      <li>为了限流和防止重复提交，本站只保存一个带密钥的客户端摘要（无法还原成 IP），不保存你的 IP 地址。</li>
+    </ul>
+
+    <h2>四、邮件订阅</h2>
+    <ul>
+      <li>
+        订阅更新时，本站保存你的邮箱、语言（中文 / 英文）与订阅状态，采用双重确认：确认邮件里的链接 48
+        小时内有效，未确认的地址不会收到任何更新。
+      </li>
+      <li>确认链接与退订链接里的令牌在数据库中只保存 SHA-256 摘要，不保存原文。</li>
+      <li>每封邮件都附带一键退订链接；退订后不再发送，任何时候都可以重新订阅。</li>
+      <li>邮件通过发信服务商（Resend 或站长配置的 SMTP 服务）发送，服务商只为投递目的处理你的邮箱地址。</li>
+    </ul>
+
+    <h2>五、人机验证（Cloudflare Turnstile）</h2>
+    <p>
+      注册、留言、订阅等表单使用 Cloudflare Turnstile
+      防止机器人提交。验证组件会读取浏览器与设备的技术信号来判断是否为真人，由 Cloudflare
+      按其隐私政策处理；本站只接收一个一次性的验证结果。
+    </p>
+
+    <h2>六、统计与广告（Google）</h2>
+    <p>
+      {gaOn
+        ? '本站使用 Google Analytics 4 统计页面访问情况（例如哪些文章被阅读、访问来源），用于改进内容。'
+        : '本站目前没有启用第三方统计；如果将来启用 Google Analytics 4（统计哪些页面被阅读、访问来源），会按本节说明处理。'}
+      {adsOn
+        ? '本站通过 Google AdSense 展示广告，广告收入用于支付服务器与域名费用。'
+        : '本站目前没有展示广告；如果将来通过 Google AdSense 展示广告，会按本节说明处理，并更新本页日期。'}
+    </p>
+    <ul>
+      <li>
+        Google 作为第三方供应商，会使用 Cookie（包括 DoubleClick
+        Cookie）根据你访问本站和其他网站的情况投放广告。你可以访问
+        <a href="https://adssettings.google.com/" rel="noopener">
+          Google 广告设置
+        </a>
+        停用个性化广告，或访问
+        <a href="https://www.aboutads.info/choices/" rel="noopener">
+          aboutads.info
+        </a>
+        停用部分第三方供应商的个性化广告 Cookie。
+      </li>
+      <li>
+        Google 如何使用来自合作网站的数据，见
+        <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">
+          Google 隐私权政策：合作伙伴网站
+        </a>
+        。
+      </li>
+      <li>
+        本站实施 Google 同意模式（Consent Mode
+        v2）：对欧洲经济区、英国和瑞士的访客，广告存储、广告用户数据、广告个性化与统计存储四项默认全部拒绝，直到你在
+        Google 认证的同意管理平台（AdSense「隐私和消息」）中作出选择；其他地区的访客可以在
+        <a href="/cookies/#choices">Cookie 设置</a>中随时关闭广告与统计 Cookie。
+      </li>
+      <li>后台、登录注册、表单、订阅、法律说明等页面不展示广告。</li>
+    </ul>
+
+    <h2>七、我们与谁共享数据</h2>
+    <p>本站不出售个人信息。为了运行网站，以下服务商会在各自职责范围内处理数据：</p>
+    <ul>
+      <li>Vercel：网站托管与 CDN。</li>
+      <li>Supabase：账户认证、数据库与图片存储。</li>
+      <li>Cloudflare：Turnstile 人机验证。</li>
+      <li>Resend 或站长配置的 SMTP 服务：订阅邮件投递。</li>
+      <li>
+        Google：YouTube 播放（仅在你点击播放后）{gaOn && '、Google Analytics 统计'}
+        {adsOn && '、AdSense 广告与同意管理'}。
+      </li>
+      <li>GitHub：第三方登录（如果你选择用 GitHub 登录），以及网站源代码托管。</li>
+    </ul>
+    <p>这些服务商可能在中国大陆以外的地区处理数据。除法律要求外，本站不会向其他任何人披露你的个人信息。</p>
+
+    <h2>八、保留期限</h2>
+    <ul>
+      <li>账户与你发布的内容：保留到你删除内容或注销账户为止。</li>
+      <li>未确认的订阅：确认链接 48 小时后失效；已退订的地址只保留退订状态，用于避免再次误发。</li>
+      <li>限流用的客户端摘要：只在限流窗口内使用，定期清理。</li>
+      <li>审计日志：为处理滥用与申诉而保留。</li>
+    </ul>
+
+    <h2>九、你的权利</h2>
+    <p>你可以随时：</p>
+    <ul>
+      <li>
+        查看与修改：在<a href="/settings/">账户设置</a>里修改显示名与头像。
+      </li>
+      <li>删除：删除自己发布的主题、回复与评论；退订邮件。</li>
+      <li>
+        注销与导出：需要注销账户、删除全部数据或获取数据副本，请通过下方渠道联系，我们会在核实身份后 30
+        天内处理。
+      </li>
+      <li>
+        撤回同意：在 <a href="/cookies/#choices">Cookie 设置</a>中关闭广告与统计 Cookie，或清除浏览器存储。
+      </li>
+    </ul>
+    <p>如果你所在地区的法律（例如《个人信息保护法》、GDPR、CCPA）赋予你更多权利，我们同样尊重并配合行使。</p>
+
+    <h2>十、儿童</h2>
+    <p>本站面向开发者与创作者，不面向 14 周岁以下的儿童，也不会有意收集儿童的个人信息。</p>
+
+    <h2>十一、联系我们</h2>
+    <ul>
+      {email && (
+        <li>
+          邮箱：<a href={`mailto:${email}`}>{email}</a>
+        </li>
+      )}
+      <li>
+        <a href="/guestbook/">留言板</a>（适合简短问题；留言审核后公开，请不要在留言里写个人信息）
+      </li>
+      <li>
+        GitHub：
+        <a href={GITHUB_ISSUES} rel="noopener">
+          azsou/azsou-site Issues
+        </a>
+      </li>
+      <li>
+        更多方式见<a href="/contact/">联系页</a>。
+      </li>
+    </ul>
+
+    <h2>十二、政策变更</h2>
+    <p>
+      本政策更新时会修改页首的「最后更新」日期，重要变化会在<a href="/changelog/">更新日志</a>中注明。另见
+      <a href="/cookies/">Cookie 政策</a>、<a href="/ad-disclosure/">广告与联盟披露</a>与
+      <a href="/terms/">使用条款</a>。
     </p>
   </div>
 </Base>

@@ -15,7 +15,21 @@ export const toEn = (zhPath: string) => (zhPath === '/' ? '/en/' : `/en${zhPath}
 export const toZh = (enPath: string) => enPath.replace(/^\/en(?=\/|$)/, '') || '/';
 
 /** 英文版的固定栏目页（列表页、首页、订阅页）；详情页由 enDetailPaths() 按内容补上 */
-export const EN_SECTIONS = ['/', '/apps/', '/ai/', '/videos/', '/games/', '/articles/', '/subscribe/'];
+export const EN_SECTIONS = [
+  '/',
+  '/apps/',
+  '/ai/',
+  '/videos/',
+  '/games/',
+  '/articles/',
+  '/subscribe/',
+  // 站点与合规页（P8 T8.2）：中英各一份，内容对应
+  '/about/',
+  '/contact/',
+  '/privacy/',
+  '/cookies/',
+  '/ad-disclosure/',
+];
 
 type WithEn = { id: string; data: { en?: unknown } };
 export function enDetailPaths(c: { apps: WithEn[]; tools: WithEn[]; videos: WithEn[]; games: WithEn[] }) {

@@ -43,8 +43,12 @@ export const EN_FOOTER = [
   {
     title: 'Site',
     links: [
-      { href: '/about/', label: 'About (Chinese)' },
-      { href: '/privacy/', label: 'Privacy (Chinese)' },
+      { href: '/en/about/', label: 'About' },
+      { href: '/en/contact/', label: 'Contact' },
+      { href: '/en/privacy/', label: 'Privacy policy' },
+      { href: '/en/cookies/', label: 'Cookie policy' },
+      { href: '/en/cookies/#choices', label: 'Cookie settings' },
+      { href: '/en/ad-disclosure/', label: 'Ad & affiliate disclosure' },
       { href: '/', label: '中文版' },
     ],
   },

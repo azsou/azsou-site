@@ -1,0 +1,80 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import StorageTable from '@/components/legal/StorageTable.astro';
+import ConsentChoices from '@/components/legal/ConsentChoices.astro';
+import { LEGAL_UPDATED } from '@/lib/contact';
+---
+
+<Base
+  title="Cookie policy"
+  description="Every cookie and local-storage item AZ Studio uses, what each is for and how long it lasts, when Google ad and analytics cookies appear, and how to change your choice."
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Cookie policy', path: '/en/cookies/' },
+  ]}
+>
+  <PageHead eyebrow="Site & legal" title="Cookie policy" lede={`Last updated: ${LEGAL_UPDATED}`} />
+  <div class="prose mt-8">
+    <p>
+      Cookies are small pieces of data a site stores in your browser; localStorage, sessionStorage and Cache
+      Storage are similar browser storage. This page lists everything azsou.com uses. The rule:{' '}
+      <strong>store only what is needed, and keep it on your device when possible</strong>.
+    </p>
+    <h2>Cookies and storage on this site</h2>
+  </div>
+  <StorageTable lang="en" />
+  <div class="prose">
+    <h2>What the types mean</h2>
+    <ul>
+      <li>
+        <strong>Necessary</strong>: needed for sign-in, bot protection on forms and offline access; no consent
+        required.
+      </li>
+      <li>
+        <strong>Preference</strong>: remembers choices you made (theme, privacy choices), on your device only.
+      </li>
+      <li>
+        <strong>Analytics</strong>: only when the owner enables Google Analytics 4; denied by default in the
+        EEA, UK and Switzerland.
+      </li>
+      <li>
+        <strong>Advertising</strong>: only when the owner enables Google AdSense, and only on pages that may
+        show ads (articles and lists) — never on admin, sign-in, form, subscription or legal pages.
+      </li>
+    </ul>
+    <h2>Google Consent Mode and consent management</h2>
+    <p>
+      Before any Google tag loads, the site sets Consent Mode v2 defaults: for the EEA, the UK and
+      Switzerland,
+      <code>ad_storage</code>, <code>ad_user_data</code>, <code>ad_personalization</code> and{' '}
+      <code>analytics_storage</code>
+      are all denied until you answer Google’s certified consent message (AdSense “Privacy &amp; messaging”,
+      IAB TCF). Elsewhere they default to granted and you can switch them off below.
+    </p>
+    <h2>Managing or deleting</h2>
+    <ul>
+      <li>Use “Your choices” below.</li>
+      <li>
+        Clear this site’s cookies and site data in your browser (this also signs you out and clears the
+        offline cache).
+      </li>
+      <li>
+        Use{' '}
+        <a href="https://adssettings.google.com/" rel="noopener">
+          Google Ads Settings
+        </a>{' '}
+        or the
+        <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">
+          Google Analytics opt-out add-on
+        </a>
+        .
+      </li>
+    </ul>
+    <p>
+      See also the <a href="/en/privacy/">privacy policy</a> and the{' '}
+      <a href="/en/ad-disclosure/">advertising &amp; affiliate disclosure</a>.
+    </p>
+  </div>
+  <ConsentChoices lang="en" />
+</Base>

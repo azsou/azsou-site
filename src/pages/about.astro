@@ -1,26 +1,79 @@
 ---
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
-import OwnerNote from '@/components/OwnerNote.astro';
+import { url } from '@/lib/routes';
+import { getApps, getArticles, getGames, getTools, getVideos } from '@/lib/content';
+const [apps, games, articles, tools, videos] = await Promise.all([
+  getApps(),
+  getGames(),
+  getArticles(),
+  getTools(),
+  getVideos(),
+]);
+const own = apps.filter((a) => a.data.developer.type === 'self');
 ---
 
 <Base
   title="关于"
-  description="关于 AZ Studio 与作者 Randy Hopkins：一个记录真实项目、版本与实测结论的个人技术站点。"
+  description="关于 AZ Studio 与作者 Randy Hopkins：独立开发者的个人技术站，记录 FableMotion、EMBERDEEP 等真实项目的版本、实测与复盘，以及 AI 编程工具的使用经验。"
   type="profile"
   crumbs={[
     { name: '首页', path: '/' },
     { name: '关于', path: '/about/' },
   ]}
 >
-  <PageHead eyebrow="关于" title="关于 AZ Studio" />
-  <OwnerNote />
+  <PageHead
+    eyebrow="关于"
+    title="关于 AZ Studio"
+    lede="一个独立开发者的工作台：做了什么、做到哪一步、踩过什么坑，都写在这里。"
+  />
   <div class="prose mt-8">
     <p>
       AZ Studio（azsou.com）是 Randy Hopkins
-      的个人技术社区、产品档案与创作实验室。站内的应用、游戏、文章和作品都来自作者自己在做的真实项目：FableMotion
-      动画编辑器、EMBERDEEP 体素 Roguelike、Image Atlas Pro 与 Capture Kit 浏览器扩展、单文件工具箱等。
+      的个人技术站点，也是他自己项目的产品档案与创作实验室。站内的应用、游戏、文章和作品，都来自作者正在做或做过的真实项目：
+      <a href={url.app('fablemotion')}>FableMotion</a> 时间轴动画编辑器、
+      <a href={url.game('emberdeep')}>EMBERDEEP</a>
+      体素 Roguelike、Image Atlas Pro 与 Capture Kit 浏览器扩展、单文件工具箱，以及一系列小型游戏原型。
     </p>
+
+    <h2>站里有什么</h2>
+    <ul>
+      <li>
+        <a href="/apps/">应用</a>：{own.length}{' '}
+        个自研应用的档案，含版本历史、测试环境、隐私说明与下载状态（还没有安装包的如实标注）。
+      </li>
+      <li>
+        <a href="/games/">游戏与 Demo</a>：{games.length} 个游戏项目与可视化原型。
+      </li>
+      <li>
+        <a href="/articles/">原创文章</a>：{articles.length} 篇开发实践、实测与复盘，每篇标注最后核对日期。
+      </li>
+      <li>
+        <a href="/ai/">AI 工具</a>：{tools.length} 个作者实际关注或使用的 AI
+        编程与创作工具，只链官方渠道，附原创点评。
+      </li>
+      <li>
+        <a href="/videos/">视频</a>：{videos.length} 个官方频道的技术视频，配中文导读与章节。
+      </li>
+      <li>
+        <a href="/forum/">论坛</a>、评论区与<a href="/guestbook/">留言板</a>：和读者交流的地方。
+      </li>
+    </ul>
+
+    <h2>作者</h2>
+    <p>
+      Randy
+      Hopkins，独立开发者，主要做游戏与创作工具：动画编辑器的时间轴与关键帧系统、程序化生成（地牢、体素、声音）、浏览器扩展，以及让这些工具能离线、单文件运行的工程方案。
+      日常开发中大量使用 AI 编程代理，站内的 AI 工具栏目与相关文章记录的就是这些一手经验。
+    </p>
+    <p>
+      本站的源代码公开在{' '}
+      <a href="https://github.com/azsou/azsou-site" rel="noopener">
+        GitHub
+      </a>
+      ，站点本身就是一个可以对照阅读的工程样本。
+    </p>
+
     <h2>这个站点的做法</h2>
     <ul>
       <li>每个项目标注版本、状态、测试环境与最后核对日期，以实际测试记录为准。</li>
@@ -28,13 +81,15 @@ import OwnerNote from '@/components/OwnerNote.astro';
       <li>
         文章区分「原创」「实测」「复盘」，结论附可复现的过程。详见<a href="/editorial/">编辑规范</a>。
       </li>
-      <li>站内配图目前由确定性生成器绘制（生成式 SVG），不是实机截图，后续会逐项替换。</li>
+      <li>站内配图大多由确定性生成器绘制（生成式 SVG）；界面概念图会明确标注「概念图 · 非真实截图」。</li>
+      <li>
+        广告、联盟链接与赞助的规则见<a href="/ad-disclosure/">广告与联盟披露</a>，它们不影响任何结论。
+      </li>
     </ul>
-    <h2>作者</h2>
-    <p>Randy Hopkins，AZ Studio 的作者与维护者。更详细的个人介绍待补充。</p>
+
     <h2>联系</h2>
     <p>
-      见<a href="/contact/">联系页</a>。
+      问题反馈、勘误、合作，见<a href="/contact/">联系页</a>。
     </p>
   </div>
 </Base>
