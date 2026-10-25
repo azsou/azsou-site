@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>内容后台 · AZ Studio</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <!--
+      Git 内容后台（T7.7）：Decap CMS 3，配置在同目录的 config.yml。
+      生产：GitHub 存储（azsou/azsou-site，编辑走 Pull Request，CI 通过后再合并）；登录经 /api/cms/auth（GitHub OAuth App）。
+      本地：另开终端 `npx decap-server`，再 `npm run dev` 打开 http://localhost:4321/cms/ ，直接读写本机文件。
+      本页有单独的 CSP（vercel.json 的 "/cms/(.*)" 规则），不进 sitemap / Pagefind，robots 禁止抓取。
+    -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/decap-cms@3.17.1/dist/decap-cms.js"
+      integrity="sha384-d2pbrhjc5asvSK35gKkrgRIk0Wq+2CQynWnXtSsYWQawXCgBXhcAK737jBAKXT4T"
+      crossorigin="anonymous"
+    ></script>
+  </body>
+</html>

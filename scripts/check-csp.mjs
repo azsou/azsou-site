@@ -25,7 +25,7 @@ const vercel = JSON.parse(fs.readFileSync(vercelPath, 'utf8'));
 // 不下发能省下每个资源 ~700 字节响应头（Lighthouse 的 resource-summary 预算按含响应头的传输量计）。
 // /pagefind/（T7.1 全文搜索）单独一条 CSP：只有 Pagefind 的 Web Worker 需要 'wasm-unsafe-eval'，
 // Worker 的 CSP 取自它自己的响应头，所以页面 CSP 不放开 WASM；两条规则不能同时匹配（两个 CSP 头会叠加生效）。
-const CSP_SOURCE = '/((?!_astro/|pagefind/).*)';
+const CSP_SOURCE = '/((?!_astro/|pagefind/|cms/|api/cms/).*)';
 const PAGEFIND_SOURCE = '/pagefind/(.*)';
 const globalRule = vercel.headers.find((h) => h.source === '/(.*)');
 const cspRule = vercel.headers.find((h) => h.source === CSP_SOURCE);
