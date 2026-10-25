@@ -43,7 +43,7 @@ test.describe('后台外壳与状态（夹具）', () => {
 
   test('内容表：行高 ≤ 64、复选框命中区 ≥ 32、摘要一行纯文本；窄屏为卡片（主列 + 2 个 meta + 操作）', async ({
     page,
-  }, info) => {
+  }) => {
     await mockAdmin(page);
     await page.goto('/admin/content/');
     await expect(rows(page)).toHaveCount(CONTENT_ROWS.length);
@@ -56,7 +56,8 @@ test.describe('后台外壳与状态（夹具）', () => {
     expect(hit!.width).toBeGreaterThanOrEqual(32);
     expect(hit!.height).toBeGreaterThanOrEqual(32);
     const heights = await rows(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
-    if (isMobile(info.project.name)) {
+    // < 900 为卡片（含 834 平板）
+    if (page.viewportSize()!.width < 900) {
       // 卡片：只显示主列 + 作者 + 状态 + 操作，没有「标签：值」竖排
       const shown = await first.evaluate(
         (tr) => [...tr.children].filter((td) => getComputedStyle(td).display !== 'none').length,
@@ -68,6 +69,11 @@ test.describe('后台外壳与状态（夹具）', () => {
     }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
+    // 操作列不被长标题挤出可视区（表格自动布局忽略 td max-width 的回归）
+    const more = await first.getByRole('button', { name: '更多操作' }).boundingBox();
+    const vw = page.viewportSize()!.width;
+    expect(more!.x).toBeGreaterThanOrEqual(0);
+    expect(more!.x + more!.width).toBeLessThanOrEqual(vw);
   });
 
   test('「⋯」菜单：键盘打开 / 方向键移动 / Esc 归还焦点；删除二次确认；批量工具栏出现与取消', async ({
