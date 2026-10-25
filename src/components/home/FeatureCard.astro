@@ -11,7 +11,7 @@ const { item } = Astro.props;
 <article class="feature-card" data-hue={item.hue} data-featured={item.slug}>
   <p class="feature-card__eyebrow">编辑精选 · {item.label}</p>
   <div class="feature-card__head">
-    <AppIcon src={item.icon.src} alt={`${item.title} 图标`} variants={item.icon.variants} />
+    <AppIcon src={item.icon.src} alt="" variants={item.icon.variants} size="lg" />
     <div class="feature-card__titles">
       <h3 class="feature-card__title">
         <a class="card__link" href={item.url}>

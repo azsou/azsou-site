@@ -24,6 +24,7 @@ import {
   toolQueryString,
   type AiCategory,
 } from '@/lib/app-store';
+import iconManifest from '@/data/icon-manifest.json';
 import { iconSrcset } from '@/lib/icons';
 
 const UA = {
@@ -241,12 +242,25 @@ describe('AI 工具筛选（/ai/）', () => {
 });
 
 describe('图标多尺寸版本', () => {
-  it('按显示尺寸给出 1x / 2x', () => {
-    expect(iconSrcset('/ai/icons/ollama.png', 'lg', 'avif')).toBe(
-      '/ai/icons/ollama-128.avif 1x, /ai/icons/ollama-256.avif 2x',
+  it('按 5 档容器尺寸给出规范化版本的 1x / 2x（T9.3）', () => {
+    expect(iconSrcset('/ai/icons/ollama.png', 'xl', 'avif')).toBe(
+      '/ai/icons/n/ollama-112.avif 1x, /ai/icons/n/ollama-224.avif 2x',
     );
     expect(iconSrcset('/apps/icons/hermes.png', 'md', 'webp')).toBe(
-      '/apps/icons/hermes-64.webp 1x, /apps/icons/hermes-128.webp 2x',
+      '/apps/icons/n/hermes-56.webp 1x, /apps/icons/n/hermes-112.webp 2x',
     );
+    expect(iconSrcset('/ai/icons/zed.png', 'xs', 'webp')).toBe(
+      '/ai/icons/n/zed-32.webp 1x, /ai/icons/n/zed-64.webp 2x',
+    );
+  });
+
+  it('38 个图标全部规范化，主体占比 68%–76%（满幅插画型自研应用除外）', () => {
+    const rows = Object.entries(iconManifest as Record<string, { ratioAfter: number; fullBleed: boolean }>);
+    expect(rows.length).toBe(38);
+    for (const [slug, m] of rows) {
+      if (m.fullBleed) continue;
+      expect(m.ratioAfter, slug).toBeGreaterThanOrEqual(0.68);
+      expect(m.ratioAfter, slug).toBeLessThanOrEqual(0.76);
+    }
   });
 });

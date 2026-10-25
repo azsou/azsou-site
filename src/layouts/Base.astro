@@ -135,8 +135,9 @@ const isProd = import.meta.env.PROD;
         fetchpriority="high"
       />
     )}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     {lang === 'en' ? (
       <link rel="alternate" type="application/rss+xml" title="AZ Studio (English)" href="/en/rss.xml" />
@@ -195,6 +196,9 @@ const isProd = import.meta.env.PROD;
     <script>
       // 主题切换按钮 + Ctrl/⌘K 搜索面板（面板与 Pagefind 只在打开时才加载）
       import '@/scripts/site-shell';
+      // 图标加载失败 → 几何兜底（T9.3）
+      import { initIconFallback } from '@/scripts/icon-fallback';
+      initIconFallback();
       // 站点公告条与论坛分类顺序（站点设置，P4）：空闲时加载，不影响首屏
       import { whenIdle } from '@/scripts/idle';
       whenIdle(() => import('@/scripts/site-banner').then((m) => m.initSiteBanner()), 3000);

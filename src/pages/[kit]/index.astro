@@ -146,7 +146,7 @@ const kitCss = [
     <section class="kit__section" aria-labelledby="kit-icons">
       <h2 id="kit-icons">应用图标</h2>
       <div class="kit__icons">
-        {(['sm', 'md', 'lg'] as const).map((s) => (
+        {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((s) => (
           <AppIcon src={iconSrc.iconSrc} alt="" size={s} variants={iconSrc.iconVariants} />
         ))}
       </div>

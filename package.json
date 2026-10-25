@@ -38,7 +38,9 @@
     "tokens:check": "node scripts/design/build-tokens.mjs --check",
     "lint:css": "stylelint \"src/**/*.{css,astro}\"",
     "test:design": "playwright test -c playwright.design.config.ts --project=design",
-    "test:visual": "playwright test -c playwright.design.config.ts --project=visual"
+    "test:visual": "playwright test -c playwright.design.config.ts --project=visual",
+    "icons": "node scripts/design/normalize-icons.mjs && node scripts/make-icons.mjs",
+    "check:assets": "node scripts/design/check-assets.mjs"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.19",

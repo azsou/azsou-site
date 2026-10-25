@@ -25,7 +25,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
 <Base
   searchType="tool"
   preloadSrcset={
-    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'xl', 'avif'), type: 'image/avif' } : undefined
   }
   preloadImage={d.icon.variants ? undefined : d.icon.src}
   title={`${d.title} — ${d.subtitle}`}

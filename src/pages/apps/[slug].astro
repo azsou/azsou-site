@@ -29,7 +29,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
   searchType="app"
   preloadImage={d.icon.variants ? undefined : d.icon.src}
   preloadSrcset={
-    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'xl', 'avif'), type: 'image/avif' } : undefined
   }
   title={`${d.title} — ${d.subtitle}`}
   description={description}

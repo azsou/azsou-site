@@ -1,4 +1,5 @@
 ---
+import GeoIcon from '@/components/GeoIcon.astro';
 /**
  * 首页（T6.8）：应用商店 + 内容门户。只用内容集合里的真实数据：
  * 没有数据的区块整块不渲染（homeSections()），不放占位框，不显示评分 / 下载量 / 用户数。
@@ -205,7 +206,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
           {mosaic.map((m) => (
             <li>
               <a href={m.href} tabindex="-1">
-                <AppIcon src={m.icon.src} alt={`${m.title} 图标`} variants={m.icon.variants} />
+                <AppIcon src={m.icon.src} alt="" variants={m.icon.variants} />
               </a>
             </li>
           ))}
@@ -301,11 +302,9 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
         {updates.map((u) => (
           <li class="update-row">
             {u.icon ? (
-              <AppIcon src={u.icon.src} alt={`${u.title} 图标`} variants={u.icon.variants} size="sm" />
+              <AppIcon src={u.icon.src} alt="" variants={u.icon.variants} size="sm" />
             ) : (
-              <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
-                {u.title.slice(0, 2)}
-              </span>
+              <GeoIcon seed={u.url} hue={u.hue} />
             )}
             <span class="update-row__main">
               <a class="update-row__title" href={u.url}>

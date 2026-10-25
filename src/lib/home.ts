@@ -267,7 +267,7 @@ export function categoryTiles(apps: HomeApp[], tools: HomeTool[]): CategoryTile[
       name: CATEGORIES[c],
       count: items.length,
       url: url.appCategory(c),
-      icons: items.slice(0, 3).map((a) => ({ ...a.data.icon, alt: `${a.data.title} 图标` })),
+      icons: items.slice(0, 3).map((a) => ({ ...a.data.icon, alt: '' })),
     };
   });
   const aiTiles = AI_CATEGORY_IDS.map((c) => {
@@ -281,7 +281,7 @@ export function categoryTiles(apps: HomeApp[], tools: HomeTool[]): CategoryTile[
       name: AI_CATEGORIES[c],
       count: items.length,
       url: url.aiCategory(c),
-      icons: items.slice(0, 3).map((t) => ({ ...t.data.icon, alt: `${t.data.title} 图标` })),
+      icons: items.slice(0, 3).map((t) => ({ ...t.data.icon, alt: '' })),
     };
   });
   return [...appTiles, ...aiTiles].filter((t) => t.count > 0);

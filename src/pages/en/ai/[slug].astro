@@ -28,7 +28,7 @@ const description = `${title}: ${en.summary} Platforms: ${oses.map((o) => EN_PLA
 <Base
   searchType="tool"
   preloadSrcset={
-    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'lg', 'avif'), type: 'image/avif' } : undefined
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'xl', 'avif'), type: 'image/avif' } : undefined
   }
   preloadImage={d.icon.variants ? undefined : d.icon.src}
   title={`${title} — ${subtitle}`}

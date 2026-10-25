@@ -40,6 +40,10 @@
     max-width: 100%;
     height: auto;
   }
+  /* 断图兜底（N-IMG-2）：图片加载失败时不露出 alt 文本，由垫板 / Monogram 兜底 */
+  img {
+    color: transparent;
+  }
   input,
   button,
   textarea,
@@ -620,7 +624,7 @@
       box-shadow: var(--shadow-2);
     }
     :is(.card, .feature-card, .app-tile, .cat-tile, .update-row):has(a:hover) .app-icon-img {
-      transform: scale(1.06);
+      transform: scale(1.04);
     }
     .card:has(a.card__link:hover) .card__media img {
       transform: scale(1.03);
@@ -712,6 +716,13 @@
     height: 88px;
     border-radius: var(--icon-squircle);
     font-size: var(--fs-title-2);
+  }
+  .app-icon--geo {
+    background: linear-gradient(135deg, var(--hue), color-mix(in srgb, var(--hue) 60%, black));
+  }
+  .app-icon--geo svg {
+    width: 62%;
+    height: 62%;
   }
   .app-icon--sm {
     width: 40px;

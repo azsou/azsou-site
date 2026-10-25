@@ -1,4 +1,5 @@
 ---
+import GeoIcon from '@/components/GeoIcon.astro';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import updates from '@/data/updates.json';
@@ -57,9 +58,7 @@ const site: { date: string; title: string; note: string; thread?: string }[] = [
       <ul class="list-group mt-4" role="list">
         {updates.map((u) => (
           <li class="list-row">
-            <span class="app-icon app-icon--sm" data-hue={u.hue} aria-hidden="true">
-              {u.icon}
-            </span>
+            <GeoIcon seed={u.title} hue={u.hue} />
             <span class="list-row__main">
               <span class="list-row__title">{u.title}</span>
               <br />

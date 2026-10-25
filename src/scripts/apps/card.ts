@@ -1,5 +1,5 @@
 /** 目录卡片的浏览器端渲染（与 AppCard.astro 同一结构），以及卡片上的评分 / 下载数一行。 */
-import { iconSrcset } from '@/lib/icons';
+import { iconFallbackSrc, iconSrcset } from '@/lib/icons';
 import { PLATFORM_LABEL, formatCount, formatRating, type AppStats, type CatalogItem } from '@/lib/app-store';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) {
@@ -14,10 +14,10 @@ export function renderCard(item: CatalogItem, headingLevel: 'h2' | 'h3' = 'h3'):
   card.dataset.app = item.slug;
   card.dataset.hue = item.hue;
   const img = el('img', 'app-icon-img app-icon-img--md');
-  img.src = item.icon;
-  img.alt = item.iconAlt;
-  img.width = 64;
-  img.height = 64;
+  img.src = item.iconVariants ? iconFallbackSrc(item.iconSrc, 'md') : item.icon;
+  img.alt = ''; // 名称就在旁边（DESIGN-SYSTEM §19.3）
+  img.width = 56;
+  img.height = 56;
   img.loading = 'lazy';
   img.decoding = 'async';
   // 与 AppIcon.astro（variants）同一结构：<picture> + AVIF source，WebP 1x / 2x 兜底

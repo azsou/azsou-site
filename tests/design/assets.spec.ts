@@ -16,7 +16,7 @@ test('站点图标：/favicon.ico、favicon.svg、apple-touch-icon、manifest �
   }
   const m = await (await request.get('/manifest.webmanifest')).json();
   const sizes = (m.icons as { sizes: string; purpose?: string }[]).map(
-    (i) => `${i.sizes}${i.purpose ? ':' + i.purpose : ''}`,
+    (i) => `${i.sizes}${i.purpose && i.purpose !== 'any' ? ':' + i.purpose : ''}`,
   );
   expect(sizes).toEqual(expect.arrayContaining(['192x192', '512x512', '512x512:maskable']));
   expect((m.shortcuts ?? []).length).toBeGreaterThanOrEqual(4);

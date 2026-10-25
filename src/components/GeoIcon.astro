@@ -1,0 +1,17 @@
+---
+/** 缺图标时的几何兜底（不用文字 Monogram；DESIGN-SYSTEM §6.4，T9.3） */
+import { geoIconSvg } from '@/lib/geo-icon';
+interface Props {
+  seed: string;
+  hue?: string;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+}
+const { seed, hue = 'accent', size = 'sm' } = Astro.props;
+---
+
+<span
+  class={`app-icon app-icon--${size} app-icon--geo`}
+  data-hue={hue}
+  aria-hidden="true"
+  set:html={geoIconSvg(seed)}
+/>
