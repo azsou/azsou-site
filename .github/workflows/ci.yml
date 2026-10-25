@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     env:
       # 加载 src/content/apps/_e2e/ 的测试夹具应用（下载中转 / 平台识别 E2E 用）；Vercel 的构建不设，线上没有夹具
@@ -56,6 +57,7 @@ jobs:
           retention-days: 3
 
   db:
+    timeout-minutes: 25
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -93,6 +95,7 @@ jobs:
         with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
 
   e2e:
+    timeout-minutes: 50
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -140,6 +143,7 @@ jobs:
   # P9 设计门禁（T9.2）：Q5 / Q8 / Q11 / Q12 / Q18 断言 + Q2 视觉回归（Chromium + Noto CJK，2 片并行）。
   # 没有基线（首次）或手动触发 update_visual 时写出基线并上传为产物，审阅后提交到 tests/visual/__screenshots__/。
   design:
+    timeout-minutes: 35
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -179,6 +183,7 @@ jobs:
           if-no-files-found: ignore
 
   lighthouse:
+    timeout-minutes: 30
     needs: build
     runs-on: ubuntu-latest
     steps:
