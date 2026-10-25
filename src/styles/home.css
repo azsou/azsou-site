@@ -210,6 +210,21 @@
     transform: scale(1.06);
   }
 
+  /* ---------- 首屏以下的区块：跳过离屏渲染（content-visibility），首屏样式 / 布局计算更少 ----------
+   * content-visibility 带 paint containment：区块向两侧各扩出一个 gutter（横向行要贴边滚动），里面再补回来 */
+  .home-sec ~ .home-sec ~ .home-sec {
+    --gutter: var(--space-5);
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+    content-visibility: auto;
+    contain-intrinsic-size: auto 520px;
+  }
+  @media (max-width: 480px) {
+    .home-sec ~ .home-sec ~ .home-sec {
+      --gutter: var(--space-4);
+    }
+  }
+
   /* ---------- 区块标题行 ---------- */
   .home-sec__head {
     align-items: flex-end;
