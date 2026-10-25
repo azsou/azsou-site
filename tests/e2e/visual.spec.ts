@@ -131,8 +131,8 @@ test.describe('T6.9 视觉', () => {
     await page.goto('/apps/');
     const link = page.locator('[data-catalog-grid] .app-card .card__link').first();
     await link.focus();
-    // 焦点环画在 ::after（覆盖整张卡片）上
-    const ring = await link.evaluate((e) => getComputedStyle(e, '::after').boxShadow);
+    // 焦点环画在 ::after（覆盖整张卡片）上；T9.1 起用不透明 outline（强制色下仍可见，DESIGN-SYSTEM §16）
+    const ring = await link.evaluate((e) => getComputedStyle(e, '::after').outlineStyle);
     expect(ring).not.toBe('none');
   });
 

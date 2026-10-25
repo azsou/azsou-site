@@ -18,6 +18,7 @@ const NOINDEX = [
   '/u/',
   '/search/',
   '/offline/',
+  '/_kit/',
   '/forum/new/',
   '/bookmarks/',
   '/404/',

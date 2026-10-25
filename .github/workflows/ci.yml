@@ -7,6 +7,11 @@ on:
   push:
     branches-ignore: [main]
   workflow_dispatch:
+    inputs:
+      update_visual:
+        description: '重新生成视觉回归基线（产物 visual-baseline-*，审阅后提交）'
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -127,6 +132,47 @@ jobs:
           name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
           path: playwright-report
           retention-days: 7
+
+  # P9 设计门禁（T9.2）：Q5 / Q8 / Q11 / Q12 / Q18 断言 + Q2 视觉回归（Chromium + Noto CJK，2 片并行）。
+  # 没有基线（首次）或手动触发 update_visual 时写出基线并上传为产物，审阅后提交到 tests/visual/__screenshots__/。
+  design:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Chromium + 中文字体
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          npx playwright install --with-deps chromium
+      - name: 设计门禁 + 视觉回归
+        run: |
+          UPDATE=""
+          if [ "${{ inputs.update_visual }}" = "true" ] || [ -z "$(ls tests/visual/__screenshots__ 2>/dev/null)" ]; then UPDATE="--update-snapshots=all"; fi
+          npx playwright test -c playwright.design.config.ts --shard=${{ matrix.shard }}/2 $UPDATE
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baseline-${{ matrix.shard }}
+          path: tests/visual/__screenshots__
+          retention-days: 7
+          if-no-files-found: ignore
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-report-${{ matrix.shard }}
+          path: playwright-report-design
+          retention-days: 7
+          if-no-files-found: ignore
 
   lighthouse:
     needs: build

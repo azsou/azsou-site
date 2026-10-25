@@ -7,7 +7,8 @@ const { lang = 'zh' } = Astro.props;
 const en = lang === 'en';
 ---
 
-<div class="table-wrap">
+<!-- 窄屏横向滚动：可聚焦区域（键盘可滚动，axe scrollable-region-focusable） -->
+<div class="table-wrap" tabindex="0" role="region" aria-label={en ? 'Storage table' : '存储清单'}>
   <table>
     <caption class="visually-hidden">
       {en ? 'Cookies and local storage used by this site' : '本站使用的 Cookie 与本地存储'}
