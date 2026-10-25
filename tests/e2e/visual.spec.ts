@@ -93,8 +93,13 @@ test.describe('T6.9 视觉', () => {
   test('悬停：卡片上浮 + 图标放大，只改 transform（周围元素不移动）', async ({ page }, info) => {
     test.skip(!isDesktop(info.project.name), '只在能悬停的桌面视口');
     await page.goto('/apps/');
+    await page.waitForLoadState('networkidle');
     const cards = page.locator('[data-catalog-grid] .app-card');
     const second = cards.nth(1);
+    // 评分 / 下载数一行由 island 异步填入：等它写完再量（预留了整行高度，填入前后卡片也应同高）
+    await expect(second.locator('[data-card-stats]'))
+      .not.toBeEmpty({ timeout: 3000 })
+      .catch(() => {});
     const before = await second.boundingBox();
     await cards.first().locator('.card__link').hover();
     await expect.poll(() => cards.first().evaluate((e) => getComputedStyle(e).transform)).not.toBe('none');

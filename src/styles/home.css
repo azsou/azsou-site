@@ -6,7 +6,7 @@
   /* ---------- hero ---------- */
   .home-hero {
     display: grid;
-    gap: var(--space-8);
+    gap: var(--space-6);
     align-items: center;
     grid-template-columns: minmax(0, 1fr);
   }

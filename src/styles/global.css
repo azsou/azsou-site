@@ -234,7 +234,8 @@
   code,
   pre {
     font-family: var(--font-mono);
-    font-size: 0.9em;
+    /* 不小于 12 px（Lighthouse「字号清晰可读」；正文 15 px × 0.9 在手机上只有 11.7 px） */
+    font-size: max(0.9em, 12px);
   }
   hr {
     border: 0;
@@ -598,6 +599,12 @@
   /* ---------- 区块 ---------- */
   .section {
     margin-top: var(--space-12);
+  }
+  /* 手机：区块间距收紧一档（48 → 36 px），首屏能多露出一块内容 */
+  @media (max-width: 600px) {
+    .section {
+      margin-top: calc(var(--space-8) + var(--space-1));
+    }
   }
   .section__head {
     display: flex;

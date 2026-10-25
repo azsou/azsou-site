@@ -32,7 +32,9 @@
     color: var(--c-label-3);
   }
   .app-card__stats {
-    min-height: 1.4em; /* 统计行由 island 填入，预留高度避免布局移动 */
+    /* 统计行由 island 填入，预留整行高度避免布局移动（行高须与预留一致：继承的 1.6 会比 1.4em 高 2.4 px） */
+    line-height: 1.6;
+    min-height: 1.6em;
     font-size: var(--text-xs);
     color: var(--c-label-2);
   }

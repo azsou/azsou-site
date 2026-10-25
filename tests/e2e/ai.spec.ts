@@ -39,7 +39,13 @@ test.describe('AI 工具列表 /ai/', () => {
       'href',
       '/ai/claude-code/',
     );
-    await expect(claude.locator('img')).toHaveAttribute('src', /^\/ai\/icons\/claude-code-128\.webp$/);
+    // T6.9：<picture>（AVIF + WebP 1x / 2x），64 px 显示用 64 / 128 两档
+    await expect(claude.locator('img')).toHaveAttribute('src', /^\/ai\/icons\/claude-code-64\.webp$/);
+    await expect(claude.locator('img')).toHaveAttribute('srcset', /claude-code-128\.webp 2x$/);
+    await expect(claude.locator('picture source[type="image/avif"]')).toHaveAttribute(
+      'srcset',
+      /claude-code-64\.avif 1x/,
+    );
     const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
     const list = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'ItemList');
     expect(list.numberOfItems).toBe(30);
