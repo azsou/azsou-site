@@ -1,0 +1,71 @@
+---
+/**
+ * 按钮（T9.7，DESIGN-SYSTEM §11 / §16）：variant 主 / 次 / 文字 / 图标；有 href 渲染 <a>，否则 <button>。
+ * loading 时 aria-busy（宽度不变、中间 spinner）；disabled 的链接用 aria-disabled 且去掉 href。
+ * 图标按钮必须给 label（无可见文字）。
+ */
+import Icon from '@/components/Icon.astro';
+import type { IconName } from '@/lib/lucide';
+interface Props {
+  variant?: 'primary' | 'secondary' | 'text' | 'icon';
+  size?: 'md' | 'sm';
+  href?: string;
+  type?: 'button' | 'submit' | 'reset';
+  icon?: IconName;
+  trailing?: IconName;
+  label?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  class?: string;
+  [k: string]: unknown;
+}
+const {
+  variant = 'secondary',
+  size = 'md',
+  href,
+  type = 'button',
+  icon,
+  trailing,
+  label,
+  disabled,
+  loading,
+  class: cls,
+  ...rest
+} = Astro.props;
+const classes = [
+  'btn',
+  variant === 'primary' && 'btn--primary',
+  variant === 'text' && 'btn--text',
+  variant === 'icon' && 'btn--icon',
+  size === 'sm' && 'btn--sm',
+  cls,
+];
+const iconSize = size === 'sm' ? 16 : 20;
+---
+
+{href && !disabled ? (
+  <a class:list={classes} href={href} aria-label={label} aria-busy={loading ? 'true' : undefined} {...rest}>
+    {icon && <Icon name={icon} size={iconSize} />}
+    <slot />
+    {trailing && <Icon name={trailing} size={iconSize} />}
+  </a>
+) : href ? (
+  <a class:list={classes} aria-disabled="true" aria-label={label} role="link" {...rest}>
+    {icon && <Icon name={icon} size={iconSize} />}
+    <slot />
+    {trailing && <Icon name={trailing} size={iconSize} />}
+  </a>
+) : (
+  <button
+    class:list={classes}
+    type={type}
+    disabled={disabled}
+    aria-label={label}
+    aria-busy={loading ? 'true' : undefined}
+    {...rest}
+  >
+    {icon && <Icon name={icon} size={iconSize} />}
+    <slot />
+    {trailing && <Icon name={trailing} size={iconSize} />}
+  </button>
+)}

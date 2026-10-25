@@ -3,16 +3,8 @@
  * 关闭一项时删掉这里的条目，用例自动变为阻断。键：`<检查>:<页面名>@<视口名>`，`*` 匹配任意。
  */
 export const KNOWN: Record<string, string> = {
-  // 导航在 768 / 横屏 844×390 每项挤成两行（N-RWD-1 / N-TB-1：900–1199 五项 + 更多、< 900 TabBar）
-  'singlechar:*@768': 'T9.10 导航与响应式骨架（N-RWD-1）',
-  'singlechar:*@844x390': 'T9.10 导航与响应式骨架（N-TB-1）',
-  // 320 宽精选卡标题「FableMotion」放不下被断开（P1-3 精选卡改版）
-  'midword:home@320': 'T9.11 首页改版（精选卡标题字阶）',
-  // 仅文字放大 200% 时应用详情横向溢出 1px（N-ZOOM-1）
-  'zoom:app-detail@390': 'T9.8 卡片家族与栅格（N-ZOOM-1）',
-
-  // 按钮 / 链接末尾的「→ › ×」字符图标（N-ICON-1）
-  'glyph:*@*': 'T9.7 Lucide 图标（N-ICON-1）',
+  // PR B（T9.7–T9.10）已关闭：singlechar@768 / @844x390（T9.10 导航）、midword home@320（T9.11 精选卡）、
+  // zoom app-detail@390（T9.8 统计格）、glyph（T9.7 Lucide 图标）。新发现的问题按同样格式登记。
 };
 
 export function knownIssue(check: string, page: string, vp: string): string | undefined {

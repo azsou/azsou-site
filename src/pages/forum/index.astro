@@ -29,7 +29,7 @@ import { url } from '@/lib/routes';
     <h2 id="h-cats" class="visually-hidden">
       分类
     </h2>
-    <div class="grid" data-forum-cats>
+    <div class="grid" data-grid="media" data-forum-cats>
       {forum.categories.map((c, i) => (
         <article class="card" data-cat={c.id}>
           <div class="card__media">

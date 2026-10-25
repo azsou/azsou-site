@@ -1,0 +1,20 @@
+---
+/** 空状态（DESIGN-SYSTEM §12）：48 线性图标 + 一句标题 + 一句说明 + 至多一个按钮（slot）。 */
+import Icon from '@/components/Icon.astro';
+import type { IconName } from '@/lib/lucide';
+interface Props {
+  title: string;
+  text?: string;
+  icon?: IconName;
+  hidden?: boolean;
+  id?: string;
+}
+const { title, text, icon = 'search', hidden, id } = Astro.props;
+---
+
+<div class="empty-state" role="status" hidden={hidden} id={id}>
+  <Icon name={icon} class="empty-state__icon" />
+  <p class="empty-state__title">{title}</p>
+  {text && <p class="empty-state__text">{text}</p>}
+  <slot />
+</div>

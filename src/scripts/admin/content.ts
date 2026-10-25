@@ -231,7 +231,9 @@ async function paintAuthorChip() {
   const names = await adminRepo()
     .names([state.author])
     .catch(() => ({}) as Record<string, string>);
-  const clear = h('button', { type: 'button', 'aria-label': '清除作者筛选', text: '×' });
+  const clear = h('button', { type: 'button', 'aria-label': '清除作者筛选' });
+  clear.innerHTML =
+    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
   clear.addEventListener('click', () => {
     state.author = '';
     state.offset = '0';

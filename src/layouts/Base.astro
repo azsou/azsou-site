@@ -1,5 +1,6 @@
 ---
 import '@/styles/global.css';
+import '@/styles/components.css';
 import Nav from '@/components/Nav.astro';
 import TabBar from '@/components/TabBar.astro';
 import Footer from '@/components/Footer.astro';
@@ -30,6 +31,8 @@ interface Props {
   imageAlt?: string;
   type?: 'website' | 'article' | 'profile';
   noindex?: boolean;
+  /** 系统页（404 / 500 / 离线）：精简页脚，只留首页、搜索与版权（T9.15） */
+  slimFooter?: boolean;
   crumbs?: Crumb[];
   schema?: Record<string, unknown>[];
   published?: string;
@@ -52,6 +55,7 @@ const {
   imageAlt: imageAltProp,
   type = 'website',
   noindex = false,
+  slimFooter = false,
   crumbs,
   schema = [],
   published,
@@ -197,7 +201,18 @@ const isProd = import.meta.env.PROD;
         <slot />
       </div>
     </main>
-    <Footer lang={lang} switchHref={langSwitch} />
+    {slimFooter ? (
+      <footer class="site-footer site-footer--slim">
+        <div class="shell footer-slim">
+          <span>© {new Date().getFullYear()} AZ Studio</span>
+          <a href={lang === 'en' ? '/en/' : '/'}>{lang === 'en' ? 'Home' : '首页'}</a>
+          <a href="/search/">{lang === 'en' ? 'Search' : '搜索'}</a>
+          <a href={lang === 'en' ? '/en/contact/' : '/contact/'}>{lang === 'en' ? 'Contact' : '联系'}</a>
+        </div>
+      </footer>
+    ) : (
+      <Footer lang={lang} switchHref={langSwitch} />
+    )}
     <TabBar lang={lang} />
     <script>
       // 主题切换按钮 + Ctrl/⌘K 搜索面板（面板与 Pagefind 只在打开时才加载）

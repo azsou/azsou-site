@@ -33,7 +33,8 @@ function renderBanner(a: AnnouncementSetting) {
   close.type = 'button';
   close.className = 'site-banner__close';
   close.setAttribute('aria-label', '关闭公告');
-  close.textContent = '×';
+  close.innerHTML =
+    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
   close.addEventListener('click', () => {
     try {
       localStorage.setItem(DISMISS, bannerKey(a));

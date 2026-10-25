@@ -53,3 +53,22 @@ for (const p of CORE) {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 }
+
+// Q11 打印（T9.15）：导航 / TabBar / 页脚 / 评论不打印；正文黑字白底；文章页数有上限
+test('print 样式与页数上限 article-detail', async ({ page }) => {
+  await page.goto('/articles/pinyin-initial-search/');
+  await page.emulateMedia({ media: 'print' });
+  const hidden = await page.evaluate(() =>
+    ['.site-nav', '.tabbar', '.site-footer', '.discussion'].map((s) => {
+      const el = document.querySelector(s);
+      return !el || getComputedStyle(el).display === 'none';
+    }),
+  );
+  expect(hidden).toEqual([true, true, true, true]);
+  const color = await page.evaluate(() => getComputedStyle(document.documentElement).color);
+  expect(color).toBe('rgb(0, 0, 0)');
+  const pdf = await page.pdf({ format: 'A4' });
+  const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+  expect(pages, '打印页数').toBeLessThanOrEqual(8);
+  expect(pages).toBeGreaterThan(0);
+});

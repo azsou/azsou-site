@@ -48,7 +48,7 @@ for (const p of PAGES) {
   }
 }
 
-for (const name of ['home', 'ai-detail']) {
+for (const name of ['home', 'ai-detail', 'kit', 'kit-prose']) {
   const p = PAGES.find((x) => x.name === name)!;
   test(`${name} forced-colors`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

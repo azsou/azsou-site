@@ -29,6 +29,7 @@ export const PAGES: DesignPage[] = [
   { name: 'en-apps', path: '/en/apps/' },
   { name: 'en-ai-detail', path: '/en/ai/claude-code/' },
   { name: 'kit', path: '/_kit/' },
+  { name: 'kit-prose', path: '/_kit/prose/' },
 ];
 
 /** Q12 视口全集：320–2560 + 两个横屏 */

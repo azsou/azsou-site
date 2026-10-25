@@ -38,9 +38,11 @@
     font-size: var(--fs-body-sm);
     font-weight: var(--fw-semibold);
   }
-  .admin-nav a:hover {
-    background: var(--c-fill);
-    text-decoration: none;
+  @media (hover: hover) and (pointer: fine) {
+    .admin-nav a:hover {
+      background: var(--c-fill);
+      text-decoration: none;
+    }
   }
   .admin-nav a[aria-current='page'] {
     background: color-mix(in srgb, var(--c-accent) 16%, transparent);
@@ -58,7 +60,7 @@
     font-weight: var(--fw-bold);
     text-align: center;
   }
-  @media (max-width: 1023px) {
+  @media (max-width: 1199.98px) {
     .admin {
       grid-template-columns: minmax(0, 1fr);
       gap: var(--space-4);
@@ -129,9 +131,11 @@
     box-shadow: var(--shadow-1);
     color: var(--c-label);
   }
-  a.stat:hover {
-    text-decoration: none;
-    box-shadow: var(--shadow-2);
+  @media (hover: hover) and (pointer: fine) {
+    a.stat:hover {
+      text-decoration: none;
+      box-shadow: var(--shadow-2);
+    }
   }
   .stat__label {
     font-size: var(--fs-meta);
@@ -282,8 +286,10 @@
     border-radius: 50%;
     background: transparent;
   }
-  .chip button:hover {
-    background: var(--c-fill-strong);
+  @media (hover: hover) and (pointer: fine) {
+    .chip button:hover {
+      background: var(--c-fill-strong);
+    }
   }
 
   /* ---------- 批量操作条 ---------- */
@@ -352,8 +358,10 @@
   .data-table tbody tr:last-child > * {
     border-bottom: 0;
   }
-  .data-table tbody tr:hover {
-    background: color-mix(in srgb, var(--c-fill) 50%, transparent);
+  @media (hover: hover) and (pointer: fine) {
+    .data-table tbody tr:hover {
+      background: color-mix(in srgb, var(--c-fill) 50%, transparent);
+    }
   }
   .data-table tr[data-selected='true'] {
     background: color-mix(in srgb, var(--c-blue) 10%, transparent);
@@ -412,7 +420,7 @@
     background: color-mix(in srgb, var(--c-blue) 12%, transparent);
     color: var(--c-blue);
   }
-  @media (max-width: 767px) {
+  @media (max-width: 899.98px) {
     .data-table thead {
       position: absolute;
       width: 1px;

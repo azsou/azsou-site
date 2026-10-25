@@ -58,9 +58,11 @@
     padding: var(--space-3) var(--space-4);
     color: var(--c-label);
   }
-  .list-row--split > a:hover {
-    text-decoration: none;
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .list-row--split > a:hover {
+      text-decoration: none;
+      background: var(--c-fill);
+    }
   }
   .list-row--button {
     width: 100%;
@@ -70,8 +72,10 @@
     text-align: left;
     cursor: pointer;
   }
-  .list-row--button:hover {
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .list-row--button:hover {
+      background: var(--c-fill);
+    }
   }
   .data-status {
     min-height: 1.5em;
@@ -139,10 +143,12 @@
       background var(--dur-fast),
       transform var(--dur-fast) var(--ease-spring);
   }
-  .act:hover {
-    background: var(--c-fill);
-    color: var(--c-label);
-    text-decoration: none;
+  @media (hover: hover) and (pointer: fine) {
+    .act:hover {
+      background: var(--c-fill);
+      color: var(--c-label);
+      text-decoration: none;
+    }
   }
   .act:active {
     transform: scale(0.96);
@@ -322,8 +328,10 @@
     font-weight: var(--fw-bold);
     cursor: pointer;
   }
-  .composer__tool:hover {
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .composer__tool:hover {
+      background: var(--c-fill);
+    }
   }
   .composer__tool[data-tool='italic'] span {
     font-style: italic;
@@ -580,8 +588,10 @@
     border-radius: var(--radius-sm);
     cursor: pointer;
   }
-  .choice:hover {
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .choice:hover {
+      background: var(--c-fill);
+    }
   }
   .choice input {
     width: 20px;

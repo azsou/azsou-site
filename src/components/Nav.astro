@@ -15,6 +15,9 @@ const path = Astro.url.pathname;
 const home = en ? '/en/' : '/';
 const items = en ? EN_NAV : NAV;
 const isCurrent = (href: string) => (href === home ? path === home : path.startsWith(href));
+/** 900–1199：前 5 项 + 「更多」；≥ 1200 全量；< 900 由底部 TabBar 接管（DESIGN-SYSTEM §13） */
+const PRIMARY = 5;
+const extra = items.slice(PRIMARY);
 ---
 
 <header class="site-nav glass">
@@ -25,14 +28,34 @@ const isCurrent = (href: string) => (href === home ? path === home : path.starts
       </span>
       <span>AZ Studio</span>
     </a>
-    <ul class="nav-links">
-      {items.map((n) => (
-        <li>
+    <ul class="nav-links" role="list">
+      {items.map((n, i) => (
+        <li class:list={[i >= PRIMARY && 'nav-links__extra']}>
           <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
             {n.label}
           </a>
         </li>
       ))}
+      <li class="nav-more">
+        <details class="nav-more__menu" data-nav-more>
+          <summary
+            class:list={['nav-more__btn', extra.some((n) => isCurrent(n.href)) && 'is-current']}
+            aria-label={en ? 'More sections' : '更多栏目'}
+          >
+            {en ? 'More' : '更多'}
+            <Icon name="chevron-down" size={16} />
+          </summary>
+          <ul class="nav-more__list" role="list">
+            {extra.map((n) => (
+              <li>
+                <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+                  {n.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </li>
     </ul>
     <div class="nav-actions">
       <a
@@ -51,18 +74,9 @@ const isCurrent = (href: string) => (href === home ? path === home : path.starts
         aria-label={en ? 'Appearance: system' : '外观：跟随系统'}
         data-theme-toggle
       >
-        <svg class="theme-btn__icon theme-btn__icon--system" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 2v14a7 7 0 0 1 0-14z"></path>
-        </svg>
-        <svg class="theme-btn__icon theme-btn__icon--light" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm-1-5h2v3h-2zm0 17h2v3h-2zM2 11h3v2H2zm17 0h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zm12.1 12.1 1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1z"
-          ></path>
-        </svg>
-        <svg class="theme-btn__icon theme-btn__icon--dark" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5z"></path>
-        </svg>
+        <Icon name="monitor" class="theme-btn__icon theme-btn__icon--system" />
+        <Icon name="sun" class="theme-btn__icon theme-btn__icon--light" />
+        <Icon name="moon" class="theme-btn__icon theme-btn__icon--dark" />
       </button>
       <a
         class="icon-btn lang-btn"
@@ -78,3 +92,19 @@ const isCurrent = (href: string) => (href === home ? path === home : path.starts
     </div>
   </nav>
 </header>
+
+<script>
+  // 「更多」菜单：点外面或按 Esc 关闭（Esc 后焦点回到按钮）
+  const more = document.querySelector<HTMLDetailsElement>('[data-nav-more]');
+  if (more) {
+    document.addEventListener('click', (e) => {
+      if (more.open && !more.contains(e.target as Node)) more.open = false;
+    });
+    more.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && more.open) {
+        more.open = false;
+        more.querySelector('summary')?.focus();
+      }
+    });
+  }
+</script>
