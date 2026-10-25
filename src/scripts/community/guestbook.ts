@@ -55,4 +55,5 @@ const count = () => (counter.textContent = `（${[...body.value].length}/${GUEST
 form.addEventListener('input', count);
 count();
 initSubmitForm(form, 'guestbook', checkGuestbook, '已提交，谢谢！站长审核通过后会显示在下方。');
+form.dataset.ready = 'yes';
 void load();

@@ -44,10 +44,7 @@ async function load() {
   }
 }
 
-initSubmitForm(
-  document.querySelector<HTMLFormElement>('[data-link-form]')!,
-  'link',
-  checkLink,
-  '申请已提交，谢谢！审核通过后会出现在上方列表。',
-);
+const form = document.querySelector<HTMLFormElement>('[data-link-form]')!;
+initSubmitForm(form, 'link', checkLink, '申请已提交，谢谢！审核通过后会出现在上方列表。');
+form.dataset.ready = 'yes';
 void load();

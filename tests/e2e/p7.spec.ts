@@ -203,6 +203,7 @@ community.describe('T7.3 留言板（真实数据库）', () => {
       await realSubmit(page);
       const nick = uniq('访客');
       await page.goto('/guestbook/');
+      await expect(page.locator('[data-gb-form]')).toHaveAttribute('data-ready', 'yes');
       await expect(page.locator('[data-gb-status]')).not.toHaveText('正在加载留言…');
       // 校验：空昵称
       await page.getByLabel('留言', { exact: true }).fill('你好，站长');
@@ -240,6 +241,7 @@ community.describe('T7.3 留言板（真实数据库）', () => {
     community.setTimeout(90_000);
     await realSubmit(page);
     await page.goto('/guestbook/');
+    await expect(page.locator('[data-gb-form]')).toHaveAttribute('data-ready', 'yes');
     for (let i = 1; i <= 4; i++) {
       await page.getByLabel('昵称').fill('限流测试');
       await page.getByLabel('留言', { exact: true }).fill(`第 ${i} 条 ${uniq()}`);
@@ -261,6 +263,7 @@ community.describe('T7.4 友链（真实数据库）', () => {
       const name = uniq('测试站');
       const host = `${uniq('s').toLowerCase()}.example.org`;
       await page.goto('/links/');
+      await expect(page.locator('[data-link-form]')).toHaveAttribute('data-ready', 'yes');
       await expect(page.getByRole('heading', { name: '作者的账号' })).toBeVisible();
       await expect(page.locator('main a[href="https://github.com/azsou"]')).toBeVisible();
       await page.getByLabel('站点名称').fill(name);

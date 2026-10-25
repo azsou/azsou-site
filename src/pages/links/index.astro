@@ -102,5 +102,8 @@ import { SOCIAL } from '@/lib/social';
 </Base>
 
 <script>
-  import '@/scripts/community/links';
+  // 数据层（Supabase 客户端、Turnstile、表单校验）不在首屏关键路径：页面 load + 两帧 + 空闲时再加载（与其他 island 一致），
+  // 避免它们抢在首屏绘制前下载、拖慢移动端 LCP。表单就绪后带 data-ready="yes"。
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/community/links'));
 </script>
