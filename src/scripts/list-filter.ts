@@ -43,3 +43,5 @@ for (const box of document.querySelectorAll<HTMLElement>('[data-list-filter]')) 
   box.dataset.ready = 'yes';
   if (value) apply(false);
 }
+
+export {};
