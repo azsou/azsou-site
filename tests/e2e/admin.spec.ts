@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { emulateColorScheme } from './fixtures';
@@ -532,7 +532,9 @@ test.describe('导入导出 / 官方内容', () => {
       'https://github.com/azsou/azsou-site/edit/main/src/content/apps/fablemotion.md',
     );
     await expect(edit).toHaveAttribute('target', '_blank');
-    await expect(page.getByRole('heading', { name: /文章（12）/ })).toBeVisible();
+    // 文章数随内容增加（P8 新增原创文章），按内容目录实际数量核对
+    const articleCount = readdirSync('src/content/articles').filter((f) => f.endsWith('.md')).length;
+    await expect(page.getByRole('heading', { name: `文章（${articleCount}）` })).toBeVisible();
   });
 });
 
