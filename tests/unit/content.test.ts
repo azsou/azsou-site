@@ -25,10 +25,11 @@ const tools = read('tools');
 const art = JSON.parse(fs.readFileSync(path.join(root, 'src/data/art.json'), 'utf8'));
 
 describe('content migration', () => {
-  it('keeps the V72 counts: 8 apps, 9 games, 12 articles, 12 works', () => {
+  it('keeps the V72 counts: 8 apps, 9 games, 12 works, and all 12 V72 articles (P8 adds new ones)', () => {
     expect(Object.keys(apps)).toHaveLength(legacy.appsCatalog.length);
     expect(Object.keys(games)).toHaveLength(legacy.gamesDetail.length);
-    expect(Object.keys(articles)).toHaveLength(legacy.articlesReader.length);
+    expect(Object.keys(articles).length).toBeGreaterThanOrEqual(legacy.articlesReader.length);
+    for (const a of legacy.articlesReader) expect(articles[a.slug], a.slug).toBeTruthy();
     expect(Object.keys(works)).toHaveLength(legacy.worksDetail.length);
   });
   it('keeps titles identical to V72', () => {

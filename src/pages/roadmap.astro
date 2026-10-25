@@ -1,7 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
-import OwnerNote from '@/components/OwnerNote.astro';
 const v2 = [
   {
     phase: 'P1',
@@ -55,7 +54,6 @@ const products = [
   ]}
 >
   <PageHead eyebrow="计划" title="路线图" />
-  <OwnerNote />
   <section class="section" aria-labelledby="h-v2">
     <h2 id="h-v2">站点 v2 重构</h2>
     <ul class="list-group mt-4" role="list">
@@ -74,7 +72,9 @@ const products = [
   </section>
   <section class="section" aria-labelledby="h-products">
     <h2 id="h-products">项目计划（V72 首页记录，2026 年 7 月）</h2>
-    <p class="muted mt-4">以下为 V72 当时记录的计划与状态，最新进展待作者更新。</p>
+    <p class="muted mt-4">
+      以下为 V72 当时记录的计划与状态，保留作历史对照；各项目的当前版本与状态以对应应用 / 游戏页为准。
+    </p>
     <ul class="list-group mt-4" role="list">
       {products.map((p) => (
         <li class="list-row">
