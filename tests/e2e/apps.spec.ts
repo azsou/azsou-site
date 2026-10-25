@@ -69,16 +69,20 @@ test.describe('应用详情页', () => {
     );
     expect(await icon.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.app-hero__icon-note')).toHaveCount(0);
-    // 还没有安装包：两个平台都是禁用的「即将推出」，旁边是「上线通知」（RSS），没有去 /go/ 的链接
-    const soon = page.locator('[data-downloads] .dl-btn--soon');
+    // 还没有安装包（T9.12）：主按钮是「上线时通知我」（不画禁用按钮），两个平台写成「计划平台」文字
+    const soon = page.locator('[data-planned] .dl-off--soon');
     await expect(soon).toHaveCount(2);
-    await expect(soon.first()).toHaveAttribute('aria-disabled', 'true');
     await expect(soon.first()).toContainText('即将推出');
+    await expect(page.locator('[data-downloads] [aria-disabled]')).toHaveCount(0);
+    await expect(page.locator('[data-downloads] .btn--primary')).toHaveText('上线时通知我');
     await expect(page.locator('[data-downloads] a[data-has-url]')).toHaveCount(0);
     await expect(page.locator('[data-downloads] a[href^="/go/"]')).toHaveCount(0);
-    await expect(page.locator('[data-notify]')).toHaveAttribute('href', '/rss.xml');
+    await expect(page.locator('[data-notify]')).toHaveAttribute('href', '/subscribe/');
     await expect(page.locator('[data-dl-hint]')).toContainText('安装包即将推出');
-    await expect(page.locator('[data-dl-hint] a')).toHaveAttribute('href', '#discussion-project-fablemotion');
+    await expect(page.locator('[data-dl-hint] a').last()).toHaveAttribute(
+      'href',
+      '#discussion-project-fablemotion',
+    );
     await expect(page.locator('#discussion-project-fablemotion')).toHaveCount(1);
     // 评分 / 下载只显示真实数据：假 Supabase 返回空 → 暂无
     await page.locator('[data-reviews]').scrollIntoViewIfNeeded(); // 评价区接近视口才加载
@@ -155,7 +159,7 @@ test.describe('应用详情页', () => {
     await page.goto('/apps/e2e-fixture/');
     const box = page.locator('[data-downloads]');
     await expect(box.locator('a.dl-btn')).toHaveCount(2);
-    await expect(box.locator('.dl-btn--off')).toContainText('Android');
+    await expect(page.locator('[data-planned]')).toContainText('Android');
     // 推荐：Windows UA → Windows；其余（Safari = macOS、iPhone / iPad）→ 网页版
     const ua = await page.evaluate(() => navigator.userAgent);
     const expected = /Windows/.test(ua) ? 'windows' : 'web';

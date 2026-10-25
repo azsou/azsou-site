@@ -6,6 +6,8 @@ export function paintRating(root: ParentNode, r: ReviewStats) {
   const v = root.querySelector<HTMLElement>('[data-rating-value]');
   const sub = root.querySelector<HTMLElement>('[data-rating-sub]');
   if (v && sub) {
+    const cell = v.closest<HTMLElement>('[data-stat-rating]');
+    if (cell) cell.hidden = !(r.reviews > 0 && r.average !== null);
     if (r.reviews > 0 && r.average !== null) {
       v.textContent = formatRating(r.average);
       sub.textContent = `${r.reviews} 条评价`;

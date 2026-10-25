@@ -127,19 +127,12 @@
   .dl-btn__os {
     font-weight: var(--fw-regular);
   }
-  .dl-btn--off {
-    cursor: default;
-    color: var(--c-label-3);
-  }
-  .dl-btn--off:hover {
-    background: var(--c-fill);
-  }
   .app-downloads__hint {
     min-height: 1.6em; /* 平台识别会改写这一行 */
     margin-top: var(--space-2);
     font-size: var(--fs-meta);
   }
-  @media (max-width: 600px) {
+  @media (max-width: 599.98px) {
     .app-hero.hue-cover {
       padding: var(--space-5) var(--space-4);
       border-radius: var(--radius-lg);
@@ -157,13 +150,14 @@
 
   /* ---------- 概况条（App Store 头部下方那一行） ---------- */
   .app-stats {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: flex;
     margin: var(--space-6) 0 0;
     padding: var(--space-4) 0;
     border-block: 1px solid var(--c-separator);
   }
   .app-stat {
+    flex: 1 1 0;
+    min-width: 0;
     display: grid;
     justify-items: center;
     text-align: center;
@@ -178,6 +172,10 @@
     color: var(--c-label-3);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+  .app-stat > * {
+    min-width: 0;
+    max-width: 100%;
   }
   .app-stat dd {
     display: grid;
@@ -202,13 +200,17 @@
     align-items: center;
   }
   .app-stat__sub {
+    max-width: 100%;
     font-size: var(--fs-caption);
     color: var(--c-label-3);
   }
-  @media (max-width: 700px) {
+  @media (max-width: 599.98px) {
     .app-stats {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      flex-wrap: wrap;
       row-gap: var(--space-4);
+    }
+    .app-stat {
+      flex-basis: 33%;
     }
     .app-stat + .app-stat {
       border-left: 0;
@@ -493,10 +495,14 @@
     border-radius: var(--radius-sm);
   }
   .star-input:has(input:checked),
-  .star-input:has(input:checked) ~ .star-input,
-  .star-row:hover .star-input:hover,
-  .star-row:hover .star-input:hover ~ .star-input {
+  .star-input:has(input:checked) ~ .star-input {
     color: var(--c-orange);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .star-row:hover .star-input:hover,
+    .star-row:hover .star-input:hover ~ .star-input {
+      color: var(--c-orange);
+    }
   }
 
   /* ---------- 目录：入口、筛选、分页 ---------- */
@@ -522,9 +528,11 @@
     background: var(--c-fill);
     box-shadow: none;
   }
-  .chip:hover {
-    text-decoration: none;
-    background: var(--c-fill-strong);
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover {
+      text-decoration: none;
+      background: var(--c-fill-strong);
+    }
   }
   .chip[aria-current='page'] {
     background: var(--c-accent);
@@ -605,9 +613,11 @@
     color: var(--c-label);
     font-weight: var(--fw-semibold);
   }
-  .pagination__n:hover {
-    text-decoration: none;
-    background: var(--c-fill-strong);
+  @media (hover: hover) and (pointer: fine) {
+    .pagination__n:hover {
+      text-decoration: none;
+      background: var(--c-fill-strong);
+    }
   }
   .pagination__n[aria-current='page'] {
     background: var(--c-accent);
@@ -642,19 +652,6 @@
   }
 
   /* ---------- 即将推出 / 上线通知 ---------- */
-  .dl-btn--soon {
-    color: var(--c-label-2);
-    border: 1px dashed var(--c-separator);
-  }
-  .dl-notify {
-    border: 1px solid var(--c-accent);
-    color: var(--c-accent);
-    background: transparent;
-  }
-  .dl-notify:hover {
-    text-decoration: none;
-    background: var(--c-fill);
-  }
   .shots__caption {
     font-size: var(--fs-meta);
   }
@@ -748,6 +745,20 @@
     margin-right: var(--space-2);
   }
   .ai-note {
+    font-size: var(--fs-meta);
+  }
+}
+
+@layer components {
+  .app-stat[hidden] {
+    display: none;
+  }
+  .app-stat:not([hidden]) ~ .app-stat {
+    border-left: 1px solid var(--c-separator);
+  }
+  .app-downloads__planned {
+    margin-top: var(--space-2);
+    color: var(--c-label-2);
     font-size: var(--fs-meta);
   }
 }

@@ -78,7 +78,12 @@ async function initStats(root: HTMLElement, app: string) {
   paintRating(root, s.reviews);
   const total = Object.values(s.downloads).reduce((a, b) => a + (b ?? 0), 0);
   const t = root.querySelector<HTMLElement>('[data-downloads-total]');
-  if (t) t.textContent = formatCount(total);
+  if (t) {
+    t.textContent = formatCount(total);
+    // 统计条只放有值项（T9.12）：0 次时整格保持隐藏
+    const cell = t.closest<HTMLElement>('[data-stat-downloads]');
+    if (cell) cell.hidden = total === 0;
+  }
   const detail = root.querySelector<HTMLElement>('[data-downloads-detail]');
   if (detail) {
     const parts = (Object.entries(s.downloads) as [PlatformOs, number][])

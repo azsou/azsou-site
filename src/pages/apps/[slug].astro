@@ -1,4 +1,5 @@
 ---
+import Icon from '@/components/Icon.astro';
 import Base from '@/layouts/Base.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import AppCard from '@/components/AppCard.astro';
@@ -76,9 +77,12 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
       <section class="section" aria-labelledby="h-related" slot="related" data-pagefind-ignore>
         <div class="section__head">
           <h2 id="h-related">相关应用</h2>
-          <a href={url.appCategory(d.category)}>更多{CATEGORIES[d.category]} →</a>
+          <a href={url.appCategory(d.category)}>
+            更多{CATEGORIES[d.category]}
+            <Icon name="chevron-right" size={16} class="icon--trail" />
+          </a>
         </div>
-        <div class="grid grid--wide">
+        <div class="grid grid--wide" data-grid="row">
           {related.map((a) => (
             <AppCard item={catalogItem(a)} headingLevel="h3" />
           ))}
@@ -88,7 +92,7 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
     {articles.length > 0 && (
       <section class="section" aria-labelledby="h-articles" slot="articles" data-pagefind-ignore>
         <h2 id="h-articles">相关文章</h2>
-        <div class="grid mt-4">
+        <div class="grid mt-4" data-grid="media">
           {articles.map((a) => (
             <ArticleCard article={a} headingLevel="h3" />
           ))}

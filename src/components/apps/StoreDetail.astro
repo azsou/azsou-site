@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/dates';
 import Comments from '@/components/Comments.astro';
 import AppIcon from '@/components/apps/AppIcon.astro';
 import Screenshots from '@/components/apps/Screenshots.astro';
+import Icon from '@/components/Icon.astro';
 import Reviews from '@/components/apps/Reviews.astro';
 import Status from '@/components/Status.astro';
 import { LINK_TYPE_LABEL, PLATFORM_LABEL, PRICE_LABEL, hostOf, type PlatformOs } from '@/lib/app-store';
@@ -45,6 +46,7 @@ const pageKey = `${kind === 'app' ? 'project' : 'tool'}:${slug}`;
 const commentsId = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 const version = d.version ?? '随官方更新';
 const versionSub = d.updated ? formatDate(d.updated) : tool ? `核对于 ${formatDate(tool.lastChecked)}` : '　';
+const offline = d.platforms.filter((p) => !p.url);
 const unavailable = (p: (typeof d.platforms)[number]) =>
   p.availability === 'coming-soon' ? '即将推出' : '暂未提供';
 const hint = usable.length
@@ -70,9 +72,10 @@ const hint = usable.length
         {third ? <span class="badge">第三方开发者</span> : <span class="badge">AZ Studio 出品</span>}
         {app && <Status cls={app.statusClass} text={app.status} />}
       </p>
-      <div class="app-downloads" data-downloads>
-        {d.platforms.map((p) =>
-          p.url ? (
+      <div class="app-downloads" data-downloads data-pagefind-ignore>
+        {d.platforms
+          .filter((p) => p.url)
+          .map((p) => (
             <a
               class:list={['btn', 'dl-btn', { 'btn--primary': p.os === usable[0]?.os }]}
               href={url.go(slug, p.os)}
@@ -83,43 +86,45 @@ const hint = usable.length
               <span>{p.linkType === 'web' ? '打开' : '获取'}</span>
               <span class="dl-btn__os">{PLATFORM_LABEL[p.os]}</span>
             </a>
-          ) : (
-            <span
-              class:list={[
-                'btn',
-                'dl-btn',
-                'dl-btn--off',
-                { 'dl-btn--soon': p.availability === 'coming-soon' },
-              ]}
-              data-os={p.os}
-              aria-disabled="true"
-            >
-              <span class="dl-btn__os">{PLATFORM_LABEL[p.os]}</span>
-              <span>{unavailable(p)}</span>
-            </span>
-          ),
-        )}
-        {comingSoon && (
-          <a class="btn dl-btn dl-notify" href={url.rss()} data-notify>
-            <span>上线通知</span>
-            <span class="dl-btn__os">RSS 订阅</span>
+          ))}
+        {/* 状态驱动主操作（T9.12）：没有可用安装包时主按钮是「上线时通知我」，不画禁用按钮 */}
+        {!usable.length && (
+          <a class="btn btn--primary dl-notify" href="/subscribe/" data-notify>
+            <Icon name="bell" size={20} />
+            上线时通知我
           </a>
         )}
       </div>
-      <p class="app-downloads__hint muted" data-dl-hint>
+      {offline.length > 0 && (
+        <p class="app-downloads__planned" data-planned data-pagefind-ignore>
+          {usable.length ? '其他平台：' : '计划平台：'}
+          {offline.map((p, i) => (
+            <>
+              {i > 0 && <span aria-hidden="true"> · </span>}
+              <span
+                class:list={['dl-off', { 'dl-off--soon': p.availability === 'coming-soon' }]}
+                data-os={p.os}
+              >
+                {PLATFORM_LABEL[p.os]}（{unavailable(p)}）
+              </span>
+            </>
+          ))}
+        </p>
+      )}
+      <p class="app-downloads__hint muted" data-dl-hint data-pagefind-ignore>
         {hint}
         {comingSoon && !usable.length && (
           <>
             {' '}
-            订阅 RSS 或 <a href={`#${commentsId}`}>在评论区留言</a>，上线后第一时间通知。
+            也可以 <a href={url.rss()}>订阅 RSS</a> 或 <a href={`#${commentsId}`}>在评论区留言</a>。
           </>
         )}
       </p>
     </div>
   </header>
 
-  <dl class="app-stats" data-app-stats>
-    <div class="app-stat">
+  <dl class="app-stats" data-app-stats data-pagefind-ignore>
+    <div class="app-stat" data-stat-rating hidden>
       <dt>评分</dt>
       <dd>
         <span class="app-stat__value" data-rating-value>
@@ -130,7 +135,7 @@ const hint = usable.length
         </span>
       </dd>
     </div>
-    <div class="app-stat">
+    <div class="app-stat" data-stat-downloads hidden>
       <dt>{third ? '跳转' : '下载'}</dt>
       <dd>
         <span class="app-stat__value" data-downloads-total>
@@ -173,7 +178,7 @@ const hint = usable.length
   {d.screenshots.length > 0 && (
     <section class="section" aria-labelledby="h-shots">
       <div class="section__head">
-        <h2 id="h-shots">截图</h2>
+        <h2 id="h-shots">{d.screenshots.every((x) => x.illustrative) ? '设计方向' : '截图'}</h2>
         {shotsIllustrative && <span class="badge badge--warn">概念图</span>}
       </div>
       <Screenshots title={d.title} shots={d.screenshots} />
