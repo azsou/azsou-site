@@ -24,7 +24,7 @@ import {
   type PlatformOs,
 } from '@/lib/app-store';
 import { url } from '@/lib/routes';
-import type { Crumb } from '@/lib/seo';
+import { itemList, type Crumb } from '@/lib/seo';
 
 interface Props {
   title: string;
@@ -63,7 +63,18 @@ const pageTitle = page > 1 ? `${title}（第 ${page} 页）` : title;
 const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
 ---
 
-<Base title={pageTitle} description={description} crumbs={crumbs}>
+<Base
+  title={pageTitle}
+  description={description}
+  crumbs={crumbs}
+  schema={[
+    itemList(
+      pageTitle,
+      page > 1 ? pageUrl(base, page) : base,
+      paged.items.map((a) => ({ name: a.title, path: a.url })),
+    ),
+  ]}
+>
   <PageHead eyebrow={eyebrow} title={title} lede={lede} />
 
   <nav class="chip-nav" aria-label="按分类浏览">
@@ -151,7 +162,7 @@ const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
       <AppCard item={a} headingLevel="h2" />
     ))}
   </div>
-  {paged.items.length === 0 && <p class="muted">这里还没有应用。</p>}
+  {paged.items.length === 0 && <p class="empty-state">这里还没有应用。</p>}
 
   <nav class="pagination" aria-label="分页" data-catalog-pages hidden={paged.pages < 2}>
     {paged.page > 1 && (

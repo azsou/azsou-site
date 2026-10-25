@@ -1,5 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { itemList } from '@/lib/seo';
+import { url } from '@/lib/routes';
 import PageHead from '@/components/PageHead.astro';
 import WorkCard from '@/components/WorkCard.astro';
 import { getWorks } from '@/lib/content';
@@ -10,6 +12,13 @@ const kinds = [...new Set(works.map((w) => w.data.kind))];
 <Base
   title="作品与视频"
   description="动画、游戏画面与 AI 图像实验：每件作品附工具、参数与验证记录。视觉素材由站内确定性生成器绘制。"
+  schema={[
+    itemList(
+      '作品与视频',
+      '/works/',
+      works.map((g) => ({ name: g.data.title, path: url.work(g.id) })),
+    ),
+  ]}
   crumbs={[
     { name: '首页', path: '/' },
     { name: '作品', path: '/works/' },

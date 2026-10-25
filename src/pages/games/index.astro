@@ -1,5 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { itemList } from '@/lib/seo';
+import { url } from '@/lib/routes';
 import PageHead from '@/components/PageHead.astro';
 import GameCard from '@/components/GameCard.astro';
 import { getGames } from '@/lib/content';
@@ -9,6 +11,13 @@ const games = await getGames();
 <Base
   title="游戏与可玩 Demo"
   description="EMBERDEEP、Three.js 魔方、声波塔防等浏览器游戏与原型：版本号如实反映完成度，附开发日志与已知问题。"
+  schema={[
+    itemList(
+      '游戏与可玩 Demo',
+      '/games/',
+      games.map((g) => ({ name: g.data.title, path: url.game(g.id) })),
+    ),
+  ]}
   crumbs={[
     { name: '首页', path: '/' },
     { name: '游戏', path: '/games/' },

@@ -1,5 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { itemList } from '@/lib/seo';
 import PageHead from '@/components/PageHead.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import Segmented from '@/components/Segmented.astro';
@@ -13,6 +14,13 @@ const used = [...new Set(articles.flatMap((a) => a.data.tags))];
 <Base
   title="原创技术文章"
   description="真实项目的开发实践、实测与复盘：FableMotion、浏览器扩展、游戏系统与单文件工作流。每篇标注最后核对日期。"
+  schema={[
+    itemList(
+      '原创技术文章',
+      '/articles/',
+      articles.map((g) => ({ name: g.data.title, path: url.article(g.id) })),
+    ),
+  ]}
   crumbs={[
     { name: '首页', path: '/' },
     { name: '文章', path: '/articles/' },

@@ -5,7 +5,7 @@ import TabBar from '@/components/TabBar.astro';
 import Footer from '@/components/Footer.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import { SITE } from '@/lib/site';
-import { abs, breadcrumbs, graph, jsonLd, person, website, type Crumb } from '@/lib/seo';
+import { abs, breadcrumbs, graph, jsonLd, organization, person, website, type Crumb } from '@/lib/seo';
 
 interface Props {
   title: string;
@@ -44,7 +44,7 @@ const {
 
 const fullTitle = title === SITE.title ? title : `${title} · ${SITE.name}`;
 const canonicalUrl = abs(canonical);
-const nodes = [website(), person(), ...(crumbs ? [breadcrumbs(crumbs)] : []), ...schema];
+const nodes = [website(), organization(), person(), ...(crumbs ? [breadcrumbs(crumbs)] : []), ...schema];
 const isProd = import.meta.env.PROD;
 ---
 

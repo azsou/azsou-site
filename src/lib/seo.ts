@@ -11,6 +11,14 @@ export interface Crumb {
 }
 
 const AUTHOR_REF = { '@id': `${SITE.url}/#author` };
+const ORG_REF = { '@id': `${SITE.url}/#org` };
+/** 作者内联写出 name / url（Google 的 Article 要求 author.name；只给 @id 引用时部分校验器读不到） */
+const AUTHOR_INLINE = {
+  '@type': 'Person',
+  '@id': `${SITE.url}/#author`,
+  name: SITE.author.name,
+  url: SITE.author.url,
+};
 const iso = (d: string) => toDate(d).toISOString();
 
 export const person = (): Json => ({
@@ -18,6 +26,16 @@ export const person = (): Json => ({
   '@id': `${SITE.url}/#author`,
   name: SITE.author.name,
   url: SITE.author.url,
+});
+
+/** 站点运营方（全站每页都带；logo 为 512 px PNG） */
+export const organization = (): Json => ({
+  '@type': 'Organization',
+  '@id': `${SITE.url}/#org`,
+  name: SITE.name,
+  url: `${SITE.url}/`,
+  logo: { '@type': 'ImageObject', url: abs('/icons/icon-512.png'), width: 512, height: 512 },
+  founder: AUTHOR_REF,
 });
 
 export const website = (): Json => ({
@@ -28,6 +46,7 @@ export const website = (): Json => ({
   inLanguage: SITE.lang,
   description: SITE.description,
   author: AUTHOR_REF,
+  publisher: ORG_REF,
   potentialAction: {
     '@type': 'SearchAction',
     target: { '@type': 'EntryPoint', urlTemplate: `${SITE.url}/search/?q={search_term_string}` },
@@ -67,14 +86,44 @@ export function article(a: {
     articleSection: a.section,
     keywords: a.keywords.join(','),
     inLanguage: SITE.lang,
-    author: AUTHOR_REF,
-    publisher: AUTHOR_REF,
+    isPartOf: { '@id': `${SITE.url}/#website` },
+    author: AUTHOR_INLINE,
+    publisher: ORG_REF,
+  };
+}
+
+/** 价格文字 → Offer：只认「¥18」「$4.99」「18 元」这类明确的金额；其余（按量计费、订阅、待定）不写 offers */
+export function offerFrom(price: { model: string; amount?: string } | undefined): Json | undefined {
+  if (!price) return undefined;
+  if (price.model === 'free') return { '@type': 'Offer', price: '0', priceCurrency: 'CNY' };
+  if (price.model !== 'paid' || !price.amount) return undefined;
+  const m = /^\s*(¥|￥|\$|US\$|€)?\s*(\d+(?:\.\d{1,2})?)\s*(元|CNY|USD|EUR)?\s*$/i.exec(price.amount);
+  if (!m || (!m[1] && !m[3])) return undefined;
+  const cur = (m[1] ?? m[3]).toUpperCase();
+  const currency = /^(¥|￥|元|CNY)$/.test(cur) ? 'CNY' : /^(\$|US\$|USD)$/.test(cur) ? 'USD' : 'EUR';
+  return { '@type': 'Offer', price: String(Number(m[2])), priceCurrency: currency };
+}
+
+/** 真实评价汇总（构建期数据里条数 ≥ 1 才写；没有就不写——不伪造评分） */
+export interface RatingSummary {
+  value: number;
+  count: number;
+}
+export function aggregateRating(r: RatingSummary | undefined): Json | undefined {
+  if (!r || !Number.isInteger(r.count) || r.count < 1 || !(r.value >= 1 && r.value <= 5)) return undefined;
+  return {
+    '@type': 'AggregateRating',
+    ratingValue: Math.round(r.value * 10) / 10,
+    ratingCount: r.count,
+    bestRating: 5,
+    worstRating: 1,
   };
 }
 
 /**
- * 应用的结构化数据。aggregateRating 不写进静态 HTML：评分来自数据库里的真实评价（页面加载后由 island 显示），
- * 构建期拿不到，宁缺毋滥（站点原则：不伪造评分）。只在价格明确为免费时写 offers（price 0）。
+ * 应用的结构化数据。aggregateRating 默认不写：评分来自数据库里的真实评价（页面加载后由 island 显示），
+ * 构建期拿不到，宁缺毋滥（站点原则：不伪造评分）；只有调用方传入构建期的真实汇总（条数 ≥ 1）才写。
+ * offers 只在价格明确时写：免费 → price 0；付费且金额可解析 → 该金额；其余不写。
  */
 export function softwareApp(a: {
   name: string;
@@ -87,7 +136,8 @@ export function softwareApp(a: {
   /** schema.org applicationCategory（如 MultimediaApplication） */
   applicationCategory?: string;
   screenshots?: string[];
-  free?: boolean;
+  price?: { model: string; amount?: string };
+  rating?: RatingSummary;
   datePublished?: string;
   dateModified?: string;
   license?: string;
@@ -106,7 +156,8 @@ export function softwareApp(a: {
     operatingSystem: a.os ?? 'Web',
     ...(a.image ? { image: abs(a.image) } : {}),
     ...(a.screenshots?.length ? { screenshot: a.screenshots.map((s) => abs(s)) } : {}),
-    ...(a.free ? { offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY' } } : {}),
+    ...(offerFrom(a.price) ? { offers: offerFrom(a.price) } : {}),
+    ...(aggregateRating(a.rating) ? { aggregateRating: aggregateRating(a.rating) } : {}),
     ...(a.datePublished ? { datePublished: a.datePublished } : {}),
     ...(a.dateModified ? { dateModified: a.dateModified } : {}),
     ...(a.license && /^https:/.test(a.license) ? { license: a.license } : {}),
@@ -117,7 +168,7 @@ export function softwareApp(a: {
           name: a.developer.name,
           ...(a.developer.url ? { url: a.developer.url } : {}),
         }
-      : AUTHOR_REF,
+      : AUTHOR_INLINE,
   };
 }
 
@@ -195,9 +246,12 @@ export function videoGame(g: {
     version: g.version,
     image: abs(g.image),
     dateModified: iso(g.date),
+    inLanguage: SITE.lang,
     gamePlatform: 'Web browser',
+    operatingSystem: 'Web',
+    applicationCategory: 'GameApplication',
     playMode: 'SinglePlayer',
-    author: AUTHOR_REF,
+    author: AUTHOR_INLINE,
   };
 }
 

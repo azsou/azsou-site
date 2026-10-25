@@ -21,6 +21,8 @@ const crumbs = [
   { name: '首页', path: '/' },
   { name: '管理后台', path: '/admin/' },
   ...(section === 'dashboard' ? [] : [{ name: current.label, path: current.path }]),
+  // 二级页（如用户详情）：面包屑最后一项是本页
+  ...(Astro.url.pathname !== current.path ? [{ name: title, path: Astro.url.pathname }] : []),
 ];
 ---
 
