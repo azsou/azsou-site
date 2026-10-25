@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import {
   HOME_SECTIONS,
   categoryTiles,
@@ -17,6 +18,11 @@ import {
   quickChips,
   recentUpdates,
   toolsByEditorOrder,
+  TRY_QUERIES,
+  appBrand,
+  brandKey,
+  iconWall,
+  toolBrand,
   type HomeApp,
   type HomeCounts,
   type HomeGame,
@@ -205,6 +211,57 @@ describe('homeSections：没有数据的区块整块隐藏', () => {
   });
 });
 
+describe('hero 图标墙（iconWall）', () => {
+  const w = (href: string, src: string, brand: string) => ({
+    title: href,
+    href,
+    brand,
+    icon: { src, variants: true },
+  });
+  it('同一链接 / 图标文件 / 品牌只出现一次，并截到 n 个', () => {
+    const out = iconWall(
+      [
+        w('/a/', '/apps/icons/a.png', 'self:a'),
+        w('/a/', '/apps/icons/a.png', 'self:a'),
+        w('/ai/chatgpt/', '/ai/icons/chatgpt.png', 'openai'),
+        w('/ai/codex-cli/', '/ai/icons/codex-cli.png', 'openai'),
+        w('/ai/x/', '/ai/icons/chatgpt.png', 'x'),
+        w('/ai/y/', '/ai/icons/y.png', 'y'),
+        w('/ai/z/', '/ai/icons/z.png', 'z'),
+      ],
+      3,
+    );
+    expect(out.map((o) => o.href)).toEqual(['/a/', '/ai/chatgpt/', '/ai/y/']);
+  });
+  it('按图片内容去重：ChatGPT 与 Codex CLI 用的是同一个 OpenAI 标志', () => {
+    const fp = (src: string) =>
+      createHash('sha1')
+        .update(fs.readFileSync(`public${src.replace(/\.png$/, '-64.webp')}`))
+        .digest('hex');
+    const out = iconWall(
+      [
+        w('/ai/codex-cli/', '/ai/icons/codex-cli.png', 'b1'),
+        w('/ai/chatgpt/', '/ai/icons/chatgpt.png', 'b2'),
+        w('/ai/cursor/', '/ai/icons/cursor.png', 'b3'),
+      ],
+      12,
+      fp,
+    );
+    expect(out.map((o) => o.href)).toEqual(['/ai/codex-cli/', '/ai/cursor/']);
+  });
+  it('品牌键：去掉括号补充、大小写无关；自研应用按 slug 区分', () => {
+    expect(brandKey('GitHub（Microsoft）')).toBe('github');
+    expect(brandKey('OpenAI')).toBe(brandKey('openai'));
+    expect(appBrand(app('a'))).toBe('self:a');
+    expect(appBrand(app('b', { developer: { name: 'Vendor (Inc)', type: 'third-party' } }))).toBe('vendor');
+    expect(toolBrand(tool('t', { developer: { name: 'Anthropic' } }))).toBe('anthropic');
+  });
+  it('「试试」关键词是有意义的词，不是拼音缩写', () => {
+    expect(TRY_QUERIES).toEqual(['动画编辑器', 'Cursor', '塔防', 'MCP']);
+    for (const q of TRY_QUERIES) expect(q).not.toMatch(/^[a-z]{4,}$/);
+  });
+});
+
 describe('首页源码与构建产物', () => {
   const src = fs.readFileSync('src/pages/index.astro', 'utf8');
   it('不出现伪造的评分 / 下载量 / 用户数，也没有广告占位', () => {
@@ -219,6 +276,17 @@ describe('首页源码与构建产物', () => {
     expect(types).toEqual(expect.arrayContaining(['WebSite', 'Person', 'Organization', 'ItemList']));
     const site = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'WebSite');
     expect(site.potentialAction['@type']).toBe('SearchAction');
+  });
+  it.skipIf(!html)('图标墙没有重复的 logo（按图片内容）', () => {
+    const wall = /<ul class="icon-wall"[\s\S]*?<\/ul>/.exec(html)![0];
+    const srcs = [...wall.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]);
+    expect(srcs.length).toBe(12);
+    const hashes = srcs.map((s) =>
+      createHash('sha1')
+        .update(fs.readFileSync(`public${s}`))
+        .digest('hex'),
+    );
+    expect(new Set(hashes).size).toBe(srcs.length);
   });
   it.skipIf(!html)('首页没有 LCP 图片预加载以外的 eager 图片（图标 / 缩略图懒加载）', () => {
     const eager = [...html.matchAll(/<img[^>]*loading="eager"[^>]*>/g)];

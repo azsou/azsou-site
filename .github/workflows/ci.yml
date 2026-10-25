@@ -1,5 +1,5 @@
 name: CI
-# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
+# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
 # 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ Lighthouse（移动端，四项 ≥ 95）
 # 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
 on:
@@ -29,6 +29,7 @@ jobs:
       - run: npm run build
       - run: npm run test:links
       - run: npm run test:html
+      - run: npm run test:ld
       - run: npm run size
       - run: npm run test:csp
       - uses: actions/upload-artifact@v4
