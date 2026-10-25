@@ -54,7 +54,7 @@
     background: color-mix(in srgb, var(--c-warning) 16%, transparent);
     color: var(--c-label);
   }
-  .page--app {
+  main.page.page--app {
     padding: 0;
   }
   .admin {
@@ -246,7 +246,7 @@
     }
   }
   .stat__value {
-    font-size: 1.75rem;
+    font-size: var(--fs-title-1);
     font-weight: var(--fw-bold);
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
@@ -510,7 +510,7 @@
   }
   .data-table .cell-title,
   .data-table .cell-sub {
-    line-height: 1.35;
+    line-height: var(--lh-title-2);
   }
   .data-table .cell-title {
     font-size: var(--fs-body-sm);
@@ -526,6 +526,9 @@
     font-variant-numeric: tabular-nums;
   }
   .data-table .nowrap {
+    white-space: nowrap;
+  }
+  .data-table td[data-priority] {
     white-space: nowrap;
   }
   .data-table .col-actions {
@@ -654,6 +657,10 @@
     flex-wrap: wrap;
     gap: 4px;
   }
+  .data-table .badges {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
   .badge--danger {
     background: color-mix(in srgb, var(--c-danger) 14%, transparent);
     color: var(--c-danger);
@@ -680,17 +687,23 @@
       display: block;
       width: 100%;
     }
+    /* 卡片：第 1 行 = 主列（标题 + 摘要）+ 操作；第 2 行 = 次要信息（优先级 2，最多 2 个）；复选框在左侧 */
     .data-table[data-cards] tr {
-      display: grid;
-      grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      column-gap: var(--space-2);
-      row-gap: 2px;
-      padding: var(--space-2) var(--space-3);
+      gap: 2px var(--space-2);
+      padding: var(--space-2) var(--space-3) var(--space-2) 52px;
       border-bottom: 1px solid var(--c-separator);
     }
     .data-table[data-cards] tr.no-check {
       display: block;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .data-table[data-cards] tr[data-row]:not(:has(> .col-check)) {
+      padding-left: var(--space-3);
     }
     .data-table[data-cards] td {
       height: auto;
@@ -698,24 +711,30 @@
       border: 0;
     }
     .data-table[data-cards] tr[data-row] > td.col-check {
-      grid-column: 1;
-      grid-row: 1 / span 2;
+      position: absolute;
+      left: var(--space-2);
+      top: var(--space-2);
       width: auto;
     }
     .data-table[data-cards] tr[data-row] > td.cell-main {
-      grid-column: 2 / 5;
-      grid-row: 1;
+      order: 1;
+      flex: 1 0 calc(100% - 120px);
+      min-width: 0;
+    }
+    .data-table[data-cards] tr[data-row]:not(:has(> .col-actions)) > td.cell-main {
+      flex-basis: 100%;
     }
     .data-table[data-cards] tr[data-row] > td.col-actions {
-      grid-column: 5;
-      grid-row: 1 / span 2;
+      order: 2;
+      flex: 0 0 auto;
+      width: auto;
+      margin-left: auto;
     }
     .data-table[data-cards] tr[data-row] > td[data-priority='2'] {
-      grid-row: 2;
-      max-width: 100%;
+      order: 3;
+      max-width: 60%;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
       color: var(--c-label-2);
       font-size: var(--fs-caption);
     }

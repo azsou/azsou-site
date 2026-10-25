@@ -11,6 +11,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { PAGES, VIEWPORTS, FIXED_TIME } from '../design/pages';
 import { settle } from '../design/detect';
+import { mockAdmin, type AdminMockRole, type AdminMockState } from '../design/admin-mock';
 
 const LITE = [VIEWPORTS[4], VIEWPORTS[1]]; // 1440、390
 
@@ -63,3 +64,47 @@ for (const name of ['home', 'ai-detail', 'kit', 'kit-prose']) {
     await shot(page, `${name}--1440--reduced-dark`);
   });
 }
+
+// T9.16 后台：夹具数据（不连库）下的外壳与各态。概览 / 内容表 1440 深浅 + 390；内容表 空 / 错 / 加载 / 无权限 1440。
+const ADMIN_SHOTS: {
+  name: string;
+  path: string;
+  state?: AdminMockState;
+  role?: AdminMockRole;
+  vps: (typeof VIEWPORTS)[number][];
+  dark?: boolean;
+}[] = [
+  { name: 'admin-dashboard', path: '/admin/', vps: [VIEWPORTS[4], VIEWPORTS[1]], dark: true },
+  {
+    name: 'admin-content',
+    path: '/admin/content/',
+    vps: [VIEWPORTS[4], VIEWPORTS[3], VIEWPORTS[1]],
+    dark: true,
+  },
+  {
+    name: 'admin-content-empty',
+    path: '/admin/content/?q=nothing',
+    state: 'empty',
+    vps: [VIEWPORTS[4], VIEWPORTS[1]],
+  },
+  { name: 'admin-content-error', path: '/admin/content/', state: 'error', vps: [VIEWPORTS[4], VIEWPORTS[1]] },
+  { name: 'admin-content-loading', path: '/admin/content/', state: 'loading', vps: [VIEWPORTS[4]] },
+  { name: 'admin-denied', path: '/admin/settings/', role: 'moderator', vps: [VIEWPORTS[4], VIEWPORTS[1]] },
+];
+for (const a of ADMIN_SHOTS)
+  for (const vp of a.vps)
+    for (const theme of a.dark && (vp.name === '1440' || vp.name === '390')
+      ? (['light', 'dark'] as const)
+      : (['light'] as const))
+      test(`${a.name} @${vp.name} ${theme}`, async ({ page }) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+        await mockAdmin(page, { state: a.state, role: a.role });
+        await page.clock.setFixedTime(new Date(FIXED_TIME));
+        await page.goto(a.path, { waitUntil: a.state === 'loading' ? 'load' : 'networkidle' });
+        await expect(page.locator(a.role ? '[data-gate-forbidden]' : '[data-admin-body]')).toBeVisible();
+        if (a.state === 'loading') await expect(page.locator('tr.table-skel').first()).toBeVisible();
+        else await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+        await settle(page);
+        await shot(page, `${a.name}--${vp.name}--${theme}`);
+      });

@@ -163,4 +163,10 @@ export async function mockAdmin(page: Page, opts: { role?: AdminMockRole; state?
     // 其余（通知数、站点设置、昵称等）：空
     return json(route, [], { 'content-range': '*/0' });
   });
+  return {
+    set(next) {
+      if (next.role) role = next.role;
+      if (next.state) state = next.state;
+    },
+  };
 }

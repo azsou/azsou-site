@@ -1,6 +1,6 @@
 /**
  * 设计门禁的页面清单与视口（DESIGN-QA §2.2 / §2.12）。
- * 只放静态可渲染的公开页面；需要数据库的社区页 / 后台页由 e2e 覆盖，视觉基线待 T9.16 后台外壳完成再加。
+ * 只放静态可渲染的公开页面；后台（T9.16）的各态基线在 tests/visual/visual.spec.ts 里用夹具（tests/design/admin-mock.ts）单独截。
  */
 export type DesignPage = { name: string; path: string; core?: boolean };
 
@@ -30,6 +30,7 @@ export const PAGES: DesignPage[] = [
   { name: 'en-ai-detail', path: '/en/ai/claude-code/' },
   { name: 'kit', path: '/_kit/' },
   { name: 'kit-prose', path: '/_kit/prose/' },
+  { name: 'kit-admin', path: '/_kit/admin/' },
 ];
 
 /** Q12 视口全集：320–2560 + 两个横屏 */

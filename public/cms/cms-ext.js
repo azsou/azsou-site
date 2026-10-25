@@ -30,7 +30,9 @@ const StringCount = createClass({
   render() {
     const { field, value, onChange, forID, classNameWrapper, setActiveStyle, setInactiveStyle } = this.props;
     const lim = limitsOf(field);
-    const r = checkLength(value, lim);
+    const checked = checkLength(value, lim);
+    // 还没填：中性提示（保存时由必填 / isValid 拦），不一打开就满屏红字
+    const r = value ? checked : { ...checked, ok: true, state: 'empty', message: lim.required ? '必填' : '' };
     const multiline = !!opt(field, 'multiline');
     const counterId = `${forID}-count`;
     const input = h(multiline ? 'textarea' : 'input', {

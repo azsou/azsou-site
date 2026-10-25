@@ -112,44 +112,44 @@ test.describe('后台外壳与状态（夹具）', () => {
   });
 
   test('空态（筛选后）→ 清除筛选；错误态 → 重试恢复；加载态为骨架', async ({ page }) => {
-    await mockAdmin(page, { state: 'empty' });
+    const mock = await mockAdmin(page, { state: 'empty' });
     await page.goto('/admin/content/?q=不存在的关键词');
     const empty = page.locator('[data-table-empty]');
     await expect(empty).toContainText('没有符合条件的内容');
-    await expect(empty.getByRole('button', { name: '清除筛选' })).toBeVisible();
     await empty.getByRole('button', { name: '清除筛选' }).click();
     await expect(page).toHaveURL(/\/admin\/content\/$/);
     await expect(page.locator('[data-table-empty]')).toContainText('还没有主题');
 
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await mockAdmin(page, { state: 'error' });
+    mock.set({ state: 'error' });
     await page.goto('/admin/content/');
     const err = page.locator('[data-table-error]');
     await expect(err).toBeVisible();
     await expect(err).toHaveAttribute('role', 'alert');
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await mockAdmin(page, { state: 'data' });
+    mock.set({ state: 'data' });
     await err.getByRole('button', { name: '重试' }).click();
     await expect(rows(page)).toHaveCount(CONTENT_ROWS.length);
 
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await mockAdmin(page, { state: 'loading' });
+    mock.set({ state: 'loading' });
     await page.goto('/admin/content/');
     await expect(page.locator('tbody[data-rows]')).toHaveAttribute('aria-busy', 'true');
     await expect(page.locator('tr.table-skel')).toHaveCount(5);
   });
 
-  test('权限：未登录 / 普通用户 / 被限制的版主 / 版主进管理员页 各自的状态卡', async ({ page }) => {
+  test('权限：未登录 → 登录卡', async ({ page }) => {
     await mockAdmin(page, { role: 'anon' });
     await page.goto('/admin/content/');
     await expect(page.locator('[data-gate-signed-out]')).toBeVisible();
+    await expect(page.locator('[data-admin-body]')).toBeHidden();
+  });
+
+  test('权限：普通用户 / 被限制的版主 / 版主进管理员页 各自的状态卡', async ({ page }) => {
+    const mock = await mockAdmin(page, { role: 'user' });
     for (const [role, text, path] of [
       ['user', '你的账号没有访问管理后台的权限。', '/admin/'],
       ['banned', '你的账号已被限制，暂时不能使用管理后台。', '/admin/'],
       ['moderator', '这个页面仅管理员可用。', '/admin/settings/'],
     ] as const) {
-      await page.unrouteAll({ behavior: 'ignoreErrors' });
-      await mockAdmin(page, { role });
+      mock.set({ role });
       await page.goto(path);
       await expect(page.locator('[data-gate-forbidden]')).toBeVisible();
       await expect(page.locator('[data-gate-forbidden-text]')).toHaveText(text);
@@ -160,9 +160,9 @@ test.describe('后台外壳与状态（夹具）', () => {
   for (const scheme of ['light', 'dark'] as const)
     test(`axe 0（${scheme}）：概览、内容表（有数据 / 空 / 错）、菜单展开`, async ({ page }) => {
       await emulateColorScheme(page, scheme);
+      const mock = await mockAdmin(page);
       for (const state of ['data', 'empty', 'error'] as const) {
-        await page.unrouteAll({ behavior: 'ignoreErrors' });
-        await mockAdmin(page, { state });
+        mock.set({ state });
         for (const path of ['/admin/', '/admin/content/']) {
           await page.goto(path);
           await expect(page.locator('[data-admin-body]')).toBeVisible();
@@ -170,8 +170,7 @@ test.describe('后台外壳与状态（夹具）', () => {
           expect(await axe(page), `${path} ${state}`).toEqual([]);
         }
       }
-      await page.unrouteAll({ behavior: 'ignoreErrors' });
-      await mockAdmin(page);
+      mock.set({ state: 'data' });
       await page.goto('/admin/content/');
       await rows(page).first().getByRole('button', { name: '更多操作' }).click();
       await expect(page.getByRole('menu')).toBeVisible();

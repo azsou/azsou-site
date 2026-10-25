@@ -107,6 +107,8 @@ export function measure(page: Page): Promise<Measure> {
     for (const el of all) {
       const cs = getComputedStyle(el);
       if (!el.textContent?.trim() || el.children.length > 3) continue;
+      // 有意的一行截断（后台数据表：标题 / 摘要一行 + title 提示全文，DESIGN-SYSTEM §14）
+      if (el.closest('[data-truncate-ok]')) continue;
       const clamped = cs.webkitLineClamp !== 'none' && cs.webkitLineClamp !== '';
       if (clamped) clampTotal++;
       const ell = cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
