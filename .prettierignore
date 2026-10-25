@@ -1,5 +1,7 @@
 legacy/
 dist/
+dist-ads/
+dist-ads.vercel.json
 .vercel/
 .astro/
 node_modules/

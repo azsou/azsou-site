@@ -7,6 +7,9 @@ import Segmented from '@/components/Segmented.astro';
 import { getArticles } from '@/lib/content';
 import { TAGS } from '@/lib/tags';
 import { url } from '@/lib/routes';
+import AdSlot from '@/components/ads/AdSlot.astro';
+/** 列表间广告：每 6 篇之后一个（不在最后一篇之后），广告关闭时不输出 */
+const AD_EVERY = 6;
 const articles = await getArticles();
 const used = [...new Set(articles.flatMap((a) => a.data.tags))];
 ---
@@ -43,8 +46,11 @@ const used = [...new Set(articles.flatMap((a) => a.data.tags))];
     ]}
   />
   <div class="grid grid--wide">
-    {articles.map((a) => (
-      <ArticleCard article={a} />
+    {articles.map((a, i) => (
+      <>
+        <ArticleCard article={a} />
+        {(i + 1) % AD_EVERY === 0 && i < articles.length - 1 && <AdSlot placement="list" />}
+      </>
     ))}
   </div>
 </Base>

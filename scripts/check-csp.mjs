@@ -6,19 +6,25 @@
  *  2. CSP 包含必要指令：Supabase（REST / Auth / Storage 图片 / Realtime）、Turnstile、object-src 'none'、
  *     frame-ancestors、base-uri 等；以及 nosniff、Referrer-Policy、HSTS 等其他安全头。
  *  3. `--url https://预览地址`：请求线上几个页面，核对实际响应头与 vercel.json 一致（Vercel 预览验收用）。
- * 用法：node scripts/check-csp.mjs [--write] [--url <base>] [dir=dist/client]
+ *  4. Google 标签（P8）：vercel.json 里的 Google 来源只能是 scripts/google-csp.mjs 生成的完整集合（AdSense / GA4），
+ *     没开时一个都不能有；放开后 script-src 依然不能有 'unsafe-inline' / 'unsafe-eval'。
+ * 用法：node scripts/check-csp.mjs [--write] [--url <base>] [--vercel <file>] [dir=dist/client]
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { googleCspSources, googleCspState, isGoogleSource } from './google-csp.mjs';
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
 const urlIdx = args.indexOf('--url');
 const base = urlIdx >= 0 ? args[urlIdx + 1] : null;
-const dir = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--url') || 'dist/client';
+const vIdx = args.indexOf('--vercel');
+const dir =
+  args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--url' && args[i - 1] !== '--vercel') ||
+  'dist/client';
 
-const vercelPath = 'vercel.json';
+const vercelPath = vIdx >= 0 ? args[vIdx + 1] : 'vercel.json';
 const vercel = JSON.parse(fs.readFileSync(vercelPath, 'utf8'));
 // 其他安全头在 "/(.*)" 规则里（含 /_astro/ 静态资源，nosniff 对脚本有效）；
 // CSP 单独一条 "/((?!_astro/).*)"：CSP 只对文档与 Worker 生效，带哈希的 /_astro/ 脚本与样式不需要它，
@@ -132,10 +138,22 @@ const usedProviders = new Set(
         )
     : [],
 );
+const google = googleCspState(cspHeader.value);
+const googleAllowed = new Set(Object.values(googleCspSources(google)).flat());
 const allowedFrames = new Set([
   'https://challenges.cloudflare.com',
   ...[...usedProviders].map((p) => VIDEO_FRAMES[p]),
+  ...(googleCspSources(google)['frame-src'] ?? []),
 ]);
+// Google 来源：只能是完整的 AdSense / GA4 集合之一（csp-google.mjs 生成），不能零散手加
+for (const [d, vals] of Object.entries(csp))
+  for (const v of vals)
+    if (isGoogleSource(v) && !googleAllowed.has(v))
+      fail.push(
+        `CSP ${d} 里的 ${v} 不属于已放开的 Google 集合（用 node scripts/csp-google.mjs on/off 管理）`,
+      );
+for (const [d, vals] of Object.entries(googleCspSources(google)))
+  for (const v of vals) if (!(csp[d] ?? []).includes(v)) fail.push(`CSP ${d} 缺少 Google 来源 ${v}`);
 for (const p of usedProviders)
   if (!VIDEO_FRAMES[p]) fail.push(`视频平台 ${p} 没有登记嵌入域名（scripts/check-csp.mjs 的 VIDEO_FRAMES）`);
   else if (!(csp['frame-src'] ?? []).includes(VIDEO_FRAMES[p]))
@@ -193,4 +211,6 @@ if (fail.length) {
   console.error(fail.map((f) => `✗ ${f}`).join('\n'));
   process.exit(1);
 }
-console.log(`✓ CSP 与安全头检查通过（${hashes.size} 个内联脚本哈希${base ? '，线上一致' : ''}）`);
+console.log(
+  `✓ CSP 与安全头检查通过（${hashes.size} 个内联脚本哈希；Google：AdSense ${google.ads ? '开' : '关'} · GA4 ${google.ga ? '开' : '关'}${base ? '；线上一致' : ''}）`,
+);

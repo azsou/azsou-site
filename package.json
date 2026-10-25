@@ -29,7 +29,11 @@
     "db:restore": "bash scripts/db-restore.sh",
     "db:drill": "bash scripts/restore-drill.sh",
     "test:db": "vitest run -c vitest.db.config.ts",
-    "db:local": "bash scripts/pg-local.sh start"
+    "db:local": "bash scripts/pg-local.sh start",
+    "prebuild": "node scripts/csp-google.mjs check",
+    "csp:google": "node scripts/csp-google.mjs",
+    "test:ads": "vitest run -c vitest.ads.config.ts",
+    "build:ads": "bash scripts/build-ads-variant.sh"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.19",

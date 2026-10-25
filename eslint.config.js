@@ -35,6 +35,7 @@ export default [
     ignores: [
       'legacy/**',
       'dist/**',
+      'dist-ads/**',
       '.vercel/**',
       '.astro/**',
       'node_modules/**',

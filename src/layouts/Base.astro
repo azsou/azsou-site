@@ -4,6 +4,7 @@ import Nav from '@/components/Nav.astro';
 import TabBar from '@/components/TabBar.astro';
 import Footer from '@/components/Footer.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import GoogleTags from '@/components/ads/GoogleTags.astro';
 import { SITE } from '@/lib/site';
 import {
   abs,
@@ -38,6 +39,8 @@ interface Props {
   preloadSrcset?: { srcset: string; type: string; sizes?: string };
   /** 进 Pagefind 全文索引（T7.1）：只有内容详情页设置；值是结果里显示的类型 */
   searchType?: 'app' | 'tool' | 'video' | 'game' | 'article' | 'work' | 'thread';
+  /** 本页不出广告、不加载 AdSense（P8；默认按 src/lib/ads.ts 的 AD_FREE_PREFIXES 判断） */
+  noAds?: boolean;
 }
 
 const {
@@ -55,6 +58,7 @@ const {
   preloadImage,
   preloadSrcset,
   searchType,
+  noAds = false,
 } = Astro.props;
 
 const fullTitle =
@@ -149,10 +153,8 @@ const isProd = import.meta.env.PROD;
       </>
     )}
     <link rel="sitemap" href="/sitemap-index.xml" />
-    <!-- 站长平台验证位：拿到验证码后在这里填 content（百度 / 必应 / Google） -->
-    <!-- <meta name="baidu-site-verification" content="" /> -->
-    <!-- <meta name="msvalidate.01" content="" /> -->
-    <!-- <meta name="google-site-verification" content="" /> -->
+    <!-- Google：Search Console 验证 meta（PUBLIC_GSC_VERIFICATION）与 Consent Mode v2 + AdSense / GA4 加载器；变量都没设时不输出 -->
+    <GoogleTags path={path} noAds={noAds || noindex} />
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:locale" content={OG_LOCALES[lang]} />
     {alt && <meta property="og:locale:alternate" content={OG_LOCALES[lang === 'en' ? 'zh' : 'en']} />}

@@ -14,7 +14,8 @@ import zlib from 'node:zlib';
 
 const port = Number(process.argv[2] || process.env.PORT || 4321);
 const root = path.resolve(process.argv[3] || 'dist/client');
-const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+// AZ_VERCEL_JSON：广告变体测试用开启了 Google 来源的 vercel.json 副本（scripts/build-ads-variant.sh）
+const vercel = JSON.parse(fs.readFileSync(process.env.AZ_VERCEL_JSON || 'vercel.json', 'utf8'));
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
