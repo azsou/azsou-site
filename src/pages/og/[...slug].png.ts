@@ -21,7 +21,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
   ]);
   const P: { params: { slug: string }; props: { spec: OgSpec } }[] = [];
   const add = (slug: string, spec: OgSpec) => P.push({ params: { slug }, props: { spec } });
-  const tagline = (d: { subtitle: string }) => d.subtitle;
+  const tagline = (d: { tagline: string }) => d.tagline;
 
   for (const a of apps) {
     const d = a.data;

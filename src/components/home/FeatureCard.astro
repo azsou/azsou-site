@@ -25,7 +25,11 @@ const { item, eager = false } = Astro.props;
   </div>
   <p class="feature-card__summary">{item.summary}</p>
   <p class="feature-card__foot">
-    <span class="feature-card__platforms">{item.platforms.join(' · ')}</span>
+    <span class="feature-card__platforms">
+      {item.platforms.length > 3
+        ? `${item.platforms.slice(0, 2).join(' · ')} 等 ${item.platforms.length} 个平台`
+        : item.platforms.join(' · ')}
+    </span>
     <span class="feature-card__cta" aria-hidden="true">
       查看
     </span>

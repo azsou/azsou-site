@@ -196,15 +196,16 @@
 
 内容 schema 对应（P9 落地）：
 
-| 集合          | 字段                               | 规则                                              |
-| ------------- | ---------------------------------- | ------------------------------------------------- |
-| apps / tools  | `title`                            | ≤ 14（超长用 `shortTitle`）                       |
-| apps / tools  | `tagline`（新，卡片专用）          | 必填，6–16                                        |
-| apps / tools  | `summary`                          | 32–56（精选卡 / 工具卡 2 行）；详情页长介绍用正文 |
-| tools         | `developer.short`（新）            | ≤ 12，卡片显示；全称放详情                        |
-| videos        | `title`                            | ≤ 34（原标题保留在 `originalTitle`）              |
-| articles      | `title` ≤ 36；`description` 60–110 |                                                   |
-| games / works | `icon` 或 `cover` 必填             |                                                   |
+| 集合          | 字段                               | 规则                                        |
+| ------------- | ---------------------------------- | ------------------------------------------- |
+| apps / tools  | `title`                            | ≤ 14（超长用 `shortTitle`）                 |
+| apps / tools  | `tagline`（新，卡片专用）          | 必填，6–16                                  |
+| apps          | `summary`                          | 32–56（精选卡 2 行）；详情页长介绍用正文    |
+| tools         | `summary`                          | 40–64（AI 工具卡 2 行）；详情页长介绍用正文 |
+| tools         | `developer.short`（新）            | ≤ 12，卡片显示；全称放详情                  |
+| videos        | `title`                            | ≤ 34（原标题保留在 `originalTitle`）        |
+| articles      | `title` ≤ 36；`description` 60–110 |                                             |
+| games / works | `icon` 或 `cover` 必填             |                                             |
 
 截断规则：标题与 tagline 用单行省略号仅作安全网（CI 以「出现截断」为失败，见 DESIGN-QA §2.5）；简介允许 `line-clamp: 2`，但内容长度应落在范围内使截断很少发生。
 

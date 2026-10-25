@@ -2,7 +2,8 @@
 {
   "title": "职业技能树工具",
   "subtitle": "RPG 职业技能树配置器",
-  "summary": "节点、前置、互斥与职业成长配置器。",
+  "tagline": "RPG 职业技能树配置器",
+  "summary": "RPG 职业技能树配置器：编辑技能节点、前置条件与互斥关系，规划职业成长路线。",
   "icon": {
     "src": "/apps/icons/skill-tree-tool.png",
     "placeholder": false,

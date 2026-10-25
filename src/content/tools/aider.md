@@ -2,6 +2,7 @@
 {
   "title": "Aider",
   "subtitle": "终端里的结对编程助手",
+  "tagline": "终端里的结对编程助手",
   "summary": "老牌开源 AI 结对编程工具：在终端里和大模型一起改代码，自动生成 Git 提交，支持几乎所有主流模型与本地模型，按自己的 API Key 计费。",
   "icon": {
     "src": "/ai/icons/aider.png",

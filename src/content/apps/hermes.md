@@ -2,7 +2,8 @@
 {
   "title": "Hermes 回归验收器",
   "subtitle": "几何矩阵比对的回归验收",
-  "summary": "本站在用的回归工具：几何矩阵比对 + 功能清单，单文件报告输出。",
+  "tagline": "几何矩阵比对的回归验收",
+  "summary": "本站在用的回归验收工具：几何矩阵比对加功能清单核对，结果输出为单文件报告。",
   "icon": {
     "src": "/apps/icons/hermes.png",
     "placeholder": false,

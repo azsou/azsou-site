@@ -2,6 +2,7 @@
 {
   "title": "Gemini CLI",
   "subtitle": "Google 开源的终端 AI 智能体",
+  "tagline": "Google 开源的终端 AI 智能体",
   "summary": "Google 开源的终端 AI 智能体，把 Gemini 模型带进命令行：读写代码、执行命令、联网搜索并支持 MCP 扩展，用 Google 账号登录即可开始。",
   "icon": {
     "src": "/ai/icons/gemini-cli.png",

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { zhLength } from '@/lib/zh-length';
 
 const root = path.resolve(__dirname, '../..');
 const legacy = JSON.parse(fs.readFileSync(path.join(root, 'legacy/az_data.json'), 'utf8'));
@@ -241,5 +242,15 @@ describe('AI 工具（/ai/，第三方）', () => {
       ])
         expect(fs.existsSync(path.join(root, 'public/ai/icons', f)), f).toBe(true);
     }
+  });
+});
+
+// ------------------------------------------------------------------ T9.5 ----
+describe('T9.5 zhLength', () => {
+  it('汉字 1、拉丁字母 / 数字 / 半角符号 0.5', () => {
+    expect(zhLength('应用')).toBe(2);
+    expect(zhLength('AI 工具')).toBe(3.5);
+    expect(zhLength('Claude Code')).toBe(5.5);
+    expect(zhLength('「」，。')).toBe(4);
   });
 });

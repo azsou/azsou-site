@@ -2,7 +2,8 @@
 {
   "title": "单文件工具箱",
   "subtitle": "下载即用的单文件工具集",
-  "summary": "下载后直接运行的实用工具集合。",
+  "tagline": "下载即用的单文件工具集",
+  "summary": "单文件实用工具合集，目前收录 12 个：每个工具下载后直接运行，无需安装。",
   "icon": {
     "src": "/apps/icons/single-file-toolbox.png",
     "placeholder": false,

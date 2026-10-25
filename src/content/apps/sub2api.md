@@ -2,6 +2,7 @@
 {
   "title": "Sub2API",
   "subtitle": "本地 OpenAI 兼容网关实验",
+  "tagline": "本地 OpenAI 兼容网关实验",
   "summary": "把订阅制 AI 服务转成本地 OpenAI 兼容接口的网关实验，只在本机转发。",
   "icon": {
     "src": "/apps/icons/sub2api.png",

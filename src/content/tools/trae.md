@@ -2,6 +2,7 @@
 {
   "title": "TRAE",
   "subtitle": "字节跳动的 AI 原生 IDE",
+  "tagline": "字节跳动的 AI 原生 IDE",
   "summary": "字节跳动推出的 AI 原生集成开发环境，提供对话式编程、智能体模式和代码补全，界面中文友好；国际版与国内版分别运营。",
   "icon": {
     "src": "/ai/icons/trae.png",

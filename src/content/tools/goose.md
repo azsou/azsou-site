@@ -2,6 +2,7 @@
 {
   "title": "goose",
   "subtitle": "本地运行的开源通用 AI 智能体",
+  "tagline": "本地运行的开源通用 AI 智能体",
   "summary": "开源的本地 AI 智能体，提供桌面应用、命令行和 API，可接入 15 种以上模型服务与大量 MCP 扩展，用于编程、调研、写作和自动化。",
   "icon": {
     "src": "/ai/icons/goose.png",
@@ -9,6 +10,7 @@
   },
   "developer": {
     "name": "Agentic AI Foundation（Linux 基金会）",
+    "short": "AAIF（Linux 基金会）",
     "url": "https://goose-docs.ai/",
     "type": "third-party"
   },

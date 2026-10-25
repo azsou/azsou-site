@@ -2,7 +2,8 @@
 {
   "title": "Claude",
   "subtitle": "Anthropic 的 AI 助手",
-  "summary": "Anthropic 的 AI 助手，擅长长文写作、阅读与分析大量资料和编程，支持项目、Artifacts、联网搜索与 MCP 连接器，提供网页、桌面和手机端。",
+  "tagline": "Anthropic 的 AI 助手",
+  "summary": "Anthropic 的 AI 助手，擅长长文写作、阅读与分析资料和编程，支持项目、Artifacts、联网搜索与 MCP 连接器，提供网页、桌面和手机端。",
   "icon": {
     "src": "/ai/icons/claude.png",
     "variants": true

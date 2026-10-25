@@ -2,7 +2,8 @@
 {
   "title": "GitHub Copilot",
   "subtitle": "GitHub 的 AI 编程助手",
-  "summary": "GitHub 推出的 AI 编程助手，覆盖编辑器内补全与对话、智能体模式、命令行和 GitHub 网页上的代码审查，提供免费档并与 GitHub 深度集成。",
+  "tagline": "GitHub 的 AI 编程助手",
+  "summary": "GitHub 推出的 AI 编程助手，覆盖编辑器内补全与对话、智能体模式、命令行和 GitHub 网页上的代码审查，提供免费档。",
   "icon": {
     "src": "/ai/icons/github-copilot.png",
     "variants": true

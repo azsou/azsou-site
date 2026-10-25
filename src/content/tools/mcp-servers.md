@@ -2,6 +2,7 @@
 {
   "title": "MCP 官方参考服务器",
   "subtitle": "Model Context Protocol 参考实现合集",
+  "tagline": "MCP 官方参考实现合集",
   "summary": "Model Context Protocol 官方维护的参考服务器合集，包含文件系统、Git、网页抓取、记忆等示例实现，是学习和搭建 MCP 服务器的起点。",
   "icon": {
     "src": "/ai/icons/mcp-servers.png",
@@ -9,6 +10,7 @@
   },
   "developer": {
     "name": "Model Context Protocol 项目",
+    "short": "MCP 项目",
     "url": "https://modelcontextprotocol.io/",
     "type": "third-party"
   },

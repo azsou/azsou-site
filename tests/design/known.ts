@@ -8,8 +8,6 @@ export const KNOWN: Record<string, string> = {
   'singlechar:*@844x390': 'T9.10 导航与响应式骨架（N-TB-1）',
   // 320 宽精选卡标题「FableMotion」放不下被断开（P1-3 精选卡改版）
   'midword:home@320': 'T9.11 首页改版（精选卡标题字阶）',
-  // 卡片标题 / tagline / meta 单行省略号、简介 2 行截断（P0-4）
-  'trunc:*@*': 'T9.5 内容 schema 字数规格（P0-4）',
   // 仅文字放大 200% 时应用详情横向溢出 1px（N-ZOOM-1）
   'zoom:app-detail@390': 'T9.8 卡片家族与栅格（N-ZOOM-1）',
 

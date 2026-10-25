@@ -2,6 +2,7 @@
 {
   "title": "Claude Code",
   "subtitle": "Anthropic 的终端编程智能体",
+  "tagline": "Anthropic 的终端编程智能体",
   "summary": "Anthropic 出品的编程智能体：在终端、IDE、桌面应用和网页里读懂整个代码库，改文件、跑命令、提交代码，并能通过 MCP 接入外部工具。",
   "icon": {
     "src": "/ai/icons/claude-code.png",

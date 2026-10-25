@@ -32,6 +32,7 @@ export interface HomeApp {
   data: {
     title: string;
     subtitle: string;
+    tagline: string;
     summary: string;
     icon: Icon;
     hue: Hue;
@@ -50,6 +51,7 @@ export interface HomeTool {
   data: {
     title: string;
     subtitle: string;
+    tagline: string;
     summary: string;
     icon: Icon;
     hue?: Hue;
@@ -114,7 +116,7 @@ export function featuredItems(apps: HomeApp[], tools: HomeTool[]): FeaturedItem[
         kind: 'app',
         slug: a.id,
         title: a.data.title,
-        subtitle: a.data.subtitle,
+        subtitle: a.data.tagline,
         summary: a.data.summary,
         icon: a.data.icon,
         hue: a.data.hue,
@@ -130,7 +132,7 @@ export function featuredItems(apps: HomeApp[], tools: HomeTool[]): FeaturedItem[
         kind: 'tool',
         slug: t.id,
         title: t.data.title,
-        subtitle: t.data.subtitle,
+        subtitle: t.data.tagline,
         summary: t.data.summary,
         icon: t.data.icon,
         hue: toolHue(t.data),

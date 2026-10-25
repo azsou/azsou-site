@@ -2,7 +2,8 @@
 {
   "title": "程序化声场",
   "subtitle": "分层音效与动态 BGM 实验",
-  "summary": "分层音效、动态 BGM 与浏览器音频实验。",
+  "tagline": "分层音效与动态 BGM 实验",
+  "summary": "在浏览器里运行的音频实验：分层叠加的音效、动态变化的背景音乐，以及其他网页音频玩法。",
   "icon": {
     "src": "/apps/icons/procedural-soundfield.png",
     "placeholder": false,

@@ -2,6 +2,7 @@
 {
   "title": "Cursor",
   "subtitle": "以 AI 为核心的代码编辑器",
+  "tagline": "以 AI 为核心的代码编辑器",
   "summary": "基于 VS Code 打造的 AI 代码编辑器：Tab 智能补全、对话式改代码和可在后台跑任务的编程智能体集成在一起，兼容大多数 VS Code 插件。",
   "icon": {
     "src": "/ai/icons/cursor.png",

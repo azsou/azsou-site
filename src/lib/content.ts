@@ -126,7 +126,8 @@ export function catalogItem(a: App): CatalogItem {
   return {
     slug: a.id,
     title: d.title,
-    subtitle: d.subtitle,
+    // 卡片显示 tagline（6–16，T9.5）；详情页仍用 subtitle
+    subtitle: d.tagline,
     icon: cardIcon(d.icon),
     iconAlt: `${d.title} 图标`,
     iconSrc: d.icon.src,
@@ -177,7 +178,7 @@ export function toolItem(t: Tool): ToolItem {
   return {
     slug: t.id,
     title: d.title,
-    subtitle: d.subtitle,
+    subtitle: d.tagline,
     summary: d.summary,
     icon: cardIcon(d.icon),
     iconAlt: `${d.title} 图标`,
@@ -189,7 +190,7 @@ export function toolItem(t: Tool): ToolItem {
     price: d.price.model,
     priceLabel: PRICE_LABEL[d.price.model],
     openSource: d.openSource,
-    developer: d.developer.name,
+    developer: d.developer.short ?? d.developer.name,
     order: d.order,
     url: url.tool(t.id),
   };

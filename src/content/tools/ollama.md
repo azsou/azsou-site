@@ -2,7 +2,8 @@
 {
   "title": "Ollama",
   "subtitle": "一条命令在本地运行大模型",
-  "summary": "在自己电脑上运行开源大模型的工具：一条命令下载并启动 Llama、Qwen、DeepSeek 等模型，提供兼容 OpenAI 的本地 API，可接入各类 AI 应用。",
+  "tagline": "一条命令在本地运行大模型",
+  "summary": "在自己电脑上运行开源大模型的工具：一条命令下载并启动 Llama、Qwen、DeepSeek 等模型，提供兼容 OpenAI 的本地 API，可接入 AI 应用。",
   "icon": {
     "src": "/ai/icons/ollama.png",
     "variants": true

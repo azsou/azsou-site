@@ -2,7 +2,8 @@
 {
   "title": "Capture Kit",
   "subtitle": "网页视频录制与帧扫描",
-  "summary": "网页视频录制、帧扫描与素材整理。",
+  "tagline": "网页视频录制与帧扫描",
+  "summary": "浏览器扩展：录制网页上的视频、逐帧扫描画面，并整理截取下来的素材。",
   "icon": {
     "src": "/apps/icons/capture-kit.png",
     "placeholder": false,

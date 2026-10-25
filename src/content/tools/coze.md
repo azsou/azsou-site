@@ -2,6 +2,7 @@
 {
   "title": "扣子 Coze",
   "subtitle": "字节跳动的 AI 智能体开发平台",
+  "tagline": "字节跳动的 AI 智能体开发平台",
   "summary": "字节跳动推出的 AI 智能体平台，零代码搭建聊天机器人和工作流，并发布到豆包、飞书、微信等渠道；其开发套件 Coze Studio 已开源。",
   "icon": {
     "src": "/ai/icons/coze.png",

@@ -10,6 +10,7 @@ import {
   type Category,
 } from './lib/app-store';
 import { HUES } from './lib/hue';
+import { zhLength, zhRangeText } from './lib/zh-length';
 import {
   VIDEO_CATEGORY_IDS,
   VIDEO_ID_RE,
@@ -19,6 +20,11 @@ import {
 } from './lib/videos';
 
 const hue = z.enum(HUES);
+/** 卡片字段字数（DESIGN-SYSTEM §10，T9.5）：按 zhLength 计，超出即构建失败 */
+const zh = (max: number, min?: number) =>
+  z.string().refine((v) => zhLength(v) <= max && (!min || zhLength(v) >= min), {
+    message: `字数应为 ${zhRangeText(min, max)}`,
+  });
 const date = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, '日期格式应为 YYYY-MM 或 YYYY-MM-DD');
 const fact = z.object({ label: z.string(), value: z.string() });
 const slugRef = z.string().regex(/^[a-z0-9-]+$/);
@@ -134,15 +140,20 @@ const apps = defineCollection({
   }),
   schema: z
     .object({
-      title: z.string(),
-      /** App Store 式副标题（一句话，≤ 30 字） */
+      /** 名称（卡片 1 行，≤ 14） */
+      title: zh(14),
+      /** 详情页副标题（一句话，≤ 30 字） */
       subtitle: z.string().max(30),
-      /** 列表与 SEO 描述（一两句） */
-      summary: z.string(),
+      /** 卡片专用一句话（6–16，1 行不截断） */
+      tagline: zh(16, 6),
+      /** 精选卡 / 列表简介与 SEO 描述（32–56，卡片 2 行） */
+      summary: zh(56, 32),
       icon,
       hue,
       developer: z.object({
         name: z.string(),
+        /** 卡片上显示的短名（≤ 12）；全称超过 12 时必填 */
+        short: zh(12).optional(),
         url: localOrHttps.optional(),
         /** self = 本站作者开发；third-party = 第三方（只链官方地址，不托管安装包） */
         type: z.enum(['self', 'third-party']),
@@ -191,18 +202,24 @@ const tools = defineCollection({
   loader: glob({ pattern: '*.md', base: './src/content/tools' }),
   schema: z
     .object({
-      title: z.string(),
+      title: zh(14),
       subtitle: z.string().max(30),
-      /** 一句话简介（60–120 字，原创），用在卡片、搜索与 meta description */
-      summary: z.string().min(40).max(140),
+      /** 卡片专用一句话（6–16，1 行不截断） */
+      tagline: zh(16, 6),
+      /** 一句话简介（40–64，AI 工具卡 2 行；原创），用在卡片、搜索与 meta description */
+      summary: zh(64, 40),
       icon,
       /** 卡片 / 横幅色相；不写 = 跟随主分类（AI_CATEGORY_HUE） */
       hue: hue.optional(),
-      developer: z.object({
-        name: z.string(),
-        url: httpsUrl,
-        type: z.literal('third-party'),
-      }),
+      developer: z
+        .object({
+          name: z.string(),
+          /** 卡片上显示的短名（≤ 12）；全称超过 12 时必填 */
+          short: zh(12).optional(),
+          url: httpsUrl,
+          type: z.literal('third-party'),
+        })
+        .refine((d) => zhLength(d.name) <= 12 || !!d.short, { message: '开发者全称超过 12 字时要写 short' }),
       /** 第一个是主分类 */
       categories: z.array(z.enum(AI_CATEGORY_IDS as [AiCategory, ...AiCategory[]])).min(1),
       tags: z.array(slugRef).default([]),
@@ -245,7 +262,7 @@ const videos = defineCollection({
   schema: z
     .object({
       /** 本站的中文标题（原创，不是翻译腔的直译） */
-      title: z.string().min(4).max(40),
+      title: zh(34, 4),
       /** 平台上的原标题（与 oEmbed 返回的 title 完全一致） */
       originalTitle: z.string(),
       /** 一段话导读（80–150 字，原创），用在卡片、搜索与 meta description */
@@ -308,7 +325,8 @@ const games = defineCollection({
 const articles = defineCollection({
   loader: glob({ pattern: '*.md', base: './src/content/articles' }),
   schema: z.object({
-    title: z.string(),
+    /** 标题（媒体卡 2 行，≤ 36） */
+    title: zh(36),
     category: z.string(),
     badge: z.string(),
     author: z.string(),
@@ -323,7 +341,7 @@ const articles = defineCollection({
     pinyin: z.string().default(''),
     order: z.number().int(),
     /** 一句话摘要（列表、搜索结果与 meta description）；不写 = 取正文前 120 字 */
-    description: z.string().min(40).max(160).optional(),
+    description: zh(110, 60).optional(),
     /**
      * 联盟 / 赞助披露（P8 T8.7）：affiliate = 文中有联盟链接；sponsored = 整篇是赞助内容（写明 sponsor）。
      * 正文含 rel="sponsored" 链接而没写这个字段时，文章页按 affiliate 显示披露标识。

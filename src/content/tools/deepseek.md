@@ -2,6 +2,7 @@
 {
   "title": "DeepSeek",
   "subtitle": "深度求索的免费 AI 助手",
+  "tagline": "深度求索的免费 AI 助手",
   "summary": "深度求索（DeepSeek）推出的免费 AI 助手，基于其开源权重的大模型，擅长推理、数学与编程，中文能力出色，网页和手机端均可直接使用。",
   "icon": {
     "src": "/ai/icons/deepseek.png",
@@ -9,6 +10,7 @@
   },
   "developer": {
     "name": "杭州深度求索人工智能基础技术研究有限公司",
+    "short": "深度求索",
     "url": "https://www.deepseek.com/",
     "type": "third-party"
   },

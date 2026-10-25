@@ -2,7 +2,8 @@
 {
   "title": "FableMotion",
   "subtitle": "时间轴与关键帧动画编辑器",
-  "summary": "动画与视频编辑器，面向时间轴和关键帧创作。",
+  "tagline": "时间轴与关键帧动画编辑器",
+  "summary": "面向时间轴与关键帧创作的动画和视频编辑器，支持运动路径、Graph Editor 与视频导出，提供网页版和 Windows 版。",
   "icon": {
     "src": "/apps/icons/fablemotion.png",
     "placeholder": false,

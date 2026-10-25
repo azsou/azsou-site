@@ -2,7 +2,8 @@
 {
   "title": "Image Atlas Pro",
   "subtitle": "图片扫描与来源证据",
-  "summary": "图片扫描、来源证据与相似内容识别。",
+  "tagline": "图片扫描与来源证据",
+  "summary": "浏览器扩展：扫描网页中的图片、收集图片来源证据，并识别相似内容。",
   "icon": {
     "src": "/apps/icons/image-atlas-pro.png",
     "placeholder": false,

@@ -2,6 +2,7 @@
 {
   "title": "n8n",
   "subtitle": "可自托管的工作流自动化与 AI 智能体",
+  "tagline": "可自托管的工作流与 AI 智能体",
   "summary": "面向技术团队的工作流自动化平台：用节点连接数百种应用和 API，内置 AI 智能体节点，可云端使用或自托管，源码公开（fair-code 许可）。",
   "icon": {
     "src": "/ai/icons/n8n.png",

@@ -35,6 +35,7 @@ const app = (id: string, d: Partial<HomeApp['data']> = {}): HomeApp => ({
   data: {
     title: id.toUpperCase(),
     subtitle: `${id} 副标题`,
+    tagline: `${id} 一句话`,
     summary: `${id} 简介`,
     icon: icon(id),
     hue: 'blue',
@@ -51,6 +52,7 @@ const tool = (id: string, d: Partial<HomeTool['data']> = {}): HomeTool => ({
   data: {
     title: id,
     subtitle: `${id} 副标题`,
+    tagline: `${id} 一句话`,
     summary: `${id} 简介`,
     icon: { src: `/ai/icons/${id}.png`, variants: true },
     categories: ['agent'],

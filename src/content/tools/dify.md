@@ -2,6 +2,7 @@
 {
   "title": "Dify",
   "subtitle": "开源的 LLM 应用与智能体开发平台",
+  "tagline": "开源的 LLM 应用与智能体开发平台",
   "summary": "开源的大模型应用开发平台：用可视化工作流搭建聊天助手、智能体和知识库问答，支持数百种模型，可使用云服务或用 Docker 自行部署。",
   "icon": {
     "src": "/ai/icons/dify.png",

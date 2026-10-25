@@ -2,6 +2,7 @@
 {
   "title": "Cline",
   "subtitle": "开源的编辑器内 AI 编程智能体",
+  "tagline": "开源的编辑器内 AI 编程智能体",
   "summary": "开源的 AI 编程智能体，以插件形式运行在 VS Code、JetBrains 等编辑器里，也有命令行版本；每一步改动和命令都可审阅，模型自由选择。",
   "icon": {
     "src": "/ai/icons/cline.png",

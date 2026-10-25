@@ -2,6 +2,7 @@
 {
   "title": "Devin Desktop（原 Windsurf）",
   "subtitle": "多智能体指挥中心 + AI 编辑器",
+  "tagline": "多智能体指挥中心 + AI 编辑器",
   "summary": "Cognition 出品的 AI 开发环境，前身是 Windsurf 编辑器：保留完整 IDE，同时可以在一个界面里管理本地和云端的多个编程智能体。",
   "icon": {
     "src": "/ai/icons/devin-desktop.png",

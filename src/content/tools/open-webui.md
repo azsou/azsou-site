@@ -2,6 +2,7 @@
 {
   "title": "Open WebUI",
   "subtitle": "自托管的 AI 聊天与智能体工作台",
+  "tagline": "自托管的 AI 聊天与智能体工作台",
   "summary": "可自托管的 AI 平台：提供类似 ChatGPT 的网页界面，连接 Ollama 与各类 OpenAI 兼容模型，支持知识库、联网搜索、工具与多用户权限。",
   "icon": {
     "src": "/ai/icons/open-webui.png",

@@ -2,7 +2,8 @@
 {
   "title": "GitHub MCP Server",
   "subtitle": "GitHub 官方 MCP 服务器",
-  "summary": "GitHub 官方的 MCP 服务器，让 AI 助手通过标准协议读取仓库代码、管理 Issue 与 Pull Request、查看 Actions 运行结果，可远程托管或本地运行。",
+  "tagline": "GitHub 官方 MCP 服务器",
+  "summary": "GitHub 官方的 MCP 服务器，让 AI 助手读取仓库代码、管理 Issue 与 Pull Request、查看 Actions 运行结果，可远程托管或本地运行。",
   "icon": {
     "src": "/ai/icons/github-mcp-server.png",
     "variants": true

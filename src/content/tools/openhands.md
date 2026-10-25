@@ -2,7 +2,8 @@
 {
   "title": "OpenHands",
   "subtitle": "开源的 AI 软件开发智能体平台",
-  "summary": "开源的软件开发智能体平台（原 OpenDevin）：可在本地、Docker 或云端运行编程智能体，处理 Issue、写代码和测试，也能统一调度其他智能体。",
+  "tagline": "开源的 AI 软件开发智能体平台",
+  "summary": "开源的软件开发智能体平台（原 OpenDevin）：可在本地、Docker 或云端运行编程智能体，处理 Issue、写代码和测试，也能调度其他智能体。",
   "icon": {
     "src": "/ai/icons/openhands.png",
     "variants": true

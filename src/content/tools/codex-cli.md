@@ -2,6 +2,7 @@
 {
   "title": "OpenAI Codex CLI",
   "subtitle": "OpenAI 开源的终端编程智能体",
+  "tagline": "OpenAI 开源的终端编程智能体",
   "summary": "OpenAI 开源的命令行编程智能体：在本地仓库里阅读代码、修改文件、运行命令和做代码审查，可用 ChatGPT 账号登录或使用 API Key。",
   "icon": {
     "src": "/ai/icons/codex-cli.png",

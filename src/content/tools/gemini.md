@@ -2,6 +2,7 @@
 {
   "title": "Gemini",
   "subtitle": "Google 的 AI 助手",
+  "tagline": "Google 的 AI 助手",
   "summary": "Google 的 AI 助手，深度整合搜索、Gmail、文档与 Android，支持多模态对话、深度研究、图片与视频生成，网页和手机端均可使用。",
   "icon": {
     "src": "/ai/icons/gemini.png",

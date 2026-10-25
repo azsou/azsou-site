@@ -2,6 +2,7 @@
 {
   "title": "LM Studio",
   "subtitle": "图形界面的本地大模型工作台",
+  "tagline": "图形界面的本地大模型工作台",
   "summary": "在电脑上下载和运行本地大模型的桌面应用：图形界面搜索模型、离线聊天、加载文档，并提供本地 API 服务器；新推出 Bionic 本地智能体。",
   "icon": {
     "src": "/ai/icons/lm-studio.png",

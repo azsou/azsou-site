@@ -2,6 +2,7 @@
 {
   "title": "Lovable",
   "subtitle": "对话生成全栈 Web 应用",
+  "tagline": "对话生成全栈 Web 应用",
   "summary": "在浏览器里用对话构建全栈 Web 应用的平台：描述想法即可生成界面、数据库与登录等功能，支持可视化修改、同步 GitHub 并一键发布。",
   "icon": {
     "src": "/ai/icons/lovable.png",

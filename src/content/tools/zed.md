@@ -2,7 +2,8 @@
 {
   "title": "Zed",
   "subtitle": "高性能多人协作代码编辑器",
-  "summary": "由 Atom 原班人马打造的高性能代码编辑器，Rust 编写、开源，内置 AI 编辑预测与智能体面板，也能接入 Claude Code、Codex 等外部智能体。",
+  "tagline": "高性能多人协作代码编辑器",
+  "summary": "由 Atom 原班人马打造的代码编辑器，Rust 编写、开源，内置 AI 编辑预测与智能体面板，也能接入 Claude Code、Codex 等外部智能体。",
   "icon": {
     "src": "/ai/icons/zed.png",
     "variants": true

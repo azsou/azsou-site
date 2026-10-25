@@ -2,7 +2,8 @@
 {
   "title": "Playwright MCP",
   "subtitle": "让 AI 操作浏览器的 MCP 服务器",
-  "summary": "微软 Playwright 团队的官方 MCP 服务器，让 AI 助手通过结构化的无障碍快照操作真实浏览器：打开网页、点击、填表、截图和做端到端测试。",
+  "tagline": "让 AI 操作浏览器的 MCP 服务器",
+  "summary": "微软 Playwright 团队的官方 MCP 服务器，让 AI 助手通过结构化的无障碍快照操作浏览器：打开网页、点击、填表、截图和做端到端测试。",
   "icon": {
     "src": "/ai/icons/playwright-mcp.png",
     "variants": true

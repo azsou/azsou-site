@@ -2,6 +2,7 @@
 {
   "title": "ChatGPT",
   "subtitle": "OpenAI 的 AI 助手",
+  "tagline": "OpenAI 的 AI 助手",
   "summary": "OpenAI 的通用 AI 助手，支持对话、写作、编程、图片生成、联网搜索与语音交流，并内置 Codex 等智能体能力，覆盖网页、桌面和手机。",
   "icon": {
     "src": "/ai/icons/chatgpt.png",

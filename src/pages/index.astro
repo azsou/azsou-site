@@ -239,7 +239,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
             eager
             slug={a.id}
             title={a.data.title}
-            subtitle={a.data.subtitle}
+            subtitle={a.data.tagline}
             meta={appMeta(a)}
             href={url.app(a.id)}
             icon={a.data.icon}
@@ -257,7 +257,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
           <AppTile
             slug={a.id}
             title={a.data.title}
-            subtitle={a.data.subtitle}
+            subtitle={a.data.tagline}
             meta={`${a.data.releaseDate} 上架 · ${CATEGORIES[a.data.category]}`}
             href={url.app(a.id)}
             icon={a.data.icon}
@@ -281,8 +281,8 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
           <AppTile
             slug={t.id}
             title={t.data.title}
-            subtitle={t.data.subtitle}
-            meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]} · ${t.data.developer.name}`}
+            subtitle={t.data.tagline}
+            meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]}`}
             href={url.tool(t.id)}
             icon={t.data.icon}
             hue={toolHue(t.data)}

@@ -2,7 +2,8 @@
 {
   "title": "Bolt.new",
   "subtitle": "浏览器里的 AI 全栈开发环境",
-  "summary": "StackBlitz 推出的浏览器内 AI 开发环境：用一句话生成并运行完整的前端或全栈项目，可直接安装依赖、实时预览和部署，无需配置本地环境。",
+  "tagline": "浏览器里的 AI 全栈开发环境",
+  "summary": "StackBlitz 推出的浏览器内 AI 开发环境：用一句话生成并运行前端或全栈项目，可直接安装依赖、实时预览和部署，无需配置本地环境。",
   "icon": {
     "src": "/ai/icons/bolt-new.png",
     "variants": true

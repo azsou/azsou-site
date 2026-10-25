@@ -2,6 +2,7 @@
 {
   "title": "Replit Agent",
   "subtitle": "在线 IDE 里的应用构建智能体",
+  "tagline": "在线 IDE 里的应用构建智能体",
   "summary": "Replit 在线开发平台内置的 AI 智能体：用自然语言从零搭建应用，自动配置环境、数据库与部署，适合原型、内部工具和编程学习。",
   "icon": {
     "src": "/ai/icons/replit-agent.png",

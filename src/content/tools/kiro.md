@@ -2,6 +2,7 @@
 {
   "title": "Kiro",
   "subtitle": "AWS 出品的规格驱动 AI IDE",
+  "tagline": "AWS 出品的规格驱动 AI IDE",
   "summary": "AWS 推出的智能体式开发环境，主打「规格驱动开发」：先把需求整理成规格与任务清单，再由智能体逐项实现，提供 IDE、命令行和网页版。",
   "icon": {
     "src": "/ai/icons/kiro.png",

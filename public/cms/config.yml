@@ -46,7 +46,19 @@ collections:
     fields:
       - { name: title, label: 名称, widget: string }
       - { name: subtitle, label: 副标题（≤ 30 字）, widget: string, pattern: ['^.{1,30}$', '最多 30 个字'] }
-      - { name: summary, label: 简介, widget: text }
+      - {
+          name: tagline,
+          label: 卡片一句话（6–16 字）,
+          widget: string,
+          hint: '卡片上 1 行显示，不截断。汉字算 1、字母数字算 0.5（zhLength），超出范围构建失败',
+          pattern: ['^.{3,32}$', '6–16 字（字母数字算半个）'],
+        }
+      - {
+          name: summary,
+          label: 简介（32–56 字）,
+          widget: text,
+          hint: '精选卡与列表 2 行显示；汉字算 1、字母数字算 0.5',
+        }
       - name: icon
         label: 图标
         widget: object
@@ -66,6 +78,7 @@ collections:
         widget: object
         fields:
           - { name: name, label: 名称, widget: string }
+          - { name: short, label: 卡片短名（≤ 12 字，全称更长时必填）, widget: string, required: false }
           - { name: url, label: 网址, widget: string, required: false }
           - {
               name: type,
@@ -211,10 +224,18 @@ collections:
       - { name: title, label: 名称, widget: string }
       - { name: subtitle, label: 副标题（≤ 30 字）, widget: string, pattern: ['^.{1,30}$', '最多 30 个字'] }
       - {
+          name: tagline,
+          label: 卡片一句话（6–16 字）,
+          widget: string,
+          hint: '卡片上 1 行显示，不截断。汉字算 1、字母数字算 0.5（zhLength），超出范围构建失败',
+          pattern: ['^.{3,32}$', '6–16 字（字母数字算半个）'],
+        }
+      - {
           name: summary,
-          label: 简介（40–140 字，原创）,
+          label: 简介（40–64 字，原创）,
           widget: text,
-          pattern: ['^[\s\S]{40,140}$', '40–140 个字'],
+          hint: 'AI 工具卡 2 行显示；汉字算 1、字母数字算 0.5',
+          pattern: ['^[\s\S]{20,128}$', '40–64 字（字母数字算半个）'],
         }
       - name: icon
         label: 图标
@@ -240,6 +261,7 @@ collections:
         widget: object
         fields:
           - { name: name, label: 名称, widget: string }
+          - { name: short, label: 卡片短名（≤ 12 字，全称更长时必填）, widget: string, required: false }
           - { name: url, label: 官网（https）, widget: string }
           - { name: type, label: 类型, widget: hidden, default: third-party }
       - {
@@ -295,7 +317,12 @@ collections:
     sortable_fields: [title, date, order]
     preview_path: articles/{{slug}}/
     fields:
-      - { name: title, label: 标题, widget: string }
+      - {
+          name: title,
+          label: 标题（≤ 36 字）,
+          widget: string,
+          hint: '媒体卡 2 行显示；汉字算 1、字母数字算 0.5',
+        }
       - { name: category, label: 分类, widget: string }
       - { name: badge, label: 徽章（如「实测」）, widget: string }
       - { name: author, label: 作者, widget: string, default: Randy Hopkins }
@@ -319,7 +346,7 @@ collections:
       - { name: art, label: 素材槽位, widget: string, required: false }
       - { name: pinyin, label: 拼音首字母, widget: string, required: false }
       - { name: order, label: 同日排序, widget: number, value_type: int }
-      - { name: description, label: 摘要（40–160 字，可留空）, widget: text, required: false }
+      - { name: description, label: 摘要（60–110 字，可留空）, widget: text, required: false }
       - label: 联盟 / 赞助披露（没有就留空）
         name: disclosure
         widget: object
