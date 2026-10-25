@@ -10,25 +10,44 @@ export function initRows(root: ParentNode = document) {
   for (const track of root.querySelectorAll<HTMLElement>('[data-srow]')) {
     const btns = [...document.querySelectorAll<HTMLButtonElement>(`[aria-controls="${track.id}"]`)];
     const ctl = btns[0]?.closest<HTMLElement>('[data-srow-ctl]');
-    if (!ctl) continue;
     let frame = 0;
     const update = () => {
       frame = 0;
       const max = track.scrollWidth - track.clientWidth;
+      const atStart = track.scrollLeft <= 2;
+      const atEnd = track.scrollLeft >= max - 2;
+      // 边缘渐隐：到头的一侧不渐隐（DESIGN-SYSTEM §9）
+      track.toggleAttribute('data-at-start', atStart);
+      track.toggleAttribute('data-at-end', atEnd);
+      if (!ctl) return;
       ctl.hidden = max <= 4;
-      for (const b of btns) {
-        const dir = Number(b.dataset.dir);
-        b.disabled = dir < 0 ? track.scrollLeft <= 2 : track.scrollLeft >= max - 2;
-      }
+      for (const b of btns) b.disabled = Number(b.dataset.dir) < 0 ? atStart : atEnd;
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(update);
     };
+    // 每次滚动一屏：整数张（容器宽减去露出的 48px），scroll-snap 对齐到卡片起点
+    const page = () => {
+      const peek = parseFloat(getComputedStyle(track).getPropertyValue('--peek')) || 48;
+      return Math.max(track.clientWidth - peek * 2, track.clientWidth * 0.5);
+    };
     for (const b of btns)
       b.addEventListener('click', () => {
-        const dir = Number(b.dataset.dir);
-        track.scrollBy({ left: dir * track.clientWidth * 0.9, behavior: reduce.matches ? 'auto' : 'smooth' });
+        track.scrollBy({
+          left: Number(b.dataset.dir) * page(),
+          behavior: reduce.matches ? 'auto' : 'smooth',
+        });
       });
+    // 键盘：Tab 到行内条目时把它滚进可见区（只横向，不跳页面）
+    track.addEventListener('focusin', (e) => {
+      const li = (e.target as HTMLElement).closest('li');
+      if (li && li.parentElement === track)
+        li.scrollIntoView({
+          block: 'nearest',
+          inline: 'nearest',
+          behavior: reduce.matches ? 'auto' : 'smooth',
+        });
+    });
     track.addEventListener('scroll', schedule, { passive: true });
     new ResizeObserver(schedule).observe(track);
     update();
@@ -40,4 +59,24 @@ export function initSearchShortcut() {
   const mac = /Mac|iPhone|iPad/.test(navigator.userAgent);
   const kbd = document.querySelector<HTMLElement>('[data-kbd-mod]');
   if (kbd && mac) kbd.textContent = '⌘';
+}
+
+/**
+ * 最近更新的相对时间（DESIGN-SYSTEM §12）：< 7 天「3 天前」，< 1 年「3 个月前」，更早保留绝对日期；
+ * 构建期输出绝对日期（无 JS 时可读），title 里始终是绝对日期。
+ */
+export function initRelativeTimes(root: ParentNode = document, now = Date.now()) {
+  const rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'zh-CN', { numeric: 'auto' });
+  for (const el of root.querySelectorAll<HTMLTimeElement>('time[data-relative]')) {
+    const t = Date.parse(el.dateTime);
+    if (Number.isNaN(t)) continue;
+    const days = Math.floor((now - t) / 86_400_000);
+    if (days < 0 || days >= 365) continue;
+    el.textContent =
+      days < 7
+        ? rtf.format(-days, 'day')
+        : days < 30
+          ? rtf.format(-Math.floor(days / 7), 'week')
+          : rtf.format(-Math.floor(days / 30), 'month');
+  }
 }

@@ -7,18 +7,7 @@ import { test, expect } from './fixtures';
  * hero 搜索与 Ctrl/⌘K、站内链接全部可用、移动端底部 TabBar 不遮挡内容、结构化数据、不出现伪造指标。
  */
 
-const EXPECTED = [
-  'featured',
-  'apps',
-  'ai',
-  'updates',
-  'categories',
-  'videos',
-  'games',
-  'articles',
-  'works',
-  'forum',
-];
+const EXPECTED = ['featured', 'apps', 'ai', 'updates', 'videos', 'articles', 'more'];
 const isDesktop = (name: string) => name.endsWith('-desktop');
 const sections = (page: Page) =>
   page
@@ -29,7 +18,10 @@ test.describe('首页 /', () => {
   test('区块按顺序渲染、每块都有真实条目；没有数据的「最新上架」整块隐藏', async ({ page, errors }) => {
     await page.goto('/');
     await expect(page.locator('h1')).toContainText('一站找到');
-    expect(await sections(page)).toEqual([...EXPECTED, 'about', 'rss']);
+    expect(await sections(page)).toEqual(EXPECTED);
+    // 首屏有一个明确的主按钮（T9.11）
+    await expect(page.locator('.home-hero .btn--primary')).toHaveCount(1);
+    await expect(page.locator('.home-hero .btn--primary')).toBeVisible();
     // 应用都没有 releaseDate → 不渲染「最新上架」，也没有空壳 / 占位框
     await expect(page.locator('[data-section="new"]')).toHaveCount(0);
     for (const id of EXPECTED) {
@@ -85,15 +77,15 @@ test.describe('首页 /', () => {
   });
 
   test('横向行：上一组 / 下一组按钮（到头禁用、可键盘操作、有无障碍名称）', async ({ page }, info) => {
-    test.skip(!isDesktop(info.project.name), '按钮只在 ≥ 768px 显示；窄屏用手势滑动');
+    test.skip(!isDesktop(info.project.name), '按钮只在 ≥ 600px 显示；窄屏用手势滑动');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
-    const sec = page.locator('[data-section="ai"]');
+    const sec = page.locator('[data-section="apps"]');
     const track = sec.locator('[data-srow]');
-    const prev = sec.getByRole('button', { name: '上一组：AI 工具' });
-    const next = sec.getByRole('button', { name: '下一组：AI 工具' });
+    const prev = sec.getByRole('button', { name: '上一组：AZ Studio 出品' });
+    const next = sec.getByRole('button', { name: '下一组：AZ Studio 出品' });
     await expect(next).toBeVisible();
-    await expect(next).toHaveAttribute('aria-controls', 'row-ai');
+    await expect(next).toHaveAttribute('aria-controls', 'row-apps');
     await expect(prev).toBeDisabled();
     await expect(next).toBeEnabled();
     await next.click();
@@ -110,7 +102,16 @@ test.describe('首页 /', () => {
     await expect(prev).toBeEnabled();
     // 滚动区域可聚焦（键盘用户能用方向键滚动）
     await expect(track).toHaveAttribute('tabindex', '0');
-    await expect(track).toHaveAttribute('aria-label', 'AI 工具');
+    await expect(track).toHaveAttribute('aria-label', 'AZ Studio 出品');
+    // 整数张 + 露出：可见区里完整显示的卡片数为整数，且没有被硬切的半张（除了最后 48px 露出）
+    const box = await track.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      const pad = parseFloat(getComputedStyle(e).paddingLeft);
+      const cards = [...e.children].map((c) => c.getBoundingClientRect());
+      const full = cards.filter((c) => c.left >= r.left + pad - 1 && c.right <= r.right - 40).length;
+      return { full, w: cards[0].width };
+    });
+    expect(box.full).toBeGreaterThanOrEqual(1);
   });
 
   test('窄屏：按钮隐藏，行可横向滑动且不撑宽页面', async ({ page }) => {
@@ -141,7 +142,7 @@ test.describe('首页 /', () => {
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     await page.waitForTimeout(200);
     const tabTop = await tabbar.evaluate((e) => e.getBoundingClientRect().top);
-    for (const sel of ['[data-section="rss"] .btn-row', '.site-footer .footer-bottom']) {
+    for (const sel of ['[data-section="more"] .home-more', '.site-footer .footer-bottom']) {
       const bottom = await page.locator(sel).evaluate((e) => e.getBoundingClientRect().bottom);
       expect(bottom, sel).toBeLessThanOrEqual(tabTop + 1);
     }

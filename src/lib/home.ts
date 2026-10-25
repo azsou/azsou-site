@@ -309,18 +309,16 @@ export const latestThreads = <T extends HomeThread>(threads: T[], n = 5): T[] =>
   [...threads].sort((a, b) => b.date.localeCompare(a.date)).slice(0, n);
 
 /** 首页区块（顺序即页面顺序）。hero、关于作者与订阅条总是显示：它们不依赖集合数据 */
+/** 首页区块（T9.11：≤ 8 个；分类 / 游戏 / 作品 / 论坛 / 关于 / 订阅并入「更多内容」） */
 export const HOME_SECTIONS = [
   'featured',
   'apps',
   'new',
   'ai',
   'updates',
-  'categories',
   'videos',
-  'games',
   'articles',
-  'works',
-  'forum',
+  'more',
 ] as const;
 export type HomeSectionId = (typeof HOME_SECTIONS)[number];
 

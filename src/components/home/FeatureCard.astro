@@ -1,5 +1,6 @@
 ---
 import AppIcon from '@/components/apps/AppIcon.astro';
+import Icon from '@/components/Icon.astro';
 import type { FeaturedItem } from '@/lib/home';
 /** 编辑精选大卡片（App Store「Today」式）：只显示档案里的真实字段，没有评分 / 下载数 */
 interface Props {
@@ -11,7 +12,7 @@ const { item, eager = false } = Astro.props;
 ---
 
 <article class="feature-card" data-hue={item.hue} data-featured={item.slug}>
-  <p class="feature-card__eyebrow">编辑精选 · {item.label}</p>
+  <p class="feature-card__eyebrow">{item.label}</p>
   <div class="feature-card__head">
     <AppIcon src={item.icon.src} alt="" variants={item.icon.variants} size="lg" eager={eager} />
     <div class="feature-card__titles">
@@ -30,8 +31,9 @@ const { item, eager = false } = Astro.props;
         ? `${item.platforms.slice(0, 2).join(' · ')} 等 ${item.platforms.length} 个平台`
         : item.platforms.join(' · ')}
     </span>
-    <span class="feature-card__cta" aria-hidden="true">
-      查看
+    <span class="btn btn--primary btn--sm feature-card__cta" aria-hidden="true">
+      {item.kind === 'tool' ? '了解工具' : '查看应用'}
+      <Icon name="chevron-right" size={16} />
     </span>
   </p>
 </article>

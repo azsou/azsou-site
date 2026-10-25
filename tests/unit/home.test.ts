@@ -201,13 +201,16 @@ describe('列表与排序', () => {
 });
 
 describe('homeSections：没有数据的区块整块隐藏', () => {
+  it('首页区块 ≤ 8 个（T9.11）', () => {
+    expect(HOME_SECTIONS.length).toBeLessThanOrEqual(8);
+  });
   const full = Object.fromEntries(HOME_SECTIONS.map((id) => [id, 3])) as HomeCounts;
   it('全部有数据 → 按页面顺序全部显示', () => {
     expect(homeSections(full)).toEqual([...HOME_SECTIONS]);
   });
   it('数量为 0 的区块不返回（不放占位框）', () => {
-    expect(homeSections({ ...full, new: 0, videos: 0, forum: 0 })).toEqual(
-      HOME_SECTIONS.filter((s) => !['new', 'videos', 'forum'].includes(s)),
+    expect(homeSections({ ...full, new: 0, videos: 0, articles: 0 })).toEqual(
+      HOME_SECTIONS.filter((s) => !['new', 'videos', 'articles'].includes(s)),
     );
     expect(homeSections(Object.fromEntries(HOME_SECTIONS.map((id) => [id, 0])) as HomeCounts)).toEqual([]);
   });

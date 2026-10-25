@@ -1,4 +1,5 @@
 ---
+import Icon from '@/components/Icon.astro';
 import { formatDate } from '@/lib/dates';
 /**
  * 英文首页（T7.6）：只用有英文文案的真实条目；文章只有中文版，如实标注「Chinese only」。
@@ -39,6 +40,16 @@ const pickGames = enGames.slice(0, 6);
       {enVideos.length} official videos and {enGames.length} browser games. Everything listed is real — no
       fake ratings or download counts. Most long-form writing is in Chinese.
     </p>
+    <p class="btn-row en-hero__cta">
+      <a class="btn btn--primary" href="/en/apps/">
+        Browse Apps
+        <Icon name="arrow-right" size={20} />
+      </a>
+      <a class="btn btn--text" href="/en/ai/">
+        AI Tools
+        <Icon name="chevron-right" size={20} />
+      </a>
+    </p>
     <nav class="chip-nav" aria-label="Browse">
       <a class="chip" href="/en/apps/">
         Apps <span class="chip__n">{ownApps.length}</span>
@@ -62,10 +73,10 @@ const pickGames = enGames.slice(0, 6);
     <div class="section__head">
       <h2 id="h-apps">AZ Studio apps</h2>
       <a href="/en/apps/">
-        All apps <span aria-hidden="true">→</span>
+        All apps <Icon name="chevron-right" size={16} class="icon--trail" />
       </a>
     </div>
-    <div class="grid">
+    <div class="grid grid--wide" data-grid="row">
       {ownApps.map((a) => (
         <EnCard
           headingLevel="h3"
@@ -84,11 +95,11 @@ const pickGames = enGames.slice(0, 6);
     <div class="section__head">
       <h2 id="h-ai">AI tools</h2>
       <a href="/en/ai/">
-        All {enTools.length} <span aria-hidden="true">→</span>
+        All {enTools.length} <Icon name="chevron-right" size={16} class="icon--trail" />
       </a>
     </div>
     <p class="muted">In editor's order — there is not enough real usage data here to rank by popularity.</p>
-    <div class="grid mt-4">
+    <div class="grid mt-4" data-grid="media">
       {pickTools.map((t) => (
         <EnCard
           headingLevel="h3"
@@ -107,7 +118,7 @@ const pickGames = enGames.slice(0, 6);
     <div class="section__head">
       <h2 id="h-videos">Videos</h2>
       <a href="/en/videos/">
-        All videos <span aria-hidden="true">→</span>
+        All videos <Icon name="chevron-right" size={16} class="icon--trail" />
       </a>
     </div>
     <div class="video-grid">
@@ -128,10 +139,10 @@ const pickGames = enGames.slice(0, 6);
     <div class="section__head">
       <h2 id="h-games">Games &amp; demos</h2>
       <a href="/en/games/">
-        All games <span aria-hidden="true">→</span>
+        All games <Icon name="chevron-right" size={16} class="icon--trail" />
       </a>
     </div>
-    <div class="grid">
+    <div class="grid" data-grid="media">
       {pickGames.map((g) => (
         <EnGameCard game={g} headingLevel="h3" />
       ))}

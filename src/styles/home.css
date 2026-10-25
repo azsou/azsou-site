@@ -10,7 +10,7 @@
     align-items: center;
     grid-template-columns: minmax(0, 1fr);
   }
-  @media (min-width: 960px) {
+  @media (min-width: 900px) {
     .home-hero {
       grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
     }
@@ -81,7 +81,7 @@
     font-weight: var(--fw-semibold);
     white-space: nowrap;
   }
-  @media (hover: none), (max-width: 600px) {
+  @media (hover: none), (max-width: 599.98px) {
     .home-search__kbd {
       display: none;
     }
@@ -93,17 +93,25 @@
   .home-try {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    column-gap: var(--space-1);
-    margin-top: var(--space-2);
-    font-size: var(--fs-meta);
+    gap: var(--space-2);
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .home-try .chip {
+    min-height: 32px;
+    font-weight: var(--fw-regular);
+    color: var(--c-label-2);
+    box-shadow: none;
+    background: var(--c-fill);
+  }
+  .home-try .chip .icon {
+    width: 16px;
+    height: 16px;
     color: var(--c-label-3);
   }
-  .home-try a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 36px;
-    padding-inline: var(--space-2);
+  .home-cta {
+    margin-top: var(--space-5);
   }
 
   .home-chips {
@@ -117,7 +125,7 @@
     margin: 0;
     padding: 0;
   }
-  @media (max-width: 600px) {
+  @media (max-width: 599.98px) {
     /* 手机：一行横滑，不把首屏撑高 */
     .home-chips ul {
       flex-wrap: nowrap;
@@ -147,9 +155,11 @@
     font-weight: var(--fw-semibold);
     white-space: nowrap;
   }
-  .chip:hover {
-    text-decoration: none;
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover {
+      text-decoration: none;
+      background: var(--c-fill);
+    }
   }
   .chip__count {
     min-width: 1.6em;
@@ -168,7 +178,7 @@
   .home-hero__art {
     display: none;
   }
-  @media (min-width: 960px) {
+  @media (min-width: 900px) {
     .home-hero__art {
       display: block;
       padding: var(--space-8);
@@ -205,7 +215,7 @@
     border-radius: var(--icon-squircle);
     transition: transform var(--dur) var(--ease-spring);
   }
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
     .icon-wall a:hover {
       transform: scale(1.06);
     }
@@ -245,12 +255,14 @@
     display: none;
     gap: var(--space-1);
   }
-  @media (min-width: 768px) {
+  @media (min-width: 600px) {
     .srow-ctl:not([hidden]) {
       display: inline-flex;
     }
   }
   .srow-ctl__btn {
+    min-width: 36px;
+    min-height: 36px;
     background: var(--c-fill);
     cursor: pointer;
   }
@@ -258,25 +270,52 @@
     opacity: 0.4;
     cursor: default;
   }
-  .srow-ctl__btn:disabled:hover {
-    background: var(--c-fill);
+  @media (hover: hover) and (pointer: fine) {
+    .srow-ctl__btn:disabled:hover {
+      background: var(--c-fill);
+    }
   }
 
-  /* ---------- 横向滚动行 ---------- */
+  /* ---------- 横向货架（DESIGN-SYSTEM §9，T9.9） ----------
+   * 每屏整数张 + 48px 露出：卡宽 = (容器宽 − gap × (n − 1) − peek) / n；n 按 §8 列数表（≥ 1600 +1）。
+   * 隐藏原生滚动条，边缘渐隐（到头的一侧不渐隐，rows.ts 写 data-at-start / data-at-end）；
+   * ≥ 1600 右侧出血到视口边缘（main 上 overflow-x: clip 兜住，不产生横向滚动）。 */
   .srow {
     --gutter: var(--space-5);
+    --gap: var(--space-4);
+    --peek: 48px;
+    --n: 1;
+    --bleed: 0px;
+    --fade-l: 24px;
+    --fade-r: 48px;
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: var(--srow-w, 300px);
-    gap: var(--space-4);
-    margin: 0 calc(-1 * var(--gutter));
-    padding: 6px var(--gutter) var(--space-4);
+    grid-auto-columns: calc((100% - var(--gap) * (var(--n) - 1) - var(--peek)) / var(--n));
+    gap: var(--gap);
+    margin: 0 calc(-1 * var(--gutter) - var(--bleed)) 0 calc(-1 * var(--gutter));
+    padding: 6px calc(var(--gutter) + var(--bleed)) var(--space-4) var(--gutter);
     list-style: none;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x mandatory;
     scroll-padding-inline: var(--gutter);
-    scrollbar-width: thin;
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black var(--fade-l),
+      black calc(100% - var(--fade-r)),
+      transparent
+    );
+  }
+  .srow::-webkit-scrollbar {
+    display: none;
+  }
+  .srow[data-at-start] {
+    --fade-l: 0px;
+  }
+  .srow[data-at-end] {
+    --fade-r: 0px;
   }
   @media (max-width: 480px) {
     .srow {
@@ -302,25 +341,65 @@
     flex: 1;
     min-width: 0;
   }
-  .srow--feature {
-    --srow-w: min(86vw, 520px);
+  /* 列数：精选 1 / 1 / 2 / 2（+1）；磁贴与媒体卡 1 / 2 / 3 / 4（+1）；文章 1 / 2 / 2 / 3（+1） */
+  @media (min-width: 600px) {
+    .srow--tile,
+    .srow--card,
+    .srow--video,
+    .srow--article {
+      --n: 2;
+    }
   }
-  .srow--tile {
-    --srow-w: min(78vw, 320px);
+  @media (min-width: 900px) {
+    .srow--feature {
+      --n: 2;
+    }
+    .srow--tile,
+    .srow--card,
+    .srow--video {
+      --n: 3;
+    }
+  }
+  @media (min-width: 1200px) {
+    .srow--tile,
+    .srow--card,
+    .srow--video {
+      --n: 4;
+    }
+    .srow--article {
+      --n: 3;
+    }
+  }
+  @media (min-width: 1600px) {
+    .srow {
+      --bleed: calc((100vw - 100%) / 2 - var(--gutter));
+    }
+    .srow--feature {
+      --n: 3;
+    }
+    .srow--tile,
+    .srow--card,
+    .srow--video {
+      --n: 5;
+    }
+    .srow--article {
+      --n: 4;
+    }
   }
   .srow--grid3 {
-    --srow-w: min(84vw, 340px);
+    --n: 1;
     grid-template-rows: repeat(3, auto);
     row-gap: 0;
   }
-  .srow--card {
-    --srow-w: min(72vw, 280px);
+  @media (min-width: 600px) {
+    .srow--grid3 {
+      --n: 2;
+    }
   }
-  .srow--article {
-    --srow-w: min(84vw, 360px);
-  }
-  .srow--video {
-    --srow-w: min(80vw, 320px);
+  @media (min-width: 1200px) {
+    .srow--grid3 {
+      --n: 3;
+    }
   }
 
   /* ---------- 精选大卡片 ---------- */
@@ -329,7 +408,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    min-height: 260px;
+    min-height: 280px;
     padding: var(--space-6);
     border-radius: var(--radius-xl);
     background:
@@ -348,7 +427,7 @@
       transform var(--dur) var(--ease-spring),
       box-shadow var(--dur) var(--ease-out);
   }
-  @media (hover: hover) {
+  @media (hover: hover) and (pointer: fine) {
     .feature-card:has(a.card__link:hover),
     .cat-tile:has(.cat-tile__link:hover) {
       transform: translateY(-2px);
@@ -373,14 +452,18 @@
   }
   .feature-card__head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-3) var(--space-4);
   }
+  /* 卡片很窄（320 视口）时标题换到图标下面，而不是把「FableMotion」从中间断开 */
   .feature-card__titles {
+    flex: 1 1 9em;
     min-width: 0;
   }
   .feature-card__title {
-    font-size: var(--fs-title-1);
+    overflow-wrap: normal;
+    font-size: var(--fs-title-2);
     font-weight: var(--fw-bold);
     line-height: 1.2;
     color: var(--c-label);
@@ -394,14 +477,14 @@
     color: var(--c-label-2);
     font-size: var(--fs-body-sm);
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  /* 手机单列卡片只有 ~290px 宽：简介（≤ 64 字）放开到 5 行，避免被截断（Q5） */
-  @media (max-width: 600px) {
+  /* 手机单列卡片只有 ~240–300px 宽：简介（32–56 字）放开到 4 行，避免被截断（Q5） */
+  @media (max-width: 599.98px) {
     .feature-card__summary {
-      -webkit-line-clamp: 5;
+      -webkit-line-clamp: 4;
     }
   }
   .feature-card__foot {
@@ -413,19 +496,13 @@
     font-size: var(--fs-meta);
     color: var(--c-label-2);
   }
+  /* 平台文字可换行（窄卡片里不截断），主按钮固定在右下 */
   .feature-card__platforms {
+    flex: 1 1 8em;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .feature-card__cta {
     flex: none;
-    padding: 6px var(--space-4);
-    border-radius: var(--radius-pill);
-    background: var(--c-bg-elevated);
-    color: var(--c-link);
-    font-weight: var(--fw-bold);
   }
 
   /* ---------- 紧凑应用条目 ---------- */
@@ -458,8 +535,10 @@
   .srow--grid3 > li:nth-child(3n) .app-tile {
     border-bottom: 0;
   }
-  .app-tile:has(a.card__link:hover) .app-tile__title {
-    text-decoration: underline;
+  @media (hover: hover) and (pointer: fine) {
+    .app-tile:has(a.card__link:hover) .app-tile__title {
+      text-decoration: underline;
+    }
   }
   .app-tile__body {
     min-width: 0;
@@ -590,8 +669,10 @@
     inset: 0;
     border-radius: inherit;
   }
-  .cat-tile__link:hover {
-    text-decoration: none;
+  @media (hover: hover) and (pointer: fine) {
+    .cat-tile__link:hover {
+      text-decoration: none;
+    }
   }
   .cat-tile__link:focus-visible {
     outline: none;
@@ -648,5 +729,157 @@
   }
   .home-strip .btn-row {
     margin-top: auto;
+  }
+}
+
+@layer components {
+  /* ---------- 首页区块间距（T9.11）：桌面 64 / 手机 48 ---------- */
+  .home-sec {
+    margin-top: var(--space-16);
+  }
+  @media (max-width: 599.98px) {
+    .home-sec {
+      margin-top: var(--space-12);
+    }
+  }
+
+  /* ---------- AI 工具网格（3 × 4，无横向滚动；手机只显示前 6 个） ---------- */
+  .home-ai-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 var(--space-6);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 600px) {
+    .home-ai-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 900px) {
+    .home-ai-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 599.98px) {
+    .home-ai-grid > li:nth-child(n + 7) {
+      display: none;
+    }
+  }
+
+  /* ---------- 更多内容：入口卡（整卡可点，单一链接） ---------- */
+  .home-more {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 600px) {
+    .home-more {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1200px) {
+    .home-more {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .home-more__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 80px;
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--c-bg-elevated);
+    box-shadow: var(--elev-1);
+    transition:
+      transform var(--dur) var(--ease-spring),
+      box-shadow var(--dur) var(--ease-out);
+  }
+  .home-more__icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    color: var(--c-accent);
+  }
+  .home-more__text {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .home-more__link {
+    color: var(--c-label);
+    font-weight: var(--fw-semibold);
+  }
+  .home-more__link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .home-more__link:focus-visible {
+    outline: none;
+  }
+  .home-more__link:focus-visible::after {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+  .home-more__note {
+    color: var(--c-label-2);
+    font-size: var(--fs-meta);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .home-more__chev {
+    flex: none;
+    color: var(--c-label-3);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .home-more__item:has(.home-more__link:hover) {
+      transform: translateY(-2px);
+      box-shadow: var(--elev-2);
+    }
+    .home-more__link:hover {
+      text-decoration: none;
+    }
+  }
+  .home-more__item:has(.home-more__link:active) {
+    transform: scale(0.98);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .home-more__item {
+      transition: none;
+    }
+    .home-more__item:has(.home-more__link:active) {
+      transform: none;
+    }
+  }
+}
+
+@layer components {
+  /* 首页视频 / 文章：一行 4 张的网格（货架只留编辑精选与自研应用两处，DESIGN-SYSTEM §9） */
+  .home-grid4 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  @media (min-width: 600px) {
+    .home-grid4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1200px) {
+    .home-grid4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-5);
+    }
   }
 }

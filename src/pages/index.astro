@@ -14,9 +14,8 @@ import AppIcon from '@/components/apps/AppIcon.astro';
 import HomeSection from '@/components/home/HomeSection.astro';
 import FeatureCard from '@/components/home/FeatureCard.astro';
 import AppTile from '@/components/home/AppTile.astro';
-import GameCard from '@/components/GameCard.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
-import WorkCard from '@/components/WorkCard.astro';
+import Icon from '@/components/Icon.astro';
 import VideoCard from '@/components/videos/VideoCard.astro';
 import {
   getApps,
@@ -64,15 +63,14 @@ const featured = featuredItems(apps, tools);
 const chips = quickChips(apps, tools);
 const ownApps = apps.filter((a) => a.data.developer.type === 'self');
 const fresh = newReleases(apps);
-const aiTools = toolsByEditorOrder(tools, 15);
+const aiTools = toolsByEditorOrder(tools, 12);
 const updates = recentUpdates(apps, games, 6);
 const cats = categoryTiles(apps, tools);
-const homeVids = homeVideos(videos, 8).map(videoItem);
+const homeVids = homeVideos(videos, 4).map(videoItem);
 const homeGames = [...games].sort((a, b) => a.data.order - b.data.order);
-const homeArticles = articles.slice(0, 6);
+const homeArticles = articles.slice(0, 4);
 const homeWorks = latestByDate(works, 8);
 const threads = latestThreads(forum.seeds, 5);
-const catName = Object.fromEntries(forum.categories.map((c) => [c.id, c.name]));
 
 const show = new Set(
   homeSections({
@@ -81,14 +79,42 @@ const show = new Set(
     new: fresh.length,
     ai: aiTools.length,
     updates: updates.length,
-    categories: cats.length,
     videos: homeVids.length,
-    games: homeGames.length,
     articles: homeArticles.length,
-    works: homeWorks.length,
-    forum: threads.length,
+    more: 1,
   }),
 );
+// 「更多内容」（T9.11：区块 ≤ 8）：游戏 / 作品 / 论坛 / 分类 / 关于 / 订阅并成一组入口卡，只写真实数量
+const moreLinks = [
+  homeGames.length > 0 && {
+    href: url.games(),
+    icon: 'games',
+    title: '游戏与可玩 Demo',
+    note: `${homeGames.length} 个，可在浏览器里试玩`,
+  },
+  homeWorks.length > 0 && {
+    href: url.works(),
+    icon: 'works',
+    title: '作品',
+    note: `${works.length} 件插画、动效与实验`,
+  },
+  threads.length > 0 && {
+    href: url.forum(),
+    icon: 'forum',
+    title: '论坛',
+    note: `最新：${threads[0].title}`,
+  },
+  cats.length > 0 && {
+    href: url.apps(),
+    icon: 'apps',
+    title: '分类浏览',
+    note: `${cats.length} 个应用与 AI 工具分类`,
+  },
+  { href: '/about/', icon: 'user', title: '关于作者', note: `${SITE.author.name}，独立开发者` },
+  { href: '/subscribe/', icon: 'rss', title: '订阅更新', note: '邮件（需确认、随时退订）或 RSS' },
+].filter(Boolean) as { href: string; icon: 'games'; title: string; note: string }[];
+// hero 平台胶囊最多 6 个（DESIGN-SYSTEM §13 / T9.11）
+const heroChips = chips.slice(0, 6);
 
 // hero 右侧的图标墙（装饰，只给鼠标用户点；读屏与键盘用户走下方的精选行）。
 // 同一品牌 / 同一图片只出现一次（按文件内容去重：ChatGPT 与 Codex CLI 是同一个 OpenAI 标志）
@@ -142,9 +168,8 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
     <div class="home-hero__text">
       <p class="eyebrow">AZ Studio · 应用与内容</p>
       <h1 id="hero-title">
-        <span>好用的应用、</span>
-        <span>AI 工具与游戏，</span>
         <span>一站找到</span>
+        <span>好用的应用、AI 工具与游戏</span>
       </h1>
       <p class="hero__lede">
         AZ Studio 出品的应用、{tools.length} 个 AI 工具的官方入口，还有可玩的游戏
@@ -154,12 +179,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
         <label class="visually-hidden" for="home-q">
           搜索关键词
         </label>
-        <svg class="home-search__icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M10.5 3a7.5 7.5 0 0 1 5.96 12.05l4.25 4.24-1.42 1.42-4.24-4.25A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"
-          ></path>
-        </svg>
+        <Icon name="search" class="home-search__icon" />
         <input
           id="home-q"
           name="q"
@@ -172,20 +192,34 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
         <kbd class="home-search__kbd" aria-hidden="true">
           <span data-kbd-mod>Ctrl</span> K
         </kbd>
-        <button class="btn btn--primary home-search__btn" type="submit">
+        <button class="btn home-search__btn" type="submit">
           搜索
         </button>
       </form>
-      <p class="home-try">
-        <span>试试：</span>
+      <ul class="home-try" role="list" aria-label="热门搜索">
         {tryQueries.map((q) => (
-          <a href={url.search(q)}>{q}</a>
+          <li>
+            <a class="chip chip--quiet" href={url.search(q)}>
+              <Icon name="search" size={16} />
+              {q}
+            </a>
+          </li>
         ))}
+      </ul>
+      <p class="home-cta btn-row">
+        <a class="btn btn--primary" href={url.apps()}>
+          浏览全部应用
+          <Icon name="arrow-right" size={20} />
+        </a>
+        <a class="btn btn--text" href={url.ai()}>
+          AI 工具目录
+          <Icon name="chevron-right" size={20} />
+        </a>
       </p>
-      {chips.length > 0 && (
+      {heroChips.length > 0 && (
         <nav class="home-chips" aria-label="按平台与类型浏览">
           <ul role="list">
-            {chips.map((c) => (
+            {heroChips.map((c) => (
               <li>
                 <a class={`chip chip--${c.kind}`} href={c.url}>
                   {c.label}
@@ -275,21 +309,22 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
       title="AI 工具"
       note="按编辑推荐顺序"
       more={{ href: url.ai(), label: `全部 ${tools.length} 个` }}
-      row="grid3"
     >
-      {aiTools.map((t) => (
-        <li>
-          <AppTile
-            slug={t.id}
-            title={t.data.title}
-            subtitle={t.data.tagline}
-            meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]}`}
-            href={url.tool(t.id)}
-            icon={t.data.icon}
-            hue={toolHue(t.data)}
-          />
-        </li>
-      ))}
+      <ul class="home-ai-grid" role="list">
+        {aiTools.map((t) => (
+          <li>
+            <AppTile
+              slug={t.id}
+              title={t.data.title}
+              subtitle={t.data.tagline}
+              meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]}`}
+              href={url.tool(t.id)}
+              icon={t.data.icon}
+              hue={toolHue(t.data)}
+            />
+          </li>
+        ))}
+      </ul>
     </HomeSection>
   )}
 
@@ -316,31 +351,15 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
                 {u.label} · 版本 {u.version}
               </span>
             </span>
-            <time class="update-row__date" datetime={u.date}>
+            <time
+              class="update-row__date"
+              datetime={u.date}
+              title={formatDate(u.date)}
+              data-relative
+              data-dynamic
+            >
               {formatDate(u.date)}
             </time>
-          </li>
-        ))}
-      </ul>
-    </HomeSection>
-  )}
-
-  {show.has('categories') && (
-    <HomeSection id="categories" title="分类浏览" note="应用分类与 AI 工具分类">
-      <ul class="cat-grid" role="list">
-        {cats.map((c) => (
-          <li class="cat-tile" data-cat={`${c.kind}:${c.id}`}>
-            <a class="cat-tile__link" href={c.url}>
-              <span class="cat-tile__name">{c.name}</span>
-              <span class="cat-tile__count">
-                {c.count} 个{c.kind === 'ai' ? '工具' : '应用'}
-              </span>
-            </a>
-            <span class="cat-tile__icons" aria-hidden="true">
-              {c.icons.map((i) => (
-                <AppIcon src={i.src} alt={i.alt} variants={i.variants} size="sm" />
-              ))}
-            </span>
           </li>
         ))}
       </ul>
@@ -353,28 +372,12 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
       title="精选视频"
       note="官方频道视频 · 点击后才加载播放器"
       more={{ href: url.videos(), label: '视频' }}
-      row="video"
     >
-      {homeVids.map((v) => (
-        <li>
+      <div class="home-grid4">
+        {homeVids.map((v) => (
           <VideoCard item={v} headingLevel="h3" />
-        </li>
-      ))}
-    </HomeSection>
-  )}
-
-  {show.has('games') && (
-    <HomeSection
-      id="games"
-      title="游戏与可玩 Demo"
-      more={{ href: url.games(), label: '游戏目录' }}
-      row="card"
-    >
-      {homeGames.map((g) => (
-        <li>
-          <GameCard game={g} headingLevel="h3" />
-        </li>
-      ))}
+        ))}
+      </div>
     </HomeSection>
   )}
 
@@ -384,98 +387,42 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
       title="最新文章"
       note="按发布日期"
       more={{ href: url.articles(), label: '文章中心' }}
-      row="article"
     >
-      {homeArticles.map((a) => (
-        <li>
+      <div class="home-grid4">
+        {homeArticles.map((a) => (
           <ArticleCard article={a} headingLevel="h3" />
-        </li>
-      ))}
-    </HomeSection>
-  )}
-
-  {show.has('works') && (
-    <HomeSection id="works" title="作品" more={{ href: url.works(), label: '全部作品' }} row="card">
-      {homeWorks.map((w) => (
-        <li>
-          <WorkCard work={w} headingLevel="h3" />
-        </li>
-      ))}
-    </HomeSection>
-  )}
-
-  {show.has('forum') && (
-    <HomeSection id="forum" title="论坛最新话题" more={{ href: url.forum(), label: '进入论坛' }}>
-      <ul class="list-group" role="list">
-        {threads.map((t) => (
-          <li>
-            <a class="list-row" href={url.forumThread(t.id)}>
-              <span class="list-row__main">
-                <span class="list-row__title">{t.title}</span>
-                <br />
-                <span class="list-row__sub">
-                  {catName[t.category] ?? '论坛'} · {t.author}
-                </span>
-              </span>
-              <span class="list-row__aside">
-                {t.pinned && <span class="badge">置顶</span>}{' '}
-                <time datetime={t.date}>{formatDate(t.date)}</time>
-              </span>
-            </a>
-          </li>
         ))}
-      </ul>
+      </div>
     </HomeSection>
   )}
 
-  <div class="home-strips section">
-    <section class="home-strip" aria-labelledby="h-about" data-section="about">
-      <h2 id="h-about">关于作者</h2>
-      <p>
-        {SITE.author.name}，独立开发者，AZ Studio 的作者与维护者。站内的应用、游戏 Demo
-        和文章都来自他正在做的项目。
-      </p>
-      <p class="btn-row">
-        <a class="btn" href="/about/">
-          关于作者
-        </a>
-        <a class="btn" href="/contact/">
-          联系
-        </a>
-        <a class="btn" href="/roadmap/">
-          路线图
-        </a>
-      </p>
-    </section>
-    <section class="home-strip" aria-labelledby="h-rss" data-section="rss">
-      <h2 id="h-rss">订阅更新</h2>
-      <p>用 RSS 阅读器订阅，或留下邮箱（需确认、随时退订），新应用、新文章和视频第一时间送达；不需要注册。</p>
-      <p class="btn-row">
-        <a class="btn btn--primary" href="/subscribe/">
-          邮件订阅
-        </a>
-        <a class="btn" href={url.rss()}>
-          全站 RSS
-        </a>
-        <a class="btn" href="/articles/rss.xml">
-          文章 RSS
-        </a>
-        <a class="btn" href="/forum/rss.xml">
-          论坛 RSS
-        </a>
-      </p>
-    </section>
-  </div>
+  <HomeSection id="more" title="更多内容">
+    <ul class="home-more" role="list">
+      {moreLinks.map((m) => (
+        <li class="home-more__item">
+          <Icon name={m.icon} class="home-more__icon" />
+          <span class="home-more__text">
+            <a class="home-more__link" href={m.href}>
+              {m.title}
+            </a>
+            <span class="home-more__note">{m.note}</span>
+          </span>
+          <Icon name="chevron-right" size={20} class="home-more__chev" />
+        </li>
+      ))}
+    </ul>
+  </HomeSection>
 </Base>
 
 <script>
   // 旧版 hash 路由（#/article/xxx、#project …）→ 新的真实 URL
   import { mapLegacyHash } from '@/lib/hash-redirect';
-  import { initRows, initSearchShortcut } from '@/scripts/home/rows';
+  import { initRelativeTimes, initRows, initSearchShortcut } from '@/scripts/home/rows';
   const target = mapLegacyHash(location.hash);
   if (target) location.replace(target);
   else {
     initRows();
     initSearchShortcut();
+    initRelativeTimes();
   }
 </script>
