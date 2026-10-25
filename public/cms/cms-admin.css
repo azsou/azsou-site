@@ -1,7 +1,9 @@
-/* CMS 编辑器外壳的补充样式（T9.17）：顶栏说明 + 字数控件 + 图标控件。Decap 外壳本身保持默认。 */
+/* CMS 编辑器外壳的补充样式（T9.17）：底部说明条（Decap 顶栏是 fixed，不能叠在上面）+ 字数控件 + 图标控件。Decap 外壳本身保持默认。 */
 .azc-bar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 400;
   margin: 0;
   padding: 6px 16px;
@@ -73,4 +75,8 @@
   margin: 0;
   font-size: 12px;
   color: #5c5c66;
+}
+
+body {
+  padding-bottom: 32px;
 }

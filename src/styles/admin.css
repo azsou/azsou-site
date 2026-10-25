@@ -497,9 +497,13 @@
       background: var(--c-fill);
     }
   }
+  /* 表格自动布局里 td 的 max-width 不生效：限制在内层标题 / 摘要上，长标题一行省略（title 提示全文） */
   .data-table .cell-main {
     min-width: 220px;
-    max-width: 520px;
+  }
+  .data-table .cell-main > .cell-title,
+  .data-table .cell-main > .cell-sub {
+    max-width: min(440px, 36vw);
   }
   .data-table .cell-title,
   .data-table .cell-sub {
@@ -745,6 +749,10 @@
       tr[data-row]
       > td:not([data-priority]):not(.cell-main):not(.col-check):not(.col-actions) {
       display: none;
+    }
+    .data-table[data-cards] .cell-main > .cell-title,
+    .data-table[data-cards] .cell-main > .cell-sub {
+      max-width: none;
     }
     .data-table[data-cards] .cell-main {
       min-width: 0;
