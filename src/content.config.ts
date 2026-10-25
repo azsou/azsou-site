@@ -322,6 +322,21 @@ const articles = defineCollection({
     art: z.string().nullable(),
     pinyin: z.string().default(''),
     order: z.number().int(),
+    /** 一句话摘要（列表、搜索结果与 meta description）；不写 = 取正文前 120 字 */
+    description: z.string().min(40).max(160).optional(),
+    /**
+     * 联盟 / 赞助披露（P8 T8.7）：affiliate = 文中有联盟链接；sponsored = 整篇是赞助内容（写明 sponsor）。
+     * 正文含 rel="sponsored" 链接而没写这个字段时，文章页按 affiliate 显示披露标识。
+     */
+    disclosure: z
+      .object({
+        type: z.enum(['affiliate', 'sponsored']),
+        sponsor: z.string().optional(),
+        note: z.string().optional(),
+      })
+      .optional(),
+    /** 联盟 / 赞助链接地址：正文里指向这些地址的 <a> 会自动加 rel="sponsored nofollow noopener" */
+    sponsoredLinks: z.array(httpsUrl).default([]),
   }),
 });
 

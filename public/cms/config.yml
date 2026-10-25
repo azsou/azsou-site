@@ -319,4 +319,19 @@ collections:
       - { name: art, label: 素材槽位, widget: string, required: false }
       - { name: pinyin, label: 拼音首字母, widget: string, required: false }
       - { name: order, label: 同日排序, widget: number, value_type: int }
+      - { name: description, label: 摘要（40–160 字，可留空）, widget: text, required: false }
+      - label: 联盟 / 赞助披露（没有就留空）
+        name: disclosure
+        widget: object
+        required: false
+        fields:
+          - { name: type, label: 类型, widget: select, options: [affiliate, sponsored] }
+          - { name: sponsor, label: 赞助方, widget: string, required: false }
+          - { name: note, label: 披露说明, widget: string, required: false }
+      - {
+          name: sponsoredLinks,
+          label: 联盟 / 赞助链接地址（https，自动加 rel=sponsored）,
+          widget: list,
+          required: false,
+        }
       - { name: body, label: 正文（HTML）, widget: text }
