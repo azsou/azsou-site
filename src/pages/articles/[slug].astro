@@ -17,6 +17,7 @@ import Disclosure from '@/components/Disclosure.astro';
 import SponsorSlot from '@/components/SponsorSlot.astro';
 import { splitForInArticleAd } from '@/lib/ads';
 import { countSponsored, markSponsored } from '@/lib/sponsored';
+import { enhanceProse } from '@/lib/prose';
 
 export async function getStaticPaths() {
   const list = await getArticles();
@@ -29,7 +30,7 @@ const { a, newer, older } = Astro.props as { a: Article; newer: Article | null; 
 const d = a.data;
 // 正文是迁移来的可信 HTML（仓库内容），原样输出，不经 Markdown 二次处理
 // 联盟 / 赞助链接统一加 rel="sponsored nofollow noopener"（T8.7）
-const bodyHtml = markSponsored(a.body ?? '', d.sponsoredLinks);
+const bodyHtml = enhanceProse(markSponsored(a.body ?? '', d.sponsoredLinks));
 const path = url.article(a.id);
 const description = d.description ?? excerpt(bodyHtml, 120);
 const disclosure = d.disclosure ?? (countSponsored(bodyHtml) > 0 ? { type: 'affiliate' as const } : null);
@@ -72,7 +73,7 @@ const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
 >
   <div class="split">
     <article>
-      <header class="page-head">
+      <header class="page-head article-head">
         <p class="eyebrow">
           {d.category} · {d.badge}
         </p>
@@ -168,3 +169,7 @@ const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
     </aside>
   </div>
 </Base>
+
+<script>
+  import '@/scripts/prose-copy';
+</script>

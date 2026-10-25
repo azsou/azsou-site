@@ -1,4 +1,5 @@
 ---
+import Icon from '@/components/Icon.astro';
 import Base from '@/layouts/Base.astro';
 import StoreDetail from '@/components/apps/StoreDetail.astro';
 import ToolCard from '@/components/ai/ToolCard.astro';
@@ -69,7 +70,10 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
       <section class="section" aria-labelledby="h-related" slot="related" data-pagefind-ignore>
         <div class="section__head">
           <h2 id="h-related">相关工具</h2>
-          <a href={url.aiCategory(main)}>更多{AI_CATEGORIES[main]} →</a>
+          <a href={url.aiCategory(main)}>
+            更多{AI_CATEGORIES[main]}
+            <Icon name="chevron-right" size={16} class="icon--trail" />
+          </a>
         </div>
         <div class="masonry masonry--compact mt-4">
           {related.map((t) => (
