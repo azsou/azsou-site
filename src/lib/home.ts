@@ -18,8 +18,9 @@ import {
   type PlatformOs,
 } from './app-store';
 import { url } from './routes';
+import { AI_CATEGORY_HUE, toolHue, type Hue } from './hue';
 
-type Hue = 'accent' | 'green' | 'teal' | 'blue' | 'orange';
+export { AI_CATEGORY_HUE };
 interface Icon {
   src: string;
   variants: boolean;
@@ -34,6 +35,7 @@ export interface HomeApp {
     summary: string;
     icon: Icon;
     hue: Hue;
+    developer?: { name: string; type: 'self' | 'third-party' };
     category: Category;
     platforms: { os: PlatformOs }[];
     featured: boolean;
@@ -50,6 +52,8 @@ export interface HomeTool {
     subtitle: string;
     summary: string;
     icon: Icon;
+    hue?: Hue;
+    developer?: { name: string };
     categories: AiCategory[];
     platforms: { os: PlatformOs }[];
     featured: boolean;
@@ -76,15 +80,6 @@ export interface HomeThread {
   pinned?: boolean;
 }
 
-/** AI 工具没有主题色：按主分类给精选卡片配色 */
-export const AI_CATEGORY_HUE: Record<AiCategory, Hue> = {
-  agent: 'blue',
-  'vibe-coding': 'teal',
-  cli: 'accent',
-  'ai-bot': 'orange',
-  mcp: 'green',
-};
-
 /** 首页 hero 的平台 / 类型快捷入口文字（与目录页的「网页版」「命令行」略有不同，更像入口） */
 export const CHIP_LABEL: Partial<Record<PlatformOs, string>> = {
   web: 'Web',
@@ -102,6 +97,8 @@ export interface FeaturedItem {
   hue: Hue;
   /** 「自研应用 · 创作工具」/「AI 工具 · AI Agent」 */
   label: string;
+  /** 品牌键（图标墙去重用，见 iconWall） */
+  brand: string;
   platforms: string[];
   url: string;
 }
@@ -122,6 +119,7 @@ export function featuredItems(apps: HomeApp[], tools: HomeTool[]): FeaturedItem[
         icon: a.data.icon,
         hue: a.data.hue,
         label: `自研应用 · ${CATEGORIES[a.data.category]}`,
+        brand: appBrand(a),
         platforms: a.data.platforms.map((p) => PLATFORM_LABEL[p.os]),
         url: url.app(a.id),
       })),
@@ -135,8 +133,9 @@ export function featuredItems(apps: HomeApp[], tools: HomeTool[]): FeaturedItem[
         subtitle: t.data.subtitle,
         summary: t.data.summary,
         icon: t.data.icon,
-        hue: AI_CATEGORY_HUE[t.data.categories[0]],
+        hue: toolHue(t.data),
         label: `AI 工具 · ${AI_CATEGORIES[t.data.categories[0]]}`,
+        brand: toolBrand(t),
         platforms: t.data.platforms.map((p) => PLATFORM_LABEL[p.os]),
         url: url.tool(t.id),
       })),
@@ -345,3 +344,47 @@ export function featuredItemList(items: FeaturedItem[], absUrl: (p: string) => s
     })),
   };
 }
+
+/** hero「试试」关键词：真实、有意义的词（每个都至少命中一条站内内容，单元测试校验） */
+export const TRY_QUERIES = ['动画编辑器', 'Cursor', '塔防', 'MCP'] as const;
+
+export interface WallIcon {
+  title: string;
+  icon: Icon;
+  href: string;
+  /** 品牌键：同一品牌（如 OpenAI 的 ChatGPT 与 Codex）只出现一次；自研应用用 self:<slug> */
+  brand: string;
+}
+
+/** 开发者名 → 品牌键：去掉括号里的补充（「GitHub（Microsoft）」→ github） */
+export const brandKey = (name: string) =>
+  name
+    .replace(/[（(][^）)]*[）)]/g, '')
+    .trim()
+    .toLowerCase();
+
+/**
+ * hero 图标墙：按候选顺序取 n 个，同一链接、同一图标文件、同一品牌、同一图片内容（fingerprint）只取第一个，
+ * 保证墙上没有重复的 logo（ChatGPT 与 Codex CLI 用的是同一个 OpenAI 标志）。
+ */
+export function iconWall(
+  cands: WallIcon[],
+  n = 12,
+  fingerprint: (src: string) => string = (s) => s,
+): WallIcon[] {
+  const seen = new Set<string>();
+  const out: WallIcon[] = [];
+  for (const c of cands) {
+    const keys = [`href:${c.href}`, `src:${c.icon.src}`, `brand:${c.brand}`, `fp:${fingerprint(c.icon.src)}`];
+    if (keys.some((k) => seen.has(k))) continue;
+    keys.forEach((k) => seen.add(k));
+    out.push(c);
+    if (out.length === n) break;
+  }
+  return out;
+}
+
+export const appBrand = (a: HomeApp) =>
+  a.data.developer?.type === 'third-party' ? brandKey(a.data.developer.name) : `self:${a.id}`;
+export const toolBrand = (t: HomeTool) =>
+  t.data.developer ? brandKey(t.data.developer.name) : `tool:${t.id}`;

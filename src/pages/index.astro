@@ -5,6 +5,8 @@
  * 首页只有一个小脚本（横向行的上一组 / 下一组按钮 + Ctrl/⌘K），没有框架 island。
  */
 import '@/styles/home.css';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import Base from '@/layouts/Base.astro';
 import AppIcon from '@/components/apps/AppIcon.astro';
 import HomeSection from '@/components/home/HomeSection.astro';
@@ -31,6 +33,10 @@ import {
   featuredItems,
   homeSections,
   homeVideos,
+  iconWall,
+  appBrand,
+  toolBrand,
+  TRY_QUERIES,
   latestByDate,
   latestThreads,
   newReleases,
@@ -38,6 +44,7 @@ import {
   recentUpdates,
   toolsByEditorOrder,
 } from '@/lib/home';
+import { toolHue } from '@/lib/hue';
 import { abs } from '@/lib/seo';
 import { SITE } from '@/lib/site';
 import { url } from '@/lib/routes';
@@ -81,15 +88,36 @@ const show = new Set(
   }),
 );
 
-// hero 右侧的图标墙（装饰，只给鼠标用户点；读屏与键盘用户走下方的精选行）
-const seen = new Set<string>();
-const mosaic = [
-  ...featured.map((f) => ({ title: f.title, icon: f.icon, href: f.url })),
-  ...ownApps.map((a) => ({ title: a.data.title, icon: a.data.icon, href: url.app(a.id) })),
-  ...aiTools.map((t) => ({ title: t.data.title, icon: t.data.icon, href: url.tool(t.id) })),
-]
-  .filter((m) => !seen.has(m.href) && seen.add(m.href))
-  .slice(0, 12);
+// hero 右侧的图标墙（装饰，只给鼠标用户点；读屏与键盘用户走下方的精选行）。
+// 同一品牌 / 同一图片只出现一次（按文件内容去重：ChatGPT 与 Codex CLI 是同一个 OpenAI 标志）
+const fingerprint = (src: string) => {
+  try {
+    return createHash('sha1')
+      .update(readFileSync(`public${src.replace(/\.(png|svg|webp)$/, '-64.webp')}`))
+      .digest('hex');
+  } catch {
+    return src;
+  }
+};
+const mosaic = iconWall(
+  [
+    ...featured.map((f) => ({ title: f.title, icon: f.icon, href: f.url, brand: f.brand })),
+    ...ownApps.map((a) => ({
+      title: a.data.title,
+      icon: a.data.icon,
+      href: url.app(a.id),
+      brand: appBrand(a),
+    })),
+    ...aiTools.map((t) => ({
+      title: t.data.title,
+      icon: t.data.icon,
+      href: url.tool(t.id),
+      brand: toolBrand(t),
+    })),
+  ],
+  12,
+  fingerprint,
+);
 
 const appMeta = (a: (typeof apps)[number]) =>
   [
@@ -100,19 +128,11 @@ const appMeta = (a: (typeof apps)[number]) =>
     a.data.platforms.map((p) => PLATFORM_LABEL[p.os]).join(' / '),
   ].join(' · ');
 
-const tryQueries = ['Claude Code', 'MCP', '塔防', 'dwjgjx'];
+// 「试试」：有意义的真实关键词（每个都能在站内搜到结果，tests/unit/home.test.ts 校验）
+const tryQueries = TRY_QUERIES;
 
-const schema = [
-  {
-    '@type': 'Organization',
-    '@id': `${SITE.url}/#org`,
-    name: SITE.name,
-    url: `${SITE.url}/`,
-    logo: abs('/icons/icon-512.png'),
-    founder: { '@id': `${SITE.url}/#author` },
-  },
-  ...(featured.length ? [featuredItemList(featured, abs)] : []),
-];
+// Organization / WebSite / Person 由 Base 输出（全站每页都有）
+const schema = featured.length ? [featuredItemList(featured, abs)] : [];
 ---
 
 <Base title={SITE.title} description={SITE.description} schema={schema}>
@@ -222,6 +242,7 @@ const schema = [
             meta={appMeta(a)}
             href={url.app(a.id)}
             icon={a.data.icon}
+            hue={a.data.hue}
           />
         </li>
       ))}
@@ -239,6 +260,7 @@ const schema = [
             meta={`${a.data.releaseDate} 上架 · ${CATEGORIES[a.data.category]}`}
             href={url.app(a.id)}
             icon={a.data.icon}
+            hue={a.data.hue}
           />
         </li>
       ))}
@@ -262,6 +284,7 @@ const schema = [
             meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]} · ${t.data.developer.name}`}
             href={url.tool(t.id)}
             icon={t.data.icon}
+            hue={toolHue(t.data)}
           />
         </li>
       ))}

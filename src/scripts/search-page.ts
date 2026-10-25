@@ -40,7 +40,7 @@ function render(items: SearchItem[], q: string) {
   status.textContent = q
     ? items.length
       ? `“${q}” 共 ${items.length} 条结果`
-      : `没有找到与“${q}”相关的内容。试试拼音首字母，如 dwjgjx。`
+      : `没有找到与“${q}”相关的内容。换个更短的关键词试试，如「塔防」「MCP」，也可以输入拼音首字母。`
     : '';
 }
 
