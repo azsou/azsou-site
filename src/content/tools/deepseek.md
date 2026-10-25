@@ -10,6 +10,7 @@
   },
   "developer": {
     "name": "杭州深度求索人工智能基础技术研究有限公司",
+    "en": "DeepSeek",
     "short": "深度求索",
     "url": "https://www.deepseek.com/",
     "type": "third-party"
@@ -39,7 +40,7 @@
       "os": "android",
       "linkType": "store",
       "url": "https://play.google.com/store/apps/details?id=com.deepseek.chat",
-      "requirements": "Google Play（国内可在各大应用商店获取）"
+      "requirements": "Google Play（国内可在各大手机应用市场获取）"
     }
   ],
   "price": {
@@ -63,4 +64,4 @@
 <p>DeepSeek 是国内大模型公司深度求索的对话助手。它凭借推理模型在数学、编程和逻辑题上的出色表现迅速走红，「深度思考」模式会先展示推理过程再给出答案，方便核对。</p>
 <p>对国内用户来说它的优势很直接：注册方便、中文表达地道、对话免费，联网搜索可以获取最新信息。DeepSeek 的模型权重同时以开放协议发布，开发者可以在 Ollama、LM Studio 等工具里本地运行，或者通过价格较低的官方 API 接入自己的应用。</p>
 <p>网页与 App 免费使用；高峰期可能出现排队或繁忙提示。API 按 token 计费，与对话应用分开。</p>
-<p class="muted">信息核对于 2026-10-25，价格、额度与平台支持以 <a href="https://www.deepseek.com/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>
+<p class="muted">信息核对于 2026年10月25日，价格、额度与平台支持以 <a href="https://www.deepseek.com/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>

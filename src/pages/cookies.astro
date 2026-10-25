@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import StorageTable from '@/components/legal/StorageTable.astro';
@@ -14,7 +15,7 @@ import { LEGAL_UPDATED } from '@/lib/contact';
     { name: 'Cookie 政策', path: '/cookies/' },
   ]}
 >
-  <PageHead eyebrow="站点与合规" title="Cookie 政策" lede={`最后更新：${LEGAL_UPDATED}`} />
+  <PageHead eyebrow="站点与合规" title="Cookie 政策" lede={`最后更新：${formatDate(LEGAL_UPDATED)}`} />
   <div class="prose mt-8">
     <p>
       Cookie 是网站保存在你浏览器里的小段数据；localStorage、sessionStorage 与 Cache Storage
@@ -35,11 +36,11 @@ import { LEGAL_UPDATED } from '@/lib/contact';
         <strong>偏好</strong>：记住你主动做出的选择（主题、隐私选择），只保存在你的设备上。
       </li>
       <li>
-        <strong>统计</strong>：只有站长启用 Google Analytics 4
+        <strong>统计</strong>：只有作者启用 Google Analytics 4
         后才会出现，并受同意模式约束；欧洲经济区、英国和瑞士默认不设置。
       </li>
       <li>
-        <strong>广告</strong>：只有站长启用 Google AdSense
+        <strong>广告</strong>：只有作者启用 Google AdSense
         后才会出现在可以展示广告的页面上（文章、列表等），后台、登录注册、表单、订阅与法律说明页不展示广告。
       </li>
     </ul>

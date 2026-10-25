@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import VideoThumb from './VideoThumb.astro';
 import { CARD_SIZES, VIDEO_CATEGORIES, humanDuration, type VideoItem } from '@/lib/videos';
 /**
@@ -38,7 +39,7 @@ const H = headingLevel;
     </H>
     <p class="video-card__meta">
       <span>{item.channelName}</span>
-      {item.published && <time datetime={item.published}>{item.published}</time>}
+      {item.published && <time datetime={item.published}>{formatDate(item.published)}</time>}
     </p>
     <ul class="video-card__tags" role="list">
       {item.categories.map((c) => (

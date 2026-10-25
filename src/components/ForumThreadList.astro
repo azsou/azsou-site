@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import '@/styles/community.css';
 import { forum } from '@/lib/content';
 import { url } from '@/lib/routes';
@@ -27,7 +28,7 @@ const H = category ? 'h2' : 'h3';
               </span>
               <br />
               <span class="list-row__sub">
-                {catName[t.category]} · {t.author} · {t.date}
+                {catName[t.category]} · {t.author} · {formatDate(t.date)}
               </span>
             </span>
             <span class="list-row__aside">{t.replies.length} 回复</span>

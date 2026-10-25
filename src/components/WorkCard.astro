@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import type { Work } from '@/lib/content';
 import { url } from '@/lib/routes';
 import Art from './Art.astro';
@@ -23,7 +24,7 @@ const d = work.data;
     </H>
     <div class="card__meta">
       <span class="badge">{d.kind}</span>
-      <span>{d.date}</span>
+      <span>{formatDate(d.date)}</span>
       <span>{d.status}</span>
     </div>
   </div>

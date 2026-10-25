@@ -1,5 +1,5 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
-import { compareDesc } from './dates';
+import { compareDesc, formatDate } from './dates';
 import forumData from '../data/forum.json';
 import { url } from './routes';
 import { toolHue } from './hue';
@@ -93,7 +93,7 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
       url: url.article(a.id),
       summary: excerpt(a.body ?? '', 80),
       pinyin: a.data.pinyin,
-      meta: `${a.data.category} · ${a.data.date}`,
+      meta: `${a.data.category} · ${formatDate(a.data.date)}`,
     })),
     ...works.map((w) => ({
       type: 'work' as const,
@@ -101,7 +101,7 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
       url: url.work(w.id),
       summary: excerpt(w.body ?? '', 80),
       pinyin: w.data.pinyin,
-      meta: `${w.data.kind} · ${w.data.date}`,
+      meta: `${w.data.kind} · ${formatDate(w.data.date)}`,
     })),
     ...forum.seeds.map((t) => ({
       type: 'thread' as const,
@@ -109,7 +109,7 @@ export async function buildSearchIndex(): Promise<SearchItem[]> {
       url: url.forumThread(t.id),
       summary: excerpt(t.body, 80),
       pinyin: t.pinyin,
-      meta: `论坛 · ${t.date}`,
+      meta: `论坛 · ${formatDate(t.date)}`,
     })),
   ];
 }

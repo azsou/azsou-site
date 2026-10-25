@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
@@ -58,7 +59,7 @@ const related = d.related.map((r) => ({
     <p class="eyebrow">{d.kind}</p>
     <h1>{d.title}</h1>
     <div class="article-meta">
-      <span>{d.date}</span>
+      <span>{formatDate(d.date)}</span>
       <span>{d.status}</span>
     </div>
   </header>

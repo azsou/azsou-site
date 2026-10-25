@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import type { Article } from '@/lib/content';
 import { url } from '@/lib/routes';
 import { excerpt } from '@/lib/escape';
@@ -24,7 +25,7 @@ const d = article.data;
     </H>
     <p class="card__text">{excerpt(article.body ?? '', 90)}</p>
     <div class="card__meta">
-      <time datetime={d.date}>{d.date}</time>
+      <time datetime={d.date}>{formatDate(d.date)}</time>
       <span>{d.readingMinutes} 分钟</span>
     </div>
   </div>

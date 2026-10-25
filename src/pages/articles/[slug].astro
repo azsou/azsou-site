@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import AppIcon from '@/components/apps/AppIcon.astro';
@@ -78,10 +79,10 @@ const toc = d.toc.map((text, i) => ({ text, slug: `a-sec-${i + 1}` }));
         <h1>{d.title}</h1>
         <div class="article-meta">
           <span>{d.author}</span>
-          <time datetime={d.date}>{d.date}</time>
+          <time datetime={d.date}>{formatDate(d.date)}</time>
           <span>{d.readingMinutes} 分钟</span>
           <span>
-            最后核对：<time datetime={d.lastChecked}>{d.lastChecked}</time>
+            最后核对：<time datetime={d.lastChecked}>{formatDate(d.lastChecked)}</time>
           </span>
         </div>
       </header>

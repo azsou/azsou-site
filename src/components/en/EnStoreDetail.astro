@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 /**
  * 英文版应用 / AI 工具详情（T7.6）：只展示如实翻译的副标题与简介 + 官方链接 + 基本信息；
  * 中文全文、截图说明、评价与讨论都在中文页面，这里明确链接过去（不做机器翻译）。
@@ -189,7 +190,7 @@ const licenseText =
         <div>
           <dt>Last checked</dt>
           <dd>
-            <time datetime={p.lastChecked}>{p.lastChecked}</time>
+            <time datetime={p.lastChecked}>{formatDate(p.lastChecked, 'en')}</time>
           </dd>
         </div>
       )}

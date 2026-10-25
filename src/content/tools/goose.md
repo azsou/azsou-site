@@ -10,6 +10,7 @@
   },
   "developer": {
     "name": "Agentic AI Foundation（Linux 基金会）",
+    "en": "Agentic AI Foundation (Linux Foundation)",
     "short": "AAIF（Linux 基金会）",
     "url": "https://goose-docs.ai/",
     "type": "third-party"
@@ -71,4 +72,4 @@
 <p>goose 最初由 Block 开源，现在是 Linux 基金会旗下 Agentic AI Foundation 的项目。它定位为通用智能体：不只写代码，也能做资料整理、数据分析和日常自动化。用 Rust 编写，同时提供原生桌面应用和完整的命令行。</p>
 <p>它把「能做什么」交给 MCP 扩展：连接文件系统、浏览器、GitHub、数据库等扩展后，goose 就能调用这些工具完成多步骤任务。模型方面可以用各家 API Key，也能通过 ACP 复用已有的 Claude、ChatGPT 或 Gemini 订阅，或连接本地的 Ollama。</p>
 <p>软件本身免费开源，成本取决于所选模型。由于它能执行命令、读写本地文件，建议先在测试目录里熟悉权限设置。</p>
-<p class="muted">信息核对于 2026-10-25，价格、额度与平台支持以 <a href="https://goose-docs.ai/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>
+<p class="muted">信息核对于 2026年10月25日，价格、额度与平台支持以 <a href="https://goose-docs.ai/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>

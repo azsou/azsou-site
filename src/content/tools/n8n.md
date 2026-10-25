@@ -56,4 +56,4 @@
 <p>n8n 可以理解为「可自托管的 Zapier」：在画布上拖拽节点，把邮件、表格、数据库、Webhook 和各种 SaaS 连成自动化流程。和纯无代码工具不同，它允许在节点里写 JavaScript 或 Python，对开发者很友好。</p>
 <p>近年来 n8n 大力加强 AI 能力：AI Agent 节点可以让大模型自主决定调用哪些工具，配合向量库、记忆和 MCP，就能搭出能处理工单、整理资料或自动回复的智能体流程。</p>
 <p>云服务按工作流执行次数订阅；自托管社区版免费，但许可证是 Sustainable Use License（fair-code），不属于 OSI 定义的开源，限制将其作为商业服务转售。</p>
-<p class="muted">信息核对于 2026-10-25，价格、额度与平台支持以 <a href="https://n8n.io/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>
+<p class="muted">信息核对于 2026年10月25日，价格、额度与平台支持以 <a href="https://n8n.io/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>

@@ -11,8 +11,8 @@ describe('dates', () => {
     expect(toDate('2026-06').toISOString()).toBe('2026-06-01T00:00:00.000Z');
   });
   it('formats and groups', () => {
-    expect(formatDate('2026-07-19')).toBe('2026 年 7 月 19 日');
-    expect(formatDate('2026-06')).toBe('2026 年 6 月');
+    expect(formatDate('2026-07-19')).toBe('2026年7月19日');
+    expect(formatDate('2026-06')).toBe('2026年6月');
     expect(monthKey('2026-07-19')).toBe('2026-07');
     expect(['2026-07-17', '2026-07-25', '2026-07-19'].sort(compareDesc)).toEqual([
       '2026-07-25',

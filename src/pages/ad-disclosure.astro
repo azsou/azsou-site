@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import { LEGAL_UPDATED } from '@/lib/contact';
@@ -6,13 +7,13 @@ import { LEGAL_UPDATED } from '@/lib/contact';
 
 <Base
   title="广告与联盟披露"
-  description="AZ Studio 如何展示广告、如何标注联盟链接与赞助内容，以及编辑独立性的承诺：广告不影响评测结论，不伪造评分与下载量。"
+  description="AZ Studio 如何展示广告、如何标注联盟链接与赞助内容，以及编辑独立性的承诺：广告和赞助都不影响评测结论。"
   crumbs={[
     { name: '首页', path: '/' },
     { name: '广告与联盟披露', path: '/ad-disclosure/' },
   ]}
 >
-  <PageHead eyebrow="站点与合规" title="广告与联盟披露" lede={`最后更新：${LEGAL_UPDATED}`} />
+  <PageHead eyebrow="站点与合规" title="广告与联盟披露" lede={`最后更新：${formatDate(LEGAL_UPDATED)}`} />
   <div class="prose mt-8">
     <p>
       AZ Studio
@@ -56,10 +57,10 @@ import { LEGAL_UPDATED } from '@/lib/contact';
 
     <h2>四、不会改变的事</h2>
     <ul>
-      <li>不伪造评分、下载量、用户数或评论；应用与工具页的评分和下载计数只来自真实用户。</li>
-      <li>第三方软件只链接官方渠道（官网、应用商店、GitHub Release），不托管、不改包。</li>
+      <li>应用与工具页的评分和下载计数只来自访客的评价与点击。</li>
+      <li>第三方软件只链接官方渠道（官网、官方商店、GitHub Release），不托管、不改包。</li>
       <li>
-        评测与对比的测试环境、版本与最后核对日期照常写明，详见<a href="/editorial/">编辑规范</a>。
+        评测与对比照常写明测试所用的系统、版本与最后核对日期，详见<a href="/editorial/">编辑规范</a>。
       </li>
     </ul>
 

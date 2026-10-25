@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import { contactEmail, GITHUB_ISSUES, LEGAL_UPDATED } from '@/lib/contact';
@@ -16,7 +17,7 @@ const gaOn = !!ga4Id(import.meta.env);
     { name: '隐私政策', path: '/privacy/' },
   ]}
 >
-  <PageHead eyebrow="站点与合规" title="隐私政策" lede={`最后更新：${LEGAL_UPDATED}`} />
+  <PageHead eyebrow="站点与合规" title="隐私政策" lede={`最后更新：${formatDate(LEGAL_UPDATED)}`} />
   <div class="prose mt-8">
     <p>
       本政策说明 azsou.com（AZ
@@ -49,7 +50,7 @@ const gaOn = !!ga4Id(import.meta.env);
     <ul>
       <li>
         注册或登录时（邮箱密码，或 GitHub / Google 第三方登录），账户由 Supabase
-        托管的认证服务处理。本站数据库保存你的邮箱、显示名、头像地址与角色；密码只以加密散列的形式由认证服务保存，站长也无法看到。
+        托管的认证服务处理。本站数据库保存你的邮箱、显示名、头像地址与角色；密码只以加密散列的形式由认证服务保存，作者也无法看到。
       </li>
       <li>
         你在论坛、评论区发布的主题、回复、点赞、收藏、举报与上传的图片，保存在 Supabase 托管的 PostgreSQL
@@ -77,7 +78,7 @@ const gaOn = !!ga4Id(import.meta.env);
       </li>
       <li>确认链接与退订链接里的令牌在数据库中只保存 SHA-256 摘要，不保存原文。</li>
       <li>每封邮件都附带一键退订链接；退订后不再发送，任何时候都可以重新订阅。</li>
-      <li>邮件通过发信服务商（Resend 或站长配置的 SMTP 服务）发送，服务商只为投递目的处理你的邮箱地址。</li>
+      <li>邮件通过发信服务商（Resend 或作者配置的 SMTP 服务）发送，服务商只为投递目的处理你的邮箱地址。</li>
     </ul>
 
     <h2>五、人机验证（Cloudflare Turnstile）</h2>
@@ -131,7 +132,7 @@ const gaOn = !!ga4Id(import.meta.env);
       <li>Vercel：网站托管与 CDN。</li>
       <li>Supabase：账户认证、数据库与图片存储。</li>
       <li>Cloudflare：Turnstile 人机验证。</li>
-      <li>Resend 或站长配置的 SMTP 服务：订阅邮件投递。</li>
+      <li>Resend 或作者配置的 SMTP 服务：订阅邮件投递。</li>
       <li>
         Google：YouTube 播放（仅在你点击播放后）{gaOn && '、Google Analytics 统计'}
         {adsOn && '、AdSense 广告与同意管理'}。

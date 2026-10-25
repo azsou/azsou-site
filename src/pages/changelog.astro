@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import GeoIcon from '@/components/GeoIcon.astro';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
@@ -45,7 +46,7 @@ const site: { date: string; title: string; note: string; thread?: string }[] = [
       <ol class="timeline mt-4">
         {site.map((s) => (
           <li>
-            <time datetime={s.date}>{s.date}</time> <b>{s.title}</b>
+            <time datetime={s.date}>{formatDate(s.date)}</time> <b>{s.title}</b>
             <p>
               {s.note} {s.thread && <a href={url.forumThread(s.thread)}>论坛公告</a>}
             </p>
@@ -67,7 +68,7 @@ const site: { date: string; title: string; note: string; thread?: string }[] = [
               </span>
             </span>
             <time class="list-row__aside" datetime={u.date}>
-              {u.date}
+              {formatDate(u.date)}
             </time>
           </li>
         ))}

@@ -24,20 +24,14 @@ const cols = en ? EN_FOOTER : FOOTER;
         </a>
         {en ? (
           <p>
-            A personal developer site and creative lab. Everything comes from real projects — no fake ratings,
-            downloads, user counts or reviews. Most long-form content is in Chinese.
+            Randy Hopkins’s personal studio: the apps and games he builds, hands-on notes on AI tools, dev
+            articles and a forum. Most long-form writing is in Chinese.
           </p>
         ) : (
-          <p>个人技术社区、产品档案与创作实验室。内容来自真实项目，不伪造评分、下载量、用户数或评论。</p>
+          <p>
+            Randy Hopkins 的个人工作室：他做的应用和游戏、AI 工具上手笔记、开发文章，还有一个可以交流的论坛。
+          </p>
         )}
-        <ul class="trust-points" aria-label={en ? 'Principles' : '内容原则'}>
-          {(en
-            ? ['Real projects', 'Version history', 'Test setups', 'Last checked']
-            : ['真实项目', '版本记录', '测试环境', '最后核对']
-          ).map((t) => (
-            <li class="badge">{t}</li>
-          ))}
-        </ul>
         <SocialLinks lang={lang} />
       </div>
       {cols.map((col) => (
@@ -58,7 +52,6 @@ const cols = en ? EN_FOOTER : FOOTER;
         © 2026 {SITE.name} · {SITE.author.name}
       </span>
       <span>
-        {en ? 'Static Astro build · ' : 'Astro 静态构建 · '}
         <a href={switchHref} hreflang={en ? 'zh-CN' : 'en'} lang={en ? 'zh-CN' : 'en'}>
           {en ? '中文' : 'English'}
         </a>

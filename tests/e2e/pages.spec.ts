@@ -40,9 +40,12 @@ for (const route of ROUTES) {
               }),
         ),
       );
-      return imgs
-        .filter((i) => !i.getAttribute('alt') || (i.loading !== 'lazy' && i.naturalWidth === 0))
-        .map((i) => i.src);
+      return (
+        imgs
+          // alt="" 是合法的装饰图（名称就在旁边，T9.3）；没有 alt 属性才算缺
+          .filter((i) => i.getAttribute('alt') === null || (i.loading !== 'lazy' && i.naturalWidth === 0))
+          .map((i) => i.src)
+      );
     });
     expect(broken, '缺 alt 或加载失败的图片').toEqual([]);
     await page.waitForLoadState('networkidle');

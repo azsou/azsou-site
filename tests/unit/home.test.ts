@@ -74,7 +74,7 @@ describe('featuredItems', () => {
       [tool('t2', { featured: true, order: 5 }), tool('t1', { featured: true, order: 3 }), tool('t3')],
     );
     expect(items.map((i) => i.slug)).toEqual(['a', 'b', 't1', 't2']);
-    expect(items[0]).toMatchObject({ kind: 'app', url: '/apps/a/', label: '自研应用 · 效率工具' });
+    expect(items[0]).toMatchObject({ kind: 'app', url: '/apps/a/', label: 'AZ Studio 出品 · 效率工具' });
     expect(items[2]).toMatchObject({
       kind: 'tool',
       url: '/ai/t1/',

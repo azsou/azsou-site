@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 /** 英文版游戏详情（T7.6）：英文简介 + 基本信息；更新记录与完整说明在中文页面 */
 import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
@@ -72,7 +73,7 @@ const path = `/en/games/${game.id}/`;
         <div>
           <dt>Updated</dt>
           <dd>
-            <time datetime={d.date}>{d.date}</time>
+            <time datetime={d.date}>{formatDate(d.date, 'en')}</time>
           </dd>
         </div>
       </dl>

@@ -120,7 +120,7 @@ export function featuredItems(apps: HomeApp[], tools: HomeTool[]): FeaturedItem[
         summary: a.data.summary,
         icon: a.data.icon,
         hue: a.data.hue,
-        label: `自研应用 · ${CATEGORIES[a.data.category]}`,
+        label: `AZ Studio 出品 · ${CATEGORIES[a.data.category]}`,
         brand: appBrand(a),
         platforms: a.data.platforms.map((p) => PLATFORM_LABEL[p.os]),
         url: url.app(a.id),

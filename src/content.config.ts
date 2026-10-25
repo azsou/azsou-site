@@ -216,10 +216,15 @@ const tools = defineCollection({
           name: z.string(),
           /** 卡片上显示的短名（≤ 12）；全称超过 12 时必填 */
           short: zh(12).optional(),
+          /** 英文页显示的名称（全称含中文时必填，/en/ 不显示未翻译中文） */
+          en: z.string().optional(),
           url: httpsUrl,
           type: z.literal('third-party'),
         })
-        .refine((d) => zhLength(d.name) <= 12 || !!d.short, { message: '开发者全称超过 12 字时要写 short' }),
+        .refine((d) => zhLength(d.name) <= 12 || !!d.short, { message: '开发者全称超过 12 字时要写 short' })
+        .refine((d) => !/[\u4e00-\u9fff]/.test(d.name) || !!d.en, {
+          message: '开发者全称含中文时要写 en（英文页用）',
+        }),
       /** 第一个是主分类 */
       categories: z.array(z.enum(AI_CATEGORY_IDS as [AiCategory, ...AiCategory[]])).min(1),
       tags: z.array(slugRef).default([]),

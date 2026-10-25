@@ -63,4 +63,4 @@
 <p>Zed 的卖点是「快」：它用 Rust 和自研 GPU 渲染框架编写，打开大项目、搜索和滚动都非常流畅。编辑器本身开源，支持多人实时协作、Vim 模式和丰富的扩展。</p>
 <p>AI 方面，Zed 提供编辑预测和内置智能体面板，并通过 Agent Client Protocol（ACP）支持外部智能体——你可以在 Zed 里直接驱动 Claude Code、Codex CLI 等工具，而不必切换窗口。也可以只填自己的 API Key，不使用官方托管服务。</p>
 <p>个人版永久免费（自带 API Key 或外部智能体无限使用），Pro 订阅提供官方托管的 AI 额度。适合重视编辑器性能、又想按需使用 AI 的开发者。</p>
-<p class="muted">信息核对于 2026-10-25，价格、额度与平台支持以 <a href="https://zed.dev/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>
+<p class="muted">信息核对于 2026年10月25日，价格、额度与平台支持以 <a href="https://zed.dev/" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>

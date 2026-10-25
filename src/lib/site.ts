@@ -5,7 +5,7 @@ export const SITE = {
   lang: 'zh-CN',
   title: 'AZ Studio · 个人技术社区与产品档案',
   description:
-    '个人技术社区、产品档案与创作实验室。真实项目、版本记录、测试环境与最后核对日期，不伪造评分与下载量。',
+    'Randy Hopkins 的个人工作室：他做的应用和游戏、常用 AI 工具的上手笔记、开发文章与视频，还有一个可以交流的论坛。',
   author: { name: 'Randy Hopkins', url: 'https://azsou.com/about/' },
   ogImage: '/og-image.png',
 } as const;
@@ -33,12 +33,12 @@ export const FOOTER = [
   {
     title: '发现',
     links: [
-      { href: '/apps/', label: '应用目录' },
+      { href: '/apps/', label: '应用' },
       { href: '/ai/', label: 'AI 工具' },
       { href: '/videos/', label: '视频' },
-      { href: '/games/', label: '游戏与 Demo' },
-      { href: '/articles/', label: '原创文章' },
-      { href: '/works/', label: '作品与视频' },
+      { href: '/games/', label: '游戏' },
+      { href: '/articles/', label: '文章' },
+      { href: '/works/', label: '作品' },
       { href: '/tags/', label: '标签' },
       { href: '/archive/', label: '归档' },
     ],

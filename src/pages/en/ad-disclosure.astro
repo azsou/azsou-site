@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import { LEGAL_UPDATED } from '@/lib/contact';
@@ -6,7 +7,7 @@ import { LEGAL_UPDATED } from '@/lib/contact';
 
 <Base
   title="Advertising & affiliate disclosure"
-  description="How AZ Studio shows ads, labels affiliate links and sponsored content, and keeps its conclusions independent: no fake ratings, downloads or reviews."
+  description="How AZ Studio shows ads, labels affiliate links and sponsored content, and keeps its conclusions independent of advertisers and sponsors."
   crumbs={[
     { name: 'Home', path: '/en/' },
     { name: 'Advertising & affiliate disclosure', path: '/en/ad-disclosure/' },
@@ -15,7 +16,7 @@ import { LEGAL_UPDATED } from '@/lib/contact';
   <PageHead
     eyebrow="Site & legal"
     title="Advertising & affiliate disclosure"
-    lede={`Last updated: ${LEGAL_UPDATED}`}
+    lede={`Last updated: ${formatDate(LEGAL_UPDATED, 'en')}`}
   />
   <div class="prose mt-8">
     <p>
@@ -69,8 +70,8 @@ import { LEGAL_UPDATED } from '@/lib/contact';
     <h2>What never changes</h2>
     <ul>
       <li>
-        No fake ratings, download counts, user counts or reviews — ratings and download counts come only from
-        real users.
+        Ratings, download counts and reviews come only from real users; where there is no data, the field
+        stays empty.
       </li>
       <li>Third-party software links go only to official channels; we never host or repackage installers.</li>
       <li>Test setups, versions and last-checked dates stay on every review.</li>

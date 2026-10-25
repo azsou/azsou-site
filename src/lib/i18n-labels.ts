@@ -8,7 +8,7 @@ import type { VideoCategory } from './videos';
 export const EN_SITE = {
   title: 'AZ Studio · Indie apps, AI tools and dev notes',
   description:
-    'A personal developer site: indie apps, curated AI tools, videos, games and original articles. Real projects, version history and last-checked dates — no fake ratings or download counts.',
+    'A personal developer site: indie apps, curated AI tools, videos, games and original articles. Real projects with version history and last-checked dates.',
 } as const;
 
 export const EN_NAV = [
@@ -25,7 +25,7 @@ export const EN_FOOTER = [
     title: 'Explore',
     links: [
       { href: '/en/apps/', label: 'Apps' },
-      { href: '/en/ai/', label: 'AI tools' },
+      { href: '/en/ai/', label: 'AI Tools' },
       { href: '/en/videos/', label: 'Videos' },
       { href: '/en/games/', label: 'Games & demos' },
       { href: '/en/articles/', label: 'Articles (Chinese)' },
@@ -49,7 +49,6 @@ export const EN_FOOTER = [
       { href: '/en/cookies/', label: 'Cookie policy' },
       { href: '/en/cookies/#choices', label: 'Cookie settings' },
       { href: '/en/ad-disclosure/', label: 'Ad & affiliate disclosure' },
-      { href: '/', label: '中文版' },
     ],
   },
 ];

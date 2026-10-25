@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import { artSrc } from '@/lib/art';
 import Base from '@/layouts/Base.astro';
 import Art from '@/components/Art.astro';
@@ -57,7 +58,7 @@ const description = excerpt(bodyHtml, 110);
       <span>版本 {d.version}</span>
       <span>{d.status}</span>
       <span>
-        最后核对 <time datetime={d.date}>{d.date}</time>
+        最后核对 <time datetime={d.date}>{formatDate(d.date)}</time>
       </span>
     </div>
   </header>
@@ -74,7 +75,7 @@ const description = excerpt(bodyHtml, 110);
         <ol class="timeline mt-4">
           {d.log.map((l) => (
             <li>
-              <time datetime={l.date}>{l.date}</time> <b>{l.version}</b>
+              <time datetime={l.date}>{formatDate(l.date)}</time> <b>{l.version}</b>
               <p>{l.note}</p>
             </li>
           ))}
@@ -107,7 +108,7 @@ const description = excerpt(bodyHtml, 110);
           {d.facts.map((f) => (
             <>
               <dt>{f.label}</dt>
-              <dd>{f.value}</dd>
+              <dd>{formatDate(f.value)}</dd>
             </>
           ))}
         </dl>

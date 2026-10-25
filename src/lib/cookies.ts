@@ -33,7 +33,7 @@ export const STORAGE_ITEMS: StorageItem[] = [
     kind: 'necessary',
     where: { zh: '本站 · Cookie（仅 /api/cms/）', en: 'This site · cookie (/api/cms/ only)' },
     purpose: {
-      zh: '内容后台 GitHub 授权的防伪造校验，只有站长会用到',
+      zh: '内容后台 GitHub 授权的防伪造校验，只有作者会用到',
       en: 'CSRF check for the owner-only CMS GitHub sign-in',
     },
     lifetime: { zh: '10 分钟', en: '10 minutes' },
@@ -46,7 +46,7 @@ export const STORAGE_ITEMS: StorageItem[] = [
     lifetime: { zh: '关闭标签页时删除（最长 5 分钟）', en: 'Until the tab closes (max 5 minutes)' },
   },
   {
-    name: 'Service Worker 缓存 / Cache Storage',
+    name: 'Service Worker cache / Cache Storage',
     kind: 'necessary',
     where: { zh: '本站 · Cache Storage', en: 'This site · Cache Storage' },
     purpose: { zh: '离线时也能打开看过的页面', en: 'Lets pages you visited open offline' },
@@ -103,7 +103,7 @@ export const STORAGE_ITEMS: StorageItem[] = [
     lifetime: { zh: '最长 13 个月', en: 'Up to 13 months' },
   },
   {
-    name: 'IDE, test_cookie 等',
+    name: 'IDE, test_cookie …',
     kind: 'ads',
     where: { zh: 'doubleclick.net / google.com（第三方）', en: 'doubleclick.net / google.com (third party)' },
     purpose: { zh: 'Google 个性化广告与广告衡量', en: 'Google personalised ads and measurement' },

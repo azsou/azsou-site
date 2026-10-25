@@ -272,7 +272,7 @@ community.describe('T7.4 友链（真实数据库）', () => {
       await expect(page.locator('[data-error-for="url"]')).toContainText('https');
       await page.getByLabel('网址').fill(`https://${host}/`);
       await page.getByLabel('一句话简介（可选）').fill('写独立游戏');
-      await page.getByLabel('联系方式（可选，仅站长可见）').fill('owner@example.org');
+      await page.getByLabel('联系方式（可选，仅作者可见）').fill('owner@example.org');
       await expect(page.locator('.fake-turnstile')).toBeVisible();
       await page.getByRole('button', { name: '提交申请' }).click();
       await expect(page.locator('[data-form-status]')).toContainText('申请已提交');

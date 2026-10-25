@@ -36,7 +36,7 @@ base.describe('T7.6 中英双语', () => {
     await expect(page.locator('h1')).toHaveText('Indie apps, AI tools and dev notes');
     await expect(page.locator('.skip-link')).toHaveText('Skip to content');
     await expect(page.locator('[data-lang-switch]')).toHaveAttribute('href', '/');
-    // 文章只有中文：如实标注
+    // 文章只有中文：英文首页只给入口，不列中文标题
     await expect(page.locator('section[aria-labelledby="h-articles"] .badge').first()).toHaveText(
       'Chinese only',
     );

@@ -50,4 +50,4 @@
 <p>Playwright MCP 把成熟的浏览器自动化库 Playwright 包装成 MCP 服务器。和截图后让模型「看图点击」的方式不同，它把页面转换成无障碍树快照交给 AI，元素定位更稳定、消耗的 token 也更少，不依赖视觉模型。</p>
 <p>配置到 Claude、Cursor、Cline、Codex 等客户端后，AI 就能替你打开网页、登录测试账号、填写表单、抓取信息或复现 Bug；对前端开发者来说，它还可以边操作边生成 Playwright 测试脚本。支持 Chromium、Firefox 和 WebKit，可无头运行。</p>
 <p>免费开源（Apache-2.0）。让 AI 控制浏览器存在误操作风险，建议使用独立的浏览器配置文件，不要让它接触真实支付或重要账号。</p>
-<p class="muted">信息核对于 2026-10-25，价格、额度与平台支持以 <a href="https://github.com/microsoft/playwright-mcp" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>
+<p class="muted">信息核对于 2026年10月25日，价格、额度与平台支持以 <a href="https://github.com/microsoft/playwright-mcp" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>

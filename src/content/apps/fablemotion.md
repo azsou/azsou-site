@@ -26,14 +26,14 @@
       "os": "web",
       "version": "S3 Candidate",
       "linkType": "official",
-      "requirements": "Chrome / Edge（作者测试环境）",
+      "requirements": "Chrome / Edge（已测试）",
       "availability": "coming-soon"
     },
     {
       "os": "windows",
       "version": "S3 Candidate",
       "linkType": "official",
-      "requirements": "Windows 11（作者测试环境：Win11 Chrome / Edge）",
+      "requirements": "Windows 11（已测试：Win11 Chrome / Edge）",
       "availability": "coming-soon"
     }
   ],
@@ -99,7 +99,7 @@
   "faq": [
     {
       "q": "支持哪些平台？",
-      "a": "目前面向网页版与 Windows，作者的测试环境是 Win11 上的 Chrome / Edge。"
+      "a": "目前面向网页版与 Windows，已在 Win11 上的 Chrome / Edge 测试。"
     },
     {
       "q": "可以在手机上编辑吗？",
@@ -137,7 +137,7 @@
     {
       "label": "发布状态",
       "value": "候选",
-      "note": "不使用虚假“安全认证”徽章"
+      "note": "不使用虚假「安全认证」徽章"
     }
   ],
   "issues": "真实媒体导出、复杂时间轴压力测试和移动端编辑仍需继续验证。所有状态以实际测试记录为准。",

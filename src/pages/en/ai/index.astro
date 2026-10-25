@@ -52,7 +52,7 @@ const groups = AI_CATEGORY_IDS.map((c) => ({
             href={`/en/ai/${t.id}/`}
             title={title(t)}
             subtitle={t.data.en!.subtitle ?? t.data.subtitle}
-            meta={`${EN_PRICE[t.data.price.model]} · ${t.data.developer.name}`}
+            meta={`${EN_PRICE[t.data.price.model]} · ${t.data.developer.en ?? t.data.developer.name}`}
             icon={t.data.icon}
             hue={toolHue(t.data)}
           />

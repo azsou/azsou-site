@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import GeoIcon from '@/components/GeoIcon.astro';
 /**
  * 首页（T6.8）：应用商店 + 内容门户。只用内容集合里的真实数据：
@@ -146,8 +147,8 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
         <span>一站找到</span>
       </h1>
       <p class="hero__lede">
-        自研应用与 {tools.length} 个 AI 工具的官方入口，加上可玩的游戏
-        Demo、开发文章和精选视频。每一项都写明版本、来源与最后核对日期——不伪造评分、下载量和用户数。
+        AZ Studio 出品的应用、{tools.length} 个 AI 工具的官方入口，还有可玩的游戏
+        Demo、开发文章和精选视频。每一项都写明版本与最后核对日期。
       </p>
       <form class="home-search" action={url.search()} method="get" role="search" aria-label="站内搜索">
         <label class="visually-hidden" for="home-q">
@@ -216,7 +217,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
   </section>
 
   {show.has('featured') && (
-    <HomeSection id="featured" title="编辑精选" note="站长挑选的自研应用与 AI 工具" row="feature">
+    <HomeSection id="featured" title="编辑精选" note="作者挑选的应用与 AI 工具" row="feature">
       {featured.map((f) => (
         <li>
           <FeatureCard item={f} eager />
@@ -228,9 +229,9 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
   {show.has('apps') && (
     <HomeSection
       id="apps"
-      title="AZ Studio 自研应用"
-      note={`${ownApps.length} 个应用 · 按站长排序`}
-      more={{ href: url.apps(), label: '应用商店' }}
+      title="AZ Studio 出品"
+      note={`${ownApps.length} 个应用 · 按作者排序`}
+      more={{ href: url.apps(), label: '全部应用' }}
       row="tile"
     >
       {ownApps.map((a) => (
@@ -258,7 +259,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
             slug={a.id}
             title={a.data.title}
             subtitle={a.data.tagline}
-            meta={`${a.data.releaseDate} 上架 · ${CATEGORIES[a.data.category]}`}
+            meta={`${formatDate(a.data.releaseDate)} 上架 · ${CATEGORIES[a.data.category]}`}
             href={url.app(a.id)}
             icon={a.data.icon}
             hue={a.data.hue}
@@ -272,7 +273,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
     <HomeSection
       id="ai"
       title="AI 工具"
-      note="按编辑推荐顺序 · 本站暂无足够的真实下载数据，不做热度排行"
+      note="按编辑推荐顺序"
       more={{ href: url.ai(), label: `全部 ${tools.length} 个` }}
       row="grid3"
     >
@@ -316,7 +317,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
               </span>
             </span>
             <time class="update-row__date" datetime={u.date}>
-              {u.date}
+              {formatDate(u.date)}
             </time>
           </li>
         ))}
@@ -325,7 +326,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
   )}
 
   {show.has('categories') && (
-    <HomeSection id="categories" title="分类浏览" note="应用分类与 AI 工具分类，数量为实际收录数">
+    <HomeSection id="categories" title="分类浏览" note="应用分类与 AI 工具分类">
       <ul class="cat-grid" role="list">
         {cats.map((c) => (
           <li class="cat-tile" data-cat={`${c.kind}:${c.id}`}>
@@ -417,7 +418,8 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
                 </span>
               </span>
               <span class="list-row__aside">
-                {t.pinned && <span class="badge">置顶</span>} <time datetime={t.date}>{t.date}</time>
+                {t.pinned && <span class="badge">置顶</span>}{' '}
+                <time datetime={t.date}>{formatDate(t.date)}</time>
               </span>
             </a>
           </li>
@@ -430,8 +432,8 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
     <section class="home-strip" aria-labelledby="h-about" data-section="about">
       <h2 id="h-about">关于作者</h2>
       <p>
-        {SITE.author.name}，独立开发者，AZ Studio 的作者与维护者。站内的自研应用、游戏 Demo
-        和文章都来自正在做的真实项目。
+        {SITE.author.name}，独立开发者，AZ Studio 的作者与维护者。站内的应用、游戏 Demo
+        和文章都来自他正在做的项目。
       </p>
       <p class="btn-row">
         <a class="btn" href="/about/">

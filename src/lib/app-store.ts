@@ -36,7 +36,7 @@ export type LinkType = (typeof LINK_TYPES)[number];
 export const LINK_TYPE_LABEL: Record<LinkType, string> = {
   direct: '直接下载',
   official: '官方网站',
-  store: '应用商店',
+  store: '官方商店',
   github: 'GitHub Release',
   web: '在线使用',
 };

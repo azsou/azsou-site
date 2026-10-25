@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import '@/styles/community.css';
 import Base from '@/layouts/Base.astro';
 import { forum, type ForumSeed } from '@/lib/content';
@@ -41,8 +42,8 @@ const path = url.forumThread(t.id);
       <h1>{t.title}</h1>
       <div class="article-meta">
         <span>{t.author}</span>
-        {t.site && <span class="badge">站长</span>}
-        <time datetime={t.date}>{t.date}</time>
+        {t.site && <span class="badge">作者</span>}
+        <time datetime={t.date}>{formatDate(t.date)}</time>
       </div>
     </header>
     <div class="panel prose" set:html={textToHtml(t.body)} />
@@ -63,8 +64,8 @@ const path = url.forumThread(t.id);
             <div>
               <div class="comment__head">
                 <b>{r.author}</b>
-                {r.site && <span class="badge">站长</span>}
-                <time datetime={r.date}>{r.date}</time>
+                {r.site && <span class="badge">作者</span>}
+                <time datetime={r.date}>{formatDate(r.date)}</time>
               </div>
               <div class="comment__body" set:html={textToHtml(r.body)} />
             </div>

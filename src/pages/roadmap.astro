@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 const v2 = [
@@ -78,7 +79,7 @@ const products = [
     <ul class="list-group mt-4" role="list">
       {products.map((p) => (
         <li class="list-row">
-          <span class="list-row__aside">{p.date}</span>
+          <span class="list-row__aside">{formatDate(p.date)}</span>
           <span class="list-row__main">
             <span class="list-row__title">{p.title}</span>
             <br />

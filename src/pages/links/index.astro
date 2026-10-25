@@ -22,7 +22,7 @@ import { SOCIAL } from '@/lib/social';
   <PageHead
     eyebrow="社区"
     title="友情链接"
-    lede="作者的账号，以及互相推荐的独立站点。欢迎在下方申请友链，站长审核通过后会出现在这里。"
+    lede="作者的账号，以及互相推荐的独立站点。欢迎在下方申请友链，作者审核通过后会出现在这里。"
   />
   {SOCIAL.length > 0 && (
     <section class="section" aria-labelledby="h-me">
@@ -48,7 +48,7 @@ import { SOCIAL } from '@/lib/social';
     <ul class="link-rules">
       <li>原创内容为主、可以正常访问、使用 https；</li>
       <li>不收录违法、博彩、成人、采集站与纯广告站；</li>
-      <li>审核通常在一周内完成，通过后会出现在上方列表。联系方式只有站长能看到。</li>
+      <li>审核通常在一周内完成，通过后会出现在上方列表。联系方式只有作者能看到。</li>
     </ul>
     <form class="form" data-link-form novalidate>
       <div class="field">
@@ -75,7 +75,7 @@ import { SOCIAL } from '@/lib/social';
         <p class="field__error" data-error-for="description"></p>
       </div>
       <div class="field">
-        <label for="ln-contact">联系方式（可选，仅站长可见）</label>
+        <label for="ln-contact">联系方式（可选，仅作者可见）</label>
         <input
           id="ln-contact"
           name="contact"

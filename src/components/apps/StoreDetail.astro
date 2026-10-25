@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 /**
  * App Store 式详情页主体（/apps/<slug>/ 自研应用与 /ai/<slug>/ 第三方 AI 工具共用）。
  * 头部（图标 + 名称 + 开发者 + 下载按钮）、统计条、截图、介绍、新功能、评价、信息表、隐私、版本历史、FAQ、相关条目、评论。
@@ -43,7 +44,7 @@ const shotsIllustrative = d.screenshots.some((s) => s.illustrative);
 const pageKey = `${kind === 'app' ? 'project' : 'tool'}:${slug}`;
 const commentsId = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 const version = d.version ?? '随官方更新';
-const versionSub = d.updated ?? (tool ? `核对 ${tool.lastChecked}` : '　');
+const versionSub = d.updated ? formatDate(d.updated) : tool ? `核对于 ${formatDate(tool.lastChecked)}` : '　';
 const unavailable = (p: (typeof d.platforms)[number]) =>
   p.availability === 'coming-soon' ? '即将推出' : '暂未提供';
 const hint = usable.length
@@ -66,7 +67,7 @@ const hint = usable.length
       <p class="app-hero__subtitle">{d.subtitle}</p>
       <p class="app-hero__dev">
         {devLink ? <a href={devLink}>{d.developer.name}</a> : <span>{d.developer.name}</span>}
-        {third ? <span class="badge">第三方开发者</span> : <span class="badge">本站作者</span>}
+        {third ? <span class="badge">第三方开发者</span> : <span class="badge">AZ Studio 出品</span>}
         {app && <Status cls={app.statusClass} text={app.status} />}
       </p>
       <div class="app-downloads" data-downloads>
@@ -135,7 +136,7 @@ const hint = usable.length
         <span class="app-stat__value" data-downloads-total>
           —
         </span>
-        <span class="app-stat__sub">真实计数</span>
+        <span class="app-stat__sub">累计</span>
       </dd>
     </div>
     <div class="app-stat">
@@ -165,7 +166,7 @@ const hint = usable.length
 
   {app?.ownerReview && (
     <p class="notice mt-6" role="note">
-      本页根据 V72「应用目录」的已有信息整理，只收录已经核实的内容；真实截图与下载地址公布后会在这里更新。
+      截图与下载地址公布后会在这里更新。
     </p>
   )}
 
@@ -173,13 +174,11 @@ const hint = usable.length
     <section class="section" aria-labelledby="h-shots">
       <div class="section__head">
         <h2 id="h-shots">截图</h2>
-        {shotsIllustrative && <span class="badge badge--warn">概念图 · 非真实截图</span>}
+        {shotsIllustrative && <span class="badge badge--warn">概念图</span>}
       </div>
       <Screenshots title={d.title} shots={d.screenshots} />
       {shotsIllustrative && (
-        <p class="muted mt-2 shots__caption">
-          以上为界面概念图，用于说明功能方向，不代表最终界面；真实截图会在作者提供后替换。
-        </p>
+        <p class="muted mt-2 shots__caption">界面概念图，展示功能方向，最终界面以发布版为准。</p>
       )}
     </section>
   )}
@@ -199,7 +198,7 @@ const hint = usable.length
       </div>
       <div class="panel whats-new">
         <p class="whats-new__head">
-          <b>{latest.version}</b> <time datetime={latest.date}>{latest.date}</time>
+          <b>{latest.version}</b> <time datetime={latest.date}>{formatDate(latest.date)}</time>
         </p>
         <ul>
           {latest.notes.map((n) => (
@@ -219,7 +218,7 @@ const hint = usable.length
         <dt>开发者</dt>
         <dd>
           {devLink ? <a href={devLink}>{d.developer.name}</a> : d.developer.name}
-          {third ? '（第三方）' : '（本站作者）'}
+          {third ? '（第三方）' : ''}
         </dd>
       </div>
       <div>
@@ -309,21 +308,21 @@ const hint = usable.length
         <div>
           <dt>首次发布</dt>
           <dd>
-            <time datetime={app.releaseDate}>{app.releaseDate}</time>
+            <time datetime={app.releaseDate}>{formatDate(app.releaseDate)}</time>
           </dd>
         </div>
       )}
       {!third && (
         <div>
           <dt>最近更新</dt>
-          <dd>{d.updated ? <time datetime={d.updated}>{d.updated}</time> : '暂无记录'}</dd>
+          <dd>{d.updated ? <time datetime={d.updated}>{formatDate(d.updated)}</time> : '暂无记录'}</dd>
         </div>
       )}
       {d.lastChecked && (
         <div>
           <dt>最后核对</dt>
           <dd>
-            <time datetime={d.lastChecked}>{d.lastChecked}</time>
+            <time datetime={d.lastChecked}>{formatDate(d.lastChecked)}</time>
           </dd>
         </div>
       )}
@@ -378,7 +377,7 @@ const hint = usable.length
       <ol class="timeline mt-4">
         {d.changelog.map((c) => (
           <li>
-            <time datetime={c.date}>{c.date}</time> <b>{c.version}</b>
+            <time datetime={c.date}>{formatDate(c.date)}</time> <b>{c.version}</b>
             {c.notes.map((n) => (
               <p>{n}</p>
             ))}

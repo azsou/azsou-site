@@ -61,11 +61,11 @@ test.describe('应用详情页', () => {
     const icon = page.locator('.app-hero .app-icon-img');
     await expect(icon).toHaveAttribute(
       'srcset',
-      /fablemotion-128\.webp 1x, \/apps\/icons\/fablemotion-256\.webp 2x/,
+      /fablemotion-112\.webp 1x, \/apps\/icons\/n\/fablemotion-224\.webp 2x/,
     );
     await expect(page.locator('.app-hero source[type="image/avif"]')).toHaveAttribute(
       'srcset',
-      /fablemotion-256\.avif 2x/,
+      /fablemotion-224\.avif 2x/,
     );
     expect(await icon.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(page.locator('.app-hero__icon-note')).toHaveCount(0);
@@ -115,7 +115,7 @@ test.describe('应用详情页', () => {
     page,
   }) => {
     await page.goto('/apps/fablemotion/');
-    await expect(page.locator('.section__head .badge--warn')).toHaveText('概念图 · 非真实截图');
+    await expect(page.locator('.section__head .badge--warn')).toHaveText('概念图');
     await expect(page.locator('.shots__caption')).toContainText('概念图');
     const imgs = page.locator('[data-shot] img');
     for (const alt of await imgs.evaluateAll((els) => els.map((e) => e.getAttribute('alt') ?? '')))
@@ -197,7 +197,7 @@ test.describe('应用详情页', () => {
 test.describe('应用目录', () => {
   test('静态分页：第 1 页 6 个，第 2 页其余；分页链接可用', async ({ page }) => {
     await page.goto('/apps/');
-    await expect(page.locator('h1')).toHaveText('应用商店');
+    await expect(page.locator('h1')).toHaveText('应用');
     await expect(cards(page)).toHaveCount(6);
     await expect(page.locator('[data-catalog-status]')).toContainText('第 1 / 2 页');
     await page.locator('[data-catalog-pages]').getByRole('link', { name: '下一页' }).click();

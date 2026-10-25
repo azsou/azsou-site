@@ -53,7 +53,7 @@ const description = `${title}: ${en.summary} Platforms: ${oses.map((o) => EN_PLA
       price: d.price,
       dateModified: d.lastChecked,
       codeRepository: d.sourceRepo,
-      developer: { name: d.developer.name, url: d.developer.url },
+      developer: { name: d.developer.en ?? d.developer.name, url: d.developer.url },
       inLanguage: 'en',
     }),
   ]}
@@ -65,7 +65,7 @@ const description = `${title}: ${en.summary} Platforms: ${oses.map((o) => EN_PLA
     summary={en.summary}
     icon={d.icon}
     hue={toolHue(d)}
-    developer={d.developer}
+    developer={{ ...d.developer, name: d.developer.en ?? d.developer.name }}
     categoryLabel={d.categories.map((c) => EN_AI_CATEGORY[c]).join(' · ')}
     platforms={d.platforms}
     price={d.price}

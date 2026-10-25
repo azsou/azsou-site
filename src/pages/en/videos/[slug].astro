@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 /**
  * 英文版视频详情（T7.6）：本地缩略图 + 「在 YouTube 观看」链接（点击前不向视频平台发请求）+ 英文简介；
  * 中文导读、章节与讨论在中文页面。
@@ -72,7 +73,7 @@ const provider = PROVIDER_LABEL[d.provider];
         {date && (
           <>
             {' · '}
-            <time datetime={d.published}>{date}</time>
+            <time datetime={d.published}>{formatDate(date, 'en')}</time>
           </>
         )}
         {d.duration && ` · ${d.duration}`}

@@ -40,15 +40,15 @@ describe('P8 默认构建：广告与统计关闭', () => {
 
 describe('T8.2 法律与说明页', () => {
   const pages = [
-    ['/privacy/', '最后更新：2026-10-25'],
-    ['/cookies/', '最后更新：2026-10-25'],
-    ['/ad-disclosure/', '最后更新：2026-10-25'],
-    ['/terms/', '最后更新：2026-10-25'],
+    ['/privacy/', '最后更新：2026年10月25日'],
+    ['/cookies/', '最后更新：2026年10月25日'],
+    ['/ad-disclosure/', '最后更新：2026年10月25日'],
+    ['/terms/', '最后更新：2026年10月25日'],
     ['/about/', 'Randy Hopkins'],
     ['/contact/', '隐私与数据请求'],
-    ['/en/privacy/', 'Last updated: 2026-10-25'],
-    ['/en/cookies/', 'Last updated: 2026-10-25'],
-    ['/en/ad-disclosure/', 'Last updated: 2026-10-25'],
+    ['/en/privacy/', 'Last updated: Oct 25, 2026'],
+    ['/en/cookies/', 'Last updated: Oct 25, 2026'],
+    ['/en/ad-disclosure/', 'Last updated: Oct 25, 2026'],
     ['/en/about/', 'Randy Hopkins'],
     ['/en/contact/', 'Privacy and data requests'],
   ];

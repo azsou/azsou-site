@@ -42,7 +42,7 @@ const MESSAGES: Record<string, string> = {
   over_request_rate_limit: '请求太频繁，请稍后再试。',
   captcha_failed: '人机验证没有通过，请重试。',
   turnstile_failed: '人机验证没有通过，请重试。',
-  turnstile_not_configured: '人机验证尚未配置，暂时无法注册，请联系站长。',
+  turnstile_not_configured: '人机验证尚未配置，暂时无法注册，请联系作者。',
   signup_disabled: '暂未开放注册。',
   registration_closed: '本站暂时关闭了新用户注册。',
   email_provider_disabled: '暂未开放邮箱注册。',

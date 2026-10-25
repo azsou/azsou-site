@@ -262,6 +262,7 @@ collections:
         fields:
           - { name: name, label: 名称, widget: string }
           - { name: short, label: 卡片短名（≤ 12 字，全称更长时必填）, widget: string, required: false }
+          - { name: en, label: 英文名（全称含中文时必填，英文页显示）, widget: string, required: false }
           - { name: url, label: 官网（https）, widget: string }
           - { name: type, label: 类型, widget: hidden, default: third-party }
       - {

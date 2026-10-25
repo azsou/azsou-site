@@ -51,4 +51,4 @@
 <p>Codex CLI 是 OpenAI 的开源终端智能体，用 Rust 编写，安装后在项目目录里输入 codex 即可开始。它能解释陌生代码、按要求重构、运行本地测试，也内置了对未提交改动或某个提交做审查的模式，输出按严重程度排序的问题清单。</p>
 <p>它的权限模型比较细：可以选择只读、需要确认后才写文件，或在沙箱里自动执行；`codex exec` 适合放进脚本和 CI。和 Claude Code 类似，它支持 AGENTS.md 项目说明、技能与插件、MCP 服务器，也能把任务交给云端继续跑。</p>
 <p>Codex 随 ChatGPT 各档套餐提供，额度按套餐而定；也可以改用 API Key 按 token 计费。源码以 Apache-2.0 开放，适合想审计或二次开发的团队。</p>
-<p class="muted">信息核对于 2026-10-25，价格、额度与平台支持以 <a href="https://learn.chatgpt.com/docs/codex/cli" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>
+<p class="muted">信息核对于 2026年10月25日，价格、额度与平台支持以 <a href="https://learn.chatgpt.com/docs/codex/cli" rel="noopener">官方网站</a> 为准。图标版权归各自所有者。</p>

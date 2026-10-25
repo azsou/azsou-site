@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 /** 英文版视频列表（T7.6）：官方频道视频，标题用平台原标题；不显示播放量 */
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
@@ -51,7 +52,7 @@ const groups = VIDEO_CATEGORY_IDS.map((c) => ({
             title={v.data.originalTitle}
             channel={v.data.channel.name}
             duration={v.data.duration}
-            meta={v.data.published ? publishedDate(v.data.published) : ''}
+            meta={v.data.published ? formatDate(publishedDate(v.data.published), 'en') : ''}
           />
         ))}
       </div>

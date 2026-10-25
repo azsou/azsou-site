@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import '@/styles/community.css';
 import seedsData from '@/data/comment-seeds.json';
 import { initials } from '@/scripts/render';
@@ -39,8 +40,8 @@ const id = `discussion-${pageKey.replace(/[^a-z0-9]+/gi, '-')}`;
         <div>
           <div class="comment__head">
             <b>{c.author}</b>
-            {c.site && <span class="badge">站长</span>}
-            <time datetime={c.date}>{c.date}</time>
+            {c.site && <span class="badge">作者</span>}
+            <time datetime={c.date}>{formatDate(c.date)}</time>
           </div>
           <div class="comment__body" set:html={textToHtml(c.body)} />
         </div>

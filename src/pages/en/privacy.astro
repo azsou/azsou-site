@@ -1,4 +1,5 @@
 ---
+import { formatDate } from '@/lib/dates';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
 import { contactEmail, GITHUB_ISSUES, LEGAL_UPDATED } from '@/lib/contact';
@@ -16,7 +17,11 @@ const gaOn = !!ga4Id(import.meta.env);
     { name: 'Privacy policy', path: '/en/privacy/' },
   ]}
 >
-  <PageHead eyebrow="Site & legal" title="Privacy policy" lede={`Last updated: ${LEGAL_UPDATED}`} />
+  <PageHead
+    eyebrow="Site & legal"
+    title="Privacy policy"
+    lede={`Last updated: ${formatDate(LEGAL_UPDATED, 'en')}`}
+  />
   <div class="prose mt-8">
     <p>
       This policy explains how azsou.com (“AZ Studio”, “we”), a personal developer site run by Randy Hopkins,
