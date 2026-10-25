@@ -209,7 +209,7 @@ AI 工具是另一个内容集合：`src/content/tools/<slug>.md`，网址 `http
 
 ```bash
 node scripts/videos/sync.mjs          # oEmbed 核对（仍存在、可嵌入、标题 / 频道一致）+ 生成缺失的缩略图
-node scripts/videos/sync.mjs --check-only   # 只核对（每周内容检查用，T9.2）
+node scripts/videos/sync.mjs --check-only   # 只核对（每周内容检查用，T10.2）
 ```
 
 缩略图生成到 `public/videos/thumbs/<slug>-{480,960}.{avif,webp}`（16:9）。页面只用本地文件，不热链平台图片。
