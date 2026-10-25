@@ -8,6 +8,7 @@ import { excerpt } from '@/lib/escape';
 export async function GET(context: APIContext) {
   const articles = await getArticles();
   return rss({
+    stylesheet: '/rss.xsl',
     title: 'AZ Studio · 原创技术文章',
     description: '真实项目、版本记录与可复现结论',
     site: context.site!,

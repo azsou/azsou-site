@@ -7,6 +7,7 @@ import { appItem, sortFeed } from '@/lib/feeds';
 export async function GET(context: APIContext) {
   const apps = (await getApps()).filter((a) => !a.id.startsWith('e2e-'));
   return rss({
+    stylesheet: '/rss.xsl',
     title: 'AZ Studio · 应用更新',
     description: '本站应用的版本与更新记录',
     site: context.site!,

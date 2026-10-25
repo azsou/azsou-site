@@ -7,6 +7,7 @@ import { enItems } from '@/lib/feeds';
 export async function GET(context: APIContext) {
   const [apps, tools, videos, games] = await Promise.all([getApps(), getTools(), getVideos(), getGames()]);
   return rss({
+    stylesheet: '/rss.xsl',
     title: 'AZ Studio (English)',
     description: 'Apps, AI tools, videos and games from AZ Studio, in English',
     site: context.site!,

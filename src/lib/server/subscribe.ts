@@ -7,6 +7,7 @@
  *   5. subscribe_request() 返回 send = true 时发确认信（含确认与退订链接）；已订阅 / 10 分钟内发过的不再发
  *   6. 对访客的回答永远是「请查收确认邮件」，不透露这个邮箱是否已订阅
  */
+import { renderEmail } from '@/lib/email-template';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import {
   checkSubscribe,
@@ -77,11 +78,12 @@ export function confirmationMail(o: {
 }): Mail {
   const confirmUrl = `${o.origin}${confirmPath(o.lang)}#token=${o.confirm}`;
   const unsubUrl = `${o.origin}${unsubscribePath(o.lang)}#token=${o.unsub}`;
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const oneClick = `${o.origin}/api/unsubscribe?token=${o.unsub}`;
   const t =
     o.lang === 'en'
       ? {
           subject: 'Confirm your AZ Studio subscription',
+          preheader: 'One click to confirm — the link is valid for 48 hours.',
           hi: 'Someone (hopefully you) asked to receive AZ Studio updates at this address.',
           cta: 'Confirm subscription',
           expires:
@@ -90,6 +92,7 @@ export function confirmationMail(o: {
         }
       : {
           subject: '请确认订阅 AZ Studio 更新',
+          preheader: '点一下按钮确认订阅，链接 48 小时内有效。',
           hi: '有人（希望是你）用这个邮箱订阅了 AZ Studio 的更新。',
           cta: '确认订阅',
           expires: '链接 48 小时内有效。如果不是你本人操作，忽略这封邮件即可，之后不会再收到任何邮件。',
@@ -99,8 +102,20 @@ export function confirmationMail(o: {
     to: o.email,
     subject: t.subject,
     text: `${t.hi}\n\n${t.cta}: ${confirmUrl}\n\n${t.expires}\n\n${t.unsub}: ${unsubUrl}\n`,
-    html: `<p>${esc(t.hi)}</p><p><a href="${esc(confirmUrl)}">${esc(t.cta)}</a></p><p>${esc(t.expires)}</p><p style="color:#6e6e73;font-size:13px"><a href="${esc(unsubUrl)}">${esc(t.unsub)}</a></p>`,
-    headers: { 'List-Unsubscribe': `<${unsubUrl}>` },
+    html: renderEmail({
+      lang: o.lang,
+      preheader: t.preheader,
+      title: t.subject,
+      paragraphs: [t.hi],
+      cta: { label: t.cta, url: confirmUrl },
+      footnote: t.expires,
+      unsubscribe: { label: t.unsub, url: unsubUrl },
+    }),
+    // RFC 8058 一键退订：邮箱客户端直接 POST 到 /api/unsubscribe（令牌在查询串里），另附网页退订地址
+    headers: {
+      'List-Unsubscribe': `<${oneClick}>, <${unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   };
 }
 
@@ -204,4 +219,31 @@ export async function handleSubscribe(
     }
   }
   return json(200, { ok: true, status: 'check_inbox', msg: m.ok });
+}
+
+/**
+ * RFC 8058 一键退订（T9.15）：POST /api/unsubscribe?token=…，正文 List-Unsubscribe=One-Click。
+ * 调数据库 subscribe_unsubscribe（与网页退订同一个 RPC）；令牌无效也回 200（不泄露邮箱是否存在）。
+ */
+export async function handleOneClickUnsubscribe(
+  request: Request,
+  env: { PUBLIC_SUPABASE_URL?: string; PUBLIC_SUPABASE_KEY?: string },
+  deps: { defaults: { url: string; key: string }; fetch?: typeof fetch },
+): Promise<Response> {
+  if (request.method !== 'POST') return json(405, { error_code: 'method' });
+  const token = new URL(request.url).searchParams.get('token') ?? '';
+  if (!/^[a-f0-9]{64}$/.test(token)) return json(400, { error_code: 'invalid_token' });
+  const url = env.PUBLIC_SUPABASE_URL || deps.defaults.url;
+  const key = env.PUBLIC_SUPABASE_KEY || deps.defaults.key;
+  try {
+    const res = await (deps.fetch ?? fetch)(`${url}/rest/v1/rpc/subscribe_unsubscribe`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ p_token: token }),
+    });
+    if (!res.ok) return json(502, { error_code: 'upstream_error' });
+  } catch {
+    return json(502, { error_code: 'upstream_unavailable' });
+  }
+  return json(200, { ok: true });
 }

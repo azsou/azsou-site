@@ -32,6 +32,7 @@ export async function GET(context: APIContext) {
     })),
   ].sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
   return rss({
+    stylesheet: '/rss.xsl',
     title: 'AZ Studio · 全站更新',
     description: '真实项目、版本记录与可复现结论',
     site: context.site!,

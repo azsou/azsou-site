@@ -6,6 +6,7 @@ import { toDate } from '@/lib/dates';
 
 export function GET(context: APIContext) {
   return rss({
+    stylesheet: '/rss.xsl',
     title: 'AZ Studio · 论坛',
     description: '论坛公告与站点预置主题',
     site: context.site!,
