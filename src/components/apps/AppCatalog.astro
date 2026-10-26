@@ -145,8 +145,9 @@ const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
   </p>
 
   <div class="grid grid--wide" data-grid="row" data-catalog-grid>
+    {/* 单套筛选后 1440 首屏可见约 3 行：前 12 张图标 eager，只有前 6 张高优先级 */}
     {paged.items.map((a, i) => (
-      <AppCard item={a} headingLevel="h2" eager={i < 6} />
+      <AppCard item={a} headingLevel="h2" eager={i < 12} priority={i < 6} />
     ))}
   </div>
   {paged.items.length === 0 && <p class="empty-state">这里还没有应用。</p>}
