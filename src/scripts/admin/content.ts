@@ -40,7 +40,9 @@ function paintFilters() {
   input('hidden').value = state.hidden;
   input('reported').value = state.reported;
   document.querySelector<HTMLElement>('[data-cat-field]')!.hidden = state.type === 'comment';
-  document.querySelector<HTMLElement>('[data-col-where]')!.textContent =
+  // 表头可能已被数据表 2.0 包成排序按钮：只改文字，不冲掉按钮
+  const where = document.querySelector<HTMLElement>('[data-col-where]')!;
+  (where.querySelector<HTMLElement>('.th-sort__label') ?? where).textContent =
     state.type === 'comment' ? '页面' : state.type === 'reply' ? '所属主题' : '分类';
   document.querySelector<HTMLElement>('[data-caption]')!.textContent =
     `${TYPE_LABEL[state.type as ContentType]}列表`;

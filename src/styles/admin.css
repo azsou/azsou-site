@@ -468,6 +468,43 @@
   .data-table tbody tr:last-child > * {
     border-bottom: 0;
   }
+  /* 列排序（T10.17）：表头文字本身是按钮，箭头只在悬停 / 已排序时出现 */
+  .th-sort {
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    margin-inline: -4px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .th-sort:hover {
+    color: var(--c-label);
+  }
+  .th-sort__icon {
+    width: 0;
+    height: 0;
+    border-inline: 4px solid transparent;
+    border-block-start: 5px solid currentcolor;
+    opacity: 0;
+    transition: opacity var(--dur-fast);
+  }
+  .th-sort:hover .th-sort__icon,
+  th[aria-sort] .th-sort__icon {
+    opacity: 1;
+  }
+  th[aria-sort] .th-sort {
+    color: var(--c-label);
+  }
+  th[aria-sort='ascending'] .th-sort__icon {
+    transform: rotate(180deg);
+  }
   @media (hover: hover) and (pointer: fine) {
     .data-table tbody tr[data-row]:hover {
       background: color-mix(in srgb, var(--c-fill) 50%, transparent);

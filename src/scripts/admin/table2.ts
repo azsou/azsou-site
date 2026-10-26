@@ -3,7 +3,9 @@
  *  - 密度：标准 52 / 紧凑 40（记忆到 localStorage）；
  *  - 列管理：勾选显示 / 隐藏列（主列、复选、操作列不能隐藏），记忆；
  *  - 保存视图：当前筛选（URL 查询串）+ 隐藏列 + 密度存成命名视图，一键切换 / 删除（只存在本浏览器）；
- *  - 导出 CSV：导出当前页可见列（服务端分页：每页由各页面脚本向数据库按 offset / limit 拉取）。
+ *  - 导出 CSV：导出当前页可见列（服务端分页：每页由各页面脚本向数据库按 offset / limit 拉取）；
+ *  - 列排序：点表头切换 升序 / 降序 / 默认（th[aria-sort]，记忆）。现有后台 RPC（mod_list_*）没有排序参数，
+ *    所以只对当前页排序（每页仍按服务端默认顺序取数），不加迁移；表格重新渲染后自动重排。
  * 吸顶表头 + 固定首列 / 操作列由 admin.css 的 [data-table2] 规则完成（.table-wrap[data-scroll] 自己滚动）。
  * 无内联样式：隐藏列写成 table[data-hide="3 5"]，CSS 按列序号隐藏。
  */
@@ -17,9 +19,26 @@ export interface SavedView {
   hide: number[];
   density: Density;
 }
+export type SortDir = 'ascending' | 'descending';
 interface Prefs {
   hide: number[];
   density: Density;
+  sort?: { col: number; dir: SortDir } | null;
+}
+
+/** 单元格文本比较：都是数字（可带 , 与 %）按数值，像日期按时间，否则按中文拼音序；空值总在最后 */
+export function compareCells(a: string, b: string, dir: SortDir = 'ascending'): number {
+  const x = a.trim();
+  const y = b.trim();
+  if (!x || !y) return x === y ? 0 : x ? -1 : 1;
+  const num = (v: string) => (/^[-+]?[\d,]+(\.\d+)?%?$/.test(v) ? Number(v.replace(/[,%]/g, '')) : NaN);
+  const date = (v: string) =>
+    /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/.test(v) ? Date.parse(v.replace(/[/.]/g, '-')) : NaN;
+  let r: number;
+  if (!Number.isNaN(num(x)) && !Number.isNaN(num(y))) r = num(x) - num(y);
+  else if (!Number.isNaN(date(x)) && !Number.isNaN(date(y))) r = date(x) - date(y);
+  else r = x.localeCompare(y, 'zh-CN', { numeric: true });
+  return dir === 'ascending' ? r : -r;
 }
 
 const prefKey = (k: string) => `az-admin-table:${k}`;
@@ -122,7 +141,71 @@ export function enhanceTable(table: HTMLTableElement) {
   wrap.dataset.scroll = '';
   const prefs: Prefs = { hide: [], density: 'standard', ...readJson<Partial<Prefs>>(prefKey(key), {}) };
 
+  // 列排序（当前页）
+  const tbody = table.tBodies[0];
+  const sortable = columnsOf(table).filter(
+    (c) =>
+      !/^(选择|操作)$/.test(c.label) &&
+      c.label !== '' &&
+      !table.querySelector(`thead th:nth-child(${c.n}).col-check`),
+  );
+  let sorting = false;
+  let mo: MutationObserver | null = null;
+  const sortRows = () => {
+    if (!tbody || sorting) return;
+    const rows = [...tbody.rows].filter((r) => !r.querySelector('td[colspan]'));
+    if (rows.length < 2) return;
+    const sort = prefs.sort;
+    const keyed = rows.map((r, i) => ({ r, i, v: sort ? (r.cells[sort.col - 1]?.textContent ?? '') : '' }));
+    if (sort) keyed.sort((p, q) => compareCells(p.v, q.v, sort.dir) || p.i - q.i);
+    else keyed.sort((p, q) => Number(p.r.dataset.order ?? p.i) - Number(q.r.dataset.order ?? q.i));
+    if (keyed.every((k, i) => rows[i] === k.r)) return;
+    sorting = true;
+    tbody.append(...keyed.map((k) => k.r));
+    mo?.takeRecords(); // 丢掉自己这次重排产生的变动记录，免得观察者再触发一次
+    sorting = false;
+  };
+  const markOrder = () => {
+    if (!tbody || sorting) return;
+    [...tbody.rows].forEach((r, i) => {
+      if (r.dataset.order === undefined) r.dataset.order = String(i);
+    });
+  };
+  for (const c of sortable) {
+    const th = table.querySelector<HTMLTableCellElement>(`thead th:nth-child(${c.n})`);
+    if (!th) continue;
+    const btn = h('button', { type: 'button', class: 'th-sort', 'data-sort-col': String(c.n) });
+    const label = h('span', { class: 'th-sort__label' });
+    label.append(...th.childNodes);
+    btn.append(label, h('span', { class: 'th-sort__icon', 'aria-hidden': 'true' }));
+    th.append(btn);
+    btn.addEventListener('click', () => {
+      const cur = prefs.sort?.col === c.n ? prefs.sort.dir : null;
+      prefs.sort =
+        cur === null
+          ? { col: c.n, dir: 'ascending' }
+          : cur === 'ascending'
+            ? { col: c.n, dir: 'descending' }
+            : null;
+      apply();
+      sortRows();
+    });
+  }
+  if (tbody) {
+    mo = new MutationObserver(() => {
+      markOrder();
+      sortRows();
+    });
+    mo.observe(tbody, { childList: true });
+  }
+  markOrder();
+
   const apply = () => {
+    table.querySelectorAll<HTMLTableCellElement>('thead th').forEach((th, i) => {
+      if (!th.querySelector('.th-sort')) return;
+      if (prefs.sort?.col === i + 1) th.setAttribute('aria-sort', prefs.sort.dir);
+      else th.removeAttribute('aria-sort');
+    });
     table.dataset.density = prefs.density;
     const hide = prefs.hide.filter((n) => !columnsOf(table).find((c) => c.n === n)?.locked);
     if (hide.length) table.dataset.hide = hide.join(' ');
@@ -245,6 +328,7 @@ export function enhanceTable(table: HTMLTableElement) {
   );
   wrap.before(tools);
   apply();
+  sortRows();
 }
 
 export function enhanceTables(root: ParentNode = document) {
