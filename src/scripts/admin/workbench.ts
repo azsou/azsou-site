@@ -51,6 +51,9 @@ function initPalette() {
   const list = $<HTMLUListElement>('[data-palette-list]');
   const empty = $('[data-palette-empty]');
   if (!dlg || !input || !list) return;
+  // 与前台搜索面板一致：静态 HTML 保持 html-validate 友好，运行时再升级为 combobox
+  input.setAttribute('role', 'combobox');
+  input.setAttribute('aria-expanded', 'true');
   const staticItems = [...list.querySelectorAll<HTMLLIElement>('[data-palette-item]')];
   let active = -1;
 

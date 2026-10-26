@@ -10,7 +10,18 @@
     "doctype-style": "off",
     "no-redundant-role": "off",
     "long-title": "off",
-    "valid-id": ["error", { "relaxed": true }],
-    "unique-landmark": "off"
+    "valid-id": [
+      "error",
+      {
+        "relaxed": true
+      }
+    ],
+    "unique-landmark": "off",
+    "prefer-native-element": [
+      "error",
+      {
+        "exclude": ["listbox"]
+      }
+    ]
   }
 }
