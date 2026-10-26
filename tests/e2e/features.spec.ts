@@ -146,11 +146,18 @@ test.describe('导航与设计系统', () => {
       [...document.querySelectorAll<HTMLElement>('.site-nav a, .tabbar a, .btn, .site-footer a, .icon-btn')]
         // 精选卡里的「查看应用」是整卡链接的视觉提示（aria-hidden，T9.8 整卡点击），不是独立命中区
         .filter((e) => e.offsetParent !== null && !e.closest('[aria-hidden="true"]'))
-        .map((e) => ({
-          t: e.textContent?.trim() || e.getAttribute('aria-label'),
-          h: e.getBoundingClientRect().height,
-          w: e.getBoundingClientRect().width,
-        }))
+        // 命中区 = 自身 + 透明 ::before 外扩（小号按钮视觉 36、命中区补到 44 的做法）
+        .map((e) => {
+          const r = e.getBoundingClientRect();
+          const b = getComputedStyle(e, '::before');
+          const out = (v: string) =>
+            b.content !== 'none' && b.position === 'absolute' ? Math.max(0, -parseFloat(v) || 0) : 0;
+          return {
+            t: e.textContent?.trim() || e.getAttribute('aria-label'),
+            h: r.height + out(b.top) + out(b.bottom),
+            w: r.width + out(b.left) + out(b.right),
+          };
+        })
         .filter((r) => r.h < 43.5 || r.w < 43.5),
     );
     expect(small).toEqual([]);

@@ -8,7 +8,17 @@ import { test, expect } from './fixtures';
  * 窄屏货架横滑不撑宽页面；站内链接全部可用；移动端底部 TabBar 不遮挡内容；结构化数据。
  */
 
-const EXPECTED = ['latest', 'ai', 'apps', 'games', 'platforms', 'categories', 'articles', 'videos'];
+const EXPECTED = [
+  'latest',
+  'ai',
+  'featured',
+  'apps',
+  'games',
+  'platforms',
+  'categories',
+  'articles',
+  'videos',
+];
 const isDesktop = (name: string) => name.endsWith('-desktop');
 const sections = (page: Page) =>
   page

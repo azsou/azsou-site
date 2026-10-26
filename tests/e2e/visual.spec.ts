@@ -79,7 +79,7 @@ test.describe('T6.9 视觉', () => {
     expect(imgs.filter((u) => /cover|gradient|banner/.test(u))).toEqual([]);
   });
 
-  test('悬停：条目只换底色，不位移（周围元素不动）', async ({ page }, info) => {
+  test('悬停：条目换底色、至多轻浮起 2px（周围元素不动）', async ({ page }, info) => {
     test.skip(!isDesktop(info.project.name), '只在能悬停的桌面视口');
     await page.goto('/apps/');
     await page.waitForLoadState('networkidle');
@@ -89,7 +89,11 @@ test.describe('T6.9 视觉', () => {
     const bg0 = await cards.first().evaluate((e) => getComputedStyle(e).backgroundColor);
     await cards.first().locator('.entry__link').hover();
     await expect.poll(() => cards.first().evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(bg0);
-    expect(await cards.first().evaluate((e) => getComputedStyle(e).transform)).toBe('none');
+    // P10h：悬停轻浮起 ≤ 2px（只平移、不缩放，不影响周围布局）
+    const m = await cards.first().evaluate((e) => new DOMMatrixReadOnly(getComputedStyle(e).transform));
+    expect([m.a, m.d, m.b, m.c, m.e]).toEqual([1, 1, 0, 0, 0]);
+    expect(m.f).toBeGreaterThanOrEqual(-2.01);
+    expect(m.f).toBeLessThanOrEqual(0);
     expect(await second.boundingBox()).toEqual(before);
   });
 

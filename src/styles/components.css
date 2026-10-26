@@ -26,6 +26,15 @@
     width: 16px;
     height: 16px;
   }
+  /* 小号按钮视觉 36，命中区用透明 ::before 补到 44（同 .entry__action 做法）；后台表格按钮挨得近，不扩 */
+  .btn--sm::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+  [data-admin] .btn--sm::before {
+    content: none;
+  }
   .btn--text {
     background: transparent;
     color: var(--c-link);
