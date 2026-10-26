@@ -155,12 +155,7 @@ const schema = [
   )}
 
   {gameList.length > 0 && (
-    <Shelf
-      id="games"
-      title="游戏"
-      note="浏览器游戏与原型"
-      more={{ href: url.games(), label: '全部游戏' }}
-    >
+    <Shelf id="games" title="游戏" note="浏览器游戏与原型" more={{ href: url.games(), label: '全部游戏' }}>
       {gameList.map((e) => (
         <li>
           <AppTile entry={e} />
