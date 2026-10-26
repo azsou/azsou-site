@@ -18,12 +18,14 @@
       grid-template-columns: auto minmax(0, 1fr);
       row-gap: var(--space-2);
     }
-    .store-head__search {
+    /* 选择器加一级：下面的基础规则 .store-head__search { display: grid } 写在后面，同权重会覆盖 contents */
+    .store-head > .store-head__search {
       display: contents;
     }
     .store-head h1 {
       grid-row: 1;
       grid-column: 1;
+      align-self: center;
     }
     .store-head .home-search {
       grid-row: 1;

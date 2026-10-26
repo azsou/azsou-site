@@ -2162,3 +2162,15 @@
     }
   }
 }
+
+/* P10i r2：数字列表头右对齐时，排序箭头放到文字左侧（箭头平时隐形但占位，放右侧会把表头推离数字列右缘） */
+@layer components {
+  .data-table th.num .th-sort {
+    flex-direction: row-reverse;
+    margin-inline: -4px -4px;
+  }
+  /* 页头：标题与说明之间留出一级行距（原来说明贴着标题下缘） */
+  .admin-head h1 + p {
+    margin-top: var(--space-1);
+  }
+}

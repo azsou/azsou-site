@@ -147,6 +147,21 @@
     grid-template-rows: auto minmax(0, 1fr) auto;
     height: 100%;
   }
+  /* 正文贴顶：格子被拉高时多出的高度留在正文与按钮之间，不摊到名称 / 开发者 / 元数据的行距里 */
+  .entry--tile .entry__body {
+    align-self: start;
+    align-content: start;
+  }
+  /* 格子里元数据固定两行：类型徽标一行、日期等事实一行（不随名称长短一会儿同行一会儿换行） */
+  .entry--tile .entry__facts {
+    display: block;
+  }
+  [data-view='list'] .entry--tile .entry__facts {
+    display: inline;
+  }
+  [data-view='list'] .entry--tile .entry__body {
+    align-self: center;
+  }
   .entry--tile .entry__action {
     align-self: end;
     margin-top: var(--space-1);

@@ -92,6 +92,8 @@
       grid-template-areas:
         'icon main actions'
         'icon metrics actions';
+      /* 操作卡比左侧高时（多平台下载），多出的高度只给第 2 行，指标条紧跟名称、不被推到中间 */
+      grid-template-rows: auto minmax(0, 1fr);
       align-items: start;
     }
     .detail-hero__actions {
@@ -109,6 +111,14 @@
     .detail-hero__actions .detail-actions {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
+    }
+    /* 三个以上平台：主按钮（按访客设备选出）独占首行，其余两列排，操作卡高度约减半 */
+    .detail-hero__actions .detail-actions:has(> :nth-child(3)) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .detail-hero__actions .detail-actions > .btn--primary {
+      grid-column: 1 / -1;
+      order: -1;
     }
   }
   /* 文字按钮行：首个按钮的内边距向外抵消，文字与上方主按钮左缘光学对齐 */
@@ -357,6 +367,15 @@
     }
     .detail-side > .shelf:first-child {
       margin-top: 0;
+    }
+  }
+}
+
+/* P10i r2：手机上主操作通栏（拇指区一眼可见，与下方信息块左右缘对齐） */
+@layer components {
+  @media (max-width: 599.98px) {
+    .detail-hero__actions .detail-actions > .btn--primary {
+      width: 100%;
     }
   }
 }
