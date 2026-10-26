@@ -65,6 +65,14 @@ export const ADMIN_SECTIONS = [
     group: 'ops',
     icon: 'mail',
   },
+  {
+    id: 'permissions',
+    label: '权限矩阵',
+    path: '/admin/permissions/',
+    role: 'moderator',
+    group: 'system',
+    icon: 'shield',
+  },
   { id: 'audit', label: '审计日志', path: '/admin/audit/', role: 'admin', group: 'system', icon: 'history' },
   {
     id: 'settings',

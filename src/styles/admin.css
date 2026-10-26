@@ -1856,3 +1856,37 @@
     }
   }
 }
+
+@layer components {
+  /* 权限矩阵（T10.22） */
+  .perm-table th[scope='row'] {
+    display: grid;
+    gap: 2px;
+    font-weight: var(--fw-regular);
+    font-size: var(--fs-body-sm);
+    color: var(--c-label);
+    white-space: normal;
+  }
+  .perm-table__group {
+    font-size: var(--fs-caption);
+    color: var(--c-label-2);
+  }
+  .perm-table__role,
+  .perm-table__cell {
+    width: 112px;
+    text-align: center;
+  }
+  .perm-table [data-me] {
+    background: color-mix(in srgb, var(--c-accent-ink) 6%, transparent);
+  }
+  .perm-table thead [data-me] {
+    color: var(--c-accent-ink);
+  }
+  .perm-table__src {
+    color: var(--c-label-2);
+    font-size: var(--fs-caption);
+  }
+  .perm-note {
+    margin-top: var(--space-3);
+  }
+}
