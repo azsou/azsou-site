@@ -306,6 +306,18 @@ select has_table_privilege('anon', 'public.subscribers', 'select');             
 select has_table_privilege('authenticated', 'public.subscribers', 'select');            -- false
 ```
 
+## 5F. 后台 CRM（0017，P10 PR H）
+
+```bash
+run db/migrations/0017_admin_crm.sql;            status   # admin_notes / admin_user_tags / content_workflow / content_versions + 排序 / 画像 / 流程 RPC
+```
+
+- 纯增量、可重复执行：只新建表、函数、触发器。`mod_list_content` / `mod_list_users` 追加可选参数 `p_sort` / `p_dir`
+  （PostgreSQL 不能原地追加参数，所以先 `drop function` 旧签名再建新签名——只删函数定义，不碰任何数据；不带新参数的旧调用照常）。
+- 新表全部开启 RLS，只有版主 / 管理员可读；备注只能删自己的（管理员可删全部）。
+- 定时发布：`mod_workflow_tick()` 由后台页面加载时调用；也可在 Supabase 开 pg_cron 后每 5 分钟执行 `select public.mod_workflow_tick();`。
+- 用户画像的「登录记录」读 `auth.sessions`（存在时）；IP 只对管理员返回。批量邮件只有草稿与预览，**数据库与前端都没有发信接口**。
+
 ## 附：最终执行顺序
 
 ```
@@ -318,6 +330,7 @@ select has_table_privilege('authenticated', 'public.subscribers', 'select');    
      → 0014_video_comments（视频页的评论）
      → 0015_guestbook（留言板 + 友链申请；写入 community_ticket_secret）
      → 0016_subscribers（邮件订阅，双重确认；依赖 0015 的密钥）
+     → 0017_admin_crm（后台：服务端排序、备注、用户标签 / 画像、内容流程 + 定时发布、版本历史）
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

@@ -3,7 +3,7 @@
 --
 -- 每一行是一项检查：step = 对应的迁移文件，ok = 是否已生效。
 -- 生产切换时每执行完一个迁移文件就跑一次：该步及之前的所有行都应为 true，之后的行为 false。
--- 全部为 true = 0002…0016 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
+-- 全部为 true = 0002…0017 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
 -- =============================================================================
 with c(step, item, ok) as (
   values
@@ -80,6 +80,15 @@ with c(step, item, ok) as (
      and to_regprocedure('public.subscribe_request(text,text,text,text,text)') is not null
      and to_regprocedure('public.subscribe_confirm(text)') is not null
      and to_regprocedure('public.subscribe_unsubscribe(text)') is not null
-     and to_regprocedure('public.admin_subscriber_counts()') is not null)
+     and to_regprocedure('public.admin_subscriber_counts()') is not null),
+  ('0017', '后台 CRM：备注 / 用户标签 / 内容流程 / 版本表（RLS 已开启）与排序参数、画像、流程 RPC 存在',
+     coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.admin_notes')), false)
+     and coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.admin_user_tags')), false)
+     and coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.content_workflow')), false)
+     and coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.content_versions')), false)
+     and to_regprocedure('public.mod_list_content(text,text,text,boolean,boolean,uuid,integer,integer,text,text)') is not null
+     and to_regprocedure('public.mod_list_users(text,text,boolean,integer,integer,uuid,text,text)') is not null
+     and to_regprocedure('public.mod_user_profile(uuid)') is not null
+     and to_regprocedure('public.mod_set_workflow(text,uuid[],text,timestamptz)') is not null)
 )
 select step, item, ok from c order by step, item;
