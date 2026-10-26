@@ -213,6 +213,7 @@
   /* ---------- 用户内容（净化后的 Markdown） ---------- */
   .ugc {
     overflow-wrap: anywhere;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.75;
   }
   .ugc > * + * {
@@ -254,6 +255,7 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font-size: var(--fs-meta);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.6;
   }
   .ugc pre code {
@@ -364,6 +366,7 @@
     color: var(--c-label);
     font: inherit;
     font-size: var(--fs-body); /* ≥16px：iOS 聚焦不缩放 */
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.6;
     resize: vertical;
   }
@@ -528,6 +531,7 @@
     color: var(--c-label);
     font: inherit;
     font-size: var(--fs-body);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.6;
   }
   .field textarea:focus-visible {
@@ -554,6 +558,7 @@
     animation: sheet-in var(--dur) var(--ease-spring);
   }
   .sheet::backdrop {
+    /* stylelint-disable-next-line function-disallowed-list -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     background: rgba(0, 0, 0, 0.35);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);

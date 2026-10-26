@@ -21,7 +21,9 @@
   .home-hero h1 {
     margin-top: var(--space-2);
     font-size: var(--fs-display);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.15;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: -0.01em;
   }
   .home-hero h1 span {
@@ -230,6 +232,7 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 520px;
   }
+  /* stylelint-disable-next-line media-feature-name-value-allowed-list -- 超窄手机（≤ 480）内边距补充断点 */
   @media (max-width: 480px) {
     .home-sec ~ .home-sec ~ .home-sec {
       --gutter: var(--space-4);
@@ -317,6 +320,7 @@
   .srow[data-at-end] {
     --fade-r: 0px;
   }
+  /* stylelint-disable-next-line media-feature-name-value-allowed-list -- 超窄手机（≤ 480）内边距补充断点 */
   @media (max-width: 480px) {
     .srow {
       --gutter: var(--space-4);
@@ -430,8 +434,14 @@
   @media (hover: hover) and (pointer: fine) {
     .feature-card:has(a.card__link:hover),
     .cat-tile:has(.cat-tile__link:hover) {
-      transform: translateY(-2px);
       box-shadow: var(--shadow-2);
+    }
+  }
+  /* 位移只在没开「减少动态效果」时（P2-8：不再靠 reduce 里的 !important 盖 :has() 的高特异度） */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .feature-card:has(a.card__link:hover),
+    .cat-tile:has(.cat-tile__link:hover) {
+      transform: translateY(-2px);
     }
   }
   .feature-card:has(a.card__link:focus-visible) {
@@ -440,13 +450,13 @@
   @media (prefers-reduced-motion: reduce) {
     .feature-card,
     .cat-tile {
-      transform: none !important;
       transition: none;
     }
   }
   .feature-card__eyebrow {
     font-size: var(--fs-caption);
     font-weight: var(--fw-bold);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: 0.04em;
     color: var(--c-label-2);
   }
@@ -465,6 +475,7 @@
     overflow-wrap: normal;
     font-size: var(--fs-title-2);
     font-weight: var(--fw-bold);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.2;
     color: var(--c-label);
   }

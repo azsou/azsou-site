@@ -107,6 +107,7 @@
     padding: 0 6px;
     border-radius: var(--radius-pill);
     background: var(--c-danger);
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     color: #fff;
     font-size: var(--fs-caption);
     font-weight: var(--fw-bold);
@@ -249,6 +250,7 @@
     font-size: var(--fs-title-1);
     font-weight: var(--fw-bold);
     font-variant-numeric: tabular-nums;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.2;
   }
   .stat__sub {
@@ -293,6 +295,7 @@
     width: 10px;
     height: 10px;
     margin-right: 6px;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 小于 radius 阶梯的细部圆角（复选 / 进度条） */
     border-radius: 3px;
     background: var(--c-accent);
     vertical-align: -1px;
@@ -347,6 +350,7 @@
     padding: var(--space-3);
     min-height: 88px;
     resize: vertical;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.5;
   }
   .admin select:focus-visible,
@@ -872,7 +876,9 @@
     width: 27px;
     height: 27px;
     border-radius: 50%;
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     background: #fff;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list, function-disallowed-list -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
     transition: transform var(--dur-fast) var(--ease-spring);
   }

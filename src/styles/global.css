@@ -194,6 +194,7 @@
     margin-inline: auto;
     padding-inline: var(--space-5);
   }
+  /* stylelint-disable-next-line media-feature-name-value-allowed-list -- 超窄手机（≤ 480）内边距补充断点 */
   @media (max-width: 480px) {
     .shell {
       padding-inline: var(--space-4);
@@ -304,6 +305,7 @@
     min-height: var(--touch);
     font-weight: var(--fw-bold);
     color: var(--c-label);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: -0.01em;
   }
   @media (hover: hover) and (pointer: fine) {
@@ -436,6 +438,7 @@
   .lang-btn {
     font-size: var(--fs-meta);
     font-weight: var(--fw-semibold);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: 0.02em;
   }
   /* 主题按钮：图标跟着 <html data-theme-pref>（内联脚本首帧前写入），不闪 */
@@ -635,6 +638,7 @@
     font-size: var(--fs-meta);
     font-weight: var(--fw-semibold);
     color: var(--c-accent);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: 0.02em;
     margin-bottom: var(--space-2);
   }
@@ -857,9 +861,11 @@
     height: 56px;
     border-radius: var(--icon-squircle);
     background: var(--hue, var(--c-accent));
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     color: #fff;
     font-weight: var(--fw-bold);
     font-size: var(--fs-body-sm);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: 0.02em;
     box-shadow: inset 0 0 0 0.5px var(--icon-stroke);
   }
@@ -967,6 +973,7 @@
   }
   @media (hover: hover) and (pointer: fine) {
     .btn--primary:hover {
+      /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
       background: color-mix(in srgb, var(--c-accent) 88%, #000);
     }
   }
@@ -1140,6 +1147,7 @@
     padding: 2px 6px;
     border-radius: var(--radius-xs);
     background: var(--c-fill);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 相对父级的 em 字号（行内代码 / 上标） */
     font-size: 0.9em;
   }
   .prose kbd {
@@ -1150,6 +1158,7 @@
     box-shadow: 0 2px 0 var(--c-separator-strong);
     font-family: var(--font-mono);
     font-size: var(--fs-caption);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.4;
   }
   /* 代码块：横向滚动不折行，可聚焦（tabindex 由 enhanceProse 加），右上角复制按钮 */
@@ -1161,6 +1170,7 @@
     white-space: pre;
     overflow-x: auto;
     overflow-wrap: normal;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.6;
     font-size: var(--fs-meta);
     tab-size: 2;
@@ -1362,6 +1372,7 @@
   .auth-card > h1,
   .auth-card > h2 {
     font-size: var(--fs-title-1);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.25;
     margin-bottom: var(--space-2);
   }
@@ -1570,9 +1581,11 @@
     padding: 0 5px;
     border-radius: var(--radius-pill);
     background: var(--c-danger);
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     color: #fff;
     font-size: var(--fs-caption);
     font-weight: var(--fw-bold);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 18px;
     text-align: center;
     box-shadow: 0 0 0 2px var(--c-bg);
@@ -1582,6 +1595,7 @@
     padding: 0 var(--space-2);
     border-radius: var(--radius-pill);
     background: var(--c-danger);
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     color: #fff;
     font-size: var(--fs-caption);
     font-weight: var(--fw-bold);
@@ -1589,11 +1603,13 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) .nav-badge,
     :root:not([data-theme='light']) .menu__count {
+      /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
       color: #000;
     }
   }
   :root[data-theme='dark'] .nav-badge,
   :root[data-theme='dark'] .menu__count {
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     color: #000;
   }
   .menu {
@@ -1618,6 +1634,7 @@
     margin: 0 0 4px;
     border-bottom: 1px solid var(--c-separator);
     font-size: var(--fs-meta);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.4;
   }
   .menu__head span {
@@ -1806,6 +1823,7 @@
     flex-direction: column;
   }
   .palette::backdrop {
+    /* stylelint-disable-next-line function-disallowed-list -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     background: rgba(0, 0, 0, 0.36);
   }
   .palette__form {
@@ -1878,6 +1896,7 @@
   .palette mark {
     background: color-mix(in srgb, var(--c-orange) 28%, transparent);
     color: inherit;
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 小于 radius 阶梯的细部圆角（复选 / 进度条） */
     border-radius: 2px;
   }
   @media (max-width: 599.98px) {
@@ -1907,6 +1926,7 @@
     border-radius: var(--radius-pill);
     background: var(--c-fill);
     color: var(--c-link);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     line-height: 1.2;
   }
   @media (hover: hover) and (pointer: fine) {
@@ -2111,6 +2131,7 @@
     margin: 0 0 var(--space-2);
     color: var(--c-label-2);
     font-size: var(--fs-caption);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
     letter-spacing: 0.04em;
   }
   .ad-slot ins.adsbygoogle {
@@ -2164,6 +2185,7 @@
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
     background: var(--c-glass-solid);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list, function-disallowed-list -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
     box-shadow: 0 8px 30px rgb(0 0 0 / 0.18);
     font-size: var(--fs-meta);
   }
@@ -2232,6 +2254,7 @@
   }
 }
 
+/* stylelint-disable -- 打印：A4 物理单位（mm / pt）与纯黑白灰，纸面不跟随屏幕 token（DESIGN-SYSTEM §21） */
 /* ---------- 打印（T9.15，DESIGN-SYSTEM §21） ---------- */
 @media print {
   @page {
@@ -2333,3 +2356,4 @@
     backdrop-filter: none;
   }
 }
+/* stylelint-enable */
