@@ -1,33 +1,97 @@
 ---
+/**
+ * 后台概览（P4；P10h T10.19 bento 仪表盘）：KPI 卡（真实计数 + 近 30 天迷你趋势）→ 趋势图 | 待办队列 → 内容构成 | 快捷入口。
+ * 所有数字来自数据库实时统计（admin_stats）；拿不到时显示错误态与重试，不放假数字。
+ */
 import AdminLayout from '@/layouts/AdminLayout.astro';
+import Icon from '@/components/Icon.astro';
 ---
 
 <AdminLayout section="dashboard" title="概览" lede="站点数据一览；数字来自数据库实时统计。">
-  <section aria-labelledby="h-stats">
-    <h2 id="h-stats" class="visually-hidden">
-      统计
-    </h2>
-    <ul class="stat-grid" role="list" data-stats aria-busy="true">
-      {[0, 1, 2, 3, 4, 5].map(() => (
-        <li class="stat" aria-hidden="true">
-          <span class="skeleton skeleton--line skeleton--short" />
+  <div class="dash">
+    <section class="dash__kpis" aria-labelledby="h-stats">
+      <h2 id="h-stats" class="visually-hidden">
+        统计
+      </h2>
+      <ul class="stat-grid" role="list" data-stats aria-busy="true">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map(() => (
+          <li class="stat" aria-hidden="true">
+            <span class="skeleton skeleton--line skeleton--short" />
+            <span class="skeleton skeleton--line" />
+          </li>
+        ))}
+      </ul>
+    </section>
+    <section class="panel dash__trend" aria-labelledby="h-chart">
+      <h2 id="h-chart">近 30 天：注册与发帖</h2>
+      <div data-chart></div>
+      <ul class="chart-legend" role="list">
+        <li class="legend-a">新注册</li>
+        <li class="legend-b">发帖（主题 + 回复 + 评论）</li>
+      </ul>
+      <details>
+        <summary>查看数据表</summary>
+        <div class="table-wrap" data-chart-table></div>
+      </details>
+    </section>
+    <section class="panel dash__todo" aria-labelledby="h-todo">
+      <h2 id="h-todo">待办队列</h2>
+      <ul class="todo" role="list" data-todo aria-busy="true">
+        <li class="todo__item" aria-hidden="true">
           <span class="skeleton skeleton--line" />
         </li>
-      ))}
-    </ul>
-  </section>
-  <section class="panel" aria-labelledby="h-chart">
-    <h2 id="h-chart">近 30 天：注册与发帖</h2>
-    <div data-chart></div>
-    <ul class="chart-legend" role="list">
-      <li class="legend-a">新注册</li>
-      <li class="legend-b">发帖（主题 + 回复 + 评论）</li>
-    </ul>
-    <details>
-      <summary>查看数据表</summary>
-      <div class="table-wrap" data-chart-table></div>
-    </details>
-  </section>
+      </ul>
+    </section>
+    <section class="panel dash__mix" aria-labelledby="h-mix">
+      <h2 id="h-mix">社区内容构成</h2>
+      <ul class="mix" role="list" data-mix aria-busy="true">
+        <li aria-hidden="true">
+          <span class="skeleton skeleton--line" />
+        </li>
+      </ul>
+    </section>
+    <section class="panel dash__quick" aria-labelledby="h-quick">
+      <h2 id="h-quick">快捷入口</h2>
+      <ul class="quick" role="list">
+        <li>
+          <a href="/admin/reports/">
+            <Icon name="flag" size={16} />
+            处理举报
+          </a>
+        </li>
+        <li>
+          <a href="/admin/content/?hidden=1">
+            <Icon name="eye" size={16} />
+            查看已隐藏内容
+          </a>
+        </li>
+        <li>
+          <a href="/admin/guestbook/">
+            <Icon name="message" size={16} />
+            审核留言
+          </a>
+        </li>
+        <li>
+          <a href="/admin/users/?banned=1">
+            <Icon name="users" size={16} />
+            封禁中的用户
+          </a>
+        </li>
+        <li>
+          <a href="/admin/official/">
+            <Icon name="apps" size={16} />
+            官方内容
+          </a>
+        </li>
+        <li>
+          <a href="/">
+            <Icon name="arrow-up-right" size={16} />
+            返回前台
+          </a>
+        </li>
+      </ul>
+    </section>
+  </div>
   <p class="data-status" role="status" data-status></p>
 </AdminLayout>
 
