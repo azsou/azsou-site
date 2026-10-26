@@ -232,6 +232,16 @@ export const tokens = {
     xl: 112,
     squircle: '22.37%',
   },
+  density: {
+    'section-gap': 40,
+    'section-gap-sm': 32,
+    'card-pad': 12,
+    'card-pad-lg': 16,
+    'entry-icon-row': 56,
+    'entry-icon-tile': 72,
+    'entry-icon-mini': 40,
+    'entry-icon-detail': 112,
+  },
 } as const;
 export type Tokens = typeof tokens;
 export const ALLOWED_WEIGHTS = [400, 600, 700] as const;

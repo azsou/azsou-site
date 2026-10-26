@@ -1,0 +1,28 @@
+---
+/**
+ * 排行榜（P10 T10.5）：1–10 名，数字排名 + AppMini。没有真实热度数据，所以排名 = 编辑推荐顺序，
+ * 标题旁如实写「按编辑推荐」（站长决定：不编造热度 / 下载数）。
+ */
+import AppMini from './AppMini.astro';
+import Shelf from './Shelf.astro';
+import type { StoreEntry } from '@/lib/store';
+interface Props {
+  id: string;
+  title: string;
+  entries: StoreEntry[];
+  more?: { href: string; label?: string };
+  note?: string;
+  /** 最多几名（默认 10） */
+  limit?: number;
+}
+const { id, title, entries, more, note = '按编辑推荐排名', limit = 10 } = Astro.props;
+const top = [...entries].sort((a, b) => a.order - b.order).slice(0, limit);
+---
+
+<Shelf id={id} title={title} note={note} more={more} kind="mini" ordered>
+  {top.map((e, i) => (
+    <li>
+      <AppMini entry={e} rank={i + 1} />
+    </li>
+  ))}
+</Shelf>

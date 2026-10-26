@@ -106,6 +106,8 @@ export function buildCss({ type, color, base }) {
   );
   for (const [k, v] of Object.entries(base.icon))
     L.push(`--icon-${k}: ${typeof v === 'number' ? px(v) : v};`);
+  // P10 T10.3 紧凑档：--density-section-gap / --density-card-pad / --density-entry-icon-*
+  for (const [k, v] of Object.entries(base.density ?? {})) L.push(`--density-${k}: ${px(v)};`);
   L.push(
     '--safe-top: env(safe-area-inset-top, 0px);',
     '--safe-right: env(safe-area-inset-right, 0px);',
@@ -169,6 +171,7 @@ export function buildTs({ type, color, base }) {
     breakpoints: base.breakpoint,
     layout: base.layout,
     icon: base.icon,
+    density: base.density,
   };
   return `// 由 scripts/design/build-tokens.mjs 从 tokens/*.json 生成 —— 不要手改\nexport const tokens = ${JSON.stringify(data, null, 2)} as const;\nexport type Tokens = typeof tokens;\nexport const ALLOWED_WEIGHTS = [${Object.values(type.weight).join(', ')}] as const;\nexport const TYPE_SIZES_PX = [${[...new Set(Object.values(type.scale).flatMap((s) => [s.size, s.sizeBase].filter(Boolean)))].sort((a, b) => a - b).join(', ')}] as const;\n`;
 }

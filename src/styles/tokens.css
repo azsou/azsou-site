@@ -96,6 +96,14 @@
     --icon-lg: 72px;
     --icon-xl: 112px;
     --icon-squircle: 22.37%;
+    --density-section-gap: 40px;
+    --density-section-gap-sm: 32px;
+    --density-card-pad: 12px;
+    --density-card-pad-lg: 16px;
+    --density-entry-icon-row: 56px;
+    --density-entry-icon-tile: 72px;
+    --density-entry-icon-mini: 40px;
+    --density-entry-icon-detail: 112px;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
