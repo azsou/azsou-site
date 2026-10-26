@@ -182,6 +182,39 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # T9.19 设备 / 浏览器矩阵（Playwright 设备模拟：iPhone SE / 15、Pixel 7、iPad 竖横、1024 / 1440 / 1920 × 三引擎），阻断。
+  # 首屏截图 + 每格结果（test-results/devices/<引擎>.jsonl）上传为产物 device-matrix-<引擎>，汇总见 docs/DEVICE-MATRIX.md。
+  devices:
+    timeout-minutes: 20
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: 浏览器 + 中文字体
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npx playwright test -c playwright.devices.config.ts
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-matrix-${{ matrix.browser }}
+          path: test-results/devices
+          retention-days: 14
+          if-no-files-found: ignore
+
   lighthouse:
     timeout-minutes: 30
     needs: build
