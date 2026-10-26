@@ -14,16 +14,25 @@ interface Props {
   more?: { href: string; label?: string };
   /** tile = 竖排格子；mini = 排行条目；card = 媒体卡（文章 / 视频）；chip = 平台 / 分类入口；
    *  stack = 竖排列表（详情页侧栏导流区，T10.13：不横滑、不截断、不是滚动区） */
-  kind?: 'tile' | 'mini' | 'card' | 'chip' | 'stack';
+  kind?: 'tile' | 'mini' | 'card' | 'chip' | 'stack' | 'row';
   /** 有序（排行榜）时用 <ol> */
   ordered?: boolean;
+  /** P10h：货架类型强调色（标题标记）——应用 / AI 工具 / 游戏 */
+  accent?: 'app' | 'ai' | 'game';
+  /** 额外类名（首页分栏布局用） */
+  class?: string;
 }
-const { id, title, note, more, kind = 'tile', ordered = false } = Astro.props;
+const { id, title, note, more, kind = 'tile', ordered = false, accent, class: cls } = Astro.props;
 const headingId = `h-${id}`;
 const List = ordered ? 'ol' : 'ul';
 ---
 
-<section class="section shelf" aria-labelledby={headingId} data-section={id}>
+<section
+  class:list={['section shelf', `shelf--${kind}`, cls]}
+  aria-labelledby={headingId}
+  data-section={id}
+  data-accent={accent}
+>
   <div class="section__head shelf__head">
     <div class="shelf__titles">
       <h2 id={headingId}>{title}</h2>

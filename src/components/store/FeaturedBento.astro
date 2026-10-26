@@ -1,0 +1,103 @@
+---
+/**
+ * 编辑精选 bento（P10h，owner：首页不要只有单行 / 单列）：1 个大格 + 最多 4 个小格。
+ * 只用真实内容：大格的截图来自应用档案 screenshots（概念图如实标注「概念图」），没有截图就只放图标与简介；
+ * 类型强调色（应用 / AI 工具 / 游戏）用在主操作按钮、类型徽标与格子淡底上。整格可点（名称链接 ::after 铺满），
+ * 主操作是第二个链接、叠在上面。不使用 data-entry（不计入条目密度、不受条目图标白名单约束）。
+ */
+import '@/styles/store.css';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import GeoIcon from '@/components/GeoIcon.astro';
+import { formatDate } from '@/lib/dates';
+import { metaParts, type StoreEntry } from '@/lib/store';
+
+export interface BentoShot {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  illustrative: boolean;
+}
+export interface BentoItem {
+  entry: StoreEntry;
+  /** 一句话介绍（大格用 summary，小格用 tagline） */
+  blurb: string;
+  shot?: BentoShot;
+}
+interface Props {
+  id: string;
+  title: string;
+  note?: string;
+  items: BentoItem[];
+}
+const { id, title, note, items } = Astro.props;
+const headingId = `h-${id}`;
+const btnTone = (t: StoreEntry['type']) => `btn--${t}`;
+---
+
+<section class="section shelf bento" aria-labelledby={headingId} data-section={id}>
+  <div class="section__head shelf__head">
+    <div class="shelf__titles">
+      <h2 id={headingId}>{title}</h2>
+      {note && <p class="shelf__note">{note}</p>}
+    </div>
+  </div>
+  <ul class="bento__grid" role="list">
+    {items.map(({ entry: e, blurb, shot }, i) => {
+      const lg = i === 0;
+      const parts = metaParts(e, lg ? ['version', 'updatedAt', 'platforms'] : ['category'], (d) =>
+        formatDate(d),
+      );
+      return (
+        <li class:list={['bento-tile', lg ? 'bento-tile--lg' : 'bento-tile--sm']} data-type={e.type}>
+          <div class="bento-tile__text">
+            <div class="bento-tile__head">
+              <span class="bento-tile__icon">
+                {e.icon ? (
+                  <AppIcon src={e.icon.src} alt="" variants={e.icon.variants} size={lg ? 'lg' : 'md'} />
+                ) : (
+                  <GeoIcon seed={e.href} hue={e.hue} size={lg ? 'lg' : 'md'} />
+                )}
+              </span>
+              <div class="bento-tile__titles">
+                <h3 class="bento-tile__title">
+                  <a class="bento-tile__link" href={e.href}>
+                    {e.title}
+                  </a>
+                </h3>
+                <p class="bento-tile__by">{e.developer ?? e.subtitle}</p>
+              </div>
+            </div>
+            <p class="bento-tile__blurb">{blurb}</p>
+            <div class="bento-tile__foot">
+              <a
+                class:list={['btn btn--sm', btnTone(e.type), lg && 'btn--solid']}
+                href={e.action.href}
+                aria-label={`${e.action.label}：${e.title}`}
+                data-outbound={e.action.outbound ? '' : undefined}
+              >
+                {e.action.label}
+              </a>
+              <span class={`entry__type entry__type--${e.type}`}>{e.typeLabel}</span>
+              {parts.length > 0 && <span class="bento-tile__meta">{parts.join(' · ')}</span>}
+            </div>
+          </div>
+          {lg && shot && (
+            <figure class="bento-tile__shot">
+              <img
+                src={shot.src}
+                alt={shot.alt}
+                width={shot.width}
+                height={shot.height}
+                loading="lazy"
+                decoding="async"
+                fetchpriority="low"
+              />
+              {shot.illustrative && <figcaption class="bento-tile__badge">概念图</figcaption>}
+            </figure>
+          )}
+        </li>
+      );
+    })}
+  </ul>
+</section>

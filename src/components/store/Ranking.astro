@@ -16,12 +16,36 @@ interface Props {
   limit?: number;
   /** 首屏内的排行：图标 eager（40px 小图标） */
   eager?: boolean;
+  accent?: 'app' | 'ai' | 'game';
+  /** column = 单列竖排（首页放在网格旁边的排行栏） */
+  layout?: 'grid' | 'column';
+  class?: string;
 }
-const { id, title, entries, more, note = '按编辑推荐排名', limit = 10, eager = false } = Astro.props;
+const {
+  id,
+  title,
+  entries,
+  more,
+  note = '按编辑推荐排名',
+  limit = 10,
+  eager = false,
+  accent,
+  layout = 'grid',
+  class: cls,
+} = Astro.props;
 const top = [...entries].sort((a, b) => a.order - b.order).slice(0, limit);
 ---
 
-<Shelf id={id} title={title} note={note} more={more} kind="mini" ordered>
+<Shelf
+  id={id}
+  title={title}
+  note={note}
+  more={more}
+  kind="mini"
+  ordered
+  accent={accent}
+  class:list={[layout === 'column' && 'shelf--rank-col', cls]}
+>
   {top.map((e, i) => (
     <li>
       <AppMini entry={e} rank={i + 1} eager={eager} />

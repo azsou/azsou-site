@@ -601,3 +601,291 @@
     }
   }
 }
+
+/* ---------- P10h：类型强调色 + 悬停动效 ----------
+   应用 / AI 工具 / 游戏各有一个强调色（tokens：--c-type-*），用在类型徽标、主操作淡底和货架标题标记；
+   悬停：条目浮起成卡片（白底 + 2 级阴影 + 上移 2px），图标放大 4%；只用 transform / 阴影 / 背景，不改尺寸（CLS 0）。 */
+@layer components {
+  :where(.entry, .shelf, .bento-tile) {
+    --type-ink: var(--c-accent-ink);
+  }
+  [data-type='app'],
+  [data-accent='app'] {
+    --type-ink: var(--c-type-app);
+  }
+  [data-type='ai'],
+  [data-accent='ai'] {
+    --type-ink: var(--c-type-ai);
+  }
+  [data-type='game'],
+  [data-accent='game'] {
+    --type-ink: var(--c-type-game);
+  }
+  .entry {
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  .entry__icon {
+    transition: transform var(--dur-base) var(--ease-out);
+  }
+  .entry__type {
+    background: color-mix(in srgb, var(--type-ink) var(--tint-rest), transparent);
+    color: var(--type-ink);
+  }
+  .entry__action {
+    background: color-mix(in srgb, var(--type-ink) var(--tint-rest), transparent);
+    color: var(--type-ink);
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .entry:hover {
+      background: var(--c-surface);
+      box-shadow: var(--elev-2);
+    }
+    .entry__action:hover {
+      background: var(--type-ink);
+      color: var(--c-on-solid);
+    }
+  }
+  .entry:active {
+    background: var(--c-surface);
+    box-shadow: var(--elev-1);
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .entry:hover {
+      transform: translateY(-2px);
+    }
+    .entry:hover .entry__icon {
+      transform: scale(1.04);
+    }
+  }
+
+  /* 货架标题前的类型色标记（4 × 16 圆角条）；没有 data-accent 的货架用品牌色 */
+  .shelf__head h2 {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .shelf__head h2::before {
+    content: '';
+    flex: none;
+    width: 4px;
+    height: 16px;
+    border-radius: var(--radius-pill);
+    background: var(--type-ink, var(--c-accent));
+  }
+  .shelf:not([data-accent]) .shelf__head h2::before {
+    background: var(--c-accent);
+  }
+  /* 货架头部：标题区与条目之间多留一点（12），条目之间保持紧凑（4） */
+  .shelf__head {
+    margin-bottom: var(--space-3);
+  }
+  /* 横滑货架：程序滚动平滑（键盘方向键 / 「更多」定位），减少动效时关闭 */
+  @media (prefers-reduced-motion: no-preference) {
+    .shelf__track {
+      scroll-behavior: smooth;
+    }
+  }
+  @media (forced-colors: active) {
+    .shelf__head h2::before {
+      background: CanvasText;
+    }
+    .entry:hover {
+      border-color: Highlight;
+    }
+  }
+}
+
+/* ---------- P10h：编辑精选 bento ----------
+   ≥ 900：4 列 × 2 行，大格占 2 × 2；600–899：大格整行 + 小格 2 列；< 600：大格整行 + 小格 2 列（紧凑）。 */
+@layer components {
+  .bento__grid {
+    display: grid;
+    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 900px) {
+    .bento__grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+      gap: var(--space-4);
+    }
+  }
+  .bento-tile {
+    position: relative;
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--c-surface);
+    box-shadow: var(--elev-0);
+    color: var(--c-label);
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .bento-tile--lg {
+    grid-column: 1 / -1;
+    background: color-mix(in srgb, var(--type-ink) 6%, var(--c-surface));
+  }
+  @media (min-width: 900px) {
+    .bento-tile--lg {
+      grid-column: span 2;
+      grid-row: span 2;
+      padding: var(--space-5);
+    }
+  }
+  @media (min-width: 1200px) {
+    .bento-tile--lg {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      align-items: center;
+      gap: var(--space-5);
+    }
+  }
+  .bento-tile:has(.bento-tile__link:focus-visible) {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .bento-tile:hover {
+      box-shadow: var(--elev-2);
+    }
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .bento-tile:hover {
+      transform: translateY(-2px);
+    }
+    .bento-tile:hover .bento-tile__shot img {
+      transform: scale(1.03);
+    }
+  }
+  .bento-tile__text {
+    display: grid;
+    align-content: start;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+  .bento-tile--sm .bento-tile__text {
+    grid-template-rows: auto 1fr auto;
+    height: 100%;
+  }
+  .bento-tile__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+  .bento-tile__icon {
+    flex: none;
+    line-height: 0;
+  }
+  .bento-tile__titles {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .bento-tile__title {
+    margin: 0;
+    font-size: var(--fs-headline);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-headline);
+  }
+  .bento-tile--lg .bento-tile__title {
+    font-size: var(--fs-title-3);
+    line-height: var(--lh-title-3);
+  }
+  .bento-tile__link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .bento-tile__link:focus-visible {
+    outline: none;
+  }
+  .bento-tile__link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .bento-tile__by,
+  .bento-tile__meta {
+    margin: 0;
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--c-label-2);
+  }
+  .bento-tile__blurb {
+    margin: 0;
+    font-size: var(--fs-body-sm);
+    line-height: var(--lh-body-sm);
+    color: var(--c-label-2);
+  }
+  .bento-tile--lg .bento-tile__blurb {
+    color: var(--c-label);
+  }
+  .bento-tile__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+  .bento-tile__foot .btn {
+    position: relative;
+    z-index: 1;
+  }
+  .bento-tile__shot {
+    position: relative;
+    margin: 0;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--c-fill);
+    box-shadow: var(--elev-1);
+    line-height: 0;
+  }
+  .bento-tile__shot img {
+    width: 100%;
+    height: auto;
+    transition: transform var(--dur-base) var(--ease-out);
+  }
+  .bento-tile__badge {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-xs);
+    background: var(--c-glass-solid);
+    color: var(--c-label);
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-caption);
+  }
+  @media (max-width: 599.98px) {
+    .bento-tile {
+      padding: var(--space-3);
+      gap: var(--space-2);
+    }
+    .bento-tile--sm .bento-tile__head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-2);
+    }
+    .bento-tile--sm .bento-tile__meta {
+      display: none;
+    }
+  }
+  @media (forced-colors: active) {
+    .bento-tile {
+      border: 1px solid CanvasText;
+    }
+  }
+}
