@@ -53,8 +53,9 @@ test.describe('后台外壳与状态（夹具）', () => {
       /^背景 升级到 4\.5 之后，TileMap 被拆成多个 TileMapLayer/,
     );
     const hit = await first.locator('.check-hit').boundingBox();
-    expect(hit!.width).toBeGreaterThanOrEqual(32);
-    expect(hit!.height).toBeGreaterThanOrEqual(32);
+    // 取整再比：Firefox 在小数坐标上会报 31.99997（32px 的浮点误差）
+    expect(Math.round(hit!.width)).toBeGreaterThanOrEqual(32);
+    expect(Math.round(hit!.height)).toBeGreaterThanOrEqual(32);
     const heights = await rows(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
     // < 900 为卡片（含 834 平板）
     if (page.viewportSize()!.width < 900) {

@@ -46,7 +46,8 @@ const input = (n: string) => filters.elements.namedItem(n) as HTMLInputElement |
 
 function paintFilters() {
   for (const b of typeBtns) b.setAttribute('aria-pressed', String(b.dataset.value === state.type));
-  input('q').value = state.q;
+  // 用户正在输入搜索词时不覆盖（首屏 load 晚于输入时，会把刚填的词冲掉，点「筛选」就成了空搜索）
+  if (document.activeElement !== input('q')) input('q').value = state.q;
   input('cat').value = state.cat;
   input('hidden').value = state.hidden;
   input('reported').value = state.reported;

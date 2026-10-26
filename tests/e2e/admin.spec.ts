@@ -210,6 +210,8 @@ test.describe('内容管理', () => {
     const tid = await seedThread(db, author.id, { title, cat: '产品讨论' });
     await signIn(page, m);
     await page.goto('/admin/content/');
+    // 等首屏列表加载完再输入（首屏 load 会按地址栏回填筛选项）
+    await expect(page.locator('tbody[data-rows]')).not.toHaveAttribute('aria-busy', 'true');
     await page.locator('[data-filters]').getByLabel('搜索').fill(title);
     await page.getByRole('button', { name: '筛选' }).click();
     await expect(page).toHaveURL(/q=/);
@@ -294,9 +296,14 @@ test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () =
     await page.goto(`/admin/content/?q=${encodeURIComponent(title)}`);
     const row = page.locator(`tr[data-id="${tid}"]`);
     await expect(row).toBeVisible();
-    // 服务端排序：点「内容」表头 → 请求带 p_sort=title（窄屏表格是卡片布局、没有表头，只在有表头时验证）
+    // 服务端排序：点「内容」表头 → 请求带 p_sort=title（窄屏 < 900 表格是卡片布局，表头只剩 1×1 的读屏占位：
+    // isVisible() 仍为真但点不到，所以按表头的实际高度判断，只在有可见表头时验证）
     const sortTh = page.locator('th[data-sort-key="title"] .th-sort');
-    if (await sortTh.isVisible()) {
+    const headH = await page
+      .locator('th[data-sort-key="title"]')
+      .evaluate((el) => el.getBoundingClientRect().height)
+      .catch(() => 0);
+    if (headH > 8 && (await sortTh.isVisible())) {
       const req = page.waitForRequest(
         (r) => /rpc\/mod_list_content/.test(r.url()) && (r.postData() ?? '').includes('"p_sort":"title"'),
       );
