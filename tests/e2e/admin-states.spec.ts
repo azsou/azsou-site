@@ -31,7 +31,7 @@ test.describe('后台外壳与状态（夹具）', () => {
       page.getByRole('navigation', { name: '后台导航' }).getByRole('link', { name: '审计日志' }),
     ).toBeVisible();
     const tiles = page.locator('[data-stats] .stat');
-    await expect(tiles).toHaveCount(7);
+    await expect(tiles).toHaveCount(8);
     const widths = await tiles.evaluateAll((els) =>
       els.map((e) => Math.round(e.getBoundingClientRect().width)),
     );

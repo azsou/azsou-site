@@ -219,6 +219,7 @@ export function rowMenu(name: string, items: MenuItem[]): HTMLElement {
   function close(focus = false) {
     if (list.hidden) return;
     list.hidden = true;
+    wrap.append(list);
     btn.setAttribute('aria-expanded', 'false');
     document.removeEventListener('pointerdown', onDoc, true);
     window.removeEventListener('scroll', onScroll, true);
@@ -228,6 +229,9 @@ export function rowMenu(name: string, items: MenuItem[]): HTMLElement {
   }
   function open(at: 'first' | 'last' = 'first') {
     openMenu?.close(false);
+    // 弹层挂到 body（或所在的模态 dialog）：吸顶 / 固定列单元格与 isolation 会形成层叠上下文，
+    // 留在单元格里时 z-index 再高也会被表格后面的分页条盖住
+    (btn.closest('dialog') ?? document.body).append(list);
     list.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
     place();
@@ -256,11 +260,15 @@ export function rowMenu(name: string, items: MenuItem[]): HTMLElement {
     else if (e.key === 'Home') go(0);
     else if (e.key === 'End') go(entries.length - 1);
     else if (e.key === 'Escape') close(true);
-    else if (e.key === 'Tab') close(false);
-    else return;
+    else if (e.key === 'Tab') {
+      // 弹层在 DOM 末尾：先把焦点还给按钮，默认 Tab 再从按钮往后走
+      btn.focus({ preventScroll: true });
+      close(false);
+    } else return;
     if (e.key !== 'Tab') e.preventDefault();
   });
-  return h('span', { class: 'row-menu__wrap' }, btn, list);
+  const wrap = h('span', { class: 'row-menu__wrap' }, btn, list);
+  return wrap;
 }
 
 /** 操作列：1 个最常用的快捷按钮 + 「⋯」菜单 */

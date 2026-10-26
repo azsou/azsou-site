@@ -58,7 +58,7 @@ function initPalette() {
   let active = -1;
 
   const canSee = (li: HTMLElement) =>
-    li.dataset.role !== 'admin' || !!document.querySelector('[data-nav-role="admin"]:not([hidden])');
+    li.dataset.needRole !== 'admin' || !!document.querySelector('[data-nav-role="admin"]:not([hidden])');
 
   /** 关键词搜索的动态项：搜用户 / 搜内容（走各页已有的 ?q= 筛选，服务端分页） */
   const dynamic = (q: string): DynItem[] =>
