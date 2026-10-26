@@ -300,8 +300,10 @@
   }
   .brand {
     display: inline-flex;
+    flex: none;
     align-items: center;
     gap: var(--space-2);
+    white-space: nowrap;
     min-height: var(--touch);
     font-weight: var(--fw-bold);
     color: var(--c-label);
@@ -412,7 +414,8 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    /* 320 宽收成 0、≥ 360 为 8px：让「AZ Studio」不折成两行（T9.19 iPhone SE） */
+    gap: clamp(0px, calc((100vw - 320px) * 0.2), var(--space-2));
   }
   .icon-btn {
     display: inline-grid;
@@ -516,6 +519,10 @@
   @media (max-width: 899.98px) {
     .tabbar {
       display: block;
+    }
+    /* WCAG 2.4.11：键盘聚焦滚入时不落到底部 TabBar 下面（T9.18） */
+    html {
+      scroll-padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-4));
     }
   }
 
