@@ -8,6 +8,12 @@ import {
   metaParts,
   sortEntries,
   versionText,
+  alternatives,
+  detailMetrics,
+  editorPicks,
+  gamePlayClaims,
+  sameDeveloper,
+  splitIntro,
   type StoreAppInput,
   type StoreGameInput,
   type StoreToolInput,
@@ -133,5 +139,53 @@ describe('商店条目模型（T10.1 / T10.2）', () => {
     const r = fillReport([fromApp(app()), fromTool(tool())]);
     expect(r.version).toEqual({ filled: 1, omitted: 1 });
     expect(r.size).toEqual({ filled: 0, omitted: 2 });
+  });
+});
+
+describe('详情页（P10 PR G）', () => {
+  it('T10.11 指标条只放真实值，顺序固定，不含评分', () => {
+    const m = detailMetrics(fromApp(app({ size: '18.4 MB', updated: '2026-10-01' })));
+    expect(m.map((x) => x.label)).toEqual(['版本', '大小', '更新', '平台', '价格', '许可']);
+    expect(m[0].value).toBe('v1.2');
+    const t = detailMetrics(fromTool(tool({ version: undefined })));
+    expect(t.map((x) => x.key)).toEqual(['platforms', 'pricing', 'license']);
+    expect(t.find((x) => x.key === 'license')!.value).toBe('MIT（开源）');
+    expect(JSON.stringify(t)).not.toMatch(/评分|N\/A|—|未知/);
+    const g = detailMetrics(fromGame(game()));
+    expect(g.map((x) => x.key)).toEqual(['version', 'updatedAt']);
+  });
+
+  it('T10.13 同类替代 / 同开发者 / 编辑推荐', () => {
+    const all = [
+      fromTool(tool({}, 't1')),
+      fromTool(tool({ order: 5, developer: { name: 'Acme' } }, 't2')),
+      fromTool(tool({ order: 1, categories: ['chat'], developer: { name: 'Other' } }, 't3')),
+      fromTool(tool({ order: 0, categories: ['agent', 'cli'], developer: { name: 'Other' } }, 't4')),
+    ];
+    const self = all[0];
+    expect(alternatives(self, all).map((x) => x.slug)).toEqual(['t2', 't4']);
+    expect(sameDeveloper(self, all).map((x) => x.slug)).toEqual(['t2']);
+    expect(editorPicks('t1', all, [all[1]]).map((x) => x.slug)).toEqual(['t4', 't3']);
+  });
+
+  it('T10.12 简介折叠：长正文切成首段 + 其余，短正文不折叠', () => {
+    const long = Array.from({ length: 5 }, (_, i) => `<p>${'字'.repeat(100)}${i}</p>`).join('\n');
+    const r = splitIntro(long);
+    expect(r.lead.match(/<p>/g)).toHaveLength(2);
+    expect(r.rest.match(/<p>/g)).toHaveLength(3);
+    const nested = '<p>a</p><ul><li><p>x</p></li></ul>' + '<p>' + 'b'.repeat(400) + '</p><p>c</p>';
+    const n = splitIntro(nested, 1);
+    expect(n.lead).toBe('<p>a</p>');
+    expect(n.rest).toContain('<ul><li><p>x</p></li></ul>');
+    expect(splitIntro('<p>短</p><p>短</p>').rest).toBe('');
+  });
+
+  it('T10.15 没有试玩地址 / 演示视频时不能声称可玩', () => {
+    expect(gamePlayClaims({ kind: '可玩 Demo', status: '开发中' })).toEqual(['可玩 Demo']);
+    expect(gamePlayClaims({ kind: '开发中', status: '实验', en: { status: 'Experiment · Playable' } })).toEqual([
+      'Experiment · Playable',
+    ]);
+    expect(gamePlayClaims({ kind: '可玩 Demo', status: '可玩', playUrl: '/play/x/' })).toEqual([]);
+    expect(gamePlayClaims({ kind: '可玩 Demo', status: '可玩', demoVideo: 'v' })).toEqual([]);
   });
 });

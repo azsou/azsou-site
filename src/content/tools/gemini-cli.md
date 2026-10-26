@@ -37,6 +37,10 @@
   "license": "Apache-2.0",
   "openSource": true,
   "website": "https://geminicli.com/",
+  "ai": {
+    "freeTier": "Google 账号登录有免费额度",
+    "mcp": "支持 MCP 扩展"
+  },
   "sourceRepo": "https://github.com/google-gemini/gemini-cli",
   "featured": false,
   "lastChecked": "2026-10-25",

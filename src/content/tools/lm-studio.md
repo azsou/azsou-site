@@ -52,6 +52,10 @@
   "license": "专有软件（lms 命令行为 MIT）",
   "openSource": false,
   "website": "https://lmstudio.ai/",
+  "ai": {
+    "freeTier": "本地运行免费",
+    "api": "提供本地 API 服务器"
+  },
   "sourceRepo": "https://github.com/lmstudio-ai/lms",
   "featured": false,
   "lastChecked": "2026-10-25",

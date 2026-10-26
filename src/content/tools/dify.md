@@ -42,6 +42,11 @@
   "license": "Dify Open Source License（基于 Apache-2.0，附加多租户与品牌条款）",
   "openSource": true,
   "website": "https://dify.ai/",
+  "ai": {
+    "freeTier": "云服务有免费档；自部署免费",
+    "api": "应用可一键发布为 API",
+    "mcp": "支持"
+  },
   "sourceRepo": "https://github.com/langgenius/dify",
   "featured": false,
   "lastChecked": "2026-10-25",

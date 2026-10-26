@@ -45,6 +45,9 @@
   "license": "专有软件（Anthropic 商业条款）",
   "openSource": false,
   "website": "https://claude.com/product/claude-code",
+  "ai": {
+    "mcp": "支持，通过 MCP 接入外部工具"
+  },
   "sourceRepo": "https://github.com/anthropics/claude-code",
   "featured": true,
   "lastChecked": "2026-10-25",

@@ -37,6 +37,9 @@
   "license": "Apache-2.0",
   "openSource": true,
   "website": "https://learn.chatgpt.com/docs/codex/cli",
+  "ai": {
+    "mcp": "支持 MCP 服务器"
+  },
   "sourceRepo": "https://github.com/openai/codex",
   "featured": true,
   "lastChecked": "2026-10-25",

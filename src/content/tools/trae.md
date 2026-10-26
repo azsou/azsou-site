@@ -42,6 +42,11 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://www.trae.ai/",
+  "ai": {
+    "freeTier": "可免费开始",
+    "china": "国际版与国内版（trae.cn）分别运营",
+    "officialEntry": "https://www.trae.cn/"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 11,

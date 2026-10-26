@@ -47,6 +47,10 @@
   "license": "MIT",
   "openSource": true,
   "website": "https://ollama.com/",
+  "ai": {
+    "freeTier": "本地运行免费",
+    "api": "本地 OpenAI 兼容 API"
+  },
   "sourceRepo": "https://github.com/ollama/ollama",
   "featured": true,
   "lastChecked": "2026-10-25",

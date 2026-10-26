@@ -44,6 +44,9 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://github.com/features/copilot",
+  "ai": {
+    "freeTier": "有免费档（聊天与智能体用量有限）"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 8,

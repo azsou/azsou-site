@@ -50,6 +50,11 @@
   "license": "服务专有；模型权重以 MIT 等协议开放",
   "openSource": false,
   "website": "https://www.deepseek.com/",
+  "ai": {
+    "freeTier": "对话应用免费",
+    "api": "官方 API，按 token 计费",
+    "china": "国内可直接注册使用"
+  },
   "sourceRepo": "https://github.com/deepseek-ai/DeepSeek-V3",
   "featured": false,
   "lastChecked": "2026-10-25",

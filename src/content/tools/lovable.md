@@ -36,6 +36,9 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://lovable.dev/",
+  "ai": {
+    "freeTier": "可免费开始（额度有限）"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 13,

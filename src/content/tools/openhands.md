@@ -42,6 +42,9 @@
   "license": "MIT",
   "openSource": true,
   "website": "https://www.openhands.dev/",
+  "ai": {
+    "freeTier": "自部署免费（模型费用自理）"
+  },
   "sourceRepo": "https://github.com/OpenHands/OpenHands",
   "featured": false,
   "lastChecked": "2026-10-25",

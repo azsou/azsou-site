@@ -53,6 +53,10 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://kiro.dev/",
+  "ai": {
+    "freeTier": "有免费档（每月少量额度）",
+    "mcp": "支持"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 12,

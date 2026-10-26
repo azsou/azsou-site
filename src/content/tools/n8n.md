@@ -42,6 +42,10 @@
   "license": "Sustainable Use License（fair-code，源码公开）",
   "openSource": false,
   "website": "https://n8n.io/",
+  "ai": {
+    "freeTier": "自托管社区版免费",
+    "mcp": "支持（配合 AI Agent 节点）"
+  },
   "sourceRepo": "https://github.com/n8n-io/n8n",
   "featured": false,
   "lastChecked": "2026-10-25",

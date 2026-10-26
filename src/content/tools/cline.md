@@ -56,6 +56,9 @@
   "license": "Apache-2.0",
   "openSource": true,
   "website": "https://cline.bot/",
+  "ai": {
+    "mcp": "支持，内置 MCP 市场"
+  },
   "sourceRepo": "https://github.com/cline/cline",
   "featured": false,
   "lastChecked": "2026-10-25",

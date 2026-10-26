@@ -37,6 +37,9 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://replit.com/products/agent",
+  "ai": {
+    "freeTier": "有免费模式"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 16,

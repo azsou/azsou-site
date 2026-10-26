@@ -48,6 +48,10 @@
   "license": "专有服务",
   "openSource": false,
   "website": "https://gemini.google.com/",
+  "ai": {
+    "freeTier": "免费可用",
+    "china": "中国大陆地区无法直接访问"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 26,

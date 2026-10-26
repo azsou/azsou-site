@@ -49,6 +49,9 @@
   "license": "GPL-3.0（编辑器）/ Apache-2.0（部分组件）",
   "openSource": true,
   "website": "https://zed.dev/",
+  "ai": {
+    "freeTier": "个人版免费"
+  },
   "sourceRepo": "https://github.com/zed-industries/zed",
   "featured": false,
   "lastChecked": "2026-10-25",

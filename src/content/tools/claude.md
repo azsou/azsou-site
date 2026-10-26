@@ -59,6 +59,10 @@
   "license": "专有服务",
   "openSource": false,
   "website": "https://claude.com/",
+  "ai": {
+    "freeTier": "有免费档",
+    "mcp": "支持 MCP 连接器"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 25,

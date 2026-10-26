@@ -49,6 +49,9 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://devin.ai/desktop",
+  "ai": {
+    "freeTier": "有免费档"
+  },
   "featured": false,
   "lastChecked": "2026-10-25",
   "order": 7,

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { zhLength } from '@/lib/zh-length';
+import { gamePlayClaims, gamePlayable } from '@/lib/store';
 
 const root = path.resolve(__dirname, '../..');
 const legacy = JSON.parse(fs.readFileSync(path.join(root, 'legacy/az_data.json'), 'utf8'));
@@ -252,5 +253,32 @@ describe('T9.5 zhLength', () => {
     expect(zhLength('AI 工具')).toBe(3.5);
     expect(zhLength('Claude Code')).toBe(5.5);
     expect(zhLength('「」，。')).toBe(4);
+  });
+});
+
+describe('T10.15 游戏状态与按钮一致', () => {
+  it('没有 playUrl / demoVideo 的游戏，类型与状态（中英）不出现「可玩 / 可试用 / Playable」', () => {
+    for (const [slug, g] of Object.entries(games)) {
+      expect(gamePlayClaims(g.data as Parameters<typeof gamePlayClaims>[0]), slug).toEqual([]);
+    }
+  });
+  it('有 playUrl 的游戏才把试玩当主操作（当前全部没有试玩地址 → 状态全部如实）', () => {
+    const playable = Object.entries(games).filter(([, g]) => gamePlayable(g.data));
+    for (const [slug, g] of playable) expect(String(g.data.playUrl ?? g.data.demoVideo), slug).toMatch(/\S/);
+  });
+});
+
+describe('T10.14 AI 工具专属字段只填已有内容', () => {
+  it('ai 字段的每个值都能在该工具已有的正文 / 价格说明 / 平台说明里找到依据（关键词）', () => {
+    const KEY: Record<string, RegExp> = { mcp: /MCP/, api: /API/, china: /国内|中国大陆|\.cn/, freeTier: /免费/ };
+    for (const [slug, t] of Object.entries(tools)) {
+      const ai = t.data.ai as Record<string, string> | undefined;
+      if (!ai) continue;
+      const src = t.body + JSON.stringify(t.data.price) + JSON.stringify(t.data.platforms) + t.data.summary;
+      for (const [k, v] of Object.entries(ai)) {
+        expect(typeof v, `${slug}.${k}`).toBe('string');
+        if (KEY[k]) expect(src, `${slug}.ai.${k} 在已有内容里有依据`).toMatch(KEY[k]);
+      }
+    }
   });
 });

@@ -36,6 +36,9 @@
   "license": "Open WebUI License（BSD-3 派生，附品牌保留条款）",
   "openSource": true,
   "website": "https://openwebui.com/",
+  "ai": {
+    "mcp": "支持 MCP 连接"
+  },
   "sourceRepo": "https://github.com/open-webui/open-webui",
   "featured": false,
   "lastChecked": "2026-10-25",

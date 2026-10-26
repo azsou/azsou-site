@@ -36,6 +36,9 @@
   "license": "专有软件（早期版本以 MIT 开源）",
   "openSource": false,
   "website": "https://bolt.new/",
+  "ai": {
+    "freeTier": "免费档按 token 额度限制"
+  },
   "sourceRepo": "https://github.com/stackblitz/bolt.new",
   "featured": false,
   "lastChecked": "2026-10-25",

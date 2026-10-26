@@ -44,6 +44,11 @@
   "license": "平台为专有服务；Coze Studio 为 Apache-2.0",
   "openSource": false,
   "website": "https://www.coze.cn/",
+  "ai": {
+    "freeTier": "基础功能免费",
+    "api": "智能体可通过 API 接入自己的产品",
+    "china": "国内版 coze.cn，国际版 coze.com"
+  },
   "sourceRepo": "https://github.com/coze-dev/coze-studio",
   "featured": false,
   "lastChecked": "2026-10-25",

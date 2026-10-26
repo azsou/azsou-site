@@ -59,6 +59,10 @@
   "license": "专有服务",
   "openSource": false,
   "website": "https://chatgpt.com/",
+  "ai": {
+    "freeTier": "免费可用，套餐提高额度",
+    "china": "中国大陆地区无法直接注册使用"
+  },
   "featured": true,
   "lastChecked": "2026-10-25",
   "order": 24,

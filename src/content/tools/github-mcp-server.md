@@ -36,6 +36,9 @@
   "license": "MIT",
   "openSource": true,
   "website": "https://github.com/github/github-mcp-server",
+  "ai": {
+    "mcp": "本身是 MCP 服务器"
+  },
   "sourceRepo": "https://github.com/github/github-mcp-server",
   "featured": false,
   "lastChecked": "2026-10-25",

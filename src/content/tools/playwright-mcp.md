@@ -36,6 +36,9 @@
   "license": "Apache-2.0",
   "openSource": true,
   "website": "https://github.com/microsoft/playwright-mcp",
+  "ai": {
+    "mcp": "本身是 MCP 服务器"
+  },
   "sourceRepo": "https://github.com/microsoft/playwright-mcp",
   "featured": false,
   "lastChecked": "2026-10-25",

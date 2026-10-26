@@ -59,6 +59,8 @@ export interface StoreEntry {
   /** 卡片一句话（tagline，6–16） */
   subtitle: string;
   developer?: string;
+  /** 开发者全称（同开发者导流区按它匹配） */
+  developerName?: string;
   href: string;
   /** 有图标的条目（应用 / AI 工具）；游戏没有图标，用 hue + 几何兜底 */
   icon?: { src: string; variants: boolean };
@@ -181,6 +183,7 @@ export function fromApp(a: StoreAppInput): StoreEntry {
     title: d.title,
     subtitle: d.tagline,
     developer: d.developer.short ?? d.developer.name,
+    developerName: d.developer.name,
     href: url.app(a.id),
     icon: d.icon,
     hue: d.hue,
@@ -215,6 +218,7 @@ export function fromTool(t: StoreToolInput): StoreEntry {
     title: d.title,
     subtitle: d.tagline,
     developer: d.developer.short ?? d.developer.name,
+    developerName: d.developer.name,
     href: url.tool(t.id),
     icon: d.icon,
     hue: toolHue(d),
@@ -339,3 +343,120 @@ export const sortAttrs = (e: StoreEntry) => ({
 });
 
 export { LINK_TYPE_LABEL };
+
+// ------------------------------------------------------------ 详情页（P10 PR G） ----
+
+/** 详情页指标条的一格：只放有真实值的字段（T10.11） */
+export interface DetailMetric {
+  key: MetaKey;
+  label: string;
+  value: string;
+}
+export const METRIC_LABEL: Record<MetaKey, string> = {
+  version: '版本',
+  size: '大小',
+  updatedAt: '更新',
+  platforms: '平台',
+  license: '许可',
+  pricing: '价格',
+};
+/** 指标条：版本｜大小｜更新｜平台｜价格｜许可（不放评分；没值的整格省略） */
+export function detailMetrics(e: StoreEntry, fmtDate: (d: string) => string = (d) => d): DetailMetric[] {
+  const m = e.meta;
+  const out: DetailMetric[] = [];
+  const push = (key: MetaKey, value?: string) => value && out.push({ key, label: METRIC_LABEL[key], value });
+  push('version', m.version && versionText(m.version));
+  push('size', m.size);
+  push('updatedAt', m.updatedAt && fmtDate(m.updatedAt));
+  push('platforms', m.platforms?.join(' / '));
+  push('pricing', m.pricing);
+  push('license', m.license && (m.openSource && !/开源/.test(m.license) ? `${m.license}（开源）` : m.license));
+  return out;
+}
+
+/** 同类替代（T10.13）：同主分类优先，其次共享分类；按编辑顺序 */
+export function alternatives(self: StoreEntry, all: StoreEntry[], n = 5): StoreEntry[] {
+  return all
+    .filter((x) => x.slug !== self.slug && x.type === self.type)
+    .map((x) => ({
+      x,
+      score:
+        (x.category.id === self.category.id ? 10 : 0) +
+        x.categories.filter((c) => self.categories.includes(c)).length,
+    }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score || a.x.order - b.x.order)
+    .slice(0, n)
+    .map((r) => r.x);
+}
+
+/** 同开发者（T10.13）：开发者全称相同的其它条目（跨应用 / AI 工具） */
+export function sameDeveloper(self: StoreEntry, all: StoreEntry[], n = 5): StoreEntry[] {
+  if (!self.developerName) return [];
+  return all
+    .filter((x) => x.slug !== self.slug && x.developerName === self.developerName)
+    .sort((a, b) => a.order - b.order)
+    .slice(0, n);
+}
+
+/** 编辑推荐（T10.13）：按编辑顺序，排除自身与已在其它导流区出现的条目 */
+export function editorPicks(selfSlug: string, all: StoreEntry[], exclude: StoreEntry[], n = 5): StoreEntry[] {
+  const skip = new Set([selfSlug, ...exclude.map((x) => x.slug)]);
+  return sortEntries(
+    all.filter((x) => !skip.has(x.slug)),
+    'editor',
+  ).slice(0, n);
+}
+
+/**
+ * 简介折叠（T10.12）：把可信 HTML 正文按顶层块切成「首段可见」+「其余折叠」两部分（服务端切，无 JS、无布局移动）。
+ * 块数 ≤ keep + 1 或正文很短时不折叠（rest = ''）。
+ */
+export function splitIntro(html: string, keep = 2, minChars = 360): { lead: string; rest: string } {
+  const blocks: string[] = [];
+  const re = /<\/?([a-z][a-z0-9]*)\b[^>]*>/gi;
+  const VOID = /^(br|hr|img|input|meta|link|source|wbr)$/i;
+  let depth = 0;
+  let start = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const tag = m[1];
+    if (VOID.test(tag) || m[0].endsWith('/>')) {
+      if (depth === 0) {
+        blocks.push(html.slice(start, re.lastIndex));
+        start = re.lastIndex;
+      }
+      continue;
+    }
+    if (m[0][1] === '/') {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) {
+        blocks.push(html.slice(start, re.lastIndex));
+        start = re.lastIndex;
+      }
+    } else depth++;
+  }
+  const tail = html.slice(start);
+  if (tail.trim()) blocks.push(tail);
+  const parts = blocks.map((b) => b.trim()).filter(Boolean);
+  const text = html.replace(/<[^>]+>/g, '').trim();
+  if (parts.length <= keep + 1 || text.length < minChars) return { lead: html, rest: '' };
+  return { lead: parts.slice(0, keep).join('\n'), rest: parts.slice(keep).join('\n') };
+}
+
+/**
+ * 游戏状态与按钮一致（T10.15）：没有试玩地址也没有演示视频时，类型 / 状态里不能出现「可玩 / 可试用」之类的说法。
+ * tests/unit/store.test.ts 对全部游戏内容断言这一点。
+ */
+export const PLAY_CLAIM = /可玩|可试用|试玩|playable|try it/i;
+export const gamePlayable = (d: { playUrl?: string; demoVideo?: string }) => !!(d.playUrl || d.demoVideo);
+export function gamePlayClaims(d: {
+  kind: string;
+  status: string;
+  playUrl?: string;
+  demoVideo?: string;
+  en?: { kind?: string; status?: string };
+}): string[] {
+  if (gamePlayable(d)) return [];
+  return [d.kind, d.status, d.en?.kind ?? '', d.en?.status ?? ''].filter((s) => PLAY_CLAIM.test(s));
+}

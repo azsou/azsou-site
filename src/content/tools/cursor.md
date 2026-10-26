@@ -46,6 +46,10 @@
   "license": "专有软件",
   "openSource": false,
   "website": "https://cursor.com/",
+  "ai": {
+    "freeTier": "有免费档（用量有限）",
+    "mcp": "支持"
+  },
   "featured": true,
   "lastChecked": "2026-10-25",
   "order": 6,

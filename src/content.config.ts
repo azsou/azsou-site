@@ -168,6 +168,8 @@ const apps = defineCollection({
       website: localOrHttps.optional(),
       sourceRepo: httpsUrl.optional(),
       privacy,
+      /** 特性要点（P10 T10.12，可选）：只写已核实的功能点，每条一句；不写 = 详情页不显示这一节 */
+      features: z.array(z.string().min(2).max(60)).max(8).optional(),
       /** 按版本的更新日志，新的在前 */
       changelog,
       faq,
@@ -243,6 +245,26 @@ const tools = defineCollection({
       website: httpsUrl,
       sourceRepo: httpsUrl.optional(),
       privacy,
+      /** 特性要点（P10 T10.12，可选）：只写已核实的功能点，每条一句；不写 = 详情页不显示这一节 */
+      features: z.array(z.string().min(2).max(60)).max(8).optional(),
+      /**
+       * AI 工具专属字段（P10 T10.14，全部可选）：只填本条目正文 / 价格说明里已经写明的信息，查不到就不写，
+       * 详情页只显示填了的项（定价模式取 price，官方入口默认取 website）。
+       */
+      ai: z
+        .object({
+          /** 免费额度（如「有免费档（用量有限）」） */
+          freeTier: z.string().max(40).optional(),
+          /** API：工具本身提供的 API（不是「自带模型 API Key」） */
+          api: z.string().max(40).optional(),
+          /** MCP 支持（客户端接入 MCP 服务器，或本身是 MCP 服务器） */
+          mcp: z.string().max(40).optional(),
+          /** 国内可用性（只写正文里明确说明的） */
+          china: z.string().max(40).optional(),
+          /** 官方入口（与 website 不同时才写，如国内版地址） */
+          officialEntry: httpsUrl.optional(),
+        })
+        .optional(),
       changelog,
       faq,
       featured: z.boolean().default(false),

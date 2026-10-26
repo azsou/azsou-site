@@ -58,6 +58,10 @@
   "license": "Apache-2.0",
   "openSource": true,
   "website": "https://goose-docs.ai/",
+  "ai": {
+    "api": "提供 API",
+    "mcp": "支持大量 MCP 扩展"
+  },
   "sourceRepo": "https://github.com/aaif-goose/goose",
   "featured": false,
   "lastChecked": "2026-10-25",

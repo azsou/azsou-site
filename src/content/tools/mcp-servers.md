@@ -38,6 +38,9 @@
   "license": "Apache-2.0 / MIT（许可迁移中）",
   "openSource": true,
   "website": "https://modelcontextprotocol.io/",
+  "ai": {
+    "mcp": "MCP 官方参考服务器合集"
+  },
   "sourceRepo": "https://github.com/modelcontextprotocol/servers",
   "featured": false,
   "lastChecked": "2026-10-25",
