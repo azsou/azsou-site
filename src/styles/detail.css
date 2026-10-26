@@ -23,6 +23,11 @@
   .detail-hero__icon {
     grid-area: icon;
   }
+  /* 游戏没有图标：几何兜底按详情尺寸 112（窄屏 96） */
+  .detail-hero .app-icon--xl {
+    width: 112px;
+    height: 112px;
+  }
   .detail-hero__main {
     grid-area: main;
     min-width: 0;

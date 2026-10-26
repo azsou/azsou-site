@@ -118,7 +118,7 @@ for (const v of VIEWPORTS) {
       await expect(met).not.toContainText(/评分|N\/A|—|未知|随官方更新/);
       // 头部图标 96–112
       const icon = await page
-        .locator('[data-detail-hero] .detail-hero__icon > *')
+        .locator('[data-detail-hero] .detail-hero__icon :is(img.app-icon-img, .app-icon)')
         .first()
         .evaluate((e) => Math.round(e.getBoundingClientRect().width));
       expect(icon, `${path} 头部图标`).toBeGreaterThanOrEqual(96);
