@@ -454,14 +454,26 @@
       display: inline-flex;
       align-items: center;
       gap: var(--space-2);
+      position: relative;
+      isolation: isolate;
       width: 240px;
-      min-height: var(--control-sm);
+      /* 命中区 44px（触控目标），可见胶囊仍是 36px：用 ::before 画底 */
+      min-height: var(--touch);
       padding-inline: var(--space-3) var(--space-2);
       border-radius: var(--radius-pill);
-      background: var(--c-fill);
+      background: transparent;
       color: var(--c-label-3);
       font-size: var(--fs-meta);
       text-decoration: none;
+    }
+    .nav-search::before {
+      content: '';
+      position: absolute;
+      inset-inline: 0;
+      inset-block: calc((var(--touch) - var(--control-sm)) / 2);
+      z-index: -1;
+      border-radius: inherit;
+      background: var(--c-fill);
     }
     .nav-search .icon {
       flex: none;
@@ -489,11 +501,14 @@
   }
   @media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
     .nav-search:hover {
+      background: transparent;
+    }
+    .nav-search:hover::before {
       background: var(--c-fill-strong);
     }
   }
   @media (forced-colors: active) {
-    .nav-search {
+    .nav-search::before {
       border: 1px solid ButtonText;
     }
   }

@@ -440,6 +440,10 @@
     color: var(--c-label-3);
     font-variant-numeric: tabular-nums;
   }
+  /* 选中的分类（窄屏是强调色胶囊）：数字跟随胶囊文字色，保证 4.5:1 对比度 */
+  .list-rail .chip:is([aria-current='page'], [aria-pressed='true']) .list-rail__n {
+    color: inherit;
+  }
   @media (max-width: 1199.98px) {
     .list-rail__title {
       position: absolute;
