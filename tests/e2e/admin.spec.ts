@@ -297,11 +297,11 @@ test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () =
     const row = page.locator(`tr[data-id="${tid}"]`);
     await expect(row).toBeVisible();
     // 服务端排序：点「内容」表头 → 请求带 p_sort=title（窄屏 < 900 表格是卡片布局，表头只剩 1×1 的读屏占位：
-    // isVisible() 仍为真但点不到，所以按表头的实际高度判断，只在有可见表头时验证）
+    // isVisible() 仍为真但点不到，所以按 thead 的实际高度判断（th 自身在 1×1 的 thead 里仍量得 40px 高），只在有可见表头时验证）
     const sortTh = page.locator('th[data-sort-key="title"] .th-sort');
     const headH = await page
       .locator('th[data-sort-key="title"]')
-      .evaluate((el) => el.getBoundingClientRect().height)
+      .evaluate((el) => (el.closest('thead') ?? el).getBoundingClientRect().height)
       .catch(() => 0);
     if (headH > 8 && (await sortTh.isVisible())) {
       const req = page.waitForRequest(
