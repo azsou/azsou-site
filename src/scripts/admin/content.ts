@@ -1,4 +1,5 @@
 /** /admin/content/：UGC 表格（主题 / 回复 / 评论），搜索、筛选、分页、单条与批量操作。 */
+import { enhanceTables } from './table2';
 import { CATEGORY_NAMES, type ContentRow, type ContentType } from '@/lib/data';
 import { confirmDialog, toast } from '../community/ui';
 import {
@@ -316,4 +317,5 @@ async function load() {
   }
 }
 
+enhanceTables();
 void initAdmin().then((me) => me && load());
