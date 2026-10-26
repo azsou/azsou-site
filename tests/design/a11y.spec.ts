@@ -105,6 +105,10 @@ for (const p of PAGES.filter((x) => x.core || x.name === 'en-home' || x.name ===
       const bad: string[] = [];
       for (let i = 0; i < 40; i++) {
         await page.keyboard.press('Tab');
+        // 减少动态时全局 transition-duration 0.01ms（property 默认 all）：等两帧，让「跳到正文」的 top 过渡落定再量
+        await page.evaluate(
+          () => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))),
+        );
         const r = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
           if (!el || el === document.body) return null;
