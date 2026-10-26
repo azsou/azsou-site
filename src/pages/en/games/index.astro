@@ -1,0 +1,37 @@
+---
+/** 英文版游戏列表（T7.6） */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import EnGameCard from '@/components/en/EnGameCard.astro';
+import { getGames } from '@/lib/content';
+import { itemList } from '@/lib/seo';
+
+const games = (await getGames()).filter((g) => g.data.en);
+---
+
+<Base
+  title="Games & demos"
+  description={`${games.length} browser games, prototypes and visualizers by the AZ Studio author, with honest version numbers and development status.`}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Games', path: '/en/games/' },
+  ]}
+  schema={[
+    itemList(
+      'Games & demos',
+      '/en/games/',
+      games.map((g) => ({ name: g.data.en!.title ?? g.data.title, path: `/en/games/${g.id}/` })),
+    ),
+  ]}
+>
+  <PageHead
+    eyebrow="Games"
+    title="Games & demos"
+    lede="Browser games, prototypes and algorithm visualizers. Version numbers reflect how finished each one really is."
+  />
+  <div class="grid" data-grid="media">
+    {games.map((g) => (
+      <EnGameCard game={g} />
+    ))}
+  </div>
+</Base>

@@ -1,0 +1,42 @@
+---
+import ToolGrid from '@/components/ai/ToolGrid.astro';
+import { getTools, toolItem } from '@/lib/content';
+import { AI_CATEGORIES, AI_CATEGORY_IDS, AI_CATEGORY_LEDE, type AiCategory } from '@/lib/app-store';
+import { url } from '@/lib/routes';
+import { itemList } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  return AI_CATEGORY_IDS.map((category) => ({ params: { category }, props: { category } }));
+}
+const { category } = Astro.props as { category: AiCategory };
+const all = (await getTools()).map(toolItem);
+// 主分类是本分类的排在前面
+const items = all
+  .filter((t) => t.categories.includes(category))
+  .sort(
+    (a, b) =>
+      Number(b.categories[0] === category) - Number(a.categories[0] === category) || a.order - b.order,
+  );
+const name = AI_CATEGORIES[category];
+---
+
+<ToolGrid
+  title={`${name} 工具`}
+  description={`${name}：${AI_CATEGORY_LEDE[category]}共 ${items.length} 个，每个都有原创介绍，只链接官方地址。`}
+  lede={AI_CATEGORY_LEDE[category]}
+  all={all}
+  items={items}
+  category={category}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: 'AI 工具', path: url.ai() },
+    { name, path: url.aiCategory(category) },
+  ]}
+  schema={[
+    itemList(
+      `${name} 工具`,
+      url.aiCategory(category),
+      items.map((t) => ({ name: t.title, path: t.url })),
+    ),
+  ]}
+/>

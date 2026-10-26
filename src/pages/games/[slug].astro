@@ -1,0 +1,145 @@
+---
+import { formatDate } from '@/lib/dates';
+import { artSrc } from '@/lib/art';
+import Base from '@/layouts/Base.astro';
+import Art from '@/components/Art.astro';
+import Comments from '@/components/Comments.astro';
+import GameCta from '@/components/games/GameCta.astro';
+import GeoIcon from '@/components/GeoIcon.astro';
+import DetailHero from '@/components/detail/DetailHero.astro';
+import DetailSide from '@/components/detail/DetailSide.astro';
+import { getGames, type Game } from '@/lib/content';
+import { alternatives, editorPicks, fromGame } from '@/lib/store';
+import { url, ogArt } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
+import { videoGame } from '@/lib/seo';
+import { excerpt } from '@/lib/escape';
+
+export async function getStaticPaths() {
+  const games = await getGames();
+  return games.map((game, i) => ({
+    params: { slug: game.id },
+    props: { game, all: games, prev: games[i - 1] ?? null, next: games[i + 1] ?? null },
+  }));
+}
+const { game, all, prev, next } = Astro.props as {
+  game: Game;
+  all: Game[];
+  prev: Game | null;
+  next: Game | null;
+};
+const d = game.data;
+// 正文是迁移来的可信 HTML（仓库内容），原样输出
+const bodyHtml = game.body ?? '';
+const path = url.game(game.id);
+const description = excerpt(bodyHtml, 110);
+const entries = all.map(fromGame);
+const entry = entries.find((e) => e.slug === game.id)!;
+const alt = alternatives(entry, entries, 4);
+const picks = editorPicks(game.id, entries, alt, 4);
+// T10.15：状态与按钮一致——状态文字只写真实进度（没有试玩地址 / 演示视频时不出现「可玩」，内容测试保证）
+---
+
+<Base
+  searchType="game"
+  preloadImage={artSrc(d.art)}
+  title={`${d.title} · ${d.genre}`}
+  description={description}
+  image={ogFor('game', game.id)}
+  imageAlt={d.title}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '游戏', path: '/games/' },
+    { name: d.title, path },
+  ]}
+  schema={[
+    videoGame({
+      name: d.title,
+      description,
+      path,
+      genre: d.genre,
+      version: d.version,
+      image: ogArt(d.art),
+      date: d.date,
+    }),
+  ]}
+>
+  <article class="app-page detail" data-game-page>
+    <DetailHero entry={entry} title={d.title} subtitle={d.genre} status={d.status}>
+      <GeoIcon slot="icon" seed={entry.href} hue={d.hue} size="xl" />
+      <span slot="badges" class="badge">
+        AZ Studio 出品
+      </span>
+      <GameCta slot="actions" playUrl={d.playUrl} demoVideo={d.demoVideo} />
+    </DetailHero>
+    <div class="detail-layout">
+      <div class="detail-main">
+        <div class="hero-media mt-6">
+          <Art slot={d.art} eager />
+        </div>
+        <section class="section prose" aria-labelledby="h-about">
+          <h2 id="h-about">介绍</h2>
+          <Fragment set:html={bodyHtml} />
+        </section>
+        <section class="section" aria-labelledby="h-log">
+          <h2 id="h-log">开发日志</h2>
+          <ol class="timeline mt-4">
+            {d.log.map((l) => (
+              <li>
+                <time datetime={l.date}>{formatDate(l.date)}</time> <b>{l.version}</b>
+                <p>{l.note}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section class="section" aria-labelledby="h-info">
+          <h2 id="h-info">游戏信息</h2>
+          <dl class="info-table mt-4">
+            <div>
+              <dt>形态</dt>
+              <dd>{d.kind}</dd>
+            </div>
+            {d.facts.map((f) => (
+              <div>
+                <dt>{f.label}</dt>
+                <dd>{formatDate(f.value)}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+        <section class="section" aria-labelledby="h-issues">
+          <h2 id="h-issues">已知问题</h2>
+          <p class="mt-4">{d.issues}</p>
+        </section>
+        <nav class="pager" aria-label="上下一个游戏">
+          {prev && (
+            <a href={url.game(prev.id)}>
+              <small>上一个</small>
+              {prev.data.title}
+            </a>
+          )}
+          {next && (
+            <a href={url.game(next.id)}>
+              <small>下一个</small>
+              {next.data.title}
+            </a>
+          )}
+        </nav>
+        <Comments pageKey={`game:${game.id}`} />
+      </div>
+      <DetailSide
+        label={`与 ${d.title} 相关`}
+        groups={[
+          {
+            id: 'alt',
+            title: '同类游戏',
+            note: `形态：${d.kind}`,
+            more: { href: '/games/', label: '全部游戏' },
+            entries: alt,
+          },
+          { id: 'picks', title: '编辑推荐', note: '按编辑推荐顺序', entries: picks },
+        ]}
+      />
+    </div>
+  </article>
+</Base>

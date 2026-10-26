@@ -1,0 +1,94 @@
+---
+/**
+ * 访客留言板（T7.3）：匿名可留言（只填昵称），需要 Turnstile；所有留言先进待审核，通过后公开。
+ * 已通过的留言由浏览器从数据库读取（0015：公开只读 approved）；提交走 /api/submit/guestbook。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import TurnstileField from '@/components/TurnstileField.astro';
+import { GUESTBOOK_LIMITS } from '@/lib/community-forms';
+---
+
+<Base
+  title="留言板"
+  description="给 AZ Studio 留言：想法、建议、打个招呼都可以。无需注册，填个昵称即可；留言经作者审核后公开。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '留言板', path: '/guestbook/' },
+  ]}
+>
+  <PageHead
+    eyebrow="社区"
+    title="留言板"
+    lede="想法、建议、打个招呼都可以。无需注册，填个昵称即可；为了防止广告，所有留言都由作者审核后公开。"
+  />
+  <section class="panel gb-write" aria-labelledby="h-write">
+    <h2 id="h-write">写留言</h2>
+    <form class="form" data-gb-form novalidate>
+      <div class="field">
+        <label for="gb-nickname">昵称</label>
+        <input
+          id="gb-nickname"
+          name="nickname"
+          type="text"
+          autocomplete="nickname"
+          maxlength={GUESTBOOK_LIMITS.nickname}
+          required
+          aria-describedby="gb-nickname-hint"
+        />
+        <p class="field__hint" id="gb-nickname-hint">
+          1–{GUESTBOOK_LIMITS.nickname} 个字，会公开显示。不需要真名。
+        </p>
+        <p class="field__error" data-error-for="nickname"></p>
+      </div>
+      <div class="field">
+        <label for="gb-body">留言</label>
+        <textarea
+          id="gb-body"
+          name="body"
+          rows="5"
+          maxlength={GUESTBOOK_LIMITS.body}
+          required
+          aria-describedby="gb-body-hint"
+        ></textarea>
+        <p class="field__hint" id="gb-body-hint">
+          最多 {GUESTBOOK_LIMITS.body} 字，纯文本，最多 {GUESTBOOK_LIMITS.links}{' '}
+          个链接。请不要留下电话、住址等个人信息。
+          <span data-counter aria-hidden="true"></span>
+        </p>
+        <p class="field__error" data-error-for="body"></p>
+      </div>
+      <TurnstileField action="guestbook" />
+      <p class="field__error" data-error-for="turnstile"></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          提交留言
+        </button>
+      </div>
+      <p class="data-status" role="status" aria-live="polite" data-form-status></p>
+    </form>
+  </section>
+  <section class="section" aria-labelledby="h-entries">
+    <div class="section__head">
+      <h2 id="h-entries">
+        大家的留言 <span class="section__count" data-total></span>
+      </h2>
+    </div>
+    <ol class="gb-list" role="list" data-gb-list aria-labelledby="h-entries"></ol>
+    <p class="data-status" role="status" aria-live="polite" data-gb-status>
+      正在加载留言…
+    </p>
+    <div class="btn-row">
+      <button class="btn" type="button" data-more hidden>
+        加载更多
+      </button>
+    </div>
+  </section>
+</Base>
+
+<script>
+  // 数据层（Supabase 客户端、Turnstile、表单校验）不在首屏关键路径：页面 load + 两帧 + 空闲时再加载（与其他 island 一致），
+  // 避免它们抢在首屏绘制前下载、拖慢移动端 LCP。表单就绪后带 data-ready="yes"。
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/community/guestbook'));
+</script>

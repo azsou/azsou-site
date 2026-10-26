@@ -1,0 +1,53 @@
+---
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
+---
+
+<Base
+  title="用户主页"
+  description="AZ Studio 社区成员的公开主页：昵称、加入时间与发过的主题。"
+  type="profile"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+    { name: '用户主页', path: '/u/' },
+  ]}
+>
+  <section class="profile" data-profile>
+    <header class="profile__head">
+      <span class="avatar avatar--lg" aria-hidden="true" data-initials></span>
+      <div>
+        <h1 data-name>正在加载…</h1>
+        <p class="muted" data-joined>
+          &nbsp;
+        </p>
+      </div>
+    </header>
+    <div class="thread-actions" data-actions></div>
+    <section class="section" aria-labelledby="h-user-threads">
+      <div class="section__head">
+        <h2 id="h-user-threads">发过的主题</h2>
+      </div>
+      <ul class="list-group" role="list" data-list aria-busy="true">
+        {[0, 1, 2].map(() => (
+          <li class="skeleton-row" aria-hidden="true">
+            <span class="skeleton skeleton--line" />
+            <span class="skeleton skeleton--line skeleton--short" />
+          </li>
+        ))}
+      </ul>
+      <div class="btn-row list-more">
+        <button class="btn" type="button" data-more hidden>
+          加载更多
+        </button>
+      </div>
+    </section>
+    <p class="data-status" data-status role="status">
+      正在加载…
+    </p>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/community/profile';
+</script>

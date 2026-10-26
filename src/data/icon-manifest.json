@@ -1,0 +1,382 @@
+{
+  "aider": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "colored",
+    "bg": "#014a2a",
+    "source": 256,
+    "ratioBefore": 0.836,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "bolt-new": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "dark",
+    "bg": "#000000",
+    "source": 256,
+    "ratioBefore": 0.727,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "chatgpt": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "claude-code": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "dark",
+    "bg": "#1e1e1e",
+    "source": 256,
+    "ratioBefore": 0.641,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "claude": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "colored",
+    "bg": "#da704e",
+    "source": 256,
+    "ratioBefore": 0.727,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "cline": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.602,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "codex-cli": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "coze": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "cursor": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "deepseek": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "devin-desktop": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "dify": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.406,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "gemini-cli": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "colored",
+    "bg": "#cfe4f9",
+    "source": 256,
+    "ratioBefore": 0.672,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "gemini": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.625,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "github-copilot": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "github-mcp-server": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "dark",
+    "bg": "#000000",
+    "source": 256,
+    "ratioBefore": 0.797,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "goose": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.898,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "kiro": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "colored",
+    "bg": "#9046ff",
+    "source": 256,
+    "ratioBefore": 0.664,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "lm-studio": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "lovable": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.461,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "mcp-servers": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "n8n": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.641,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "ollama": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.57,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "open-webui": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.539,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "openhands": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "playwright-mcp": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.59,
+    "ratioAfter": 0.715,
+    "fullBleed": false
+  },
+  "replit-agent": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "light",
+    "bg": "#ffffff",
+    "source": 256,
+    "ratioBefore": 0.488,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "trae": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "dark",
+    "bg": "#0b0f0e",
+    "source": 256,
+    "ratioBefore": 0.641,
+    "ratioAfter": 0.719,
+    "fullBleed": false
+  },
+  "v0": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "dark",
+    "bg": "#000000",
+    "source": 256,
+    "ratioBefore": 0.68,
+    "ratioAfter": 0.715,
+    "fullBleed": false
+  },
+  "zed": {
+    "kind": "tool",
+    "dir": "/ai/icons",
+    "class": "dark",
+    "bg": "#000000",
+    "source": 256,
+    "ratioBefore": 0.477,
+    "ratioAfter": 0.715,
+    "fullBleed": false
+  },
+  "capture-kit": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#3b73e4",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "fablemotion": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#6e5cdb",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "hermes": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#e6562f",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "image-atlas-pro": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#33a698",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "procedural-soundfield": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#35a67f",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "single-file-toolbox": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#f08c2a",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "skill-tree-tool": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#ad5fde",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  },
+  "sub2api": {
+    "kind": "app",
+    "dir": "/apps/icons",
+    "class": "full-bleed",
+    "bg": "#192133",
+    "source": 1024,
+    "ratioBefore": 1,
+    "ratioAfter": 1,
+    "fullBleed": true
+  }
+}

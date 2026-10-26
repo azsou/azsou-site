@@ -1,0 +1,450 @@
+# Decap CMS 配置（T7.7）：应用 / AI 工具 / 文章三个集合，字段与 src/content.config.ts 的 zod schema 一一对应
+# （tests/unit/cms.test.ts 检查下拉选项与 schema 常量一致、必填字段都在）。
+#  - 内容文件是 Markdown + JSON frontmatter（--- {JSON} ---），format: json-frontmatter 原样读写，不改成 YAML；
+#  - 正文是迁移来的 HTML，用 text 控件原样编辑（不经 Markdown 转换）；
+#  - 日期一律是 YYYY-MM-DD 字符串（不用 datetime 控件，避免写成带时区的时间戳）；
+#  - 编辑工作流：每次保存在 GitHub 上开一个 cms/… 分支 + Pull Request，CI（schema / 构建 / 测试）通过后由站长合并上线。
+backend:
+  name: github
+  repo: azsou/azsou-site
+  branch: main
+  base_url: https://azsou.com
+  auth_endpoint: api/cms/auth
+  commit_messages:
+    create: 'content({{collection}}): 新增 {{slug}}（CMS）'
+    update: 'content({{collection}}): 更新 {{slug}}（CMS）'
+    delete: 'content({{collection}}): 删除 {{slug}}（CMS）'
+    uploadMedia: 'content: 上传 {{path}}（CMS）'
+    deleteMedia: 'content: 删除 {{path}}（CMS）'
+publish_mode: editorial_workflow
+# 本地：npx decap-server（默认 8081 端口）+ npm run dev，打开 http://localhost:4321/cms/
+local_backend: true
+locale: zh_Hans
+site_url: https://azsou.com
+display_url: https://azsou.com
+logo_url: /icons/icon-192.png
+media_folder: public/cms-uploads
+public_folder: /cms-uploads
+slug:
+  encoding: ascii
+  clean_accents: true
+
+collections:
+  # --------------------------------------------------------------- 应用 ----
+  - name: apps
+    label: 应用
+    label_singular: 应用
+    folder: src/content/apps
+    extension: md
+    format: json-frontmatter
+    frontmatter_delimiter: '---'
+    create: true
+    identifier_field: title
+    summary: '{{title}} · {{version}}'
+    sortable_fields: [title, order, updated]
+    preview_path: apps/{{slug}}/
+    fields:
+      - {
+          name: title,
+          label: 名称,
+          widget: string-count,
+          max: 14,
+          hint: '卡片标题 1 行 · ≤ 14 字（汉字 1、字母数字 0.5）',
+        }
+      - {
+          name: subtitle,
+          label: 副标题,
+          widget: string-count,
+          max: 30,
+          count: chars,
+          hint: '详情页标题下一句话 · ≤ 30 个字符',
+          pattern: ['^.{1,30}$', '最多 30 个字'],
+        }
+      - {
+          name: tagline,
+          label: 卡片一句话,
+          widget: string-count,
+          min: 6,
+          max: 16,
+          hint: '卡片上 1 行显示、不截断 · 6–16 字（汉字 1、字母数字 0.5），超出不能保存',
+          pattern: ['^.{3,32}$', '6–16 字（字母数字算半个）'],
+        }
+      - {
+          name: summary,
+          label: 简介,
+          widget: string-count,
+          multiline: true,
+          min: 32,
+          max: 56,
+          hint: '精选卡与列表 2 行显示、SEO 描述 · 32–56 字（汉字 1、字母数字 0.5）',
+        }
+      - name: icon
+        label: 图标
+        widget: object
+        fields:
+          - {
+              name: src,
+              label: 图标路径,
+              widget: icon-path,
+              hint: '卡片 / 详情页图标 · /apps/icons/<slug>.png；方形 1:1、≥ 512×512，上传后 npm run icons 自动规范化',
+              pattern: ['^/(apps|ai)/icons/[a-z0-9-]+\.(svg|png|webp)$', '格式：/apps/icons/<slug>.png'],
+            }
+          - { name: placeholder, label: 临时图标, widget: boolean, default: false, required: false }
+          - { name: variants, label: 有 AVIF / WebP 变体, widget: boolean, default: false, required: false }
+      - { name: hue, label: 色相, widget: select, options: [accent, green, teal, blue, orange, purple] }
+      - name: developer
+        label: 开发者
+        widget: object
+        fields:
+          - { name: name, label: 名称, widget: string }
+          - {
+              name: short,
+              label: 卡片短名（全称更长时必填）,
+              widget: string-count,
+              max: 12,
+              required: false,
+              hint: '卡片上的开发者名 · ≤ 12 字',
+            }
+          - { name: url, label: 网址, widget: string, required: false }
+          - {
+              name: type,
+              label: 类型,
+              widget: select,
+              options: [{ label: 本站作者, value: self }, { label: 第三方, value: third-party }],
+            }
+      - {
+          name: category,
+          label: 分类,
+          widget: select,
+          options: [creative, browser-tools, utilities, ai, dev-tools, games],
+        }
+      - { name: tags, label: 标签, widget: list, required: false, hint: 小写字母、数字与连字符 }
+      - name: platforms
+        label: 平台与下载
+        widget: list
+        summary: '{{fields.os}} · {{fields.linkType}}'
+        fields: &platformFields
+          - {
+              name: os,
+              label: 平台,
+              widget: select,
+              options: [ios, android, windows, macos, linux, web, cli, browser-ext, ai-bot, mcp],
+            }
+          - { name: version, label: 版本, widget: string, required: false }
+          - { name: size, label: 大小, widget: string, required: false }
+          - { name: requirements, label: 系统要求, widget: string, required: false }
+          - {
+              name: linkType,
+              label: 链接类型,
+              widget: select,
+              options: [direct, official, store, github, web],
+            }
+          - { name: url, label: 地址（https）, widget: string, required: false }
+          - { name: sha256, label: SHA-256（直链必填）, widget: string, required: false }
+          - { name: arch, label: 架构, widget: string, required: false }
+          - { name: note, label: 说明, widget: string, required: false }
+          - { name: availability, label: 没有地址时, widget: select, required: false, options: [coming-soon] }
+      - name: screenshots
+        label: 截图
+        widget: list
+        required: false
+        fields: &shotFields
+          - {
+              name: src,
+              label: 路径,
+              widget: string,
+              hint: '桌面 16:10（2560×1600）、手机 9:19.5（1170×2532）、平板 4:3；PNG / WebP ≤ 1.5 MB',
+            }
+          - { name: alt, label: 替代文字, widget: string }
+          - { name: device, label: 设备, widget: select, options: [desktop, tablet, phone] }
+          - { name: width, label: 宽, widget: number, value_type: int }
+          - { name: height, label: 高, widget: number, value_type: int }
+          - {
+              name: illustrative,
+              label: 概念图（非真实截图）,
+              widget: boolean,
+              default: false,
+              required: false,
+            }
+      - name: price
+        label: 价格
+        widget: object
+        fields: &priceFields
+          - { name: model, label: 模式, widget: select, options: [free, freemium, paid, tbd] }
+          - { name: amount, label: 金额, widget: string, required: false }
+          - { name: note, label: 说明, widget: string, required: false }
+      - { name: license, label: 许可, widget: string }
+      - { name: openSource, label: 开源, widget: boolean, default: false, required: false }
+      - { name: website, label: 官网, widget: string, required: false }
+      - { name: sourceRepo, label: 源码仓库, widget: string, required: false }
+      - name: privacy
+        label: 隐私
+        widget: object
+        required: false
+        fields: &privacyFields
+          - { name: collects, label: 收集的数据（空 = 不收集）, widget: list, required: false }
+          - { name: note, label: 说明, widget: string, required: false }
+          - { name: policyUrl, label: 隐私政策, widget: string, required: false }
+      - name: changelog
+        label: 更新日志（新的在前）
+        widget: list
+        required: false
+        fields: &changelogFields
+          - { name: version, label: 版本, widget: string }
+          - {
+              name: date,
+              label: 日期（YYYY-MM-DD）,
+              widget: string,
+              pattern: ['^\d{4}-\d{2}(-\d{2})?$', 'YYYY-MM-DD'],
+            }
+          - { name: notes, label: 内容, widget: list }
+      - name: faq
+        label: 常见问题
+        widget: list
+        required: false
+        fields: &faqFields
+          - { name: q, label: 问题, widget: string }
+          - { name: a, label: 回答, widget: text }
+      - { name: featured, label: 编辑精选, widget: boolean, default: false, required: false }
+      - { name: releaseDate, label: 首次发布（YYYY-MM-DD）, widget: string, required: false }
+      - { name: updated, label: 最近更新（YYYY-MM-DD）, widget: string, required: false }
+      - { name: version, label: 当前版本, widget: string }
+      - { name: status, label: 状态文字, widget: string }
+      - { name: statusClass, label: 状态类型, widget: select, options: [active, review, stable, experiment] }
+      - { name: order, label: 排序, widget: number, value_type: int }
+      - { name: pinyin, label: 拼音首字母, widget: string, required: false }
+      - { name: art, label: 素材槽位, widget: string, required: false }
+      - { name: lastChecked, label: 最后核对（YYYY-MM-DD）, widget: string, required: false }
+      - { name: relatedArticles, label: 相关文章（slug）, widget: list, required: false }
+      - name: verification
+        label: 验证记录
+        widget: list
+        required: false
+        fields:
+          - { name: label, label: 项目, widget: string }
+          - { name: value, label: 结果, widget: string }
+          - { name: note, label: 说明, widget: string }
+      - { name: issues, label: 已知问题, widget: text, required: false }
+      - { name: ownerReview, label: 档案待补充, widget: boolean, default: false, required: false }
+      - { name: ownerTodo, label: 站长待办（不对访客展示）, widget: list, required: false }
+      - name: en
+        label: 英文版（/en/）
+        widget: object
+        required: false
+        hint: 只写如实翻译；不写 = 没有英文页面
+        fields: &enFields
+          - { name: title, label: 英文名（与中文相同可不写）, widget: string, required: false }
+          - { name: subtitle, label: 英文副标题（≤ 60）, widget: string, required: false }
+          - { name: summary, label: 英文简介, widget: text }
+      - { name: body, label: 正文（HTML）, widget: text }
+
+  # ------------------------------------------------------------ AI 工具 ----
+  - name: tools
+    label: AI 工具
+    label_singular: AI 工具
+    folder: src/content/tools
+    extension: md
+    format: json-frontmatter
+    frontmatter_delimiter: '---'
+    create: true
+    identifier_field: title
+    summary: '{{title}} · {{lastChecked}}'
+    sortable_fields: [title, order, lastChecked]
+    preview_path: ai/{{slug}}/
+    fields:
+      - {
+          name: title,
+          label: 名称,
+          widget: string-count,
+          max: 14,
+          hint: '卡片标题 1 行 · ≤ 14 字（汉字 1、字母数字 0.5）',
+        }
+      - {
+          name: subtitle,
+          label: 副标题,
+          widget: string-count,
+          max: 30,
+          count: chars,
+          hint: '详情页标题下一句话 · ≤ 30 个字符',
+          pattern: ['^.{1,30}$', '最多 30 个字'],
+        }
+      - {
+          name: tagline,
+          label: 卡片一句话,
+          widget: string-count,
+          min: 6,
+          max: 16,
+          hint: '卡片上 1 行显示、不截断 · 6–16 字（汉字 1、字母数字 0.5），超出不能保存',
+          pattern: ['^.{3,32}$', '6–16 字（字母数字算半个）'],
+        }
+      - {
+          name: summary,
+          label: 简介（原创）,
+          widget: string-count,
+          multiline: true,
+          min: 40,
+          max: 64,
+          hint: 'AI 工具卡 2 行显示、搜索与 meta 描述 · 40–64 字（汉字 1、字母数字 0.5）',
+          pattern: ['^[\s\S]{20,128}$', '40–64 字（字母数字算半个）'],
+        }
+      - name: icon
+        label: 图标
+        widget: object
+        fields:
+          - {
+              name: src,
+              label: 图标路径,
+              widget: icon-path,
+              hint: '卡片 / 详情页图标 · /ai/icons/<slug>.png；官方标志原样，方形 1:1、≥ 512×512',
+              pattern: ['^/(apps|ai)/icons/[a-z0-9-]+\.(svg|png|webp)$', '格式：/ai/icons/<slug>.png'],
+            }
+          - { name: placeholder, label: 临时图标, widget: boolean, default: false, required: false }
+          - { name: variants, label: 有 AVIF / WebP 变体, widget: boolean, default: false, required: false }
+      - {
+          name: hue,
+          label: 色相（不写 = 跟随主分类）,
+          widget: select,
+          required: false,
+          options: [accent, green, teal, blue, orange, purple],
+        }
+      - name: developer
+        label: 开发者
+        widget: object
+        fields:
+          - { name: name, label: 名称, widget: string }
+          - {
+              name: short,
+              label: 卡片短名（全称更长时必填）,
+              widget: string-count,
+              max: 12,
+              required: false,
+              hint: '卡片上的开发者名 · ≤ 12 字',
+            }
+          - { name: en, label: 英文名（全称含中文时必填，英文页显示）, widget: string, required: false }
+          - { name: url, label: 官网（https）, widget: string }
+          - { name: type, label: 类型, widget: hidden, default: third-party }
+      - {
+          name: categories,
+          label: 分类（第一个是主分类）,
+          widget: select,
+          multiple: true,
+          min: 1,
+          options: [agent, vibe-coding, cli, ai-bot, mcp],
+        }
+      - { name: tags, label: 标签, widget: list, required: false }
+      - {
+          name: platforms,
+          label: 平台（只链官方地址，不能是直链）,
+          widget: list,
+          summary: '{{fields.os}} · {{fields.linkType}}',
+          fields: *platformFields,
+        }
+      - { name: screenshots, label: 截图, widget: list, required: false, fields: *shotFields }
+      - { name: price, label: 价格, widget: object, fields: *priceFields }
+      - { name: license, label: 许可, widget: string }
+      - { name: openSource, label: 开源, widget: boolean, default: false }
+      - { name: website, label: 官网（https）, widget: string }
+      - name: ai
+        label: AI 专属信息（只填正文 / 官网已写明的，没有就不填）
+        widget: object
+        required: false
+        fields:
+          - { name: freeTier, label: 免费额度, widget: string, required: false }
+          - { name: api, label: API（工具本身提供的）, widget: string, required: false }
+          - { name: mcp, label: MCP 支持, widget: string, required: false }
+          - { name: china, label: 国内可用性, widget: string, required: false }
+          - { name: officialEntry, label: 另一个官方入口（https，如国内版）, widget: string, required: false }
+      - { name: features, label: 特性要点（每条一句）, widget: list, required: false }
+      - { name: sourceRepo, label: 源码仓库, widget: string, required: false }
+      - { name: privacy, label: 隐私, widget: object, required: false, fields: *privacyFields }
+      - { name: changelog, label: 更新日志, widget: list, required: false, fields: *changelogFields }
+      - { name: faq, label: 常见问题, widget: list, required: false, fields: *faqFields }
+      - { name: featured, label: 编辑精选, widget: boolean, default: false, required: false }
+      - { name: version, label: 当前版本（跟随官方可不写）, widget: string, required: false }
+      - { name: updated, label: 最近更新（YYYY-MM-DD）, widget: string, required: false }
+      - {
+          name: lastChecked,
+          label: 最后核对官网（YYYY-MM-DD，必填）,
+          widget: string,
+          pattern: ['^\d{4}-\d{2}(-\d{2})?$', 'YYYY-MM-DD'],
+        }
+      - { name: order, label: 排序, widget: number, value_type: int }
+      - { name: pinyin, label: 拼音首字母, widget: string, required: false }
+      - { name: en, label: 英文版（/en/）, widget: object, required: false, fields: *enFields }
+      - { name: body, label: 正文（HTML）, widget: text }
+
+  # -------------------------------------------------------------- 文章 ----
+  - name: articles
+    label: 文章
+    label_singular: 文章
+    folder: src/content/articles
+    extension: md
+    format: json-frontmatter
+    frontmatter_delimiter: '---'
+    create: true
+    identifier_field: title
+    summary: '{{title}} · {{date}}'
+    sortable_fields: [title, date, order]
+    preview_path: articles/{{slug}}/
+    fields:
+      - {
+          name: title,
+          label: 标题,
+          widget: string-count,
+          max: 36,
+          hint: '文章卡标题 2 行 · ≤ 36 字（汉字 1、字母数字 0.5）',
+        }
+      - { name: category, label: 分类, widget: string }
+      - { name: badge, label: 徽章（如「实测」）, widget: string }
+      - { name: author, label: 作者, widget: string, default: Randy Hopkins }
+      - {
+          name: date,
+          label: 发布日期（YYYY-MM-DD）,
+          widget: string,
+          pattern: ['^\d{4}-\d{2}(-\d{2})?$', 'YYYY-MM-DD'],
+        }
+      - {
+          name: lastChecked,
+          label: 最后核对（YYYY-MM-DD）,
+          widget: string,
+          pattern: ['^\d{4}-\d{2}(-\d{2})?$', 'YYYY-MM-DD'],
+        }
+      - { name: readingMinutes, label: 阅读分钟数, widget: number, value_type: int, min: 1 }
+      - { name: toc, label: 目录（每个小标题一项）, widget: list }
+      - { name: tags, label: 标签, widget: list }
+      - { name: forumThread, label: 讨论主题 ID（没有就留空）, widget: string, required: false }
+      - {
+          name: ogImage,
+          label: 分享图（站内路径）,
+          widget: string,
+          hint: '社交分享卡 · 1200×630（1.91:1）PNG，文字留在中间 1000×500 内',
+          pattern: ['^/', '以 / 开头'],
+        }
+      - { name: art, label: 素材槽位, widget: string, required: false }
+      - { name: pinyin, label: 拼音首字母, widget: string, required: false }
+      - { name: order, label: 同日排序, widget: number, value_type: int }
+      - {
+          name: description,
+          label: 摘要（可留空）,
+          widget: string-count,
+          multiline: true,
+          min: 60,
+          max: 110,
+          required: false,
+          hint: '列表、搜索结果与 meta 描述 · 60–110 字；留空 = 取正文前 120 字',
+        }
+      - label: 联盟 / 赞助披露（没有就留空）
+        name: disclosure
+        widget: object
+        required: false
+        fields:
+          - { name: type, label: 类型, widget: select, options: [affiliate, sponsored] }
+          - { name: sponsor, label: 赞助方, widget: string, required: false }
+          - { name: note, label: 披露说明, widget: string, required: false }
+      - {
+          name: sponsoredLinks,
+          label: 联盟 / 赞助链接地址（https，自动加 rel=sponsored）,
+          widget: list,
+          required: false,
+        }
+      - { name: body, label: 正文（HTML）, widget: text }

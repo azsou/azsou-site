@@ -1,0 +1,408 @@
+/* 详情页（P10 PR G：T10.11–T10.15）——应用 / AI 工具 / 游戏共用。
+   头部：图标 112（窄屏 96）+ 名称 / 副标题 / 开发者 + 类型徽标 → 指标条（只放真实字段）→ 主按钮（含大小）+ 次按钮；
+   主体 ≥ 1200 两栏（正文 + 右侧导流栏），窄屏堆叠。平面底，不用横幅渐变。 */
+@layer reset, tokens, base, components, utilities;
+
+@layer components {
+  .app-page.detail {
+    max-width: none;
+  }
+  /* ---------- 头部 ---------- */
+  .detail-hero.app-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icon main'
+      'icon metrics'
+      'icon actions'
+      'icon links';
+    gap: var(--space-3) var(--space-6);
+    align-items: start;
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--c-separator);
+  }
+  .detail-hero__icon {
+    grid-area: icon;
+  }
+  /* 游戏没有图标：几何兜底按详情尺寸 112（窄屏 96） */
+  .detail-hero .app-icon--xl {
+    width: 112px;
+    height: 112px;
+  }
+  .detail-hero__main {
+    grid-area: main;
+    min-width: 0;
+  }
+  .detail-hero .app-hero__title {
+    font-size: var(--fs-title-1);
+    line-height: var(--lh-title-1);
+  }
+  .detail-hero .app-hero__subtitle {
+    margin-top: 0;
+  }
+  .detail-hero .app-hero__dev {
+    margin-top: var(--space-1);
+  }
+  .detail-hero__status {
+    color: var(--c-label-2);
+  }
+
+  /* 指标条：版本｜大小｜更新｜平台｜价格｜许可（没有值的格不渲染） */
+  .detail-metrics {
+    grid-area: metrics;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .detail-metric {
+    display: grid;
+    gap: 0;
+    min-width: 0;
+    padding: 0 var(--space-4);
+  }
+  .detail-metric:first-child {
+    padding-left: 0;
+  }
+  .detail-metric + .detail-metric {
+    border-left: 1px solid var(--c-separator);
+  }
+  .detail-metric dt {
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-label-3);
+  }
+  .detail-metric dd {
+    margin: 0;
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--c-label);
+    white-space: nowrap;
+  }
+
+  .detail-hero__actions {
+    grid-area: actions;
+    min-width: 0;
+  }
+  .detail-hero__links {
+    grid-area: links;
+    min-width: 0;
+  }
+  .detail-hero__links .detail-links {
+    margin-top: calc(var(--space-3) * -1 + var(--space-1));
+  }
+  /* ≥ 1200：头部三栏「图标 | 名称 + 指标 | 操作卡」。操作卡与下方右侧导流栏同宽（320）、左右缘对齐，
+     正文 : 侧栏 ≈ 2.5 : 1（接近 1 : 1.618²），头部右侧不再大片留白。 */
+  @media (min-width: 1200px) {
+    .detail-hero.app-hero {
+      grid-template-columns: auto minmax(0, 1fr) 320px;
+      grid-template-areas:
+        'icon main actions'
+        'icon metrics actions'
+        'icon links actions';
+      /* 操作卡比左侧高时（多平台下载），多出的高度只给最后一行，指标条、链接行紧跟名称；
+         链接行（官网 / 分享）从操作卡挪到左栏（P10i r3），5 个平台时操作卡 ≈ 左栏高度，指标条下不再留白 */
+      grid-template-rows: auto auto minmax(0, 1fr);
+      align-items: start;
+    }
+    .detail-hero__actions {
+      align-self: center;
+      display: grid;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: var(--c-surface);
+      box-shadow: var(--elev-0);
+    }
+    .detail-hero__actions .btn--primary {
+      width: 100%;
+    }
+    .detail-hero__actions .detail-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    /* 三个以上平台：首个按钮独占首行，其余两列排，操作卡高度约减半。
+       按 DOM 位置而不是 .btn--primary 选：设备识别脚本加载后才改主按钮，按类名排会让按钮换位（CLS），也会让视觉顺序与 Tab 顺序不一致 */
+    .detail-hero__actions .detail-actions:has(> :nth-child(3)) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .detail-hero__actions .detail-actions > :first-child {
+      grid-column: 1 / -1;
+    }
+    /* P10i r3b：五个平台时操作卡比左栏高约 41px（/ai/claude/），左栏链接行下留一块空白——
+       提示行紧贴按钮（卡片网格已有 8px 间距，不再叠 margin-top），上下内边距收到 12，卡片 ≈ 左栏高度 */
+    .detail-hero__actions .app-downloads__hint {
+      margin-top: 0;
+    }
+    .detail-hero__actions:has(.detail-actions > :nth-child(3)) {
+      padding-block: var(--space-3);
+    }
+  }
+  /* 文字按钮行：首个按钮的内边距向外抵消，文字与上方主按钮左缘光学对齐 */
+  .detail-links > :first-child {
+    margin-inline-start: calc(var(--space-2) * -1);
+  }
+  .detail-hero__actions .app-downloads,
+  .detail-hero__actions .game-cta {
+    margin-top: 0;
+  }
+  .detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .dl-btn__size {
+    font-weight: var(--fw-regular);
+  }
+  .detail-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    min-height: var(--touch);
+    margin-top: var(--space-2);
+    font-size: var(--fs-meta);
+  }
+  .detail-links a,
+  .detail-links button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: var(--touch);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+  }
+  .detail-links button {
+    border: 0;
+    background: transparent;
+    color: var(--c-link);
+    font: inherit;
+    cursor: pointer;
+  }
+  .detail-links button:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+  .detail-share__status {
+    color: var(--c-label-2);
+  }
+
+  @media (max-width: 599.98px) {
+    .detail-hero.app-hero {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas:
+        'icon main'
+        'metrics metrics'
+        'actions actions'
+        'links links';
+      justify-items: stretch;
+      gap: var(--space-3) var(--space-4);
+      padding-top: var(--space-3);
+    }
+    .detail-hero .app-hero__icon {
+      grid-auto-flow: row;
+      align-items: start;
+    }
+    .detail-hero .app-icon-img--xl,
+    .detail-hero .app-hero__icon picture,
+    .detail-hero .app-icon--xl {
+      width: 96px;
+      height: 96px;
+    }
+    .detail-hero .app-hero__title {
+      font-size: var(--fs-title-2);
+      line-height: var(--lh-title-2);
+    }
+    /* 窄屏指标条（P10h）：改成可换行的小胶囊（「版本 v0.8」一行一枚），按内容宽度排、放不下就换到下一行，
+       不再把长值挤进 1/3 宽的格子里在字中间折行（如「付费功/能」）。不做横滑：横滑区没有可聚焦内容会触发 axe。 */
+    .detail-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+    .detail-metric,
+    .detail-metric:first-child,
+    .detail-metric + .detail-metric {
+      display: inline-flex;
+      align-items: baseline;
+      gap: var(--space-1);
+      max-width: 100%;
+      padding: var(--space-1) var(--space-3);
+      border: 0;
+      border-radius: var(--radius-pill);
+      background: var(--c-fill);
+    }
+    .detail-metric dd {
+      white-space: normal;
+      word-break: keep-all;
+    }
+  }
+  @media (max-width: 599.98px) and (forced-colors: active) {
+    .detail-metric,
+    .detail-metric:first-child,
+    .detail-metric + .detail-metric {
+      border: 1px solid CanvasText;
+    }
+  }
+
+  /* ---------- 主体两栏 ---------- */
+  .detail-layout {
+    display: grid;
+    gap: var(--density-section-gap);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 1200px) {
+    .detail-layout {
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: var(--space-8);
+      align-items: start;
+    }
+  }
+  .detail-main {
+    min-width: 0;
+  }
+  /* ≥ 1200 正文栏里截图每屏正好两张：不出现「露半张」——键盘 Tab 到半露的截图时浏览器不会滚动，
+     按钮中心会落在右侧栏下面（设计门禁「焦点被遮挡」） */
+  @media (min-width: 1200px) {
+    .detail-main .shots__track {
+      grid-auto-columns: calc((100% - var(--space-4)) / 2);
+    }
+  }
+  .detail-side {
+    min-width: 0;
+  }
+  .detail-side .shelf:first-child {
+    margin-top: var(--density-section-gap);
+  }
+  .shelf__track.shelf__track--stack {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+    scroll-snap-type: none;
+  }
+  @media (min-width: 600px) and (max-width: 1199.98px) {
+    .shelf__track.shelf__track--stack {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .detail-articles {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .detail-articles a {
+    display: block;
+    padding: var(--space-2) 0;
+    min-height: var(--touch);
+  }
+  .detail-articles small {
+    display: block;
+    color: var(--c-label-3);
+    font-size: var(--fs-caption);
+  }
+
+  /* ---------- 简介折叠（服务端切分，<details> 无 JS） ---------- */
+  .intro-more > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+    color: var(--c-link);
+    cursor: pointer;
+    list-style: none;
+  }
+  .intro-more > summary::-webkit-details-marker {
+    display: none;
+  }
+  .intro-more[open] > summary {
+    display: none;
+  }
+  .intro-more > summary:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  .detail-features {
+    display: grid;
+    gap: var(--space-2);
+    padding-left: var(--space-5);
+  }
+  .detail-source {
+    font-size: var(--fs-meta);
+  }
+  .detail-source code {
+    word-break: break-all;
+  }
+  /* 评分 / 计数格挪到评价区上方：两格都隐藏时整条不占位 */
+  .app-stats--below:not(:has(.app-stat:not([hidden]))) {
+    display: none;
+  }
+}
+
+/* P10h：详情页主按钮用条目类型的强调色（应用蓝 / AI 工具紫 / 游戏橙），次按钮为同色淡底 */
+@layer components {
+  .detail-hero__actions .btn--primary {
+    background: var(--type-ink);
+    color: var(--c-on-solid);
+  }
+  .detail-hero__actions .btn:not(.btn--primary, .btn--text, .btn--icon) {
+    background: color-mix(in srgb, var(--type-ink) var(--tint-rest), transparent);
+    color: var(--type-ink);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .detail-hero__actions .btn--primary:hover {
+      background: color-mix(in srgb, var(--type-ink) 90%, var(--c-label));
+    }
+    .detail-hero__actions .btn:not(.btn--primary, .btn--text, .btn--icon):hover {
+      background: color-mix(in srgb, var(--type-ink) var(--tint-hover), transparent);
+    }
+  }
+  .detail-hero__actions .btn--primary:active {
+    background: color-mix(in srgb, var(--type-ink) 84%, var(--c-label));
+  }
+}
+
+/* P10h：≥ 1200 右侧栏吸顶（高于视口时栏内滚动，里面都是链接，键盘可达） */
+@layer components {
+  @media (min-width: 1200px) {
+    .detail-side {
+      position: sticky;
+      top: calc(var(--nav-h) + var(--safe-top, 0px) + var(--space-4));
+      max-height: calc(100dvh - var(--nav-h) - var(--space-8));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      /* 留出焦点环（outline-offset 2px）的位置，不被滚动容器裁掉 */
+      padding: var(--space-1);
+      margin: calc(var(--space-1) * -1);
+    }
+    .detail-side > .shelf:first-child {
+      margin-top: 0;
+    }
+  }
+}
+
+/* P10i r2：手机上主操作通栏（拇指区一眼可见，与下方信息块左右缘对齐） */
+@layer components {
+  @media (max-width: 599.98px) {
+    /* 按钮通栏；≥ 3 个时首个独占一行、其余两列（同样按 DOM 位置，不随设备识别换位） */
+    .detail-hero__actions .detail-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .detail-hero__actions .detail-actions:has(> :nth-child(3)) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .detail-hero__actions .detail-actions > :first-child {
+      grid-column: 1 / -1;
+    }
+  }
+}

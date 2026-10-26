@@ -1,0 +1,243 @@
+---
+import '@/styles/global.css';
+import '@/styles/components.css';
+import Nav from '@/components/Nav.astro';
+import TabBar from '@/components/TabBar.astro';
+import Footer from '@/components/Footer.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import GoogleTags from '@/components/ads/GoogleTags.astro';
+import { SITE } from '@/lib/site';
+import { ogSection } from '@/lib/og-routes';
+import {
+  abs,
+  breadcrumbs,
+  graph,
+  jsonLd,
+  organization,
+  person,
+  webPage,
+  website,
+  type Crumb,
+} from '@/lib/seo';
+import { getEnPaths } from '@/lib/content';
+import { LOCALES, OG_LOCALES, alternatesFor, langOf, switchHref } from '@/lib/i18n';
+
+interface Props {
+  title: string;
+  description: string;
+  /** 默认用当前路径 */
+  canonical?: string;
+  image?: string;
+  imageAlt?: string;
+  type?: 'website' | 'article' | 'profile';
+  noindex?: boolean;
+  /** 系统页（404 / 500 / 离线）：精简页脚，只留首页、搜索与版权（T9.15） */
+  slimFooter?: boolean;
+  /** 'app' = 独立应用外壳（后台 T9.16）：不渲染前台导航 / 页脚 / TabBar / 面包屑，顶栏由 slot="app-header" 提供 */
+  chrome?: 'site' | 'app';
+  crumbs?: Crumb[];
+  schema?: Record<string, unknown>[];
+  published?: string;
+  modified?: string;
+  /** 首屏 LCP 图：在 <head> 里预加载，和 CSS 并行下载 */
+  preloadImage?: string;
+  /** 首屏 LCP 图是 <picture>（AVIF srcset）时用这个预加载，与 <source> 的 srcset 一致才不会重复下载 */
+  preloadSrcset?: { srcset: string; type: string; sizes?: string };
+  /** 进 Pagefind 全文索引（T7.1）：只有内容详情页设置；值是结果里显示的类型 */
+  searchType?: 'app' | 'tool' | 'video' | 'game' | 'article' | 'work' | 'thread';
+  /** 本页不出广告、不加载 AdSense（P8；默认按 src/lib/ads.ts 的 AD_FREE_PREFIXES 判断） */
+  noAds?: boolean;
+}
+
+const {
+  title,
+  description,
+  canonical = Astro.url.pathname,
+  image: imageProp,
+  imageAlt: imageAltProp,
+  type = 'website',
+  noindex = false,
+  slimFooter = false,
+  chrome = 'site',
+  crumbs,
+  schema = [],
+  published,
+  modified,
+  preloadImage,
+  preloadSrcset,
+  searchType,
+  noAds = false,
+} = Astro.props;
+
+const fullTitle =
+  title === SITE.title || title.startsWith(`${SITE.name} ·`) ? title : `${title} · ${SITE.name}`;
+const canonicalUrl = abs(canonical);
+// OG 图（T9.4）：详情页传专属图，其余页面用所属栏目的图；alt = 标题
+const image = imageProp ?? ogSection(canonical);
+const imageAlt = imageAltProp ?? title;
+// 中英双语（T7.6）：语言由路径决定（/en/ 下是英文）；有对应语言的页面时输出 hreflang（x-default = 中文）
+const path = Astro.url.pathname;
+const lang = langOf(path);
+const enPaths = await getEnPaths();
+const alt = noindex ? null : alternatesFor(path, enPaths);
+const langSwitch = switchHref(path, enPaths);
+const nodes = [
+  website(),
+  organization(),
+  person(),
+  webPage({ path: canonical, name: fullTitle, inLanguage: LOCALES[lang] }),
+  ...(crumbs ? [breadcrumbs(crumbs)] : []),
+  ...schema,
+];
+const isProd = import.meta.env.PROD;
+---
+
+<!doctype html>
+<html lang={LOCALES[lang]}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    {alt && <link rel="alternate" hreflang="zh-CN" href={abs(alt.zh)} />}
+    {alt && <link rel="alternate" hreflang="en" href={abs(alt.en)} />}
+    {alt && <link rel="alternate" hreflang="x-default" href={abs(alt.zh)} />}
+    {noindex ? (
+      <meta name="robots" content="noindex,follow" />
+    ) : (
+      <meta name="robots" content="index,follow,max-image-preview:large" />
+    )}
+    <meta name="author" content={SITE.author.name} />
+    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- 主题（T7.5）：首帧前读出手动选择（浅色 / 深色；默认跟随系统），避免闪烁。改动后跑 npm run csp:update 更新 CSP 哈希 -->
+    <script is:inline>
+      (() => {
+        const d = document.documentElement;
+        let t = 'system';
+        try {
+          t = localStorage.getItem('az-theme') || 'system';
+        } catch {
+          // 隐私模式等读不到存储：跟随系统
+        }
+        if (t !== 'light' && t !== 'dark') t = 'system';
+        d.setAttribute('data-theme-pref', t);
+        if (t === 'system') return;
+        d.setAttribute('data-theme', t);
+        for (const m of document.querySelectorAll('meta[name="theme-color"]'))
+          m.setAttribute('content', t === 'dark' ? '#000000' : '#f5f5f7');
+      })();
+    </script>
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AZ Studio" />
+    {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
+    {preloadSrcset && (
+      <link
+        rel="preload"
+        as="image"
+        imagesrcset={preloadSrcset.srcset}
+        imagesizes={preloadSrcset.sizes}
+        type={preloadSrcset.type}
+        fetchpriority="high"
+      />
+    )}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    {lang === 'en' ? (
+      <link rel="alternate" type="application/rss+xml" title="AZ Studio (English)" href="/en/rss.xml" />
+    ) : (
+      <>
+        <link rel="alternate" type="application/rss+xml" title="AZ Studio · 全站更新" href="/rss.xml" />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="AZ Studio · 原创文章"
+          href="/articles/rss.xml"
+        />
+        <link rel="alternate" type="application/feed+json" title="AZ Studio · JSON Feed" href="/feed.json" />
+      </>
+    )}
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <!-- Google：Search Console 验证 meta（PUBLIC_GSC_VERIFICATION）与 Consent Mode v2 + AdSense / GA4 加载器；变量都没设时不输出 -->
+    <GoogleTags path={path} noAds={noAds || noindex} />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content={OG_LOCALES[lang]} />
+    {alt && <meta property="og:locale:alternate" content={OG_LOCALES[lang === 'en' ? 'zh' : 'en']} />}
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={abs(image)} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={imageAlt} />
+    {published && <meta property="article:published_time" content={published} />}
+    {modified && <meta property="article:modified_time" content={modified} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={abs(image)} />
+    <script type="application/ld+json" set:html={jsonLd(graph(...nodes))} />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      {lang === 'en' ? 'Skip to content' : '跳到正文'}
+    </a>
+    {chrome === 'app' ? <slot name="app-header" /> : <Nav lang={lang} switchHref={langSwitch} />}
+    <main
+      id="main"
+      class:list={['page', chrome === 'app' && 'page--app']}
+      tabindex="-1"
+      data-pagefind-body={searchType ? '' : undefined}
+      data-pagefind-meta={searchType ? `type:${searchType}` : undefined}
+    >
+      {chrome === 'app' ? (
+        <slot />
+      ) : (
+        <div class="shell">
+          {crumbs && crumbs.length > 1 && <Breadcrumbs items={crumbs} lang={lang} />}
+          <slot />
+        </div>
+      )}
+    </main>
+    {chrome === 'app' ? null : slimFooter ? (
+      <footer class="site-footer site-footer--slim">
+        <div class="shell footer-slim">
+          <span>© {new Date().getFullYear()} AZ Studio</span>
+          <a href={lang === 'en' ? '/en/' : '/'}>{lang === 'en' ? 'Home' : '首页'}</a>
+          <a href="/search/">{lang === 'en' ? 'Search' : '搜索'}</a>
+          <a href={lang === 'en' ? '/en/contact/' : '/contact/'}>{lang === 'en' ? 'Contact' : '联系'}</a>
+        </div>
+      </footer>
+    ) : (
+      <Footer lang={lang} switchHref={langSwitch} />
+    )}
+    {chrome !== 'app' && <TabBar lang={lang} />}
+    <script>
+      // 主题切换按钮 + Ctrl/⌘K 搜索面板（面板与 Pagefind 只在打开时才加载）
+      import '@/scripts/site-shell';
+      // 图标加载失败 → 几何兜底（T9.3）
+      import { initIconFallback } from '@/scripts/icon-fallback';
+      initIconFallback();
+      // 站点公告条与论坛分类顺序（站点设置，P4）：空闲时加载，不影响首屏
+      import { whenIdle } from '@/scripts/idle';
+      whenIdle(() => import('@/scripts/site-banner').then((m) => m.initSiteBanner()), 3000);
+      // 滚动渐显（只作用于首屏以下；减少动态效果时不启用）
+      whenIdle(() => import('@/scripts/reveal').then((m) => m.initReveal()));
+    </script>
+    {isProd && <script is:inline>
+      if ('serviceWorker' in navigator)
+        addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+    </script>}
+  </body>
+</html>

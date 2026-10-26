@@ -1,0 +1,91 @@
+---
+import Base from '@/layouts/Base.astro';
+import StoreDetail from '@/components/apps/StoreDetail.astro';
+import { getApps, getArticles, platformText, type App } from '@/lib/content';
+import { fromApp } from '@/lib/store';
+import { relatedArticleLinks, sideGroups } from '@/lib/detail-side';
+import { CATEGORIES, CATEGORY_SCHEMA, PLATFORM_SCHEMA } from '@/lib/app-store';
+import { url, ogArt } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
+import { softwareApp } from '@/lib/seo';
+import { iconSrcset } from '@/lib/icons';
+
+export async function getStaticPaths() {
+  const apps = await getApps();
+  return apps.map((app) => ({ params: { slug: app.id }, props: { app, all: apps } }));
+}
+const { app, all } = Astro.props as { app: App; all: App[] };
+const d = app.data;
+// 正文是仓库里的可信 HTML（迁移内容），原样输出，不经 Markdown 二次处理
+const bodyHtml = app.body ?? '';
+const entries = all.map(fromApp);
+const entry = entries.find((e) => e.slug === app.id)!;
+const path0 = url.app(app.id);
+const articles = relatedArticleLinks(await getArticles(), path0, d.relatedArticles);
+const side = sideGroups(entry, entries, {
+  more: { href: url.appCategory(d.category), label: `更多${CATEGORIES[d.category]}` },
+  typeNoun: '应用',
+});
+const image = d.art ? ogArt(d.art) : undefined;
+const path = path0;
+const oses = d.platforms.map((p) => p.os);
+const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。当前 ${d.version} · ${d.status}。`;
+---
+
+<Base
+  searchType="app"
+  preloadImage={d.icon.variants ? undefined : d.icon.src}
+  preloadSrcset={
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'xl', 'avif'), type: 'image/avif' } : undefined
+  }
+  title={`${d.title} — ${d.subtitle}`}
+  description={description}
+  image={ogFor('app', app.id)}
+  imageAlt={d.title}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '应用', path: '/apps/' },
+    { name: CATEGORIES[d.category], path: url.appCategory(d.category) },
+    { name: d.title, path },
+  ]}
+  schema={[
+    softwareApp({
+      name: d.title,
+      description: d.summary,
+      path,
+      category: CATEGORIES[d.category],
+      applicationCategory: CATEGORY_SCHEMA[d.category],
+      version: d.version,
+      image: image ?? d.icon.src,
+      os: [...new Set(oses.map((o) => PLATFORM_SCHEMA[o]))].join(', '),
+      screenshots: d.screenshots.filter((s) => !s.illustrative).map((s) => s.src),
+      price: d.price,
+      datePublished: d.releaseDate,
+      dateModified: d.updated,
+      codeRepository: d.sourceRepo,
+      developer:
+        d.developer.type === 'third-party' ? { name: d.developer.name, url: d.developer.url } : undefined,
+    }),
+  ]}
+>
+  <StoreDetail
+    kind="app"
+    slug={app.id}
+    data={d}
+    body={bodyHtml}
+    categoryLabel={CATEGORIES[d.category]}
+    categoryHref={url.appCategory(d.category)}
+    platformHref={url.appPlatform}
+    hue={d.hue}
+    entry={entry}
+    side={side}
+    articles={articles}
+  />
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  import { highlightPlatform } from '@/scripts/apps/platform';
+  highlightPlatform(document);
+  whenIdle(() => import('@/scripts/apps/detail'));
+</script>

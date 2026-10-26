@@ -1,0 +1,50 @@
+---
+/** 英文版应用列表（T7.6）：只列有英文文案的应用 */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import EnCard from '@/components/en/EnCard.astro';
+import { getApps } from '@/lib/content';
+import { EN_CATEGORY, EN_PLATFORM, EN_PRICE } from '@/lib/i18n-labels';
+import { itemList } from '@/lib/seo';
+
+const apps = (await getApps()).filter((a) => a.data.en);
+const title = (a: (typeof apps)[number]) => a.data.en!.title ?? a.data.title;
+---
+
+<Base
+  title="Apps"
+  description={`${apps.length} apps made by the AZ Studio author: creative tools, browser tools, utilities and developer tools, with honest status and version info.`}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Apps', path: '/en/apps/' },
+  ]}
+  schema={[
+    itemList(
+      'AZ Studio apps',
+      '/en/apps/',
+      apps.map((a) => ({ name: title(a), path: `/en/apps/${a.id}/` })),
+    ),
+  ]}
+>
+  <PageHead
+    eyebrow="App store"
+    title="Apps"
+    lede="Apps made by the site author. Where a build is not public yet, the download button says “Coming soon”."
+  />
+  <div class="grid grid--wide" data-grid="row">
+    {apps.map((a) => (
+      <EnCard
+        href={`/en/apps/${a.id}/`}
+        title={title(a)}
+        subtitle={a.data.en!.subtitle ?? a.data.subtitle}
+        meta={[
+          EN_CATEGORY[a.data.category],
+          EN_PRICE[a.data.price.model],
+          a.data.platforms.map((p) => EN_PLATFORM[p.os]).join(' · '),
+        ].join(' · ')}
+        icon={a.data.icon}
+        hue={a.data.hue}
+      />
+    ))}
+  </div>
+</Base>

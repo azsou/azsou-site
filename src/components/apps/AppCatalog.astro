@@ -1,0 +1,193 @@
+---
+/**
+ * 应用目录（/apps/、/apps/page/N/、分类页、平台页共用）。
+ * 静态 HTML：按「最新」排序的分页结果 + 分类 / 平台入口链接（零 JS 可浏览、可收录）。
+ * 有 JS 时：筛选（平台 / 分类 / 价格）与排序（最新 / 热门 / 评分）在浏览器里完成（src/scripts/apps/catalog.ts），
+ * 热门 = 真实下载次数，评分 = 真实用户评价的平均分；数据库不可达时退回「最新」并提示。
+ */
+import MoreFilters from '@/components/ui/MoreFilters.astro';
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import AppTile from '@/components/store/AppTile.astro';
+import ListShell from '@/components/store/ListShell.astro';
+import { getApps } from '@/lib/content';
+import { fromApp, type StoreEntry } from '@/lib/store';
+import {
+  CATEGORIES,
+  CATEGORY_IDS,
+  PLATFORMS,
+  PLATFORM_LABEL,
+  PRICE_LABEL,
+  PRICE_MODELS,
+  SORTS,
+  SORT_LABEL,
+  paginate,
+  pageUrl,
+  type CatalogItem,
+  type Category,
+  type PlatformOs,
+} from '@/lib/app-store';
+import { url } from '@/lib/routes';
+import { itemList, type Crumb } from '@/lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  lede: string;
+  eyebrow?: string;
+  /** 全部应用（已按最新排序） */
+  all: CatalogItem[];
+  /** 本页范围内的应用（分类页 / 平台页已过滤） */
+  items: CatalogItem[];
+  page: number;
+  /** 第 1 页地址（以 / 结尾） */
+  base: string;
+  crumbs: Crumb[];
+  fixedCategory?: Category;
+  fixedPlatform?: PlatformOs;
+}
+const {
+  title,
+  description,
+  lede,
+  eyebrow = '应用',
+  all,
+  items,
+  page,
+  base,
+  crumbs,
+  fixedCategory,
+  fixedPlatform,
+} = Astro.props;
+const paged = paginate(items, page);
+const cats = CATEGORY_IDS.filter((c) => all.some((a) => a.category === c));
+const plats = PLATFORMS.filter((p) => all.some((a) => a.platforms.includes(p)));
+const prices = PRICE_MODELS.filter((p) => all.some((a) => a.price === p));
+const pageTitle = page > 1 ? `${title}（第 ${page} 页）` : title;
+const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
+// T10.8：统一商店条目（与首页货架、/ai/、/games/ 同一组件）
+const entryBySlug = new Map<string, StoreEntry>((await getApps()).map((a) => [a.id, fromApp(a)]));
+---
+
+<Base
+  title={pageTitle}
+  description={description}
+  crumbs={crumbs}
+  schema={[
+    itemList(
+      pageTitle,
+      page > 1 ? pageUrl(base, page) : base,
+      paged.items.map((a) => ({ name: a.title, path: a.url })),
+    ),
+  ]}
+>
+  <PageHead eyebrow={eyebrow} title={title} lede={lede} />
+
+  <ListShell
+    railLabel="分类"
+    railName="按分类浏览"
+    rail={[
+      { label: '全部', href: url.apps(), count: all.length, current: !fixedCategory && !fixedPlatform },
+      ...cats.map((c) => ({
+        label: CATEGORIES[c],
+        href: url.appCategory(c),
+        count: count((a) => a.category === c),
+        current: fixedCategory === c,
+      })),
+    ]}
+    status={`共 ${paged.total} 个应用${paged.pages > 1 ? ` · 第 ${paged.page} / ${paged.pages} 页` : ''} · 按最新排序`}
+    statusAttrs={{ 'data-catalog-status': '' }}
+    pageSize={0}
+  >
+    {/* T9.12 单套筛选：分类在分类栏（链接到可索引的分类页）；平台 / 价格 / 按真实数据排序收进「更多筛选」 */}
+    <div class="filter-bar" slot="before">
+      <MoreFilters>
+        <div
+          class="catalog-filter"
+          data-catalog-filter
+          data-base={base}
+          data-fixed-category={fixedCategory}
+          data-fixed-platform={fixedPlatform}
+          role="group"
+          aria-label="更多筛选"
+        >
+          <div class="field">
+            <label for="cf-platform">平台</label>
+            <select id="cf-platform" name="platform" disabled={!!fixedPlatform}>
+              <option value="">全部平台</option>
+              {plats.map((p) => (
+                <option value={p} selected={fixedPlatform === p}>
+                  {PLATFORM_LABEL[p]}（{count((a) => a.platforms.includes(p))}）
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <label for="cf-price">价格</label>
+            <select id="cf-price" name="price">
+              <option value="">全部</option>
+              {prices.map((p) => (
+                <option value={p}>{PRICE_LABEL[p]}</option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <span class="field__label" id="cf-sort-label">
+              按真实数据排序
+            </span>
+            <div class="segmented segmented--inline" role="group" aria-labelledby="cf-sort-label">
+              {SORTS.map((s) => (
+                <button type="button" data-sort={s} aria-pressed={s === 'new' ? 'true' : 'false'}>
+                  {SORT_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </MoreFilters>
+    </div>
+
+    <ul class="list-items" data-grid="tile" role="list" data-catalog-grid data-list-items data-view="grid">
+      {paged.items.map((a, i) => (
+        <li>
+          <AppTile
+            entry={entryBySlug.get(a.slug)!}
+            headingLevel="h2"
+            eager={i < 12}
+            priority={i < 6}
+            fields={['category', 'version', 'updatedAt']}
+          />
+        </li>
+      ))}
+    </ul>
+    {paged.items.length === 0 && <p class="empty-state">这里还没有应用。</p>}
+  </ListShell>
+
+  <nav class="pagination" aria-label="分页" data-catalog-pages hidden={paged.pages < 2}>
+    {paged.page > 1 && (
+      <a class="btn" href={pageUrl(base, paged.page - 1)} rel="prev">
+        上一页
+      </a>
+    )}
+    {Array.from({ length: paged.pages }, (_, i) => i + 1).map((n) => (
+      <a
+        class="pagination__n"
+        href={pageUrl(base, n)}
+        aria-current={n === paged.page ? 'page' : undefined}
+        aria-label={`第 ${n} 页`}
+      >
+        {n}
+      </a>
+    ))}
+    {paged.page < paged.pages && (
+      <a class="btn" href={pageUrl(base, paged.page + 1)} rel="next">
+        下一页
+      </a>
+    )}
+  </nav>
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/apps/catalog'));
+</script>

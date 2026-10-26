@@ -1,0 +1,61 @@
+---
+/**
+ * 应用图标（T9.3，DESIGN-SYSTEM §6 / §19.3）：5 档尺寸 + squircle + 垫板。
+ * - 规范化输出（n/ 目录，manifest 有记录）用 <picture> AVIF / WebP ×1 / ×2；
+ * - 图片加载前与失败时都显示垫板底色；img { color: transparent } 隐藏裂图 alt 文本；
+ *   加载失败由 src/scripts/icon-fallback.ts 换成几何兜底图形（不用文字 Monogram）；
+ * - alt：名称已在旁边可见时传 alt=""（默认），独立出现时传名称（不加「图标」二字）。
+ */
+// 应用卡片 / 详情页 / 目录样式随图标一起进入每个用到图标的页面（T9.3 误删后恢复）
+import '@/styles/apps.css';
+import { ICON_PX, iconFallbackSrc, iconInfo, iconSrcset, type IconSize } from '@/lib/icons';
+interface Props {
+  src: string;
+  alt?: string;
+  size?: IconSize;
+  eager?: boolean;
+  /** eager 时是否同时提高优先级（fetchpriority=high + 同步解码）；默认跟随 eager */
+  priority?: boolean;
+  /** 兼容旧调用：有无多尺寸版本现在由 icon-manifest 决定 */
+  variants?: boolean;
+  hue?: string;
+}
+const { src, alt = '', size = 'md', eager = false, priority = eager, hue } = Astro.props;
+const px = ICON_PX[size];
+const info = iconInfo(src);
+const loading = eager ? 'eager' : 'lazy';
+const decoding = eager && priority ? 'sync' : 'async';
+const fetchpriority = eager && priority ? 'high' : undefined;
+const cls = `app-icon-img app-icon-img--${size}`;
+---
+
+{info ? (
+  <picture class="app-icon-pic">
+    <source type="image/avif" srcset={iconSrcset(src, size, 'avif')} />
+    <img
+      class={cls}
+      src={iconFallbackSrc(src, size)}
+      srcset={iconSrcset(src, size, 'webp')}
+      alt={alt}
+      width={px}
+      height={px}
+      loading={loading}
+      decoding={decoding}
+      fetchpriority={fetchpriority}
+      data-icon-class={info.class}
+      data-hue={hue}
+    />
+  </picture>
+) : (
+  <img
+    class={cls}
+    src={src}
+    alt={alt}
+    width={px}
+    height={px}
+    loading={loading}
+    decoding={decoding}
+    fetchpriority={fetchpriority}
+    data-hue={hue}
+  />
+)}

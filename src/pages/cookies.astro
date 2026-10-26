@@ -1,0 +1,78 @@
+---
+import { formatDate } from '@/lib/dates';
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import StorageTable from '@/components/legal/StorageTable.astro';
+import ConsentChoices from '@/components/legal/ConsentChoices.astro';
+import { LEGAL_UPDATED } from '@/lib/contact';
+---
+
+<Base
+  title="Cookie 政策"
+  description="AZ Studio 使用哪些 Cookie 与本地存储、各自的用途和有效期，Google 广告与统计 Cookie 何时出现，以及如何修改或撤回你的选择。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: 'Cookie 政策', path: '/cookies/' },
+  ]}
+>
+  <PageHead eyebrow="站点与合规" title="Cookie 政策" lede={`最后更新：${formatDate(LEGAL_UPDATED)}`} />
+  <div class="prose mt-8">
+    <p>
+      Cookie 是网站保存在你浏览器里的小段数据；localStorage、sessionStorage 与 Cache Storage
+      是作用类似的浏览器本地存储。本页列出 azsou.com 用到的全部项目。总体原则：
+      <strong>必要的才存，能存在本地的不上传</strong>。
+    </p>
+    <h2>本站使用的 Cookie 与本地存储</h2>
+  </div>
+  <StorageTable />
+  <div class="prose">
+    <h2>各类别的含义</h2>
+    <ul>
+      <li>
+        <strong>必要</strong>
+        ：登录、表单防机器人、离线访问等功能离不开它们，不需要另行同意；不用这些功能就不会产生。
+      </li>
+      <li>
+        <strong>偏好</strong>：记住你主动做出的选择（主题、隐私选择），只保存在你的设备上。
+      </li>
+      <li>
+        <strong>统计</strong>：只有作者启用 Google Analytics 4
+        后才会出现，并受同意模式约束；欧洲经济区、英国和瑞士默认不设置。
+      </li>
+      <li>
+        <strong>广告</strong>：只有作者启用 Google AdSense
+        后才会出现在可以展示广告的页面上（文章、列表等），后台、登录注册、表单、订阅与法律说明页不展示广告。
+      </li>
+    </ul>
+    <h2>Google 同意模式与同意管理</h2>
+    <p>
+      在加载任何 Google 标签之前，本站先设置 Google 同意模式（Consent Mode
+      v2）的默认值：对欧洲经济区、英国和瑞士的访客，
+      <code>ad_storage</code>、<code>ad_user_data</code>、<code>ad_personalization</code>、
+      <code>analytics_storage</code>
+      四项全部为「拒绝」，直到你在 Google 认证的同意管理平台（AdSense「隐私和消息」，支持 IAB
+      TCF）里作出选择。 其他地区默认允许，你可以在下方「隐私选择」中随时关闭。
+    </p>
+    <h2>如何管理或删除</h2>
+    <ul>
+      <li>在下方「隐私选择」中关闭广告或统计 Cookie。</li>
+      <li>在浏览器设置中清除本站的 Cookie 与网站数据（会同时退出登录、清除主题偏好与离线缓存）。</li>
+      <li>
+        通过{' '}
+        <a href="https://adssettings.google.com/" rel="noopener">
+          Google 广告设置
+        </a>{' '}
+        停用个性化广告，或安装
+        <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">
+          Google Analytics 停用浏览器插件
+        </a>
+        。
+      </li>
+    </ul>
+    <p>
+      更多关于数据处理的说明见<a href="/privacy/">隐私政策</a>；广告与联盟链接的规则见
+      <a href="/ad-disclosure/">广告与联盟披露</a>。
+    </p>
+  </div>
+  <ConsentChoices />
+</Base>

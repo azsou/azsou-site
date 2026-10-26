@@ -1,0 +1,28 @@
+---
+/** 500 页（T9.15）：与 404 同一外壳 + 精简页脚；Vercel 函数出错时显示。不引用任何需要数据库的组件。 */
+import Base from '@/layouts/Base.astro';
+import Icon from '@/components/Icon.astro';
+---
+
+<Base
+  slimFooter
+  title="服务暂时出错"
+  description="服务器暂时出错，请稍后再试。"
+  noindex
+  canonical="/500.html"
+>
+  <header class="page-head system-page">
+    <p class="eyebrow">500</p>
+    <h1>服务暂时出错</h1>
+    <p>这一页暂时没能生成，通常几分钟内会恢复。站内的应用、文章和视频都是静态页面，不受影响。</p>
+  </header>
+  <div class="btn-row">
+    <a class="btn btn--primary" href="/">
+      回到首页
+    </a>
+    <a class="btn" href="/search/">
+      <Icon name="search" size={20} />
+      搜索站内内容
+    </a>
+  </div>
+</Base>

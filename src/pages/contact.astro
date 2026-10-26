@@ -1,0 +1,65 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { url } from '@/lib/routes';
+import { contactEmail, GITHUB_ISSUES } from '@/lib/contact';
+const email = contactEmail(import.meta.env);
+---
+
+<Base
+  title="联系"
+  description="如何联系 AZ Studio：问题反馈、勘误、隐私与数据请求、合作与友链。列出每种事务最合适的渠道和大致的回复时间。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '联系', path: '/contact/' },
+  ]}
+>
+  <PageHead
+    eyebrow="联系"
+    title="联系 AZ Studio"
+    lede="本站由作者一人维护，按事务类型选对渠道，回复会更快。"
+  />
+  <div class="prose mt-8">
+    {email && (
+      <>
+        <h2>邮箱</h2>
+        <p>
+          <a href={`mailto:${email}`}>{email}</a>——适合合作、隐私与数据请求等不便公开的事务，一般在 3
+          个工作日内回复。
+        </p>
+      </>
+    )}
+    <h2>问题反馈与勘误</h2>
+    <p>
+      发现排版错位、链接失效、文字错误或过期信息，最直接的渠道是论坛的
+      <a href={url.forumThread('t-feedback')}>站点问题与建议收集帖</a>，或在 GitHub 上
+      <a href={GITHUB_ISSUES} rel="noopener">
+        提交 Issue
+      </a>
+      。处理结果会写进<a href="/changelog/">更新日志</a>。
+    </p>
+    <h2>文章与项目讨论</h2>
+    <p>
+      每篇文章、每个应用和游戏的页面底部都有讨论区；跨主题的话题欢迎到<a href={url.forum()}>论坛</a>开帖。
+    </p>
+    <h2>隐私与数据请求</h2>
+    <p>
+      需要注销账户、删除或导出你的数据，请
+      {email ? '发邮件' : '在 GitHub 提交 Issue（不要在 Issue 里写邮箱等个人信息，我们会与你确认联系方式）'}
+      ，注明注册时使用的显示名。我们会在核实身份后 30 天内处理。详见<a href="/privacy/">隐私政策</a>。
+    </p>
+    <h2>合作与友链</h2>
+    <p>
+      {email ? '合作请发邮件说明来意。' : '合作事宜可以在留言板留言说明来意。'}想交换友链，请到
+      <a href="/links/">友情链接</a>页提交申请（联系方式只有管理员可见）。 简短的问候与建议也欢迎写在
+      <a href="/guestbook/">留言板</a>。
+    </p>
+    <h2>不接受的事务</h2>
+    <ul>
+      <li>
+        付费删除评价、购买评分或排名、未标注的软文——见<a href="/ad-disclosure/">广告与联盟披露</a>。
+      </li>
+      <li>为第三方软件提供破解、注册码或非官方安装包。</li>
+    </ul>
+  </div>
+</Base>

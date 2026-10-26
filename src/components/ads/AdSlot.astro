@@ -1,0 +1,37 @@
+---
+/**
+ * 广告位（P8 T8.3）。只有同时满足才输出：设置了 PUBLIC_ADSENSE_CLIENT、该位置填了广告单元 ID、当前页面允许广告。
+ * 尺寸预留：<ins> 的高度由 CSS 固定（文内 280 / 侧栏桌面 600、移动 280 / 列表 250，见 global.css .ad-slot），
+ * 广告没填充 / 被拒绝同意 / 被拦截时也保持同样高度，CLS 为 0。
+ * 与下载 / 跳转按钮保持 ≥ 150px（容器上下外边距 + 放置规则；tests/e2e/ads.spec.ts 在带假客户端 ID 的构建上实测）。
+ * 标注「广告」字样，符合 AdSense 对广告标签的要求（「广告」「赞助链接」可用）。
+ */
+import { adSlotId, adsAllowedOn, adsenseClient, type AdPlacement } from '@/lib/ads';
+interface Props {
+  placement: AdPlacement;
+  /** 覆盖当前路径（列表页在组件里判断时用） */
+  path?: string;
+}
+const { placement, path = Astro.url.pathname } = Astro.props;
+const env = import.meta.env;
+const client = adsAllowedOn(path) ? adsenseClient(env) : null;
+const slot = client ? adSlotId(env, placement) : null;
+const en = path.startsWith('/en/');
+---
+
+{client && slot && (
+  <aside
+    class={`ad-slot ad-slot--${placement}`}
+    aria-label={en ? 'Advertisement' : '广告'}
+    data-ad-placement={placement}
+  >
+    <p class="ad-slot__label">{en ? 'Advertisement' : '广告'}</p>
+    <ins
+      class="adsbygoogle"
+      style="display:block"
+      data-ad-client={client}
+      data-ad-slot={slot}
+      data-full-width-responsive="false"
+    />
+  </aside>
+)}

@@ -1,0 +1,563 @@
+---
+/**
+ * /_kit/ 组件目录（T9.2，DESIGN-QA Q2 / Q15）：token 样张 + 每种卡片 × 最短 / 典型 / 最长内容。
+ * 只在非生产构建输出（VERCEL_ENV !== 'production'）；noindex、不进 sitemap / 搜索。
+ * Astro 会忽略下划线开头的页面文件，所以用动态段 [kit] 只生成 `_kit` 这一条路径。
+ * `.is-hover` / `.is-focus` / `.is-pressed` 等状态调试类由 T9.7 组件实现后在这里逐一展示。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import AppCard from '@/components/AppCard.astro';
+import ToolCard from '@/components/ai/ToolCard.astro';
+import VideoCard from '@/components/videos/VideoCard.astro';
+import GameCard from '@/components/GameCard.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import Status from '@/components/Status.astro';
+import Segmented from '@/components/Segmented.astro';
+import Icon from '@/components/Icon.astro';
+import Button from '@/components/ui/Button.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import ErrorBar from '@/components/ui/ErrorBar.astro';
+import Skeleton from '@/components/ui/Skeleton.astro';
+import Tooltip from '@/components/ui/Tooltip.astro';
+import { getArticles, getCatalog, getGames, getTools, getVideos, toolItem, videoItem } from '@/lib/content';
+import { tokens } from '@/lib/tokens';
+
+export function getStaticPaths() {
+  return process.env.VERCEL_ENV === 'production' ? [] : [{ params: { kit: '_kit' } }];
+}
+
+const byLen = <T,>(xs: T[], f: (x: T) => string) => {
+  const s = [...xs].sort((a, b) => f(a).length - f(b).length);
+  return [s[0], s[Math.floor(s.length / 2)], s[s.length - 1]];
+};
+const tools = byLen((await getTools()).map(toolItem), (t) => t.summary);
+const apps = byLen(await getCatalog(), (a) => a.title + a.subtitle);
+const videos = byLen((await getVideos()).map(videoItem), (v) => v.title);
+const games = byLen(await getGames(), (g) => g.data.title);
+const articles = byLen(await getArticles(), (a) => a.data.title);
+const iconSrc = tools[1];
+
+const BTN_VARIANTS = [
+  { name: '主按钮', variant: 'primary', text: '获取' },
+  { name: '次按钮', variant: 'secondary', text: '访问官网' },
+  { name: '文字按钮', variant: 'text', text: '查看全部' },
+  { name: '图标按钮', variant: 'icon', text: '' },
+] as const;
+// P10h 按钮体系：层级 / 语义 / 类型强调色 × 状态
+const BTN_SYSTEM = [
+  { name: '主按钮（实心品牌）', props: { variant: 'primary' }, text: '获取' },
+  { name: '淡底强调（次要）', props: { variant: 'tonal' }, text: '加入收藏' },
+  { name: '中性（默认）', props: { variant: 'secondary' }, text: '访问官网' },
+  { name: '描边', props: { variant: 'outline' }, text: '查看详情' },
+  { name: '幽灵', props: { variant: 'ghost' }, text: '取消' },
+  { name: '危险（淡底）', props: { variant: 'danger' }, text: '删除' },
+  { name: '危险（实心）', props: { variant: 'danger', solid: true }, text: '永久删除' },
+  { name: '成功（淡底）', props: { variant: 'success' }, text: '通过' },
+  { name: '应用 · 实心', props: { variant: 'primary', tone: 'app' }, text: '下载' },
+  { name: '应用 · 淡底', props: { variant: 'tonal', tone: 'app' }, text: '了解' },
+  { name: 'AI 工具 · 实心', props: { variant: 'primary', tone: 'ai' }, text: '访问官网' },
+  { name: 'AI 工具 · 淡底', props: { variant: 'tonal', tone: 'ai' }, text: '官网' },
+  { name: '游戏 · 实心', props: { variant: 'primary', tone: 'game' }, text: '试玩' },
+  { name: '游戏 · 淡底', props: { variant: 'tonal', tone: 'game' }, text: '了解' },
+] as const;
+const STATES = [
+  { key: 'default', name: '默认', cls: '' },
+  { key: 'hover', name: '悬停', cls: 'is-hover' },
+  { key: 'focus', name: '焦点', cls: 'is-focus' },
+  { key: 'pressed', name: '按下', cls: 'is-pressed' },
+  { key: 'disabled', name: '禁用', cls: '' },
+  { key: 'loading', name: '加载', cls: '' },
+];
+
+const colorRoles = Object.keys(tokens.color.light).filter((k) => !/^(elev|cover|icon-stroke|mono-)/.test(k));
+const typeNames = Object.keys(tokens.scale);
+const spaces = Object.entries(tokens.space).sort((a, b) => a[1] - b[1]);
+const radii = ['xs', 'sm', 'md', 'lg', 'pill'];
+const elevs = ['elev-0', 'elev-1', 'elev-2'];
+// 样张用生成的类而不是 style 属性（html-validate no-inline-style）
+const kitCss = [
+  ...colorRoles.map((r) => `.kit-c-${r}{background:var(--c-${r})}`),
+  ...spaces.map(([k]) => `.kit-s-${k}{width:var(--space-${k})}`),
+  ...radii.map((r) => `.kit-r-${r}{border-radius:var(--radius-${r})}`),
+  ...elevs.map((e) => `.kit-${e}{box-shadow:var(--${e})}`),
+].join('');
+---
+
+<Base
+  title="组件目录"
+  description="AZ Studio 设计系统组件目录（开发用）"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '组件目录', path: '/_kit/' },
+  ]}
+>
+  <style slot="head" is:inline set:html={kitCss}></style>
+  <div class="shell page kit">
+    <PageHead eyebrow="设计系统" title="组件目录" lede="token 样张与卡片在最短、典型、最长内容下的样子。" />
+
+    <section class="kit__section" aria-labelledby="kit-type">
+      <h2 id="kit-type">字阶</h2>
+      <ul role="list" class="kit__list">
+        {typeNames.map((n) => (
+          <li>
+            <span class={`t-${n}`}>{n} · AZ Studio 应用与 AI 工具</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-color">
+      <h2 id="kit-color">色彩角色</h2>
+      <ul role="list" class="kit__swatches">
+        {colorRoles.map((r) => (
+          <li>
+            <span class={`kit__swatch kit-c-${r}`} />
+            <code>--c-{r}</code>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-space">
+      <h2 id="kit-space">间距、圆角、阴影</h2>
+      <ul role="list" class="kit__list">
+        {spaces.map(([k, v]) => (
+          <li class="kit__row">
+            <code>--space-{k}</code>
+            <span class={`kit__bar kit-s-${k}`} />
+            <span class="t-meta">{v}px</span>
+          </li>
+        ))}
+      </ul>
+      <ul role="list" class="kit__swatches">
+        {radii.map((r) => (
+          <li>
+            <span class={`kit__swatch kit-r-${r}`} />
+            <code>--radius-{r}</code>
+          </li>
+        ))}
+        {elevs.map((e) => (
+          <li>
+            <span class={`kit__swatch kit__swatch--surface kit-${e}`} />
+            <code>--{e}</code>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-controls">
+      <h2 id="kit-controls">按钮状态矩阵</h2>
+      <p class="muted">
+        列：默认 / 悬停 / 焦点 / 按下 / 禁用 / 加载。悬停与按下用调试类 .is-hover / .is-pressed 模拟。
+      </p>
+      <div class="kit__matrix">
+        <table>
+          <caption class="visually-hidden">按钮状态</caption>
+          <thead>
+            <tr>
+              <th scope="col">变体</th>
+              {STATES.map((st) => (
+                <th scope="col">{st.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {BTN_VARIANTS.map((v) => (
+              <tr>
+                <th scope="row">{v.name}</th>
+                {STATES.map((st) => (
+                  <td>
+                    <Button
+                      variant={v.variant}
+                      icon={v.variant === 'icon' ? 'share' : undefined}
+                      label={v.variant === 'icon' ? `分享（${st.name}）` : undefined}
+                      class={st.cls}
+                      disabled={st.key === 'disabled'}
+                      loading={st.key === 'loading'}
+                    >
+                      {v.variant === 'icon' ? null : v.text}
+                    </Button>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <Button variant="primary" icon="download">
+          下载
+        </Button>
+        <Button trailing="arrow-up-right">访问官网</Button>
+        <Button variant="text" trailing="chevron-right">
+          查看全部
+        </Button>
+        <Button size="sm" icon="bell">
+          上线时通知我
+        </Button>
+        <Button variant="icon" icon="more" label="更多操作" />
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-btn-system" data-kit-buttons>
+      <h2 id="kit-btn-system">按钮体系（层级 · 语义 · 类型强调色）</h2>
+      <p class="muted">
+        列：默认 / 悬停 / 焦点 / 按下 / 禁用 / 加载。应用 = 蓝、AI 工具 = 紫、游戏 =
+        橙，与类型徽标和货架标题标记同色。
+      </p>
+      <div class="kit__matrix">
+        <table>
+          <caption class="visually-hidden">按钮体系</caption>
+          <thead>
+            <tr>
+              <th scope="col">变体</th>
+              {STATES.map((st) => (
+                <th scope="col">{st.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {BTN_SYSTEM.map((v) => (
+              <tr>
+                <th scope="row">{v.name}</th>
+                {STATES.map((st) => (
+                  <td>
+                    <Button
+                      {...v.props}
+                      class={st.cls}
+                      disabled={st.key === 'disabled'}
+                      loading={st.key === 'loading'}
+                    >
+                      {v.text}
+                    </Button>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <h3>尺寸、形状、图标按钮、分体按钮与分段控件</h3>
+      <div class="btn-row">
+        <Button variant="primary" size="lg" icon="download">
+          下载 · 12 MB
+        </Button>
+        <Button variant="primary">中号</Button>
+        <Button variant="primary" size="sm">
+          小号
+        </Button>
+        <Button variant="outline" rect icon="settings">
+          圆角矩形
+        </Button>
+        <Button variant="tonal" rect size="sm" icon="check">
+          保存
+        </Button>
+        <Button variant="icon" icon="share" label="分享" />
+        <Button variant="icon" icon="more" label="更多操作" class="is-hover" />
+        <span class="btn-split">
+          <Button variant="primary" tone="app" icon="download">
+            下载 Windows 版
+          </Button>
+          <Button variant="primary" tone="app" icon="chevron-down" label="其他平台" />
+        </span>
+        <div class="segmented" role="group" aria-label="显示方式（示例）">
+          <button type="button" aria-pressed="true">
+            网格
+          </button>
+          <button type="button" aria-pressed="false">
+            列表
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-links">
+      <h2 id="kit-links">链接、Chip、徽标、Tooltip</h2>
+      <p>
+        <a class="link" href="/_kit/#kit-links">
+          正文链接
+        </a>{' '}
+        ·{' '}
+        <a class="link is-hover" href="/_kit/#kit-type">
+          悬停
+        </a>{' '}
+        ·
+        <a class="link" aria-disabled="true">
+          不可用
+        </a>
+      </p>
+      <div class="btn-row">
+        <button type="button" class="chip">
+          全部
+        </button>
+        <button type="button" class="chip is-hover">
+          悬停
+        </button>
+        <button type="button" class="chip" aria-pressed="true">
+          已选 <Icon name="check" size={16} />
+        </button>
+        <button type="button" class="chip" disabled>
+          不可用
+        </button>
+      </div>
+      <div class="btn-row">
+        <Status text="已发布" />
+        <Status cls="review" text="审核中" />
+        <Status cls="stable" text="稳定" />
+        <Status cls="experiment" text="实验" />
+        <span class="badge">即将推出</span>
+        <span class="badge badge--accent">新</span>
+        <span class="badge badge--success">免费</span>
+        <span class="badge badge--warning">测试版</span>
+        <span class="badge badge--danger">已下架</span>
+      </div>
+      <div class="btn-row">
+        <Tooltip id="kit-tip-1" text="开源许可：MIT">
+          <button type="button" class="btn btn--icon" aria-describedby="kit-tip-1" aria-label="许可信息">
+            <Icon name="info" />
+          </button>
+        </Tooltip>
+      </div>
+      <Segmented
+        label="示例分段"
+        items={[
+          { href: '/_kit/', label: '全部', current: true },
+          { href: '/_kit/#kit-type', label: '应用' },
+          { href: '/_kit/#kit-color', label: 'AI 工具' },
+        ]}
+      />
+      <div class="tabs" role="tablist" aria-label="示例 Tab">
+        <button type="button" role="tab" aria-selected="true">
+          全部 <span class="tabs__count">42</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1">
+          应用 <span class="tabs__count">8</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" class="is-hover">
+          AI 工具 <span class="tabs__count">30</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" disabled>
+          视频
+        </button>
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-inputs">
+      <h2 id="kit-inputs">输入框与选择框</h2>
+      <div class="kit__fields">
+        <div class="field">
+          <label for="kit-in-1">默认</label>
+          <input id="kit-in-1" class="input" type="text" placeholder="搜索应用、AI 工具、文章" />
+        </div>
+        <div class="field">
+          <label for="kit-in-2">悬停</label>
+          <input id="kit-in-2" class="input is-hover" type="text" value="Claude Code" />
+        </div>
+        <div class="field">
+          <label for="kit-in-3">焦点</label>
+          <input id="kit-in-3" class="input is-focus" type="text" value="cluade" />
+        </div>
+        <div class="field">
+          <label for="kit-in-4">错误</label>
+          <input
+            id="kit-in-4"
+            class="input"
+            type="email"
+            value="name@"
+            aria-invalid="true"
+            aria-describedby="kit-in-4-err"
+          />
+          <p class="field__error" id="kit-in-4-err">
+            邮箱格式不对，检查一下 @ 后面的部分
+          </p>
+        </div>
+        <div class="field">
+          <label for="kit-in-5">禁用</label>
+          <input id="kit-in-5" class="input" type="text" value="只读" disabled />
+        </div>
+        <div class="field">
+          <label for="kit-sel-1">选择框</label>
+          <select id="kit-sel-1" class="select">
+            <option>最近更新</option>
+            <option>名称</option>
+            <option>评分</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-feedback">
+      <h2 id="kit-feedback">Toast、对话框、骨架、空状态、错误</h2>
+      <div class="kit__fields">
+        <div class="toast toast--success" role="status">
+          <Icon name="check-circle" /> 已复制链接
+        </div>
+        <div class="toast toast--error" role="status">
+          <Icon name="alert-circle" /> 网络不太稳，没有保存
+        </div>
+      </div>
+      <div class="dialog is-static" role="dialog" aria-labelledby="kit-dlg-title" aria-modal="false">
+        <p class="dialog__title" id="kit-dlg-title">
+          删除这条回复？
+        </p>
+        <p class="muted">删除后不能恢复。</p>
+        <div class="dialog__actions">
+          <Button>取消</Button>
+          <Button variant="primary">删除</Button>
+        </div>
+      </div>
+      <div class="kit__skeleton">
+        <Skeleton kind="icon" />
+        <div class="kit__skeleton-text">
+          <Skeleton kind="title" />
+          <Skeleton kind="text" />
+        </div>
+      </div>
+      <Skeleton kind="card" />
+      <EmptyState title="没有找到「qwzxv」" text="换个关键词试试，或者看看热门 AI 工具。">
+        <Button href="/ai/" variant="primary" size="sm">
+          看看 AI 工具
+        </Button>
+      </EmptyState>
+      <ErrorBar text="社区服务暂时连不上（8 秒超时）。">
+        <Button size="sm" icon="loader">
+          重试
+        </Button>
+      </ErrorBar>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-icons">
+      <h2 id="kit-icons">应用图标</h2>
+      <div class="kit__icons">
+        {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((s) => (
+          <AppIcon src={iconSrc.iconSrc} alt="" size={s} variants={iconSrc.iconVariants} />
+        ))}
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-tools">
+      <h2 id="kit-tools">AI 工具卡（最短 / 典型 / 最长简介）</h2>
+      <div class="grid" data-grid="media">
+        {tools.map((t) => (
+          <ToolCard item={t} headingLevel="h3" />
+        ))}
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-apps">
+      <h2 id="kit-apps">应用卡</h2>
+      <div class="grid" data-grid="media">
+        {apps.map((a) => (
+          <AppCard item={a} headingLevel="h3" />
+        ))}
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-media">
+      <h2 id="kit-media">媒体卡（视频 / 游戏 / 文章）</h2>
+      <div class="grid" data-grid="media">
+        {videos.map((v) => (
+          <VideoCard item={v} headingLevel="h3" />
+        ))}
+      </div>
+      <div class="grid" data-grid="media">
+        {games.map((g) => (
+          <GameCard game={g} headingLevel="h3" />
+        ))}
+      </div>
+      <div class="grid" data-grid="media">
+        {articles.map((a) => (
+          <ArticleCard article={a} headingLevel="h3" />
+        ))}
+      </div>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .kit__section {
+    margin-top: var(--space-12);
+    display: grid;
+    gap: var(--space-4);
+  }
+  .kit__list {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .kit__row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .kit__bar {
+    display: inline-block;
+    height: var(--space-3);
+    background: var(--c-accent);
+  }
+  .kit__swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-4);
+  }
+  .kit__swatches li {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .kit__swatch {
+    display: block;
+    height: var(--space-12);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--elev-0);
+  }
+  .kit__swatch--surface {
+    background: var(--c-surface);
+  }
+  .kit__icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-6);
+  }
+  code {
+    font-size: var(--fs-meta);
+  }
+  .kit__matrix {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .kit__section > * {
+    min-width: 0;
+  }
+  .kit__matrix table {
+    border-collapse: separate;
+    border-spacing: var(--space-4) var(--space-3);
+  }
+  .kit__matrix th {
+    color: var(--c-label-2);
+    font-size: var(--fs-meta);
+    font-weight: var(--fw-semibold);
+    text-align: start;
+    white-space: nowrap;
+  }
+  .kit__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    gap: var(--space-4);
+    align-items: start;
+  }
+  .kit__skeleton {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    max-width: 360px;
+  }
+  .kit__skeleton-text {
+    flex: 1;
+    display: grid;
+    gap: var(--space-2);
+  }
+</style>

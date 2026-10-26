@@ -1,0 +1,25 @@
+---
+/**
+ * <head> 里的 Google 标签（P8）：Search Console 验证 meta + 同源加载器 /az-google.js（Consent Mode v2 默认值 → AdSense / GA4）。
+ * 环境变量都没设时什么都不输出（默认状态，CSP 保持严格、Lighthouse 不受影响）。
+ */
+import { adsAllowedOn, adsenseClient, analyticsAllowedOn, ga4Id, gscVerification } from '@/lib/ads';
+interface Props {
+  path: string;
+  /** 页面主动关掉广告（表单页、按钮密集页等） */
+  noAds?: boolean;
+}
+const { path, noAds = false } = Astro.props;
+const env = import.meta.env;
+const account = adsenseClient(env);
+const client = !noAds && adsAllowedOn(path) ? account : null;
+const ga = analyticsAllowedOn(path) ? ga4Id(env) : null;
+const gsc = path === '/' ? gscVerification(env) : null;
+---
+
+{gsc && <meta name="google-site-verification" content={gsc} />}
+{(client || ga) && (
+  <script is:inline src="/az-google.js" defer data-client={client ?? undefined} data-ga={ga ?? undefined} />
+)}
+{/* 账户归属 meta 每页都输出（AdSense 审核用它验证站点；不加载任何脚本） */}
+{account && <meta name="google-adsense-account" content={account} />}

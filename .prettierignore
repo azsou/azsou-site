@@ -1,0 +1,16 @@
+legacy/
+dist/
+dist-ads/
+dist-ads.vercel.json
+.vercel/
+.astro/
+node_modules/
+package-lock.json
+public/og/
+src/content/
+playwright-report/
+test-results/
+.lighthouseci/
+.lighthouseci-desktop/
+docs/PLAN.md
+.design-audit/

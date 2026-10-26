@@ -1,0 +1,75 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { getApps, getGames, getTools, getVideos } from '@/lib/content';
+const [apps, games, tools, videos] = await Promise.all([getApps(), getGames(), getTools(), getVideos()]);
+const own = apps.filter((a) => a.data.developer.type === 'self');
+---
+
+<Base
+  title="About"
+  description="About AZ Studio and its author Randy Hopkins: an independent developer's site documenting real projects such as FableMotion and EMBERDEEP, with versions, test notes and retrospectives."
+  type="profile"
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'About', path: '/en/about/' },
+  ]}
+>
+  <PageHead
+    eyebrow="About"
+    title="About AZ Studio"
+    lede="An independent developer’s workbench: what was built, how far it got, and what went wrong."
+  />
+  <div class="prose mt-8">
+    <p>
+      AZ Studio (azsou.com) is the personal site of Randy Hopkins — a product archive and creative lab for his
+      own projects: the <a href="/en/apps/fablemotion/">FableMotion</a> timeline animation editor, the
+      <a href="/en/games/emberdeep/">EMBERDEEP</a> voxel roguelike, the Image Atlas Pro and Capture Kit
+      browser extensions, the Single-File Toolbox and a series of small game prototypes.
+    </p>
+    <h2>What’s here</h2>
+    <ul>
+      <li>
+        <a href="/en/apps/">Apps</a>: {own.length} self-made apps with version history, test setups, privacy
+        notes and honest download status.
+      </li>
+      <li>
+        <a href="/en/games/">Games &amp; demos</a>: {games.length} game projects and visual prototypes.
+      </li>
+      <li>
+        <a href="/en/ai/">AI tools</a>: {tools.length} AI coding and creative tools with original notes,
+        official links only.
+      </li>
+      <li>
+        <a href="/en/videos/">Videos</a>: {videos.length} talks and tutorials from official channels with
+        chapter notes.
+      </li>
+      <li>
+        <a href="/en/articles/">Articles</a>: development notes, tests and retrospectives (in Chinese).
+      </li>
+    </ul>
+    <h2>The author</h2>
+    <p>
+      Randy Hopkins is an independent developer working mainly on games and creative tools — timeline and
+      keyframe systems, procedural generation (dungeons, voxels, sound), browser extensions, and making these
+      tools run offline as single files. AI coding agents are part of his daily workflow, which is what the AI
+      tools section and related articles document. The site’s source code is public on{' '}
+      <a href="https://github.com/azsou/azsou-site" rel="noopener">
+        GitHub
+      </a>
+      .
+    </p>
+    <h2>How the site works</h2>
+    <ul>
+      <li>Every project lists its version, status, test environment and last-checked date.</li>
+      <li>No fake ratings, downloads, user counts or comments.</li>
+      <li>
+        Concept images are labelled as such; ads, affiliate links and sponsorships follow the{' '}
+        <a href="/en/ad-disclosure/">disclosure policy</a>.
+      </li>
+    </ul>
+    <p>
+      Get in touch via the <a href="/en/contact/">contact page</a>.
+    </p>
+  </div>
+</Base>

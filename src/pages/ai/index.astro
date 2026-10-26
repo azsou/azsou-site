@@ -1,0 +1,27 @@
+---
+import ToolGrid from '@/components/ai/ToolGrid.astro';
+import { getTools, toolItem } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { itemList } from '@/lib/seo';
+
+const all = (await getTools()).map(toolItem);
+---
+
+<ToolGrid
+  title="AI 工具"
+  description="精选 AI Agent、Vibe Coding、命令行、AI 助手与 MCP 服务器：每个工具都有原创介绍与点评，只链接官方网站、官方商店或 GitHub Release，本站不托管安装包。"
+  lede="精选正在流行的 AI 编程与智能体工具。每个工具都写了原创介绍，下载与访问只走官方渠道。"
+  all={all}
+  items={all}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: 'AI 工具', path: url.ai() },
+  ]}
+  schema={[
+    itemList(
+      'AI 工具',
+      url.ai(),
+      all.map((t) => ({ name: t.title, path: t.url })),
+    ),
+  ]}
+/>

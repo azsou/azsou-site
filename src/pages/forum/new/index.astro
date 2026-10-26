@@ -1,0 +1,91 @@
+---
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
+import { forum } from '@/lib/content';
+---
+
+<Base
+  title="发新主题"
+  description="在 AZ Studio 论坛发起新的讨论。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+    { name: '发新主题', path: '/forum/new/' },
+  ]}
+>
+  <div class="compose-wrap" data-new-thread>
+    <header class="page-head">
+      <p class="eyebrow">论坛</p>
+      <h1>发新主题</h1>
+      <p>讨论围绕站内项目与技术；尊重每一位真实署名的参与者，不要发布敏感个人信息。</p>
+    </header>
+
+    <section class="auth-card" data-signed-out aria-labelledby="nt-out">
+      <h2 id="nt-out">登录后发帖</h2>
+      <p class="auth-card__lede">发主题需要先登录账户。没有账户可以免费注册。</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="/login/?next=/forum/new/" data-login-link>
+          登录
+        </a>
+        <a class="btn" href="/register/">
+          注册
+        </a>
+      </div>
+    </section>
+
+    <p class="notice notice--error" role="note" data-banned hidden>
+      你的账号已被限制发言，暂时不能发主题。
+    </p>
+
+    <form class="auth-card form compose-form" data-signed-in hidden novalidate>
+      <fieldset class="field">
+        <legend class="field__label">分类</legend>
+        <div class="segmented cat-picker">
+          {forum.categories.map((c) => (
+            <label
+              class="cat-picker__opt"
+              data-admin-only={c.id === 'announce' ? '' : undefined}
+              hidden={c.id === 'announce'}
+            >
+              <input type="radio" name="category" value={c.id} checked={c.id === 'product'} />
+              <span>{c.name}</span>
+            </label>
+          ))}
+        </div>
+        <p class="field__hint" data-cat-desc></p>
+      </fieldset>
+      <div class="field">
+        <label for="nt-title">标题</label>
+        <input id="nt-title" name="title" type="text" maxlength="120" required autocomplete="off" />
+        <p class="field__hint">
+          <span data-title-count>0</span> / 120
+        </p>
+        <p class="field__error" data-error-for="title"></p>
+      </div>
+      <div class="field">
+        <label for="nt-body">正文</label>
+        <textarea id="nt-body" name="body" rows="12" required autocomplete="off"></textarea>
+        <p class="field__error" data-error-for="body"></p>
+      </div>
+      <p class="notice notice--error form-status" role="alert" data-form-status></p>
+      <div class="btn-row">
+        <button class="btn btn--primary" type="submit">
+          发布主题
+        </button>
+        <a class="btn" href="/forum/" data-cancel>
+          取消
+        </a>
+      </div>
+    </form>
+  </div>
+  <script
+    type="application/json"
+    data-cat-meta
+    set:html={JSON.stringify(Object.fromEntries(forum.categories.map((c) => [c.id, c.desc])))}
+  />
+</Base>
+
+<script>
+  import '@/scripts/community/new-thread';
+</script>

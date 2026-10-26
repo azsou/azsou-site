@@ -1,0 +1,306 @@
+/* 视频栏目（T6.7）：卡片网格、筛选、播放器 facade、章节、详情页 */
+@layer components {
+  /* ---------- 缩略图 ---------- */
+  .video-thumb {
+    display: block;
+    aspect-ratio: 16 / 9;
+    background: var(--c-fill);
+  }
+  .video-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ---------- 网格与卡片 ---------- */
+  .video-card[hidden] {
+    display: none;
+  }
+  .video-card__media {
+    position: relative;
+  }
+  .video-card__dur {
+    position: absolute;
+    right: var(--space-2);
+    bottom: var(--space-2);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    /* stylelint-disable-next-line function-disallowed-list -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
+    background: rgba(0, 0, 0, 0.78);
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
+    color: #fff;
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+  .video-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+  }
+  .video-card__title {
+    margin: 0;
+    font-size: var(--fs-body-sm);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
+    line-height: 1.4;
+  }
+  .video-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0;
+    color: var(--c-label-2);
+    font-size: var(--fs-caption);
+  }
+  .video-card__meta time::before {
+    content: '·';
+    margin-right: var(--space-2);
+  }
+  .video-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .video-card__tags .tag {
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--c-fill);
+    color: var(--c-label-2);
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-semibold);
+  }
+
+  /* ---------- 筛选 ---------- */
+  .video-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-3) var(--space-5);
+    margin-block: var(--space-4);
+  }
+  .video-filter .field {
+    margin: 0;
+  }
+  .video-filter select {
+    min-width: 200px;
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-separator);
+    background: var(--c-bg);
+    color: var(--c-label);
+    font-size: var(--fs-body); /* ≥16px：iOS 聚焦不缩放 */
+  }
+  .video-filter select:disabled {
+    color: var(--c-label-2);
+    opacity: 1;
+  }
+  .video-filter select:focus-visible {
+    border-color: var(--c-accent);
+  }
+  .video-note {
+    font-size: var(--fs-meta);
+  }
+
+  /* ---------- 播放器 facade ---------- */
+  .video-player {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
+    background: #000;
+    box-shadow: var(--shadow-2);
+  }
+  .video-player__facade {
+    position: absolute;
+    inset: 0;
+    display: block;
+    /* stylelint-disable-next-line color-no-hex -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
+    color: #fff;
+  }
+  .video-player__thumb,
+  .video-player__thumb img {
+    width: 100%;
+    height: 100%;
+  }
+  .video-player__play {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 68px;
+    height: 48px;
+    transform: translate(-50%, -50%);
+    /* stylelint-disable-next-line function-disallowed-list -- 固定色：彩色 / 媒体底上的白字、遮罩与投影，不随主题 */
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .video-player__play-bg {
+    /* stylelint-disable-next-line color-no-hex -- YouTube 播放按钮品牌色 */
+    fill: #212121;
+    fill-opacity: 0.85;
+  }
+  .video-player__facade:focus-visible .video-player__play-bg {
+    /* stylelint-disable-next-line color-no-hex -- YouTube 播放按钮品牌色 */
+    fill: #f00;
+    fill-opacity: 1;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .video-player__facade:hover .video-player__play-bg {
+      /* stylelint-disable-next-line color-no-hex -- YouTube 播放按钮品牌色 */
+      fill: #f00;
+      fill-opacity: 1;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .video-player__facade:hover .video-player__play {
+      transform: translate(-50%, -50%) scale(1.06);
+    }
+  }
+  .video-player__facade:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: -4px;
+  }
+  .video-player__frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .video-player__note {
+    margin-top: var(--space-2);
+    font-size: var(--fs-caption);
+  }
+  .video-player__note code {
+    font-size: inherit;
+  }
+
+  /* ---------- 详情页 ---------- */
+  .video-detail {
+    max-width: 960px;
+    margin-inline: auto;
+  }
+  .video-detail__head {
+    margin-block: var(--space-6) var(--space-4);
+  }
+  .video-detail__head h1 {
+    margin: var(--space-1) 0 var(--space-2);
+    font-size: var(--fs-title-1);
+    /* stylelint-disable-next-line declaration-property-value-allowed-list -- 组件内局部排版微调（与最近 token 差 ≤ 0.1，保留以免视觉漂移） */
+    line-height: 1.3;
+  }
+  .video-detail__orig {
+    margin: 0;
+    color: var(--c-label-2);
+    font-size: var(--fs-meta);
+  }
+  .video-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--c-label-2);
+    font-size: var(--fs-meta);
+  }
+  .video-facts b {
+    color: var(--c-label);
+    font-weight: var(--fw-semibold);
+  }
+  .video-lede {
+    margin-top: var(--space-5);
+    font-size: var(--fs-body);
+  }
+  .video-copyright {
+    margin-top: var(--space-4);
+    font-size: var(--fs-meta);
+  }
+  /* T9.12：视频详情正文行长 ≤ --reading-max（播放器与章节仍用 960 宽） */
+  .video-lede,
+  .video-copyright,
+  .video-body,
+  .video-note {
+    max-width: var(--reading-max);
+  }
+  .video-body > * + * {
+    margin-top: var(--space-3);
+  }
+  .video-body h3 {
+    margin-top: var(--space-5);
+    font-size: var(--fs-body-sm);
+  }
+  .video-body ul {
+    padding-left: 1.2em;
+  }
+  .chapters {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    gap: var(--space-1) var(--space-4);
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chapters__btn {
+    display: flex;
+    gap: var(--space-3);
+    align-items: baseline;
+    width: 100%;
+    min-height: var(--touch);
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--c-label);
+    font: inherit;
+    font-size: var(--fs-meta);
+    text-align: left;
+    cursor: pointer;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .chapters__btn:hover:not(:disabled) {
+      background: var(--c-fill);
+    }
+  }
+  .chapters__btn:disabled {
+    cursor: default;
+  }
+  .chapters__t {
+    flex: none;
+    min-width: 4.2em;
+    color: var(--c-link);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* 英文版视频详情（T7.6）：本地缩略图 + 去平台观看的按钮（不嵌入播放器） */
+.video-watch {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-lg, 18px);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.video-watch img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.video-watch__btn {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+  .video-watch:hover {
+    text-decoration: none;
+  }
+}

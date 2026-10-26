@@ -1,0 +1,115 @@
+---
+import { NAV } from '@/lib/site';
+import { EN_NAV } from '@/lib/i18n-labels';
+import type { Lang } from '@/lib/i18n';
+import Icon from './Icon.astro';
+import UserMenu from './UserMenu.astro';
+interface Props {
+  lang?: Lang;
+  /** 另一种语言的对应页面（没有对应页面时是另一种语言的首页） */
+  switchHref?: string;
+}
+const { lang = 'zh', switchHref = lang === 'en' ? '/' : '/en/' } = Astro.props;
+const en = lang === 'en';
+const path = Astro.url.pathname;
+const home = en ? '/en/' : '/';
+const items = en ? EN_NAV : NAV;
+const isCurrent = (href: string) => (href === home ? path === home : path.startsWith(href));
+/** 900–1199：前 5 项 + 「更多」；≥ 1200 全量；< 900 由底部 TabBar 接管（DESIGN-SYSTEM §13） */
+const PRIMARY = 5;
+const extra = items.slice(PRIMARY);
+---
+
+<header class="site-nav glass">
+  <nav class="shell site-nav__inner" aria-label={en ? 'Main' : '主导航'}>
+    <a class="brand" href={home}>
+      <span class="brand__mark" aria-hidden="true">
+        AZ
+      </span>
+      <span>AZ Studio</span>
+    </a>
+    <ul class="nav-links" role="list">
+      {items.map((n, i) => (
+        <li class:list={[i >= PRIMARY && 'nav-links__extra']}>
+          <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+            {n.label}
+          </a>
+        </li>
+      ))}
+      <li class="nav-more">
+        <details class="nav-more__menu" data-nav-more>
+          <summary
+            class:list={['nav-more__btn', extra.some((n) => isCurrent(n.href)) && 'is-current']}
+            aria-label={en ? 'More sections' : '更多栏目'}
+          >
+            {en ? 'More' : '更多'}
+            <Icon name="chevron-down" size={16} />
+          </summary>
+          <ul class="nav-more__list" role="list">
+            {extra.map((n) => (
+              <li>
+                <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+                  {n.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </li>
+    </ul>
+    <div class="nav-actions">
+      {/* T10.10：≥ 1200 是常驻搜索框（同一个元素按宽度换形态：打开 Ctrl K 面板，无 JS 时去 /search/）；< 1200 是图标 */}
+      <a
+        class="icon-btn nav-search"
+        href="/search/"
+        aria-keyshortcuts="Control+K Meta+K"
+        aria-current={path.startsWith('/search/') ? 'page' : undefined}
+        data-palette-open
+      >
+        <Icon name="search" />
+        {/* 可访问名称 = 这段文字（< 1200 视觉隐藏、仍可读；≥ 1200 显示为占位提示） */}
+        <span class="nav-search__text">{en ? 'Search apps & AI tools' : '搜索应用、AI 工具'}</span>
+        <kbd class="nav-search__kbd" aria-hidden="true">
+          Ctrl K
+        </kbd>
+      </a>
+      <button
+        class="icon-btn theme-btn"
+        type="button"
+        aria-label={en ? 'Appearance: system' : '外观：跟随系统'}
+        data-theme-toggle
+      >
+        <Icon name="monitor" class="theme-btn__icon theme-btn__icon--system" />
+        <Icon name="sun" class="theme-btn__icon theme-btn__icon--light" />
+        <Icon name="moon" class="theme-btn__icon theme-btn__icon--dark" />
+      </button>
+      <a
+        class="icon-btn lang-btn"
+        href={switchHref}
+        hreflang={en ? 'zh-CN' : 'en'}
+        lang={en ? 'zh-CN' : 'en'}
+        data-lang-switch
+      >
+        <span aria-hidden="true">{en ? '中' : 'EN'}</span>
+        <span class="visually-hidden">{en ? '中文版' : 'English'}</span>
+      </a>
+      {!en && <UserMenu />}
+    </div>
+  </nav>
+</header>
+
+<script>
+  // 「更多」菜单：点外面或按 Esc 关闭（Esc 后焦点回到按钮）
+  const more = document.querySelector<HTMLDetailsElement>('[data-nav-more]');
+  if (more) {
+    document.addEventListener('click', (e) => {
+      if (more.open && !more.contains(e.target as Node)) more.open = false;
+    });
+    more.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && more.open) {
+        more.open = false;
+        more.querySelector('summary')?.focus();
+      }
+    });
+  }
+</script>

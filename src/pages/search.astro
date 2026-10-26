@@ -1,0 +1,56 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import Icon from '@/components/Icon.astro';
+import ErrorBar from '@/components/ui/ErrorBar.astro';
+---
+
+<Base
+  title="搜索"
+  description="搜索 AZ Studio 的应用、游戏、文章、作品与论坛主题，支持拼音首字母。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '搜索', path: '/search/' },
+  ]}
+>
+  <PageHead title="搜索" lede="支持中文、英文与拼音首字母。试试：动画编辑器、Cursor、塔防、MCP。" />
+  <form class="search-field" role="search" action="/search/" method="get" data-search-form>
+    <Icon name="search" />
+    <label class="visually-hidden" for="q">
+      搜索关键词
+    </label>
+    <input
+      id="q"
+      name="q"
+      type="search"
+      autocomplete="off"
+      enterkeyhint="search"
+      placeholder="搜索应用、游戏、文章…"
+    />
+    <button class="btn btn--primary search-field__submit" type="submit">
+      搜索
+    </button>
+  </form>
+  <p class="data-status" data-status role="status" aria-live="polite"></p>
+  <div class="tabs mt-4" role="tablist" aria-label="按类型筛选结果" data-type-tabs hidden></div>
+  <ul class="list-group mt-4 search-results" role="list" aria-label="站内内容" data-results hidden></ul>
+  <div data-empty-slot></div>
+  <section class="section" data-forum-results hidden aria-labelledby="h-forum-results">
+    <div class="section__head">
+      <h2 id="h-forum-results">社区主题</h2>
+      <a href="/forum/">论坛</a>
+    </div>
+    <ul class="list-group" role="list" aria-labelledby="h-forum-results" data-forum-list></ul>
+    <p class="data-status" data-forum-status role="status" aria-live="polite"></p>
+    <ErrorBar text="社区主题暂时搜不到（数据服务没有响应），上方站内结果不受影响。" hidden id="forum-error">
+      <button type="button" class="btn btn--sm" data-forum-retry>
+        重试
+      </button>
+    </ErrorBar>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/search-page';
+</script>

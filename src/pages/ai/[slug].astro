@@ -1,0 +1,85 @@
+---
+import Base from '@/layouts/Base.astro';
+import StoreDetail from '@/components/apps/StoreDetail.astro';
+import { getArticles, getTools, platformText, type Tool } from '@/lib/content';
+import { fromTool } from '@/lib/store';
+import { relatedArticleLinks, sideGroups } from '@/lib/detail-side';
+import { AI_CATEGORIES, AI_CATEGORY_SCHEMA, PLATFORM_SCHEMA } from '@/lib/app-store';
+import { url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
+import { toolHue } from '@/lib/hue';
+import { softwareApp } from '@/lib/seo';
+import { iconSrcset } from '@/lib/icons';
+
+export async function getStaticPaths() {
+  const tools = await getTools();
+  return tools.map((tool) => ({ params: { slug: tool.id }, props: { tool, all: tools } }));
+}
+const { tool, all } = Astro.props as { tool: Tool; all: Tool[] };
+const d = tool.data;
+const main = d.categories[0];
+const path = url.tool(tool.id);
+const entries = all.map(fromTool);
+const entry = entries.find((e) => e.slug === tool.id)!;
+const side = sideGroups(entry, entries, {
+  more: { href: url.aiCategory(main), label: `更多${AI_CATEGORIES[main]}` },
+  typeNoun: 'AI 工具',
+});
+const articles = relatedArticleLinks(await getArticles(), path);
+const oses = d.platforms.map((p) => p.os);
+const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。本站原创介绍，只链接官方地址。`;
+---
+
+<Base
+  image={ogFor('ai', tool.id)}
+  searchType="tool"
+  preloadSrcset={
+    d.icon.variants ? { srcset: iconSrcset(d.icon.src, 'xl', 'avif'), type: 'image/avif' } : undefined
+  }
+  preloadImage={d.icon.variants ? undefined : d.icon.src}
+  title={`${d.title} — ${d.subtitle}`}
+  description={description}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: 'AI 工具', path: url.ai() },
+    { name: AI_CATEGORIES[main], path: url.aiCategory(main) },
+    { name: d.title, path },
+  ]}
+  schema={[
+    softwareApp({
+      name: d.title,
+      description: d.summary,
+      path,
+      category: AI_CATEGORIES[main],
+      applicationCategory: AI_CATEGORY_SCHEMA[main],
+      version: d.version,
+      image: d.icon.src,
+      os: [...new Set(oses.map((o) => PLATFORM_SCHEMA[o]))].join(', '),
+      price: d.price,
+      dateModified: d.lastChecked,
+      codeRepository: d.sourceRepo,
+      developer: { name: d.developer.name, url: d.developer.url },
+    }),
+  ]}
+>
+  <StoreDetail
+    kind="tool"
+    slug={tool.id}
+    data={d}
+    body={tool.body ?? ''}
+    categoryLabel={AI_CATEGORIES[main]}
+    categoryHref={url.aiCategory(main)}
+    platformHref={null}
+    hue={toolHue(d)}
+    entry={entry}
+    side={side}
+    articles={articles}
+  />
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  import { highlightPlatform } from '@/scripts/apps/platform';
+  highlightPlatform(document);
+  whenIdle(() => import('@/scripts/apps/detail'));
+</script>

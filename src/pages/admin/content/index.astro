@@ -1,0 +1,139 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { forum } from '@/lib/content';
+---
+
+<AdminLayout
+  section="content"
+  title="内容管理"
+  lede="论坛主题、回复与评论：搜索、筛选、发布流程（草稿 / 待审 / 定时发布 / 下线）、版本对比、备注、置顶 / 精华 / 锁定。"
+>
+  <div class="segmented" role="group" aria-label="内容类型" data-type-filter>
+    <button type="button" data-value="thread" aria-pressed="true">
+      主题
+    </button>
+    <button type="button" data-value="reply" aria-pressed="false">
+      回复
+    </button>
+    <button type="button" data-value="comment" aria-pressed="false">
+      评论
+    </button>
+  </div>
+  <form class="toolbar" role="search" data-filters>
+    <div class="field field--grow">
+      <label for="ct-q">搜索</label>
+      <input id="ct-q" name="q" type="search" placeholder="标题、正文或作者昵称" autocomplete="off" />
+    </div>
+    <div class="field" data-cat-field>
+      <label for="ct-cat">分类</label>
+      <select id="ct-cat" name="cat">
+        <option value="">全部分类</option>
+        {forum.categories.map((c) => (
+          <option value={c.id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+    <div class="field">
+      <label for="ct-hidden">状态</label>
+      <select id="ct-hidden" name="hidden">
+        <option value="">全部</option>
+        <option value="0">已发布</option>
+        <option value="1">已隐藏</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="ct-reported">举报</label>
+      <select id="ct-reported" name="reported">
+        <option value="">全部</option>
+        <option value="1">有待处理举报</option>
+        <option value="0">无举报</option>
+      </select>
+    </div>
+    <div class="toolbar__actions">
+      <button class="btn" type="submit">
+        筛选
+      </button>
+      <button class="btn btn--text" type="reset" data-reset>
+        重置
+      </button>
+    </div>
+  </form>
+  <p class="btn-row" data-author-chip hidden></p>
+  <div class="bulkbar glass" data-bulkbar hidden>
+    <span class="bulkbar__count" data-selected-count>
+      已选 0 项
+    </span>
+    <button class="btn btn--sm" type="button" data-bulk="hide">
+      隐藏
+    </button>
+    <button class="btn btn--sm" type="button" data-bulk="restore">
+      恢复
+    </button>
+    <button class="btn btn--sm" type="button" data-bulk="draft">
+      转草稿
+    </button>
+    <button class="btn btn--sm" type="button" data-bulk="review">
+      送审
+    </button>
+    <button class="btn btn--sm" type="button" data-bulk="lock" data-thread-only>
+      锁定
+    </button>
+    <button class="btn btn--sm" type="button" data-bulk="pin" data-thread-only>
+      置顶
+    </button>
+    <button class="btn btn--sm btn--danger" type="button" data-bulk="delete">
+      删除
+    </button>
+    <button class="btn btn--sm btn--text" type="button" data-bulk-cancel>
+      取消选择
+    </button>
+  </div>
+  <div class="btn-row" data-select-all-row>
+    <label class="check">
+      <input type="checkbox" data-select-all />
+      <span>全选本页</span>
+    </label>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" data-table data-cards data-truncate-ok data-table2="content" data-server-sort>
+      <caption class="visually-hidden" data-caption>
+        主题列表
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col" class="col-check">
+            <span class="visually-hidden">选择</span>
+          </th>
+          <th scope="col" data-sort-key="title">
+            内容
+          </th>
+          <th scope="col" data-priority="2" data-sort-key="author_name">
+            作者
+          </th>
+          <th scope="col" data-col-where data-priority="3" data-sort-key="cat">
+            分类
+          </th>
+          <th scope="col" data-priority="2" data-sort-key="published">
+            状态
+          </th>
+          <th scope="col" class="num" data-priority="3" data-sort-key="open_reports">
+            举报
+          </th>
+          <th scope="col" data-priority="3" data-sort-key="created_at">
+            时间
+          </th>
+          <th scope="col" class="col-actions">
+            <span class="visually-hidden">操作</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody data-rows aria-busy="true"></tbody>
+    </table>
+  </div>
+  <nav class="pagination" aria-label="分页" data-pager></nav>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/content';
+</script>

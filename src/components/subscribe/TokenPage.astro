@@ -1,0 +1,59 @@
+---
+/**
+ * 确认订阅 / 退订页（T7.8，中英共用）：令牌在 #token=…（不进服务器日志、不随 Referer 发出）。
+ * 需要点按钮才执行（邮件客户端的链接预取不会误确认 / 误退订）；调用数据库 0016 的 RPC。noindex、不进 sitemap。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+interface Props {
+  lang: 'zh' | 'en';
+  action: 'confirm' | 'unsubscribe';
+}
+const { lang, action } = Astro.props;
+const en = lang === 'en';
+const T = {
+  confirm: en
+    ? {
+        title: 'Confirm subscription',
+        lede: 'Click the button to start receiving AZ Studio updates by email.',
+        btn: 'Confirm subscription',
+      }
+    : { title: '确认订阅', lede: '点下面的按钮，开始接收 AZ Studio 的邮件更新。', btn: '确认订阅' },
+  unsubscribe: en
+    ? {
+        title: 'Unsubscribe',
+        lede: 'Click the button to stop all AZ Studio emails to this address.',
+        btn: 'Unsubscribe',
+      }
+    : { title: '退订', lede: '点下面的按钮，这个邮箱将不再收到 AZ Studio 的任何邮件。', btn: '确认退订' },
+}[action];
+const base = en ? '/en/subscribe/' : '/subscribe/';
+---
+
+<Base
+  title={T.title}
+  description={T.lede}
+  noindex
+  crumbs={[
+    { name: en ? 'Home' : '首页', path: en ? '/en/' : '/' },
+    { name: en ? 'Email updates' : '订阅更新', path: base },
+    { name: T.title, path: `${base}${action}/` },
+  ]}
+>
+  <PageHead title={T.title} lede={T.lede} />
+  <section class="panel" data-sub-token data-action={action} data-lang={lang}>
+    <p class="btn-row">
+      <button class="btn btn--primary" type="button" data-sub-go disabled>
+        {T.btn}
+      </button>
+    </p>
+    <p class="data-status" role="status" aria-live="polite" data-sub-status></p>
+    <p class="mt-4">
+      <a href={base}>{en ? 'Back to email updates' : '返回订阅页'}</a>
+    </p>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/community/subscribe-token';
+</script>

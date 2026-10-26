@@ -1,0 +1,144 @@
+---
+/**
+ * 官方内容（应用 / 游戏 / 文章 / 作品 / 论坛种子等）只在 Git 里维护：这里是只读清单，
+ * 每条链接到 GitHub 的编辑页与历史；后台不写任何官方内容（没有 CMS 写入）。
+ */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { getApps, getArticles, getGames, getWorks } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { REPO, githubEdit, githubHistory } from '@/lib/site';
+
+const [apps, games, articles, works] = await Promise.all([getApps(), getGames(), getArticles(), getWorks()]);
+const groups = [
+  {
+    id: 'apps',
+    label: '应用',
+    dir: 'src/content/apps',
+    items: apps.map((e) => ({
+      id: e.id,
+      title: e.data.title,
+      href: url.app(e.id),
+      review: e.data.ownerReview,
+    })),
+  },
+  {
+    id: 'games',
+    label: '游戏',
+    dir: 'src/content/games',
+    items: games.map((e) => ({ id: e.id, title: e.data.title, href: url.game(e.id), review: false })),
+  },
+  {
+    id: 'articles',
+    label: '文章',
+    dir: 'src/content/articles',
+    items: articles.map((e) => ({ id: e.id, title: e.data.title, href: url.article(e.id), review: false })),
+  },
+  {
+    id: 'works',
+    label: '作品',
+    dir: 'src/content/works',
+    items: works.map((e) => ({ id: e.id, title: e.data.title, href: url.work(e.id), review: false })),
+  },
+];
+const dataFiles = [
+  { path: 'src/data/forum.json', label: '论坛分类与种子主题' },
+  { path: 'src/data/updates.json', label: '更新日志（/changelog/）' },
+  { path: 'src/data/comment-seeds.json', label: '评论区预置内容' },
+  { path: 'src/data/art.json', label: '生成式素材槽位' },
+  { path: 'src/pages/about.astro', label: '关于页' },
+  { path: 'src/pages/changelog.astro', label: '更新日志' },
+  { path: 'src/pages/roadmap.astro', label: '路线图' },
+];
+const total = groups.reduce((n, g) => n + g.items.length, 0);
+---
+
+<AdminLayout
+  section="official"
+  title="官方内容"
+  lede={`共 ${total} 篇，在 Git（Markdown）里维护：在 GitHub 上编辑并合并后，Vercel 自动重新构建上线。`}
+>
+  <p class="notice notice--info">
+    后台不直接修改官方内容（没有 CMS 写入），这样每次改动都有版本记录与预览站。编辑链接指向{' '}
+    <code>{REPO.branch}</code> 分支；文件格式见 <code>src/content.config.ts</code>。
+  </p>
+  {groups.map((g) => (
+    <section class="section" aria-labelledby={`h-off-${g.id}`}>
+      <h2 id={`h-off-${g.id}`} class="list-heading">
+        {g.label}（{g.items.length}）
+      </h2>
+      <div class="table-wrap">
+        <table class="data-table">
+          <caption class="visually-hidden">{g.label}</caption>
+          <thead>
+            <tr>
+              <th scope="col">标题</th>
+              <th scope="col">文件</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.items.map((it) => (
+              <tr class="no-check">
+                <td class="cell-main" data-label="标题">
+                  <a class="cell-title" href={it.href}>
+                    {it.title}
+                  </a>
+                  {it.review && <span class="badge badge--warn">待作者补充</span>}
+                </td>
+                <td data-label="文件">
+                  <code>{`${g.dir}/${it.id}.md`}</code>
+                </td>
+                <td data-label="操作">
+                  <span class="row-actions">
+                    <a
+                      class="btn btn--sm"
+                      href={githubEdit(`${g.dir}/${it.id}.md`)}
+                      rel="noopener"
+                      target="_blank"
+                      aria-label={`在 GitHub 编辑：${it.title}（新窗口）`}
+                    >
+                      在 GitHub 编辑
+                    </a>
+                    <a
+                      class="btn btn--sm"
+                      href={githubHistory(`${g.dir}/${it.id}.md`)}
+                      rel="noopener"
+                      target="_blank"
+                      aria-label={`历史：${it.title}（新窗口）`}
+                    >
+                      历史
+                    </a>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  ))}
+  <section class="section" aria-labelledby="h-off-data">
+    <h2 id="h-off-data" class="list-heading">
+      数据文件与页面
+    </h2>
+    <ul class="list-group" role="list">
+      {dataFiles.map((f) => (
+        <li>
+          <a class="list-row" href={githubEdit(f.path)} rel="noopener" target="_blank">
+            <span class="list-row__main">
+              <span class="list-row__title">{f.label}</span>
+              <span class="list-row__sub">
+                <code>{f.path}</code> · 在 GitHub 编辑（新窗口）
+              </span>
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</AdminLayout>
+
+<script>
+  import { initAdmin } from '@/scripts/admin/shell';
+  void initAdmin();
+</script>

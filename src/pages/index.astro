@@ -1,0 +1,287 @@
+---
+/**
+ * 首页（P10 T10.6，站长选定方案 B「纯货架」）：紧凑搜索头（≤ 160px，含热门词）→ 货架：
+ * 最新更新 / AI 工具（编辑推荐排行）/ 我们的应用 / 游戏 / 按平台 / 分类 → 文章、视频各一行。
+ * 只用内容集合里的真实数据：没有条目的货架整块不渲染；不显示评分 / 下载量 / 热度（没有真实数据，不编造），
+ * 排行如实标注「按编辑推荐」。T10.7：去掉了 hero 大标题、装饰图标拼贴、平台胶囊区与大 CTA 区，关于文案在 /about/。
+ */
+import '@/styles/home.css';
+import Base from '@/layouts/Base.astro';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import Icon from '@/components/Icon.astro';
+import VideoCard from '@/components/videos/VideoCard.astro';
+import AppTile from '@/components/store/AppTile.astro';
+import Ranking from '@/components/store/Ranking.astro';
+import Shelf from '@/components/store/Shelf.astro';
+import AppRow from '@/components/store/AppRow.astro';
+import FeaturedBento, { type BentoItem } from '@/components/store/FeaturedBento.astro';
+import { getArticles, getStoreEntries, getApps, getTools, getVideos, videoItem } from '@/lib/content';
+import { PLATFORMS, PLATFORM_LABEL, type PlatformOs } from '@/lib/app-store';
+import { categoryTiles, homeVideos, TRY_QUERIES } from '@/lib/home';
+import { latestUpdated, sortEntries, type StoreEntry } from '@/lib/store';
+import { formatDate } from '@/lib/dates';
+import { abs } from '@/lib/seo';
+import { SITE } from '@/lib/site';
+import { url } from '@/lib/routes';
+
+const [{ apps, tools, games }, rawApps, rawTools, videos, articles] = await Promise.all([
+  getStoreEntries(),
+  getApps(),
+  getTools(),
+  getVideos(),
+  getArticles(),
+]);
+
+const ownApps = sortEntries(
+  apps.filter((a) => rawApps.find((r) => r.id === a.slug)?.data.developer.type === 'self'),
+  'editor',
+);
+// 最新更新：有真实更新日期的应用与游戏（AI 工具跟随官方更新、没有日期，不进来）
+const latest = latestUpdated([...apps, ...games, ...tools], 16);
+const gameList = sortEntries(games, 'editor');
+const cats = categoryTiles(rawApps, rawTools);
+// 按平台：只列有平台目录页（/apps/platform/<os>/）的平台，数量 = 该平台的应用数
+const PLATFORM_ICON: Partial<Record<PlatformOs, 'globe' | 'apps' | 'monitor' | 'settings' | 'message'>> = {
+  web: 'globe',
+  'browser-ext': 'apps',
+  cli: 'monitor',
+  windows: 'monitor',
+  macos: 'monitor',
+  linux: 'monitor',
+  ios: 'apps',
+  android: 'apps',
+};
+const platforms = PLATFORMS.filter((os) => os !== 'ai-bot' && os !== 'mcp')
+  .map((os) => ({ os, count: apps.filter((a) => a.platformIds.includes(os)).length }))
+  .filter((p) => p.count > 0);
+const homeVids = homeVideos(videos, 4).map(videoItem);
+
+// P10h 编辑精选 bento：大格 = 第一个有截图的自研应用（截图来自档案，概念图如实标注），
+// 小格 = 下一个有截图的自研应用、编辑推荐第 1 / 2 的 AI 工具、编辑推荐第 1 的游戏（各取真实简介，不编造）
+const rawById = new Map(rawApps.map((r) => [r.id, r]));
+const withShot = ownApps.filter((a) => (rawById.get(a.slug)?.data.screenshots.length ?? 0) > 0);
+const toolsByOrder = sortEntries(tools, 'editor');
+const bentoItems: BentoItem[] = [];
+if (withShot[0]) {
+  const r = rawById.get(withShot[0].slug)!;
+  bentoItems.push({ entry: withShot[0], blurb: r.data.summary, shot: r.data.screenshots[0] });
+}
+for (const e of [withShot[1], toolsByOrder[0], gameList[0], toolsByOrder[1]]) {
+  if (e && !bentoItems.some((b) => b.entry.slug === e.slug)) bentoItems.push({ entry: e, blurb: e.subtitle });
+}
+const bentoNote = bentoItems[0]?.shot?.illustrative ? '编辑挑选 · 截图为概念图' : '编辑挑选';
+
+const homeArticles = articles.slice(0, 4);
+
+// 首屏条目（1440 首屏约两个货架）：前 14 个图标 eager，前 7 个高优先级
+const eagerSet = new Set(latest.slice(0, 14).map((e) => e.slug));
+const isEager = (e: StoreEntry) => eagerSet.has(e.slug);
+
+const schema = [
+  {
+    '@type': 'ItemList',
+    '@id': `${abs('/')}#latest`,
+    name: '最新更新',
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    numberOfItems: latest.length,
+    itemListElement: latest.map((e, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: e.title,
+      url: abs(e.href),
+    })),
+  },
+];
+---
+
+<Base title={SITE.title} description={SITE.description} schema={schema}>
+  <section class="store-head" aria-labelledby="hero-title">
+    <h1 id="hero-title">应用、AI 工具与游戏</h1>
+    <div class="store-head__search">
+      <form class="home-search" action={url.search()} method="get" role="search" aria-label="站内搜索">
+        <label class="visually-hidden" for="home-q">
+          搜索关键词
+        </label>
+        <Icon name="search" class="home-search__icon" />
+        <input
+          id="home-q"
+          name="q"
+          type="search"
+          placeholder="搜索应用、AI 工具、游戏"
+          autocomplete="off"
+          enterkeyhint="search"
+          data-home-search
+        />
+        <kbd class="home-search__kbd" aria-hidden="true">
+          <span data-kbd-mod>Ctrl</span> K
+        </kbd>
+        <button class="btn btn--primary home-search__btn" type="submit">
+          搜索
+        </button>
+      </form>
+      <div class="home-try">
+        <span class="home-try__label" aria-hidden="true">
+          推荐搜索
+        </span>
+        <ul role="list" aria-label="推荐搜索">
+          {TRY_QUERIES.map((q) => (
+            <li>
+              <a class="chip" href={url.search(q)}>
+                {q}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="home-split">
+    {latest.length > 0 && (
+      <Shelf
+        id="latest"
+        title="最新更新"
+        note="按档案里的更新日期"
+        more={{ href: '/changelog/', label: '更新日志' }}
+      >
+        {latest.map((e, i) => (
+          <li>
+            <AppTile entry={e} eager={isEager(e)} priority={i < 7} fields={['updatedAt']} />
+          </li>
+        ))}
+      </Shelf>
+    )}
+    {tools.length > 0 && (
+      <Ranking
+        id="ai"
+        title="热门 AI 工具"
+        note="按编辑推荐（不是下载量）"
+        entries={tools}
+        eager
+        accent="ai"
+        layout="column"
+        more={{ href: url.ai(), label: `全部 ${tools.length} 个` }}
+      />
+    )}
+  </div>
+
+  {bentoItems.length >= 3 && (
+    <FeaturedBento id="featured" title="编辑精选" note={bentoNote} items={bentoItems} />
+  )}
+
+  {ownApps.length > 0 && (
+    <Shelf
+      id="apps"
+      title="我们的应用"
+      note="AZ Studio 出品"
+      accent="app"
+      kind="row"
+      more={{ href: url.apps(), label: '全部应用' }}
+    >
+      {ownApps.map((e) => (
+        <li>
+          <AppRow entry={e} fields={['category', 'version', 'platforms']} />
+        </li>
+      ))}
+    </Shelf>
+  )}
+
+  <div class="home-split">
+    {gameList.length > 0 && (
+      <Shelf
+        id="games"
+        title="游戏"
+        note="浏览器游戏与原型"
+        accent="game"
+        more={{ href: url.games(), label: '全部游戏' }}
+      >
+        {gameList.map((e) => (
+          <li>
+            <AppTile entry={e} />
+          </li>
+        ))}
+      </Shelf>
+    )}
+    {platforms.length > 0 && (
+      <Shelf id="platforms" title="按平台" note="AZ Studio 应用" kind="chip">
+        {platforms.map((p) => (
+          <li class="gate">
+            <span class="gate__icon" aria-hidden="true">
+              <Icon name={PLATFORM_ICON[p.os] ?? 'apps'} />
+            </span>
+            <a href={url.appPlatform(p.os)}>{PLATFORM_LABEL[p.os]}</a>
+            <span class="gate__n">{p.count} 个应用</span>
+          </li>
+        ))}
+      </Shelf>
+    )}
+  </div>
+
+  {cats.length > 0 && (
+    <Shelf id="categories" title="分类" note="应用与 AI 工具" kind="chip">
+      {cats.map((c) => (
+        <li class="gate gate--wall">
+          <span class="gate__stack" aria-hidden="true">
+            {c.icons.map((ic) => (
+              <AppIcon src={ic.src} alt="" variants={ic.variants} size="xs" />
+            ))}
+          </span>
+          <a href={c.url}>{c.name}</a>
+          <span class="gate__n">
+            {c.count} 个{c.kind === 'ai' ? '工具' : '应用'}
+          </span>
+        </li>
+      ))}
+    </Shelf>
+  )}
+
+  <div class="home-split home-split--media">
+    {homeArticles.length > 0 && (
+      <Shelf
+        id="articles"
+        title="最新文章"
+        note="按发布日期"
+        more={{ href: url.articles(), label: '文章中心' }}
+        kind="stack"
+      >
+        {homeArticles.map((a, i) => (
+          <li class="post-row">
+            <span class="post-row__n" aria-hidden="true">
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <h3>
+              <a href={url.article(a.id)}>{a.data.title}</a>
+            </h3>
+            <p>
+              {formatDate(a.data.date)} · {a.data.readingMinutes} 分钟
+            </p>
+          </li>
+        ))}
+      </Shelf>
+    )}
+    {homeVids.length > 0 && (
+      <Shelf
+        id="videos"
+        title="精选视频"
+        note="点击后才加载播放器"
+        more={{ href: url.videos(), label: '视频' }}
+        kind="card"
+      >
+        {homeVids.map((v) => (
+          <li>
+            <VideoCard item={v} headingLevel="h3" />
+          </li>
+        ))}
+      </Shelf>
+    )}
+  </div>
+</Base>
+
+<script>
+  // 旧版 hash 路由（#/article/xxx、#project …）→ 新的真实 URL
+  import { mapLegacyHash } from '@/lib/hash-redirect';
+  import { initSearchShortcut } from '@/scripts/home/rows';
+  const target = mapLegacyHash(location.hash);
+  if (target) location.replace(target);
+  else initSearchShortcut();
+</script>

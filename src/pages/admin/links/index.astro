@@ -1,0 +1,45 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="links"
+  title="友链审核"
+  lede="友链申请（含申请人联系方式，仅管理员可见）：通过后显示在「友情链接」页。每个操作都会写入审计日志。"
+  require="admin"
+>
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="按状态筛选" data-status-filter>
+      <button type="button" data-value="pending" aria-pressed="true">
+        待审核
+      </button>
+      <button type="button" data-value="approved" aria-pressed="false">
+        已通过
+      </button>
+      <button type="button" data-value="rejected" aria-pressed="false">
+        已拒绝
+      </button>
+      <button type="button" data-value="all" aria-pressed="false">
+        全部
+      </button>
+    </div>
+  </div>
+  <ul
+    class="report-list"
+    role="list"
+    data-mod-list
+    data-kind="links"
+    aria-busy="true"
+    aria-label="友链审核"
+  ></ul>
+  <div class="btn-row">
+    <button class="btn" type="button" data-more hidden>
+      加载更多
+    </button>
+  </div>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/moderation-queue';
+</script>

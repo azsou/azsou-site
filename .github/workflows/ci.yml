@@ -1,0 +1,246 @@
+name: CI
+# 全部任务阻断（无 continue-on-error）。每个 PR 与非 main 分支推送：lint（含 stylelint error）→ 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
+# 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ 设计门禁 + 视觉回归 → 设备矩阵 → Lighthouse（移动 + 桌面，四项 ≥ 95）
+# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+    inputs:
+      update_visual:
+        description: '重新生成视觉回归基线（产物 visual-baseline-*，审阅后提交）'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      # 加载 src/content/apps/_e2e/ 的测试夹具应用（下载中转 / 平台识别 E2E 用）；Vercel 的构建不设，线上没有夹具
+      AZ_E2E_FIXTURES: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check:assets
+      - run: npm run check
+      - run: npm run test:unit
+      - run: npm run build
+      - run: npm run test:links
+      - run: npm run test:html
+      - run: npm run test:ld
+      - run: npm run size
+      - run: npm run test:csp
+      - run: npm run check:og
+      # Q13 文案检查（DESIGN-SYSTEM §18：禁用词 / 术语 / 可见 ISO 日期 / 引号 / 英文页中文），阻断
+      - run: npm run copy:lint
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: dist, retention-days: 3 }
+      # P8：广告开启变体（假客户端 ID ca-pub-0000000000000000）——产物检查（ads.txt / 广告位 / CSP 副本），
+      # 再交给 e2e 的 tests/e2e/ads.spec.ts 在三个浏览器里实测尺寸、与按钮的距离和 Consent Mode 顺序。线上构建不会用到。
+      - run: npm run build:ads
+      - run: npm run test:ads
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-ads
+          path: |
+            dist-ads/client
+            dist-ads.vercel.json
+          retention-days: 3
+
+  db:
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      POSTGREST_BIN: ${{ github.workspace }}/.bin/postgrest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: PostgREST 14（与生产同一大版本）
+        run: |
+          mkdir -p .bin
+          curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
+          .bin/postgrest --version
+      - run: npm run test:db
+      - name: PostgreSQL 17 客户端（恢复演练用 pg_dump / pg_restore）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
+        run: bash scripts/restore-drill.sh
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
+
+  e2e:
+    timeout-minutes: 50
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        shard: [1, 2]
+    # 社区（P3）用例的真实后端：Postgres 17 跑全部迁移 + PostgREST 14，浏览器的 /rest/v1 请求转发过去
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      POSTGREST_BIN: ${{ github.workspace }}/.bin/postgrest
+      E2E_REQUIRE_DB: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - uses: actions/download-artifact@v4
+        with: { name: dist-ads, path: . }
+      - name: PostgREST 14
+        run: |
+          mkdir -p .bin
+          curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
+      - name: 浏览器（安装偶发卡住：10 分钟超时 + 清理 apt 锁 + 最多 3 次）
+        run: bash scripts/ci/pw-install.sh ${{ matrix.browser }}
+      - run: npx playwright test --shard=${{ matrix.shard }}/2
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+          path: playwright-report
+          retention-days: 7
+
+  # P9 设计门禁（T9.2）：Q5 / Q8 / Q11 / Q12 / Q18 断言 + Q2 视觉回归（Chromium + Noto CJK，2 片并行）。
+  # 没有基线（首次）或手动触发 update_visual 时写出基线并上传为产物，审阅后提交到 tests/visual/__screenshots__/。
+  design:
+    timeout-minutes: 35
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      # T9.21：known.ts 的 test.fixme 登记一律不生效（已清零；再登记也会被这里拦成失败）
+      DESIGN_STRICT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Chromium + 中文字体
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          bash scripts/ci/pw-install.sh chromium
+      - name: 设计门禁 + 视觉回归
+        run: |
+          UPDATE=""
+          if [ "${{ inputs.update_visual }}" = "true" ] || [ -z "$(ls tests/visual/__screenshots__ 2>/dev/null)" ]; then UPDATE="--update-snapshots=all"; fi
+          npx playwright test -c playwright.design.config.ts --shard=${{ matrix.shard }}/2 $UPDATE
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baseline-${{ matrix.shard }}
+          path: tests/visual/__screenshots__
+          retention-days: 7
+          if-no-files-found: ignore
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-report-${{ matrix.shard }}
+          path: playwright-report-design
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # T9.19 设备 / 浏览器矩阵（Playwright 设备模拟：iPhone SE / 15、Pixel 7、iPad 竖横、1024 / 1440 / 1920 × 三引擎），阻断。
+  # 首屏截图 + 每格结果（test-results/devices/<引擎>.jsonl）上传为产物 device-matrix-<引擎>，汇总见 docs/DEVICE-MATRIX.md。
+  devices:
+    timeout-minutes: 20
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: 浏览器 + 中文字体
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          bash scripts/ci/pw-install.sh ${{ matrix.browser }}
+      - run: npx playwright test -c playwright.devices.config.ts
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-matrix-${{ matrix.browser }}
+          path: test-results/devices
+          retention-days: 14
+          if-no-files-found: ignore
+
+  lighthouse:
+    timeout-minutes: 30
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Lighthouse 移动档（32 页 × 3 次中位数）
+        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
+      - name: Lighthouse 桌面档（12 页，T9.21）
+        if: ${{ !cancelled() }}
+        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.desktop.cjs
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse
+          path: |
+            .lighthouseci
+            .lighthouseci-desktop
+          retention-days: 7
+          include-hidden-files: true
