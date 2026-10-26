@@ -1,7 +1,9 @@
 ---
 /**
- * 管理后台独立 App Shell（T9.16，DESIGN-SYSTEM §14）：顶栏 52（站点名、环境标签、返回前台、外观、账户）+
- * 左侧栏 240（< 900 收为顶部横向分段导航）+ 内容区（最大 1280）；不显示前台导航、页脚与 TabBar。
+ * 管理后台独立 App Shell（T9.16，DESIGN-SYSTEM §14；P10h T10.16 CRM 工作台）：
+ * 顶栏 52（侧栏开关、站点名、环境标签、全局搜索 / ⌘K 命令面板入口、快捷键帮助、返回前台、外观、账户）+
+ * 分组左侧栏 240（图标 + 文字，可折叠为 64 只显示图标；< 900 收为顶部横向分段导航）+ 内容区（最大 1360，面包屑）；
+ * 不显示前台导航、页脚与 TabBar。命令面板 / 快捷键帮助是静态 <dialog>，交互在 src/scripts/admin/workbench.ts。
  * noindex、权限门（未登录 / 无权限 / 被限制三种状态卡片）。
  * 权限门只是体验层（隐藏界面）；真正的权限由数据库 RLS / RPC 校验（db/migrations/0009_admin.sql）。
  */
@@ -11,7 +13,8 @@ import Base from './Base.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import Icon from '@/components/Icon.astro';
 import UserMenu from '@/components/UserMenu.astro';
-import { ADMIN_SECTIONS, type AdminSection } from '@/lib/admin-nav';
+import { ADMIN_GROUPS, ADMIN_SECTIONS, type AdminSection } from '@/lib/admin-nav';
+import { SHORTCUTS } from '@/lib/admin-shortcuts';
 
 interface Props {
   section: AdminSection;
@@ -22,6 +25,10 @@ interface Props {
 }
 const { section, title, lede, require = 'moderator' } = Astro.props;
 const current = ADMIN_SECTIONS.find((s) => s.id === section)!;
+const groups = ADMIN_GROUPS.map((g) => ({
+  ...g,
+  items: ADMIN_SECTIONS.filter((s) => s.group === g.id),
+})).filter((g) => g.items.length > 0);
 const crumbs = [
   { name: '首页', path: '/' },
   { name: '管理后台', path: '/admin/' },
@@ -39,6 +46,16 @@ const crumbs = [
   chrome="app"
 >
   <header class="admin-top" slot="app-header">
+    <button
+      class="btn btn--icon btn--sm admin-top__toggle"
+      type="button"
+      aria-controls="admin-nav"
+      aria-expanded="true"
+      aria-label="收起侧栏"
+      data-nav-toggle
+    >
+      <Icon name="panel-left" size={20} />
+    </button>
     <a class="admin-top__brand" href="/admin/">
       <img src="/favicon.svg" alt="" width="24" height="24" />
       <span>AZ Studio</span>
@@ -48,7 +65,24 @@ const crumbs = [
       环境
     </span>
     <span class="admin-top__spacer"></span>
-    <a class="btn btn--sm admin-top__site" href="/" aria-label="返回前台">
+    <button class="admin-search" type="button" aria-haspopup="dialog" data-admin-palette-open>
+      <Icon name="search" size={16} />
+      <span class="admin-search__text">搜索或跳转…</span>
+      <kbd class="admin-search__kbd" aria-hidden="true">
+        <span data-kbd-mod>Ctrl</span> K
+      </kbd>
+      <span class="visually-hidden">（快捷键 Ctrl 或 ⌘ 加 K）</span>
+    </button>
+    <button
+      class="btn btn--icon btn--sm admin-top__help"
+      type="button"
+      aria-haspopup="dialog"
+      aria-label="键盘快捷键"
+      data-shortcuts-open
+    >
+      <Icon name="keyboard" size={20} />
+    </button>
+    <a class="btn btn--sm btn--outline btn--rect admin-top__site" href="/" aria-label="返回前台">
       <Icon name="arrow-up-right" size={16} />
       <span>返回前台</span>
     </a>
@@ -60,20 +94,33 @@ const crumbs = [
     <UserMenu />
   </header>
   <div class="admin" data-admin data-require={require} data-section={section}>
-    <nav class="admin-nav" aria-label="后台导航">
-      <ul role="list">
-        {ADMIN_SECTIONS.map((s) => (
-          <li data-nav-role={s.role} hidden={s.role === 'admin'}>
-            <a href={s.path} aria-current={s.id === section ? 'page' : undefined}>
-              {s.label}
-              {s.id === 'reports' && <span class="nav-count" data-open-count hidden />}
-            </a>
-          </li>
-        ))}
-      </ul>
+    <nav class="admin-nav" id="admin-nav" aria-label="后台导航">
+      {groups.map((g) => {
+        const adminOnly = g.items.every((i) => i.role === 'admin');
+        return (
+          <div class="admin-nav__group" data-nav-role={adminOnly ? 'admin' : undefined} hidden={adminOnly}>
+            {g.label && (
+              <p class="admin-nav__heading" aria-hidden="true">
+                {g.label}
+              </p>
+            )}
+            <ul role="list">
+              {g.items.map((s) => (
+                <li data-nav-role={s.role} hidden={s.role === 'admin'}>
+                  <a href={s.path} aria-current={s.id === section ? 'page' : undefined} title={s.label}>
+                    <Icon name={s.icon} size={20} class="admin-nav__icon" />
+                    <span class="admin-nav__label">{s.label}</span>
+                    {s.id === 'reports' && <span class="nav-count" data-open-count hidden />}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </nav>
     <div class="admin-main">
-      {crumbs.length > 3 && <Breadcrumbs items={crumbs.slice(1)} />}
+      {crumbs.length > 2 && <Breadcrumbs items={crumbs.slice(1)} />}
       <header class="admin-head">
         <div>
           <h1>{title}</h1>
@@ -114,4 +161,92 @@ const crumbs = [
       </div>
     </div>
   </div>
+
+  <dialog class="palette" aria-labelledby="palette-title" data-palette>
+    <h2 id="palette-title" class="visually-hidden">
+      命令面板
+    </h2>
+    <div class="palette__field">
+      <Icon name="search" size={20} />
+      <input
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="palette-list"
+        aria-autocomplete="list"
+        aria-label="搜索页面、用户、内容或命令"
+        placeholder="跳转到页面，或输入关键词搜索用户 / 内容"
+        autocomplete="off"
+        spellcheck="false"
+        data-palette-input
+      />
+      <kbd class="admin-search__kbd" aria-hidden="true">
+        Esc
+      </kbd>
+    </div>
+    <ul class="palette__list" id="palette-list" role="listbox" aria-label="结果" data-palette-list>
+      {ADMIN_SECTIONS.map((s) => (
+        <li
+          role="option"
+          id={`pal-${s.id}`}
+          aria-selected="false"
+          data-palette-item
+          data-href={s.path}
+          data-role={s.role}
+          data-keywords={`${s.label} ${s.id}`}
+          data-group="页面"
+        >
+          <Icon name={s.icon} size={16} />
+          <span>{s.label}</span>
+          <span class="palette__hint">页面</span>
+        </li>
+      ))}
+    </ul>
+    <p class="palette__empty" data-palette-empty hidden>
+      没有匹配的页面。按 Enter 在用户与内容里搜索。
+    </p>
+    <p class="palette__foot" aria-hidden="true">
+      <span>
+        <kbd>↑</kbd> <kbd>↓</kbd> 选择
+      </span>
+      <span>
+        <kbd>Enter</kbd> 打开
+      </span>
+      <span>
+        <kbd>Esc</kbd> 关闭
+      </span>
+    </p>
+  </dialog>
+
+  <dialog class="sheet shortcuts" aria-labelledby="shortcuts-title" data-shortcuts>
+    <h2 id="shortcuts-title" class="sheet__title">
+      键盘快捷键
+    </h2>
+    <table class="shortcuts__table">
+      <caption class="visually-hidden">后台快捷键</caption>
+      <thead>
+        <tr>
+          <th scope="col">按键</th>
+          <th scope="col">作用</th>
+        </tr>
+      </thead>
+      <tbody>
+        {SHORTCUTS.map((k) => (
+          <tr>
+            <td>
+              {k.keys.map((x) => (
+                <kbd>{x}</kbd>
+              ))}
+            </td>
+            <td>{k.label}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <div class="btn-row sheet__actions">
+      <button class="btn btn--primary" type="button" data-shortcuts-close>
+        知道了
+      </button>
+    </div>
+  </dialog>
 </Base>

@@ -7,6 +7,10 @@ import { friendlyError } from '@/lib/community-errors';
 import { url } from '@/lib/routes';
 import { h, viewer } from '../community/ui';
 import { initAdminEnv } from './env';
+import { initWorkbench } from './workbench';
+
+// P10h：侧栏折叠 / ⌘K / 快捷键（所有后台页面共用，模块加载即初始化）
+initWorkbench();
 
 export { h };
 
