@@ -10,6 +10,9 @@
   "order": 9,
   "pinyin": "tsdkt",
   "genre": "创作工具（游戏向）",
+  "platforms": [
+    "web"
+  ],
   "facts": [
     {
       "label": "形态",

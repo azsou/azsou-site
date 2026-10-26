@@ -175,6 +175,8 @@ const apps = defineCollection({
       releaseDate: date.optional(),
       /** 最近一次更新（目录「最新」排序用）；没有任何更新记录时不写 */
       updated: date.optional(),
+      /** 安装包 / 下载大小（P10 T10.2，如「18.4 MB」）；不写 = 取平台里写了的 size，都没有就不显示 */
+      size: z.string().optional(),
       version: z.string(),
       status: z.string(),
       statusClass,
@@ -247,6 +249,8 @@ const tools = defineCollection({
       /** 当前版本（跟随官方更新时不写，页面显示「随官方更新」） */
       version: z.string().optional(),
       updated: date.optional(),
+      /** 下载大小（P10 T10.2）；官方没有给出就不写，页面整项不显示 */
+      size: z.string().optional(),
       /** 本站最后一次核对官网信息的日期（必填：第三方信息会过期） */
       lastChecked: date,
       order: z.number().int(),
@@ -317,6 +321,11 @@ const games = defineCollection({
     order: z.number().int(),
     pinyin: z.string().default(''),
     genre: z.string(),
+    /** 运行平台（P10 T10.2）：只写有依据的（如浏览器游戏写 web）；不写 = 页面不显示平台 */
+    platforms: z.array(PLATFORM_OS).optional(),
+    /** 下载大小 / 许可（P10 T10.2，可选，没有就不显示） */
+    size: z.string().optional(),
+    license: z.string().optional(),
     facts: z.array(fact),
     log: z.array(z.object({ version: z.string(), date, note: z.string() })),
     issues: z.string(),

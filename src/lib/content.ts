@@ -1,3 +1,4 @@
+import { fromApp, fromGame, fromTool } from './store';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { compareDesc, formatDate } from './dates';
 import forumData from '../data/forum.json';
@@ -310,4 +311,16 @@ export function getEnPaths(): Promise<Set<string>> {
     ([apps, tools, videos, games]) => enPathSet(enDetailPaths({ apps, tools, videos, games })),
   );
   return enPathsMemo;
+}
+
+// ------------------------------------------------- 商店条目（P10 T10.1 / T10.2）----
+
+/** 应用 + AI 工具 + 游戏的统一条目（各自按编辑顺序） */
+export async function getStoreEntries() {
+  const [apps, tools, games] = await Promise.all([getApps(), getTools(), getGames()]);
+  return {
+    apps: apps.map(fromApp),
+    tools: tools.map(fromTool),
+    games: games.map(fromGame),
+  };
 }

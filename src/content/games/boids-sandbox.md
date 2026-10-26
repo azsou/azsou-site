@@ -10,6 +10,9 @@
   "order": 5,
   "pinyin": "xqsh",
   "genre": "群体模拟沙盒",
+  "platforms": [
+    "web"
+  ],
   "facts": [
     {
       "label": "形态",

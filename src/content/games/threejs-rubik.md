@@ -10,6 +10,9 @@
   "order": 2,
   "pinyin": "mf",
   "genre": "Web 3D 交互",
+  "platforms": [
+    "web"
+  ],
   "facts": [
     {
       "label": "形态",

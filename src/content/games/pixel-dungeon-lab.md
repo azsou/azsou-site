@@ -10,6 +10,9 @@
   "order": 3,
   "pinyin": "xsdlsy",
   "genre": "像素 Roguelike",
+  "platforms": [
+    "web"
+  ],
   "facts": [
     {
       "label": "形态",

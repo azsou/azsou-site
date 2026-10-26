@@ -10,6 +10,9 @@
   "order": 4,
   "pinyin": "sbtf",
   "genre": "音频塔防",
+  "platforms": [
+    "web"
+  ],
   "facts": [
     {
       "label": "形态",

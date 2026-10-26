@@ -10,6 +10,9 @@
   "order": 1,
   "pinyin": "",
   "genre": "Voxel Roguelike",
+  "platforms": [
+    "web"
+  ],
   "facts": [
     {
       "label": "形态",
