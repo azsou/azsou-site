@@ -294,13 +294,16 @@ test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () =
     await page.goto(`/admin/content/?q=${encodeURIComponent(title)}`);
     const row = page.locator(`tr[data-id="${tid}"]`);
     await expect(row).toBeVisible();
-    // 服务端排序：点「内容」表头 → 请求带 p_sort=title
-    const req = page.waitForRequest(
-      (r) => /rpc\/mod_list_content/.test(r.url()) && (r.postData() ?? '').includes('"p_sort":"title"'),
-    );
-    await page.locator('th[data-sort-key="title"] .th-sort').click();
-    await req;
-    await expect(page.locator('th[data-sort-key="title"]')).toHaveAttribute('aria-sort', 'ascending');
+    // 服务端排序：点「内容」表头 → 请求带 p_sort=title（窄屏表格是卡片布局、没有表头，只在有表头时验证）
+    const sortTh = page.locator('th[data-sort-key="title"] .th-sort');
+    if (await sortTh.isVisible()) {
+      const req = page.waitForRequest(
+        (r) => /rpc\/mod_list_content/.test(r.url()) && (r.postData() ?? '').includes('"p_sort":"title"'),
+      );
+      await sortTh.click();
+      await req;
+      await expect(page.locator('th[data-sort-key="title"]')).toHaveAttribute('aria-sort', 'ascending');
+    }
     await expect(row).toBeVisible();
     // 抽屉
     await row.getByRole('button', { name: '更多操作' }).click();
