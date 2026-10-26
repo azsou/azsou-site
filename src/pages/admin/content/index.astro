@@ -6,7 +6,7 @@ import { forum } from '@/lib/content';
 <AdminLayout
   section="content"
   title="内容管理"
-  lede="论坛主题、回复与评论：搜索、筛选、隐藏 / 恢复、删除、置顶 / 精华 / 锁定。"
+  lede="论坛主题、回复与评论：搜索、筛选、发布流程（草稿 / 待审 / 定时发布 / 下线）、版本对比、备注、置顶 / 精华 / 锁定。"
 >
   <div class="segmented" role="group" aria-label="内容类型" data-type-filter>
     <button type="button" data-value="thread" aria-pressed="true">
@@ -69,6 +69,12 @@ import { forum } from '@/lib/content';
     <button class="btn btn--sm" type="button" data-bulk="restore">
       恢复
     </button>
+    <button class="btn btn--sm" type="button" data-bulk="draft">
+      转草稿
+    </button>
+    <button class="btn btn--sm" type="button" data-bulk="review">
+      送审
+    </button>
     <button class="btn btn--sm" type="button" data-bulk="lock" data-thread-only>
       锁定
     </button>
@@ -89,7 +95,7 @@ import { forum } from '@/lib/content';
     </label>
   </div>
   <div class="table-wrap">
-    <table class="data-table" data-table data-cards data-truncate-ok data-table2="content">
+    <table class="data-table" data-table data-cards data-truncate-ok data-table2="content" data-server-sort>
       <caption class="visually-hidden" data-caption>
         主题列表
       </caption>
@@ -98,20 +104,22 @@ import { forum } from '@/lib/content';
           <th scope="col" class="col-check">
             <span class="visually-hidden">选择</span>
           </th>
-          <th scope="col">内容</th>
-          <th scope="col" data-priority="2">
+          <th scope="col" data-sort-key="title">
+            内容
+          </th>
+          <th scope="col" data-priority="2" data-sort-key="author_name">
             作者
           </th>
-          <th scope="col" data-col-where data-priority="3">
+          <th scope="col" data-col-where data-priority="3" data-sort-key="cat">
             分类
           </th>
-          <th scope="col" data-priority="2">
+          <th scope="col" data-priority="2" data-sort-key="published">
             状态
           </th>
-          <th scope="col" class="num" data-priority="3">
+          <th scope="col" class="num" data-priority="3" data-sort-key="open_reports">
             举报
           </th>
-          <th scope="col" data-priority="3">
+          <th scope="col" data-priority="3" data-sort-key="created_at">
             时间
           </th>
           <th scope="col" class="col-actions">

@@ -4,8 +4,10 @@
  *  - 列管理：勾选显示 / 隐藏列（主列、复选、操作列不能隐藏），记忆；
  *  - 保存视图：当前筛选（URL 查询串）+ 隐藏列 + 密度存成命名视图，一键切换 / 删除（只存在本浏览器）；
  *  - 导出 CSV：导出当前页可见列（服务端分页：每页由各页面脚本向数据库按 offset / limit 拉取）；
- *  - 列排序：点表头切换 升序 / 降序 / 默认（th[aria-sort]，记忆）。现有后台 RPC（mod_list_*）没有排序参数，
- *    所以只对当前页排序（每页仍按服务端默认顺序取数），不加迁移；表格重新渲染后自动重排。
+ *  - 列排序：点表头切换 升序 / 降序 / 默认（th[aria-sort]，记忆）。表格带 data-server-sort 时只有带
+ *    th[data-sort-key] 的列可排，点击派发 `table2:sort` 事件（detail = { key, dir } | null），由页面脚本带上
+ *    p_sort / p_dir 向数据库重新取数（迁移 0017）；否则只对当前页排序，表格重新渲染后自动重排。
+ *  - 列宽：拖动表头右缘（或聚焦后按 ← / →）调整，双击恢复；记忆到本浏览器（CSSOM 设置宽度，不写 style 属性）。
  * 吸顶表头 + 固定首列 / 操作列由 admin.css 的 [data-table2] 规则完成（.table-wrap[data-scroll] 自己滚动）。
  * 无内联样式：隐藏列写成 table[data-hide="3 5"]，CSS 按列序号隐藏。
  */
@@ -24,6 +26,20 @@ interface Prefs {
   hide: number[];
   density: Density;
   sort?: { col: number; dir: SortDir } | null;
+  widths?: Record<string, number>;
+}
+
+export interface ServerSort {
+  key: string;
+  dir: 'asc' | 'desc';
+}
+/** 服务端排序表格当前（记忆的）排序；没有则 null */
+export function serverSort(table: HTMLTableElement): ServerSort | null {
+  const prefs = readJson<Partial<Prefs>>(prefKey(table.dataset.table2 || location.pathname), {});
+  if (!prefs.sort) return null;
+  const th = table.querySelector<HTMLTableCellElement>(`thead th:nth-child(${prefs.sort.col})`);
+  const key = th?.dataset.sortKey;
+  return key ? { key, dir: prefs.sort.dir === 'ascending' ? 'asc' : 'desc' } : null;
 }
 
 /** 单元格文本比较：都是数字（可带 , 与 %）按数值，像日期按时间，否则按中文拼音序；空值总在最后 */
@@ -141,18 +157,22 @@ export function enhanceTable(table: HTMLTableElement) {
   wrap.dataset.scroll = '';
   const prefs: Prefs = { hide: [], density: 'standard', ...readJson<Partial<Prefs>>(prefKey(key), {}) };
 
-  // 列排序（当前页）
+  // 列排序（服务端 / 当前页）
   const tbody = table.tBodies[0];
+  const server = table.dataset.serverSort !== undefined;
+  const thAt = (n: number) => table.querySelector<HTMLTableCellElement>(`thead th:nth-child(${n})`);
   const sortable = columnsOf(table).filter(
     (c) =>
       !/^(选择|操作)$/.test(c.label) &&
       c.label !== '' &&
-      !table.querySelector(`thead th:nth-child(${c.n}).col-check`),
+      !table.querySelector(`thead th:nth-child(${c.n}).col-check`) &&
+      (!server || !!thAt(c.n)?.dataset.sortKey),
   );
+  if (server && prefs.sort && !thAt(prefs.sort.col)?.dataset.sortKey) prefs.sort = null;
   let sorting = false;
   let mo: MutationObserver | null = null;
   const sortRows = () => {
-    if (!tbody || sorting) return;
+    if (!tbody || sorting || server) return;
     const rows = [...tbody.rows].filter((r) => !r.querySelector('td[colspan]'));
     if (rows.length < 2) return;
     const sort = prefs.sort;
@@ -188,9 +208,85 @@ export function enhanceTable(table: HTMLTableElement) {
             ? { col: c.n, dir: 'descending' }
             : null;
       apply();
-      sortRows();
+      if (server) {
+        const key = thAt(c.n)?.dataset.sortKey ?? '';
+        table.dispatchEvent(
+          new CustomEvent<ServerSort | null>('table2:sort', {
+            detail: prefs.sort ? { key, dir: prefs.sort.dir === 'ascending' ? 'asc' : 'desc' } : null,
+          }),
+        );
+      } else sortRows();
     });
   }
+
+  // 列宽（拖动 / 键盘），记忆
+  const widths = (prefs.widths ??= {});
+  const setW = (th: HTMLTableCellElement, w: number | null) => {
+    if (w === null) {
+      th.style.removeProperty('width');
+      th.style.removeProperty('min-width');
+      delete widths[th.cellIndex + 1];
+    } else {
+      const px = Math.round(Math.min(Math.max(w, 64), 640));
+      th.style.width = `${px}px`;
+      th.style.minWidth = `${px}px`;
+      widths[th.cellIndex + 1] = px;
+    }
+  };
+  columnsOf(table)
+    .filter(
+      (c) => !/^(选择|操作)$/.test(c.label) && c.label !== '' && !thAt(c.n)?.classList.contains('col-check'),
+    )
+    .forEach((c) => {
+      const th = thAt(c.n);
+      if (!th) return;
+      if (widths[c.n]) setW(th, widths[c.n]);
+      const grip = h('span', {
+        class: 'th-resize',
+        role: 'separator',
+        tabindex: '0',
+        'aria-orientation': 'vertical',
+        'aria-label': `调整第 ${c.n} 列宽度`,
+        'aria-valuemin': '64',
+        'aria-valuemax': '640',
+        'aria-valuenow': String(Math.round(th.getBoundingClientRect().width) || 120),
+        'data-col-resize': String(c.n),
+      });
+      const commit = () => {
+        grip.setAttribute('aria-valuenow', String(Math.round(th.getBoundingClientRect().width)));
+        writeJson(prefKey(key), prefs);
+      };
+      grip.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const x0 = e.clientX;
+        const w0 = th.getBoundingClientRect().width;
+        grip.setPointerCapture(e.pointerId);
+        table.dataset.resizing = '';
+        const move = (ev: PointerEvent) => setW(th, w0 + ev.clientX - x0);
+        const up = () => {
+          grip.removeEventListener('pointermove', move);
+          delete table.dataset.resizing;
+          commit();
+        };
+        grip.addEventListener('pointermove', move);
+        grip.addEventListener('pointerup', up, { once: true });
+        grip.addEventListener('pointercancel', up, { once: true });
+      });
+      grip.addEventListener('click', (e) => e.stopPropagation());
+      grip.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        setW(th, null);
+        commit();
+      });
+      grip.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        setW(th, th.getBoundingClientRect().width + (e.key === 'ArrowRight' ? 16 : -16));
+        commit();
+      });
+      th.append(grip);
+    });
   if (tbody) {
     mo = new MutationObserver(() => {
       markOrder();

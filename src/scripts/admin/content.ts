@@ -1,6 +1,8 @@
 /** /admin/content/：UGC 表格（主题 / 回复 / 评论），搜索、筛选、分页、单条与批量操作。 */
-import { enhanceTables } from './table2';
-import { CATEGORY_NAMES, type ContentRow, type ContentType } from '@/lib/data';
+import { enhanceTables, serverSort, type ServerSort } from './table2';
+import { CATEGORY_NAMES, type ContentRow, type ContentType, type Profile } from '@/lib/data';
+import type { ContentSort } from '@/lib/data/admin';
+import { openContentDrawer, wfBadge } from './crm';
 import { confirmDialog, toast } from '../community/ui';
 import {
   adminRepo,
@@ -9,6 +11,7 @@ import {
   errorText,
   h,
   initAdmin,
+  isAdminRole,
   readParams,
   renderPagination,
   setStatusText,
@@ -30,6 +33,14 @@ const filters = document.querySelector<HTMLFormElement>('[data-filters]')!;
 const typeBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-type-filter] button')];
 const chip = document.querySelector<HTMLElement>('[data-author-chip]')!;
 const sel = createSelection(body, bar);
+const table = document.querySelector<HTMLTableElement>('table[data-table2]')!;
+let sort: ServerSort | null = null;
+let me: Profile | null = null;
+table.addEventListener('table2:sort', (e) => {
+  sort = (e as CustomEvent<ServerSort | null>).detail;
+  state.offset = '0';
+  void load();
+});
 
 const input = (n: string) => filters.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement;
 
@@ -55,9 +66,7 @@ function badges(r: ContentRow) {
   return h(
     'span',
     { class: 'badges' },
-    r.published
-      ? h('span', { class: 'badge badge--ok', text: '已发布' })
-      : h('span', { class: 'badge badge--danger', text: '已隐藏' }),
+    wfBadge(r.wfStatus, r.scheduledAt),
     r.pinned ? h('span', { class: 'badge badge--info', text: '置顶' }) : null,
     r.featured ? h('span', { class: 'badge badge--accent', text: '精华' }) : null,
     r.locked && r.type === 'thread' ? h('span', { class: 'badge badge--muted', text: '已锁定' }) : null,
@@ -137,6 +146,15 @@ function row(r: ContentRow) {
         act(() => repo.setThreadFlags([r.id], { locked: !r.locked }), r.locked ? '已解锁。' : '已锁定。'),
     },
     {
+      label: '详情 / 预览 / 版本…',
+      run: () =>
+        void openContentDrawer(r, {
+          meId: me?.id ?? null,
+          isAdmin: isAdminRole(me),
+          onChange: () => void load(),
+        }),
+    },
+    {
       label: '查看作者',
       hidden: !r.author.id,
       run: () => location.assign(`/admin/users/view/?id=${encodeURIComponent(r.author.id ?? '')}`),
@@ -201,6 +219,8 @@ async function bulk(kind: string) {
     let n = 0;
     if (kind === 'hide') n = await repo.setPublished(t, ids, false);
     else if (kind === 'restore') n = await repo.setPublished(t, ids, true);
+    else if (kind === 'draft') n = await repo.setWorkflow(t, ids, 'draft');
+    else if (kind === 'review') n = await repo.setWorkflow(t, ids, 'review');
     else if (kind === 'lock') n = await repo.setThreadFlags(ids, { locked: true });
     else if (kind === 'pin') n = await repo.setThreadFlags(ids, { pinned: true });
     else if (kind === 'delete') {
@@ -287,6 +307,8 @@ async function load() {
       author: state.author || undefined,
       limit: LIMIT,
       offset,
+      sort: (sort?.key as ContentSort) ?? null,
+      dir: sort?.dir,
     });
     if (my !== seq) return;
     const filtered = !!(state.q || state.cat || state.hidden || state.reported || state.author);
@@ -320,4 +342,14 @@ async function load() {
 }
 
 enhanceTables();
-void initAdmin().then((me) => me && load());
+sort = serverSort(table);
+void initAdmin().then(async (p) => {
+  me = p;
+  if (!p) return;
+  // 到点的定时发布先落地（旧库没有 0017 时静默跳过）
+  const n = await adminRepo()
+    .workflowTick()
+    .catch(() => 0);
+  if (n) toast(`已按计划发布 ${n} 条内容。`);
+  await load();
+});

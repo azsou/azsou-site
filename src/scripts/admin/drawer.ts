@@ -12,7 +12,7 @@ import { plainText, stateBlock } from './table';
 
 let seq = 0;
 
-function shell(title: string): { dlg: HTMLDialogElement; body: HTMLElement } {
+export function openDrawer(title: string): { dlg: HTMLDialogElement; body: HTMLElement } {
   const id = `drawer-${++seq}`;
   const close = h('button', { type: 'button', class: 'btn btn--icon btn--sm', 'aria-label': '关闭' });
   close.innerHTML =
@@ -24,9 +24,25 @@ function shell(title: string): { dlg: HTMLDialogElement; body: HTMLElement } {
     h('header', { class: 'drawer__head' }, h('h2', { id, text: title }), close),
     body,
   ) as HTMLDialogElement;
-  close.addEventListener('click', () => dlg.close());
+  // 关闭时先播放退出动画（减少动态效果时直接关闭）
+  const shut = () => {
+    if (dlg.dataset.closing !== undefined) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return dlg.close();
+    dlg.dataset.closing = '';
+    const done = (e?: AnimationEvent) => {
+      if (e && e.target !== dlg) return;
+      if (dlg.open) dlg.close();
+    };
+    dlg.addEventListener('animationend', done);
+    setTimeout(done, 320);
+  };
+  close.addEventListener('click', shut);
+  dlg.addEventListener('cancel', (e) => {
+    e.preventDefault();
+    shut();
+  });
   dlg.addEventListener('click', (e) => {
-    if (e.target === dlg) dlg.close();
+    if (e.target === dlg) shut();
   });
   dlg.addEventListener('close', () => setTimeout(() => dlg.remove(), 0));
   document.body.append(dlg);
@@ -57,7 +73,7 @@ export function timelineEvents(u: AdminUser, bans: BanRecord[], audit: AuditEntr
 }
 
 export async function openUserDrawer(id: string, isAdmin: boolean) {
-  const { body } = shell('用户详情');
+  const { body } = openDrawer('用户详情');
   const repo = adminRepo();
   try {
     const u = await repo.getUser(id);

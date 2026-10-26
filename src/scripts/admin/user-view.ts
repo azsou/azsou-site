@@ -17,6 +17,7 @@ import {
   setStatusText,
 } from './shell';
 import { BAN_DURATIONS, banExpiry } from '@/lib/admin-utils';
+import { profilePanels } from './crm';
 
 const box = document.querySelector<HTMLElement>('[data-user]')!;
 const id = new URLSearchParams(location.search).get('id') ?? '';
@@ -361,6 +362,8 @@ async function load(me: Profile) {
     ];
     box.replaceChildren(...parts.filter((x): x is Node => !!x));
     box.append(await contentPanel(u));
+    const extra = await repo.userProfile(u.id).catch(() => null);
+    box.append(...profilePanels(u, extra, panel, { meId: me.id, isAdmin: isAdminRole(me) }));
   } catch (e) {
     box.replaceChildren(h('p', { class: 'data-status', role: 'status' }));
     setStatusText(box.querySelector('p'), errorText(e), 'error');

@@ -35,35 +35,42 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
         <option value="1">封禁中</option>
       </select>
     </div>
-    <button class="btn" type="submit">
-      筛选
-    </button>
+    <div class="toolbar__actions">
+      <button class="btn" type="submit">
+        筛选
+      </button>
+      <button class="btn btn--outline btn--rect" type="button" data-mail-draft hidden>
+        邮件草稿（本页）
+      </button>
+    </div>
   </form>
   <div class="table-wrap">
-    <table class="data-table" data-cards data-truncate-ok data-table2="users">
+    <table class="data-table" data-cards data-truncate-ok data-table2="users" data-server-sort>
       <caption class="visually-hidden">用户列表</caption>
       <thead>
         <tr>
-          <th scope="col">用户</th>
-          <th scope="col" data-priority="2">
+          <th scope="col" data-sort-key="display_name">
+            用户
+          </th>
+          <th scope="col" data-priority="2" data-sort-key="role">
             角色
           </th>
-          <th scope="col" data-priority="2">
+          <th scope="col" data-priority="2" data-sort-key="banned">
             状态
           </th>
-          <th scope="col" class="num" data-priority="3">
+          <th scope="col" class="num" data-priority="3" data-sort-key="threads">
             主题
           </th>
-          <th scope="col" class="num" data-priority="3">
+          <th scope="col" class="num" data-priority="3" data-sort-key="replies">
             回复
           </th>
-          <th scope="col" class="num" data-priority="3">
+          <th scope="col" class="num" data-priority="3" data-sort-key="comments">
             评论
           </th>
-          <th scope="col" class="num" data-priority="3">
+          <th scope="col" class="num" data-priority="3" data-sort-key="reports_against">
             被举报
           </th>
-          <th scope="col" data-priority="3">
+          <th scope="col" data-priority="3" data-sort-key="created_at">
             注册时间
           </th>
           <th scope="col" class="col-actions">

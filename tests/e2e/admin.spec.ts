@@ -277,6 +277,96 @@ test.describe('内容管理', () => {
   });
 });
 
+test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () => {
+  test('表头排序走服务端；抽屉：转草稿 → 定时发布、版本对比、备注', async ({
+    page,
+    db,
+    makeUser,
+    signIn,
+    errors,
+  }) => {
+    const author = await makeUser(uniq('作者'));
+    const m = await makeUser(uniq('版主'), { role: 'moderator' });
+    const title = uniq('流程主题 ');
+    const tid = await seedThread(db, author.id, { title });
+    await db.query(`update forum_threads set body = body || E'\\n第二段' where id = $1`, [tid]);
+    await signIn(page, m);
+    await page.goto(`/admin/content/?q=${encodeURIComponent(title)}`);
+    const row = page.locator(`tr[data-id="${tid}"]`);
+    await expect(row).toBeVisible();
+    // 服务端排序：点「内容」表头 → 请求带 p_sort=title
+    const req = page.waitForRequest(
+      (r) => /rpc\/mod_list_content/.test(r.url()) && (r.postData() ?? '').includes('"p_sort":"title"'),
+    );
+    await page.locator('th[data-sort-key="title"] .th-sort').click();
+    await req;
+    await expect(page.locator('th[data-sort-key="title"]')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(row).toBeVisible();
+    // 抽屉
+    await row.getByRole('button', { name: '更多操作' }).click();
+    await page.getByRole('menuitem', { name: '详情 / 预览 / 版本…' }).click();
+    const d = page.locator('dialog[data-drawer][open]');
+    await expect(d.getByRole('heading', { name: '主题详情' })).toBeVisible();
+    await expect(d.locator('[data-preview-body]')).toContainText('第二段');
+    await expect(d.locator('.diff__line--add')).toContainText('第二段');
+    await d.getByLabel('状态', { exact: true }).selectOption('draft');
+    await d.getByRole('button', { name: '更新状态' }).click();
+    await expect(page.getByText('已改为「草稿」。')).toBeVisible();
+    expect(
+      (await db.query(`select published from forum_threads where id = $1`, [tid])).rows[0].published,
+    ).toBe(false);
+    await d.getByLabel('状态', { exact: true }).selectOption('review');
+    const at = new Date(Date.now() + 86_400_000);
+    const p = (n: number) => String(n).padStart(2, '0');
+    await d
+      .getByLabel('定时发布（可选）')
+      .fill(`${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}T09:30`);
+    await d.getByRole('button', { name: '更新状态' }).click();
+    await expect(page.getByText(/已设为定时发布/)).toBeVisible();
+    const wf = await db.query(`select status, scheduled_at from content_workflow where target_id = $1`, [
+      tid,
+    ]);
+    expect(wf.rows[0].status).toBe('review');
+    expect(wf.rows[0].scheduled_at).not.toBeNull();
+    // 备注
+    await d.getByLabel('新备注').fill('E2E 备注：等作者补充来源');
+    await d.getByRole('button', { name: '添加备注' }).click();
+    await expect(d.locator('[data-notes]')).toContainText('等作者补充来源');
+    await page.keyboard.press('Escape');
+    await expect(d).toHaveCount(0);
+    await expect(row.locator('[data-wf="review"]')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('用户画像：分群、标签、近期发布；管理员可打开邮件草稿（只预览）', async ({
+    page,
+    makeUser,
+    signIn,
+    db,
+    errors,
+  }) => {
+    const a = await makeUser(uniq('站长'), { role: 'admin' });
+    const u = await makeUser(uniq('画像'));
+    await seedThread(db, u.id, { title: uniq('画像主题 ') });
+    await signIn(page, a);
+    await page.goto(`/admin/users/view/?id=${u.id}`);
+    await expect(page.getByRole('heading', { name: '分群与标签' })).toBeVisible();
+    await expect(page.locator('[data-segment="new"]')).toBeVisible();
+    await page.getByLabel('新标签').fill('种子用户');
+    await page.getByRole('button', { name: '添加', exact: true }).click();
+    await expect(page.locator('[data-tags]')).toContainText('种子用户');
+    await expect(page.locator('[data-posts] li')).toHaveCount(1);
+    await expect(page.getByText('未订阅')).toBeVisible();
+    await page.goto(`/admin/users/?q=${encodeURIComponent(u.name)}`);
+    await expect(page.getByRole('link', { name: u.name })).toBeVisible();
+    await page.getByRole('button', { name: '邮件草稿（本页）' }).click();
+    await expect(dialog(page)).toContainText('后台不会发送任何邮件');
+    await expect(dialog(page).locator('.mail-preview__body')).toContainText(`${u.name}，你好`);
+    await dialog(page).getByRole('button', { name: '取消' }).click();
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('用户管理', () => {
   test('管理员：搜索用户 → 详情 → 改为版主；自己的角色不可修改', async ({
     page,

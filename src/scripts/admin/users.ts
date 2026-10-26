@@ -6,7 +6,9 @@
 import type { AdminUser, Profile, Role } from '@/lib/data';
 import { toast } from '../community/ui';
 import { openUserDrawer } from './drawer';
-import { enhanceTables } from './table2';
+import { enhanceTables, serverSort, type ServerSort } from './table2';
+import { emailDraftDialog } from './crm';
+import type { UserSort } from '@/lib/data/admin';
 import { url } from '@/lib/routes';
 import {
   adminRepo,
@@ -65,6 +67,14 @@ const rows = document.querySelector<HTMLElement>('[data-rows]')!;
 const pager = document.querySelector<HTMLElement>('[data-pager]')!;
 const status = document.querySelector<HTMLElement>('[data-status]');
 const filters = document.querySelector<HTMLFormElement>('[data-filters]')!;
+const table = document.querySelector<HTMLTableElement>('table[data-table2]')!;
+let sort: ServerSort | null = null;
+let current: AdminUser[] = [];
+table.addEventListener('table2:sort', (e) => {
+  sort = (e as CustomEvent<ServerSort | null>).detail;
+  state.offset = '0';
+  void load();
+});
 const input = (n: string) => filters.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement;
 
 function row(u: AdminUser) {
@@ -141,8 +151,11 @@ async function load() {
       banned: state.banned === '' ? undefined : state.banned === '1',
       limit: LIMIT,
       offset,
+      sort: (sort?.key as UserSort) ?? null,
+      dir: sort?.dir,
     });
     if (my !== seq) return;
+    current = items;
     const filtered = !!(state.q || state.role || state.banned);
     if (items.length) rows.replaceChildren(...items.map(row));
     else
@@ -181,7 +194,16 @@ async function load() {
 }
 
 enhanceTables();
+sort = serverSort(table);
+// 批量邮件草稿（仅管理员；只预览 / 复制，后台不发信）
+document.querySelector<HTMLButtonElement>('[data-mail-draft]')?.addEventListener('click', () => {
+  if (!current.length) return toast('当前页没有用户。', 'error');
+  emailDraftDialog(current);
+});
 void initAdmin().then((p) => {
   me = p;
-  if (p) void load();
+  if (p) {
+    document.querySelectorAll<HTMLElement>('[data-mail-draft]').forEach((b) => (b.hidden = !isAdminRole(p)));
+    void load();
+  }
 });
