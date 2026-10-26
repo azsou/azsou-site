@@ -216,7 +216,8 @@ test.describe('内容管理', () => {
     const row = page.locator(`tr[data-id="${tid}"]`);
     await expect(row).toBeVisible();
     await expect(page.locator('tbody[data-rows] tr')).toHaveCount(1);
-    await expect(row.getByText('产品讨论')).toBeVisible();
+    // 分类是次要列（data-priority=3，< 1200 隐藏），只断言存在
+    await expect(row.getByText('产品讨论')).toBeAttached();
     await row.getByRole('button', { name: '隐藏' }).click();
     await expect(row.getByText('已隐藏', { exact: true })).toBeVisible();
     expect(
@@ -360,7 +361,8 @@ test.describe('审计日志', () => {
     await page.goto(`/admin/audit/?target=${u.id}`);
     const row = page.locator('tbody[data-rows] tr').first();
     await expect(row.getByText('封禁用户')).toBeVisible();
-    await expect(row.getByText('原因：E2E 审计')).toBeVisible();
+    // 详情是次要列（data-priority=3，< 1200 隐藏），只断言存在
+    await expect(row.getByText('原因：E2E 审计')).toBeAttached();
     await expect(row.getByRole('link', { name: a.name })).toBeVisible();
     await page.getByLabel('动作').selectOption('report.');
     await expect(page.getByText('没有符合条件的记录', { exact: true })).toBeVisible();

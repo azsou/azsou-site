@@ -23,7 +23,8 @@ for (const route of ROUTES) {
     const ld = await page.locator('script[type="application/ld+json"]').first().textContent();
     expect(() => JSON.parse(ld!)).not.toThrow();
     await expect(page.locator('main#main')).toHaveCount(1);
-    await expect(page.locator('header.site-nav')).toBeVisible();
+    // 后台是独立 App Shell（T9.16）：顶栏 .admin-top，不渲染前台导航
+    await expect(page.locator(route.startsWith('/admin/') ? '.admin-top' : 'header.site-nav')).toBeVisible();
     // 不允许横向滚动
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, '横向溢出像素').toBeLessThanOrEqual(1);
