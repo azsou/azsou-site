@@ -130,6 +130,14 @@
     .detail-hero__actions .detail-actions > :first-child {
       grid-column: 1 / -1;
     }
+    /* P10i r3b：五个平台时操作卡比左栏高约 41px（/ai/claude/），左栏链接行下留一块空白——
+       提示行紧贴按钮（卡片网格已有 8px 间距，不再叠 margin-top），上下内边距收到 12，卡片 ≈ 左栏高度 */
+    .detail-hero__actions .app-downloads__hint {
+      margin-top: 0;
+    }
+    .detail-hero__actions:has(.detail-actions > :nth-child(3)) {
+      padding-block: var(--space-3);
+    }
   }
   /* 文字按钮行：首个按钮的内边距向外抵消，文字与上方主按钮左缘光学对齐 */
   .detail-links > :first-child {

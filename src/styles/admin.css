@@ -2286,3 +2286,11 @@
     color: var(--c-label-3);
   }
 }
+
+/* P10i r3b：后台表格单元格统一垂直居中。global.css 的 .table-wrap th/td 是 vertical-align: top（正文表格用），
+   与 .data-table 同权重、后加载时会把后台表格盖成顶对齐（单行文字和双行标题、徽标、操作按钮错位）；这里只在后台表格上提权覆盖 */
+@layer components {
+  .table-wrap .data-table :is(th, td) {
+    vertical-align: middle;
+  }
+}

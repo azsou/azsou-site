@@ -32,9 +32,9 @@ export function highlightPlatform(root: ParentNode) {
     const hasNative = available.some((a) => a.url && NATIVE_OS.includes(a.os));
     hint.textContent =
       pick === os
-        ? `已为你的设备（${mine}）推荐对应版本。下载前会经过外链提示页。`
+        ? `已推荐 ${mine} 版本，经外链提示页下载。`
         : hasNative
-          ? `没有 ${mine} 版本，已推荐可在你的设备上使用的「${PLATFORM_LABEL[pick]}」。`
-          : `已推荐可在你的设备（${mine}）上使用的「${PLATFORM_LABEL[pick]}」。下载前会经过外链提示页。`;
+          ? `没有 ${mine} 版本，已推荐「${PLATFORM_LABEL[pick]}」。`
+          : `已推荐适合 ${mine} 的「${PLATFORM_LABEL[pick]}」，经外链提示页下载。`;
   }
 }
