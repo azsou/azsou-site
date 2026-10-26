@@ -84,6 +84,37 @@
     grid-area: actions;
     min-width: 0;
   }
+  /* ≥ 1200：头部三栏「图标 | 名称 + 指标 | 操作卡」。操作卡与下方右侧导流栏同宽（320）、左右缘对齐，
+     正文 : 侧栏 ≈ 2.5 : 1（接近 1 : 1.618²），头部右侧不再大片留白。 */
+  @media (min-width: 1200px) {
+    .detail-hero.app-hero {
+      grid-template-columns: auto minmax(0, 1fr) 320px;
+      grid-template-areas:
+        'icon main actions'
+        'icon metrics actions';
+      align-items: start;
+    }
+    .detail-hero__actions {
+      align-self: center;
+      display: grid;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: var(--c-surface);
+      box-shadow: var(--elev-0);
+    }
+    .detail-hero__actions .btn--primary {
+      width: 100%;
+    }
+    .detail-hero__actions .detail-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* 文字按钮行：首个按钮的内边距向外抵消，文字与上方主按钮左缘光学对齐 */
+  .detail-links > :first-child {
+    margin-inline-start: calc(var(--space-2) * -1);
+  }
   .detail-hero__actions .app-downloads,
   .detail-hero__actions .game-cta {
     margin-top: 0;

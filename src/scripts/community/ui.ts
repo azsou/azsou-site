@@ -87,7 +87,16 @@ export function toast(text: string, kind: 'ok' | 'error' = 'ok') {
   }
   const t = h('p', { class: `toast toast--${kind}`, text });
   toastBox.append(t);
-  setTimeout(() => t.remove(), kind === 'error' ? 7000 : 4000);
+  // 退出：先播放淡出（减少动态效果时 CSS 不播放动画，直接移除）
+  setTimeout(
+    () => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return t.remove();
+      t.dataset.leaving = '';
+      t.addEventListener('animationend', () => t.remove(), { once: true });
+      setTimeout(() => t.remove(), 400);
+    },
+    kind === 'error' ? 7000 : 4000,
+  );
 }
 export const toastError = (e: unknown, fallback?: string) => toast(friendlyError(e, fallback), 'error');
 

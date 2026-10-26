@@ -915,6 +915,11 @@
     color: var(--c-label-2);
     font-size: var(--fs-body-sm);
   }
+  /* 顶部那行徽标（card__meta 作为第一个子元素）不能也吃 margin-top: auto：
+     否则剩余空间被上下两个 meta 平分，标题行高不同的卡片内容起点参差不齐（P10i 审计） */
+  .card__body > .card__meta:first-child {
+    margin-top: 0;
+  }
   .card__meta {
     margin-top: auto;
     display: flex;
@@ -2439,3 +2444,40 @@
   }
 }
 /* stylelint-enable */
+
+/* P10i 滚动渐显（src/scripts/reveal.ts）：只有首屏以下的元素会被加上 data-reveal；进入视口时换成 data-revealing
+   播放一次过渡（兄弟元素错开 40ms），结束后属性移除——不影响卡片自己的悬停过渡 */
+@layer utilities {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-reveal] {
+      opacity: 0;
+      translate: 0 12px;
+    }
+    [data-revealing] {
+      transition:
+        opacity var(--dur-slow) var(--ease-out),
+        translate var(--dur-slow) var(--ease-out);
+    }
+    [data-revealing]:nth-child(2) {
+      transition-delay: 40ms;
+    }
+    [data-revealing]:nth-child(3) {
+      transition-delay: 80ms;
+    }
+    [data-revealing]:nth-child(4) {
+      transition-delay: 120ms;
+    }
+    [data-revealing]:nth-child(5) {
+      transition-delay: 160ms;
+    }
+    [data-revealing]:nth-child(n + 6) {
+      transition-delay: 200ms;
+    }
+  }
+  @media print {
+    [data-reveal] {
+      opacity: 1;
+      translate: none;
+    }
+  }
+}

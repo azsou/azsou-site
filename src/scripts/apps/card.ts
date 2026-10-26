@@ -56,7 +56,15 @@ export function renderCard(item: CatalogItem, headingLevel: 'h2' | 'h3' = 'h3'):
     item.version && versionText(item.version),
     item.updated && formatDate(item.updated),
   ].filter(Boolean) as string[];
-  if (facts.length) meta.append(el('span', 'entry__facts', facts.join(' · ')));
+  if (facts.length) {
+    // 与 StoreEntry.astro 相同：每条事实不折行，分隔点留在行尾
+    const wrap = el('span', 'entry__facts');
+    facts.forEach((f, i) => {
+      wrap.append(el('span', 'entry__fact', i < facts.length - 1 ? `${f} ·` : f));
+      if (i < facts.length - 1) wrap.append(' ');
+    });
+    meta.append(wrap);
+  }
   body.append(h, el('p', 'entry__by', item.developer ?? item.subtitle), meta);
   card.append(iconWrap, body);
   const act = item.action ?? { label: '了解', href: item.url, outbound: false };

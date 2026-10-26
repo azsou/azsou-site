@@ -142,17 +142,30 @@
     align-content: start;
     gap: var(--space-2);
   }
+  /* 同一行格子等高：名称换行或元数据换行时，主操作仍落在同一条底线上 */
+  .entry--tile {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    height: 100%;
+  }
   .entry--tile .entry__action {
+    align-self: end;
     margin-top: var(--space-1);
+  }
+  /* 元数据按「事实」整段换行：不在「2026年7月 / 18日」中间断开，分隔点留在行尾、不出现在行首 */
+  .entry__fact {
+    white-space: nowrap;
   }
   /* row：列表行 */
   .entry--row,
   [data-view='list'] .entry--tile {
     grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: none;
+    height: auto;
     justify-items: stretch;
     gap: var(--space-1) var(--space-3);
   }
   [data-view='list'] .entry--tile .entry__action {
+    align-self: center;
     margin-top: 0;
   }
   [data-view='list'] .entry--tile .app-icon-img--lg,
@@ -886,6 +899,28 @@
   @media (forced-colors: active) {
     .bento-tile {
       border: 1px solid CanvasText;
+    }
+  }
+}
+
+/* P10i：≥ 900 列表页「更多筛选」与计数 / 排序 / 视图切换并成一行（原来各占一行，首屏多浪费约 64px） */
+@layer components {
+  @media (min-width: 900px) {
+    .list-main:has(> .filter-bar) {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: var(--space-4);
+      align-items: center;
+    }
+    .list-main > * {
+      grid-column: 1 / -1;
+    }
+    .list-main > .filter-bar {
+      grid-column: 1;
+      margin-bottom: 0;
+    }
+    .list-main > .filter-bar + .list-toolbar {
+      grid-column: 2;
     }
   }
 }

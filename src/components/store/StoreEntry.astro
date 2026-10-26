@@ -85,7 +85,16 @@ const byline = e.developer ?? e.subtitle;
     {variant !== 'mini' && <p class="entry__by">{byline}</p>}
     <p class="entry__meta">
       <span class={`entry__type entry__type--${e.type}`}>{e.typeLabel}</span>
-      {parts.length > 0 && <span class="entry__facts">{parts.join(' · ')}</span>}
+      {parts.length > 0 && (
+        <span class="entry__facts">
+          {parts.map((p, i) => (
+            <>
+              <span class="entry__fact">{i < parts.length - 1 ? `${p} ·` : p}</span>
+              {i < parts.length - 1 && ' '}
+            </>
+          ))}
+        </span>
+      )}
     </p>
   </div>
   {variant !== 'mini' && (

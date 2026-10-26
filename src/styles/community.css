@@ -628,6 +628,21 @@
     font-size: var(--fs-body-sm);
     animation: sheet-in var(--dur) var(--ease-spring);
   }
+  .toast[data-leaving] {
+    animation: toast-out var(--dur-fast) var(--ease-in) forwards;
+  }
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .toast,
+    .toast[data-leaving] {
+      animation: none;
+    }
+  }
   .toast--error {
     border-left: 4px solid var(--c-danger);
   }

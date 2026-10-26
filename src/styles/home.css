@@ -12,9 +12,27 @@
     grid-template-columns: minmax(0, 1fr);
     padding-block: var(--space-2) 0;
   }
+  /* ≥ 900：标题与搜索框同一行、按搜索框中线对齐（推荐词在搜索框下方，与输入框左缘对齐） */
   @media (min-width: 900px) {
     .store-head {
       grid-template-columns: auto minmax(0, 1fr);
+      row-gap: var(--space-2);
+    }
+    .store-head__search {
+      display: contents;
+    }
+    .store-head h1 {
+      grid-row: 1;
+      grid-column: 1;
+    }
+    .store-head .home-search {
+      grid-row: 1;
+      grid-column: 2;
+    }
+    .store-head .home-try {
+      grid-row: 2;
+      grid-column: 2;
+      padding-inline-start: var(--space-4);
     }
   }
   .store-head h1 {
