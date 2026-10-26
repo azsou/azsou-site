@@ -11,5 +11,6 @@ src/content/
 playwright-report/
 test-results/
 .lighthouseci/
+.lighthouseci-desktop/
 docs/PLAN.md
 .design-audit/

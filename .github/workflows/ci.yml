@@ -1,6 +1,6 @@
 name: CI
-# 每个 PR 与非 main 分支推送：lint → 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
-# 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ Lighthouse（移动端，四项 ≥ 95）
+# 全部任务阻断（无 continue-on-error）。每个 PR 与非 main 分支推送：lint（含 stylelint error）→ 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
+# 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ 设计门禁 + 视觉回归 → 设备矩阵 → Lighthouse（移动 + 桌面，四项 ≥ 95）
 # 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
 on:
   pull_request:
@@ -150,6 +150,9 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2]
+    env:
+      # T9.21：known.ts 的 test.fixme 登记一律不生效（已清零；再登记也会被这里拦成失败）
+      DESIGN_STRICT: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -226,7 +229,17 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
-      - run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
+      - name: Lighthouse 移动档（32 页 × 3 次中位数）
+        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
+      - name: Lighthouse 桌面档（12 页，T9.21）
+        if: ${{ !cancelled() }}
+        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.desktop.cjs
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
-        with: { name: lighthouse, path: .lighthouseci, retention-days: 7, include-hidden-files: true }
+        with:
+          name: lighthouse
+          path: |
+            .lighthouseci
+            .lighthouseci-desktop
+          retention-days: 7
+          include-hidden-files: true

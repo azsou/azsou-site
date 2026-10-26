@@ -45,19 +45,21 @@ const PAGES = [
 // noindex 页面（发帖、搜索、登录、404）按设计不允许收录，Lighthouse 的 is-crawlable 会把 SEO 分压到 ~66；
 // 这些页面只断言其余三项，SEO 由可收录的页面负责（四项 ≥ 95）。
 // 论坛主题页与发帖页带交互 island：Markdown 渲染 + DOMPurify 净化 + 编辑器（含图片上传）在首屏后按需加载，
-// 首屏关键 JS 仍 ≤ 50 KB（npm run size 按页面检查）；这里把「页面加载期间的全部脚本」预算放宽到 80 KB。
+// 首屏关键 JS 仍 ≤ 50 KB（npm run size 按页面检查）；这里把「页面加载期间的全部脚本」预算放宽到 72 KB。
+// T9.21 收紧（2026-10-26，按 4acea4d 的 CI 实测中位数 + 余量）：最差 LCP 1714ms → 上限 1900；最差 CLS 0.0087 → 0.02（DoD D10）；
+// 最差 TBT 13.5ms → 100 且改为阻断；非 island 页脚本最大 43.4 KB → 48 KB；island 页 65.2 KB → 72 KB；整页传输最大 287 KB → 350 KB 且改为阻断。
 const BASE_ASSERTIONS = {
   'categories:performance': ['error', { minScore: 0.95 }],
   'categories:accessibility': ['error', { minScore: 0.95 }],
   'categories:best-practices': ['error', { minScore: 0.95 }],
   'categories:seo': ['error', { minScore: 0.95 }],
-  'largest-contentful-paint': ['error', { maxNumericValue: 2000 }],
-  'cumulative-layout-shift': ['error', { maxNumericValue: 0.05 }],
-  'total-blocking-time': ['warn', { maxNumericValue: 150 }],
-  'resource-summary:script:size': ['error', { maxNumericValue: 51200 }],
-  'resource-summary:total:size': ['warn', { maxNumericValue: 512000 }],
+  'largest-contentful-paint': ['error', { maxNumericValue: 1900 }],
+  'cumulative-layout-shift': ['error', { maxNumericValue: 0.02 }],
+  'total-blocking-time': ['error', { maxNumericValue: 100 }],
+  'resource-summary:script:size': ['error', { maxNumericValue: 49152 }],
+  'resource-summary:total:size': ['error', { maxNumericValue: 358400 }],
 };
-const ISLAND_JS = { 'resource-summary:script:size': ['error', { maxNumericValue: 81920 }] };
+const ISLAND_JS = { 'resource-summary:script:size': ['error', { maxNumericValue: 73728 }] };
 const NO_SEO = { 'categories:seo': 'off' };
 const GROUPS = [
   ['/forum/t/[^/]+/', ISLAND_JS],
