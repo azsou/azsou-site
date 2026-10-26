@@ -2174,3 +2174,108 @@
     margin-top: var(--space-1);
   }
 }
+
+/* P10i r3：后台表单与表格工具条 */
+@layer components {
+  /* 单选组（如设置页「样式」）：去掉 fieldset 原生边框和内边距，标题与其他字段的 label 同一样式、同一间距；
+     .field input 的输入框样式（44 高、内边距、边框）不作用到单选 / 复选框上，文字与圆点垂直居中 */
+  .admin-main fieldset.field {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-inline-size: 0;
+  }
+  .admin-main fieldset.field > legend {
+    padding: 0;
+    margin-bottom: 6px;
+  }
+  .admin-main .field .check {
+    align-items: center;
+    font-size: var(--fs-body-sm);
+    color: var(--c-label);
+  }
+  .admin-main .field .check input {
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .admin-main fieldset.field .btn-row {
+    gap: var(--space-2) var(--space-6);
+  }
+  /* 「全选本页」并入表格工具条（密度切换之后）；脚本未运行时它仍在表格上方单独一行 */
+  .table-tools .check {
+    min-height: var(--control-sm);
+    align-items: center;
+    padding-inline: var(--space-2);
+  }
+  .table-tools .check input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+  }
+}
+
+/* P10i r3：概览统计卡——迷你趋势放到数字右侧（与数字、说明同高），有趋势和没趋势的卡片高度一致，
+   不再出现「一半卡片底部空 50px」 */
+@layer components {
+  .dash .stat {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+  }
+  .dash .stat > * {
+    grid-column: 1;
+  }
+  .dash .stat > .stat__label {
+    grid-column: 1 / -1;
+  }
+  .dash .stat > .stat__spark {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+    align-self: end;
+    width: 120px;
+    height: 36px;
+    margin: 0 0 2px;
+  }
+  @media (max-width: 599.98px) {
+    .dash .stat > .stat__spark {
+      width: 56px;
+      height: 28px;
+    }
+  }
+}
+
+/* P10i r3：权限矩阵——「可以」用绿色徽标（原来 .badge 写在后面、同权重，把 .badge--ok 盖成灰色，「可以 / 不可以」一眼分不出）；
+   行标题保持表格单元格（display: grid 会让第一列脱离表格行，行分隔线和其他列错开 3px），能力分组小字单独一行 */
+@layer components {
+  .badge.badge--ok {
+    background: color-mix(in srgb, var(--c-green) 14%, transparent);
+    color: var(--c-green);
+  }
+  /* 信息徽标用 --c-info（深色下是浅蓝 #6ab0ff）：--c-blue 在深色底上对比度不够 4.5 : 1 */
+  .badge.badge--info {
+    background: color-mix(in srgb, var(--c-info) 14%, transparent);
+    color: var(--c-info);
+  }
+  .badge.badge--danger {
+    background: color-mix(in srgb, var(--c-danger) 14%, transparent);
+    color: var(--c-danger);
+  }
+  .data-table.perm-table th[scope='row'] {
+    display: table-cell;
+    vertical-align: middle;
+  }
+  .perm-table__group {
+    display: block;
+    margin-bottom: 2px;
+  }
+  .data-table.perm-table td {
+    vertical-align: middle;
+  }
+  .perm-table .badge:not(.badge--ok) {
+    background: transparent;
+    color: var(--c-label-3);
+  }
+}

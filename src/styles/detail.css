@@ -13,7 +13,8 @@
     grid-template-areas:
       'icon main'
       'icon metrics'
-      'icon actions';
+      'icon actions'
+      'icon links';
     gap: var(--space-3) var(--space-6);
     align-items: start;
     padding-top: var(--space-4);
@@ -84,6 +85,13 @@
     grid-area: actions;
     min-width: 0;
   }
+  .detail-hero__links {
+    grid-area: links;
+    min-width: 0;
+  }
+  .detail-hero__links .detail-links {
+    margin-top: calc(var(--space-3) * -1 + var(--space-1));
+  }
   /* ≥ 1200：头部三栏「图标 | 名称 + 指标 | 操作卡」。操作卡与下方右侧导流栏同宽（320）、左右缘对齐，
      正文 : 侧栏 ≈ 2.5 : 1（接近 1 : 1.618²），头部右侧不再大片留白。 */
   @media (min-width: 1200px) {
@@ -91,9 +99,11 @@
       grid-template-columns: auto minmax(0, 1fr) 320px;
       grid-template-areas:
         'icon main actions'
-        'icon metrics actions';
-      /* 操作卡比左侧高时（多平台下载），多出的高度只给第 2 行，指标条紧跟名称、不被推到中间 */
-      grid-template-rows: auto minmax(0, 1fr);
+        'icon metrics actions'
+        'icon links actions';
+      /* 操作卡比左侧高时（多平台下载），多出的高度只给最后一行，指标条、链接行紧跟名称；
+         链接行（官网 / 分享）从操作卡挪到左栏（P10i r3），5 个平台时操作卡 ≈ 左栏高度，指标条下不再留白 */
+      grid-template-rows: auto auto minmax(0, 1fr);
       align-items: start;
     }
     .detail-hero__actions {
@@ -177,7 +187,8 @@
       grid-template-areas:
         'icon main'
         'metrics metrics'
-        'actions actions';
+        'actions actions'
+        'links links';
       justify-items: stretch;
       gap: var(--space-3) var(--space-4);
       padding-top: var(--space-3);

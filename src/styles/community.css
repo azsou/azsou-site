@@ -686,3 +686,35 @@
     font-size: var(--fs-title-2);
   }
 }
+
+/* P10i r3：论坛首页分类卡改成紧凑横排——左侧 16 : 9 小缩略图（比例不变，只缩小），右侧名称 + 说明（不截断）。
+   原来 4 张整宽 16 : 9 大图卡占掉首屏，1440 只看得到 3 条主题、390 一条都看不到。 */
+@layer components {
+  .forum-cats {
+    gap: var(--space-3);
+  }
+  .forum-cats > .card {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+  .forum-cats .card__media {
+    flex: none;
+    width: 112px;
+    border-radius: var(--radius-sm);
+  }
+  .forum-cats .card__body {
+    gap: 2px;
+    padding: 0;
+    min-width: 0;
+  }
+  .forum-cats .card__text {
+    font-size: var(--fs-meta);
+  }
+  @media (max-width: 599.98px) {
+    .forum-cats .card__media {
+      width: 96px;
+    }
+  }
+}

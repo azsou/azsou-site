@@ -122,31 +122,6 @@ const hint = usable.length
           </a>
         )}
       </div>
-      <p class="detail-links" data-detail-links data-pagefind-ignore>
-        {site && (
-          <a href={site} rel="noopener" data-link="site">
-            <Icon name="globe" size={16} />
-            官网
-          </a>
-        )}
-        {officialEntry && (
-          <a href={officialEntry} rel="noopener" data-link="entry">
-            <Icon name="arrow-up-right" size={16} />
-            国内入口
-          </a>
-        )}
-        {repo && (
-          <a href={repo} rel="noopener" data-link="github">
-            <Icon name="github" size={16} />
-            {hostOf(repo) === 'github.com' ? 'GitHub' : '源代码'}
-          </a>
-        )}
-        <button type="button" data-share hidden>
-          <Icon name="share" size={16} />
-          分享
-        </button>
-        <span class="detail-share__status" data-share-status aria-live="polite"></span>
-      </p>
       {offline.length > 0 && (
         <p class="app-downloads__planned" data-planned data-pagefind-ignore>
           {usable.length ? '其他平台：' : '计划平台：'}
@@ -171,6 +146,33 @@ const hint = usable.length
             也可以 <a href={url.rss()}>订阅 RSS</a> 或 <a href={`#${commentsId}`}>在评论区留言</a>。
           </>
         )}
+      </p>
+    </Fragment>
+    <Fragment slot="links">
+      <p class="detail-links" data-detail-links data-pagefind-ignore>
+        {site && (
+          <a href={site} rel="noopener" data-link="site">
+            <Icon name="globe" size={16} />
+            官网
+          </a>
+        )}
+        {officialEntry && (
+          <a href={officialEntry} rel="noopener" data-link="entry">
+            <Icon name="arrow-up-right" size={16} />
+            国内入口
+          </a>
+        )}
+        {repo && (
+          <a href={repo} rel="noopener" data-link="github">
+            <Icon name="github" size={16} />
+            {hostOf(repo) === 'github.com' ? 'GitHub' : '源代码'}
+          </a>
+        )}
+        <button type="button" data-share hidden>
+          <Icon name="share" size={16} />
+          分享
+        </button>
+        <span class="detail-share__status" data-share-status aria-live="polite"></span>
       </p>
     </Fragment>
   </DetailHero>

@@ -413,16 +413,23 @@ export function enhanceTable(table: HTMLTableElement) {
     download(`${key}-${stamp()}.csv`, toCsv(objs, c), 'text/csv;charset=utf-8');
   });
 
+  // 「全选本页」（P10i r3）：表格正上方单独一行的 [data-select-all-row] 并入工具条，放在密度切换之后
+  const allRow = wrap.previousElementSibling;
+  const allLabel = allRow?.matches('[data-select-all-row]')
+    ? allRow.querySelector<HTMLElement>('label:has(input[data-select-all])')
+    : null;
   const tools = h(
     'div',
     { class: 'table-tools', role: 'group', 'aria-label': '表格工具' },
     seg,
+    ...(allLabel ? [allLabel] : []),
     h('span', { class: 'table-tools__spacer' }),
     cols,
     views,
     exp,
   );
   wrap.before(tools);
+  if (allLabel) allRow?.remove();
   apply();
   sortRows();
 }
