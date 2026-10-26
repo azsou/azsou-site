@@ -62,9 +62,7 @@ test.describe('T6.9 视觉', () => {
     await expect(card.locator('.entry__action')).toHaveAttribute('href', /^\/(apps|go)\//);
   });
 
-  test('P10 紧凑档：列表条目是平面底（没有大面积渐变卡片底）；详情页横幅仍是 CSS 渐变、无额外图片', async ({
-    page,
-  }) => {
+  test('P10 紧凑档：列表条目与详情页头部都是平面底（没有大面积渐变 / 横幅图片）', async ({ page }) => {
     const imgs: string[] = [];
     page.on('request', (r) => {
       if (r.resourceType() === 'image') imgs.push(new URL(r.url()).pathname);
@@ -75,9 +73,9 @@ test.describe('T6.9 视觉', () => {
       expect(await entry.evaluate((e) => getComputedStyle(e).backgroundImage), route).toBe('none');
     }
     await page.goto('/apps/fablemotion/');
-    const hero = page.locator('.app-hero');
-    await expect(hero).toHaveAttribute('data-hue', 'purple');
-    expect(await hero.evaluate((e) => getComputedStyle(e).backgroundImage)).toMatch(/gradient/);
+    // PR G（T10.11）：详情页头部去掉色相横幅，平面底 + 细分隔
+    const hero = page.locator('[data-detail-hero]');
+    expect(await hero.evaluate((e) => getComputedStyle(e).backgroundImage)).toBe('none');
     expect(imgs.filter((u) => /cover|gradient|banner/.test(u))).toEqual([]);
   });
 

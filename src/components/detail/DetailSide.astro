@@ -21,15 +21,18 @@ interface Props {
 }
 const { label, groups, articles = [] } = Astro.props;
 const shown = groups.filter((g) => g.entries.length > 0);
+/** 侧栏前 6 个条目在 1440×900 首屏内：图标 eager（priority 关，不抢 LCP） */
+const EAGER = 6;
+const offset = shown.map((_, i) => shown.slice(0, i).reduce((n, g) => n + g.entries.length, 0));
 ---
 
 {(shown.length > 0 || articles.length > 0) && (
   <aside class="detail-side" aria-label={label} data-detail-side data-pagefind-ignore>
-    {shown.map((g) => (
+    {shown.map((g, gi) => (
       <Shelf id={g.id} title={g.title} note={g.note} more={g.more} kind="stack">
-        {g.entries.map((e) => (
+        {g.entries.map((e, i) => (
           <li>
-            <AppMini entry={e} />
+            <AppMini entry={e} eager={offset[gi] + i < EAGER} />
           </li>
         ))}
       </Shelf>

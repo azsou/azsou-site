@@ -170,7 +170,7 @@
     }
     .detail-metric dd {
       white-space: normal;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
   }
 
@@ -189,6 +189,13 @@
   }
   .detail-main {
     min-width: 0;
+  }
+  /* ≥ 1200 正文栏里截图每屏正好两张：不出现「露半张」——键盘 Tab 到半露的截图时浏览器不会滚动，
+     按钮中心会落在右侧栏下面（设计门禁「焦点被遮挡」） */
+  @media (min-width: 1200px) {
+    .detail-main .shots__track {
+      grid-auto-columns: calc((100% - var(--space-4)) / 2);
+    }
   }
   .detail-side {
     min-width: 0;
