@@ -35,6 +35,14 @@ const lum = (c: number[]) => {
   });
   return 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
 };
+const blendHex = (f: number[], b: number[], a: number) =>
+  `#${[0, 1, 2]
+    .map((i) =>
+      Math.round(f[i] * a + b[i] * (1 - a))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
 const contrast = (fg: string, bg: string) => {
   const a = lum(blend(fg, bg));
   const b = lum(toRgb(bg));
@@ -115,6 +123,22 @@ describe('tokens 生成', () => {
         expect(contrast(c.focus, bg), `${mode} focus on ${bg}`).toBeGreaterThanOrEqual(3);
       }
       expect(contrast(c['on-accent'], c.accent)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('P10h 类型强调色 / 淡底按钮 / 实心按钮对比度 ≥ 4.5:1（深浅两套、悬停档）', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const c = tokens.color[mode] as Record<string, string>;
+      const hover = parseFloat(c['tint-hover']) / 100;
+      for (const ink of ['type-app', 'type-ai', 'type-game', 'accent-ink', 'danger-ink', 'success-ink']) {
+        for (const bg of [c.bg, c.surface]) {
+          // 淡底 = ink 按 tint-hover 比例混到页面底色上（静止档 tint-rest 更淡，对比更高）
+          const [r, g, b] = toRgb(c[ink]);
+          const softHex = blendHex([r, g, b], toRgb(bg), hover);
+          expect(contrast(c[ink], softHex), `${mode} ${ink} on tint ${bg}`).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(contrast(c['on-solid'], c[ink]), `${mode} on-solid on ${ink}`).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 

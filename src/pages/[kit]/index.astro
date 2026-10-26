@@ -45,6 +45,23 @@ const BTN_VARIANTS = [
   { name: '文字按钮', variant: 'text', text: '查看全部' },
   { name: '图标按钮', variant: 'icon', text: '' },
 ] as const;
+// P10h 按钮体系：层级 / 语义 / 类型强调色 × 状态
+const BTN_SYSTEM = [
+  { name: '主按钮（实心品牌）', props: { variant: 'primary' }, text: '获取' },
+  { name: '淡底强调（次要）', props: { variant: 'tonal' }, text: '加入收藏' },
+  { name: '中性（默认）', props: { variant: 'secondary' }, text: '访问官网' },
+  { name: '描边', props: { variant: 'outline' }, text: '查看详情' },
+  { name: '幽灵', props: { variant: 'ghost' }, text: '取消' },
+  { name: '危险（淡底）', props: { variant: 'danger' }, text: '删除' },
+  { name: '危险（实心）', props: { variant: 'danger', solid: true }, text: '永久删除' },
+  { name: '成功（淡底）', props: { variant: 'success' }, text: '通过' },
+  { name: '应用 · 实心', props: { variant: 'primary', tone: 'app' }, text: '下载' },
+  { name: '应用 · 淡底', props: { variant: 'tonal', tone: 'app' }, text: '了解' },
+  { name: 'AI 工具 · 实心', props: { variant: 'primary', tone: 'ai' }, text: '访问官网' },
+  { name: 'AI 工具 · 淡底', props: { variant: 'tonal', tone: 'ai' }, text: '官网' },
+  { name: '游戏 · 实心', props: { variant: 'primary', tone: 'game' }, text: '试玩' },
+  { name: '游戏 · 淡底', props: { variant: 'tonal', tone: 'game' }, text: '了解' },
+] as const;
 const STATES = [
   { key: 'default', name: '默认', cls: '' },
   { key: 'hover', name: '悬停', cls: 'is-hover' },
@@ -182,6 +199,78 @@ const kitCss = [
           上线时通知我
         </Button>
         <Button variant="icon" icon="more" label="更多操作" />
+      </div>
+    </section>
+
+    <section class="kit__section" aria-labelledby="kit-btn-system" data-kit-buttons>
+      <h2 id="kit-btn-system">按钮体系（层级 · 语义 · 类型强调色）</h2>
+      <p class="muted">
+        列：默认 / 悬停 / 焦点 / 按下 / 禁用 / 加载。应用 = 蓝、AI 工具 = 紫、游戏 =
+        橙，与类型徽标和货架标题标记同色。
+      </p>
+      <div class="kit__matrix">
+        <table>
+          <caption class="visually-hidden">按钮体系</caption>
+          <thead>
+            <tr>
+              <th scope="col">变体</th>
+              {STATES.map((st) => (
+                <th scope="col">{st.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {BTN_SYSTEM.map((v) => (
+              <tr>
+                <th scope="row">{v.name}</th>
+                {STATES.map((st) => (
+                  <td>
+                    <Button
+                      {...v.props}
+                      class={st.cls}
+                      disabled={st.key === 'disabled'}
+                      loading={st.key === 'loading'}
+                    >
+                      {v.text}
+                    </Button>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <h3>尺寸、形状、图标按钮、分体按钮与分段控件</h3>
+      <div class="btn-row">
+        <Button variant="primary" size="lg" icon="download">
+          下载 · 12 MB
+        </Button>
+        <Button variant="primary">中号</Button>
+        <Button variant="primary" size="sm">
+          小号
+        </Button>
+        <Button variant="outline" rect icon="settings">
+          圆角矩形
+        </Button>
+        <Button variant="tonal" rect size="sm" icon="check">
+          保存
+        </Button>
+        <Button variant="icon" icon="share" label="分享" />
+        <Button variant="icon" icon="more" label="更多操作" class="is-hover" />
+        <span class="btn-split">
+          <Button variant="primary" tone="app" icon="download">
+            下载 Windows 版
+          </Button>
+          <Button variant="primary" tone="app" icon="chevron-down" label="其他平台" />
+        </span>
+        <div class="segmented" role="group" aria-label="显示方式（示例）">
+          <button type="button" aria-pressed="true">
+            网格
+          </button>
+          <button type="button" aria-pressed="false">
+            列表
+          </button>
+        </div>
       </div>
     </section>
 

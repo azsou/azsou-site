@@ -44,6 +44,16 @@
   --c-mono-blue: #0060c7;
   --c-mono-orange: #a3530a;
   --c-mono-purple: #6b3fc4;
+  --c-type-app: #0058b0;
+  --c-type-ai: #6b3fc4;
+  --c-type-game: #9a3d00;
+  --c-accent-ink: #24653f;
+  --c-danger-ink: #a8231b;
+  --c-success-ink: #176b2e;
+  --c-on-solid: #ffffff;
+  --tint-rest: 10%;
+  --tint-hover: 16%;
+  --tint-press: 20%;
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;

@@ -741,3 +741,227 @@
     }
   }
 }
+
+/* ============================================================================
+   P10h 按钮体系：层级 + 变体 + 类型强调色（owner：按钮不要千篇一律）
+   - 层级：primary（实心品牌色）> tonal（淡底强调色）> outline（描边）> 默认（中性灰底）> ghost / text；
+   - 语义：danger / success（淡底，加 .btn--solid 变实心）；
+   - 类型强调色：.btn--app / .btn--ai / .btn--game（淡底；加 .btn--solid 变实心，用于详情页主按钮）；
+   - 形状：默认胶囊；.btn--rect 圆角矩形（后台 / 工具条）；尺寸 sm 36 / md 44 / lg 52；
+   - 状态：hover 轻抬起 1px + 阴影 / 混色加深；active 回落 + 0.98；focus-visible 用 base 层统一焦点环；
+     disabled 0.4；loading 见上（aria-busy）。动效 160ms ease-out，prefers-reduced-motion 下只变色不位移。
+   - 颜色全部来自 token：--c-*-ink（淡底文字色）、--tint-rest / hover / press（混色比例，深色模式更高）、
+     --c-on-solid（实心彩色按钮文字色），对比度在 tests/unit/tokens.test.ts 断言 ≥ 4.5:1。
+   ========================================================================== */
+@layer components {
+  .btn {
+    --btn-ink: var(--c-label);
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+  .btn--lg {
+    min-height: var(--control-lg);
+    padding-inline: var(--space-6);
+    font-size: var(--fs-body);
+  }
+  .btn--rect {
+    border-radius: var(--radius-sm);
+  }
+  .btn--rect.btn--sm {
+    border-radius: var(--radius-xs);
+  }
+
+  /* 实心主按钮：品牌色 + 1 级阴影 */
+  .btn--primary {
+    box-shadow: var(--elev-1);
+  }
+
+  /* 淡底（tonal）：强调色文字 + 同色淡底。type / 语义变体只换 --btn-ink */
+  .btn--tonal,
+  .btn--danger,
+  .btn--success,
+  .btn--app,
+  .btn--ai,
+  .btn--game {
+    background: color-mix(in srgb, var(--btn-ink) var(--tint-rest), transparent);
+    color: var(--btn-ink);
+  }
+  .btn--tonal {
+    --btn-ink: var(--c-accent-ink);
+  }
+  .btn--danger {
+    --btn-ink: var(--c-danger-ink);
+  }
+  .btn--success {
+    --btn-ink: var(--c-success-ink);
+  }
+  .btn--app {
+    --btn-ink: var(--c-type-app);
+  }
+  .btn--ai {
+    --btn-ink: var(--c-type-ai);
+  }
+  .btn--game {
+    --btn-ink: var(--c-type-game);
+  }
+  .btn--solid:is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game) {
+    background: var(--btn-ink);
+    color: var(--c-on-solid);
+    box-shadow: var(--elev-1);
+  }
+
+  /* 描边 / 幽灵 */
+  .btn--outline {
+    background: transparent;
+    border-color: var(--c-separator-strong);
+    color: var(--c-label);
+  }
+  .btn--ghost {
+    background: transparent;
+    color: var(--c-label-2);
+  }
+
+  /* 图标按钮：圆形，悬停出现灰底 */
+  .btn--icon {
+    border-radius: 50%;
+    color: var(--c-label-2);
+  }
+
+  /* ---- 悬停（调试类 .is-hover 同一套） ---- */
+  :is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game).is-hover {
+    background: color-mix(in srgb, var(--btn-ink) var(--tint-hover), transparent);
+  }
+  .btn--outline.is-hover {
+    border-color: var(--c-label-3);
+    background: var(--c-fill);
+  }
+  .btn--ghost.is-hover,
+  .btn--icon.is-hover {
+    background: var(--c-fill);
+    color: var(--c-label);
+  }
+  .btn--solid.is-hover {
+    background: color-mix(in srgb, var(--btn-ink) 90%, var(--c-label));
+  }
+  @media (hover: hover) and (pointer: fine) {
+    :is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game):hover {
+      background: color-mix(in srgb, var(--btn-ink) var(--tint-hover), transparent);
+    }
+    .btn--outline:hover {
+      border-color: var(--c-label-3);
+      background: var(--c-fill);
+    }
+    .btn--ghost:hover,
+    .btn--icon:hover {
+      background: var(--c-fill);
+      color: var(--c-label);
+    }
+    .btn--solid:is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game):hover {
+      background: color-mix(in srgb, var(--btn-ink) 90%, var(--c-label));
+    }
+  }
+  /* 轻抬起：只有实心 / 淡底 / 描边按钮（文字、幽灵、图标按钮不抬） */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .btn:not(
+        .btn--text,
+        .btn--ghost,
+        .btn--icon,
+        :disabled,
+        [aria-disabled='true'],
+        [aria-busy='true']
+      ):hover {
+      transform: translateY(-1px);
+    }
+    :is(.btn--primary, .btn--solid):not(:disabled, [aria-disabled='true']):hover {
+      box-shadow: var(--elev-2);
+    }
+  }
+  .btn:not(.btn--text, .btn--ghost, .btn--icon).is-hover {
+    transform: translateY(-1px);
+  }
+  :is(.btn--primary, .btn--solid).is-hover {
+    box-shadow: var(--elev-2);
+  }
+
+  /* ---- 按下 ---- */
+  .btn:active,
+  .btn.is-pressed {
+    transform: translateY(0) scale(0.98);
+  }
+  :is(.btn--primary, .btn--solid):active,
+  :is(.btn--primary, .btn--solid).is-pressed {
+    box-shadow: none;
+  }
+  :is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game):not(.btn--solid):active,
+  :is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game):not(.btn--solid).is-pressed {
+    background: color-mix(in srgb, var(--btn-ink) var(--tint-press), transparent);
+  }
+  .btn--solid:active,
+  .btn--solid.is-pressed {
+    background: color-mix(in srgb, var(--btn-ink) 84%, var(--c-label));
+  }
+  /* loading 时文字透明（淡底 / 实心变体的 color 选择器更具体，这里再提高一级） */
+  .btn.btn[aria-busy='true'] {
+    color: transparent;
+  }
+  .btn[aria-busy='true']:is(.btn--solid)::after {
+    border-color: var(--c-on-solid);
+    border-right-color: transparent;
+  }
+  .btn[aria-busy='true']:is(.btn--tonal, .btn--danger, .btn--success, .btn--app, .btn--ai, .btn--game):not(
+      .btn--solid
+    )::after {
+    border-color: var(--btn-ink);
+    border-right-color: transparent;
+  }
+
+  /* ---- 分体按钮（主操作 + 下拉 / 次操作）与按钮组 ---- */
+  .btn-split {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 1px;
+  }
+  .btn-split > .btn:first-child {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+    padding-inline-end: var(--space-4);
+  }
+  .btn-split > .btn:last-child {
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    padding-inline: var(--space-3);
+  }
+  .btn-split > .btn:hover,
+  .btn-split > .btn.is-hover {
+    transform: none;
+  }
+  .btn-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn {
+      transition:
+        background-color var(--dur-fast) linear,
+        border-color var(--dur-fast) linear,
+        color var(--dur-fast) linear;
+    }
+    .btn:active,
+    .btn.is-pressed,
+    .btn.is-hover {
+      transform: none;
+    }
+  }
+  @media (forced-colors: active) {
+    .btn--primary,
+    .btn--solid {
+      border-color: ButtonText;
+    }
+  }
+}

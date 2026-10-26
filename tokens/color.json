@@ -1,5 +1,5 @@
 {
-  "$description": "色彩角色（浅 / 深）—— DESIGN-SYSTEM §3、§16。label-3 浅色取 .76（规范草案 .70 在 #F5F5F7 上只有 4.30:1，不满足 4.5:1，见 tokens 单测）。focus 为不透明色，对相邻底色 ≥ 3:1。",
+  "$description": "色彩角色（浅 / 深）—— DESIGN-SYSTEM §3、§16。label-3 浅色取 .76（规范草案 .70 在 #F5F5F7 上只有 4.30:1，不满足 4.5:1，见 tokens 单测）。focus 为不透明色，对相邻底色 ≥ 3:1。 P10h：类型强调色 type-app / type-ai / type-game（徽标、主操作淡底、货架标记）；*-ink 是淡底按钮文字色；tint-* 是淡底按钮静止 / 悬停 / 按下的混色比例；on-solid 是实心彩色按钮上的文字色（深色模式用深字）。",
   "light": {
     "bg": "#f5f5f7",
     "surface": "#ffffff",
@@ -40,7 +40,17 @@
     "mono-teal": "#0b6f7c",
     "mono-blue": "#0060c7",
     "mono-orange": "#a3530a",
-    "mono-purple": "#6b3fc4"
+    "mono-purple": "#6b3fc4",
+    "type-app": "#0058b0",
+    "type-ai": "#6b3fc4",
+    "type-game": "#9a3d00",
+    "accent-ink": "#24653f",
+    "danger-ink": "#a8231b",
+    "success-ink": "#176b2e",
+    "on-solid": "#ffffff",
+    "tint-rest": "10%",
+    "tint-hover": "16%",
+    "tint-press": "20%"
   },
   "dark": {
     "bg": "#000000",
@@ -76,6 +86,16 @@
     "elev-0": "inset 0 0 0 0.5px rgba(84, 84, 88, 0.6)",
     "elev-1": "0 1px 2px rgba(0, 0, 0, 0.5)",
     "elev-2": "0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)",
-    "icon-stroke": "rgba(255, 255, 255, 0.1)"
+    "icon-stroke": "rgba(255, 255, 255, 0.1)",
+    "type-app": "#6cb0ff",
+    "type-ai": "#c89bff",
+    "type-game": "#ffa25c",
+    "accent-ink": "#5fd08a",
+    "danger-ink": "#ff8a80",
+    "success-ink": "#5cdb85",
+    "on-solid": "#0b0b0f",
+    "tint-rest": "16%",
+    "tint-hover": "22%",
+    "tint-press": "26%"
   }
 }

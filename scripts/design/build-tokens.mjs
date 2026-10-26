@@ -55,7 +55,7 @@ function colorVars(set) {
         ? `--${k}: ${v};`
         : k === 'icon-stroke'
           ? `--icon-stroke: ${v};`
-          : k.startsWith('cover-')
+          : k.startsWith('cover-') || k.startsWith('tint-')
             ? `--${k}: ${v};`
             : `--c-${k}: ${v};`,
     )
