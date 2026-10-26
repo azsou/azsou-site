@@ -2,26 +2,13 @@ import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './fixtures';
 
 /**
- * T6.9 视觉升级：图标墙不重复、「试试」关键词都能搜到、卡片用 AVIF / WebP 多尺寸图标并带宽高、
+ * T6.9 视觉升级（P10 起：首页图标墙已删除，条目改平面底）：「试试」关键词都能搜到、卡片用 AVIF / WebP 多尺寸图标并带宽高、
  * 色相渐变封面（纯 CSS）、悬停动效只用 transform（不产生布局偏移）、减少动态效果时关闭、
  * 键盘焦点环、深浅两种配色下的 axe（含对比度）。
  */
 const isDesktop = (name: string) => name.endsWith('-desktop');
 
 test.describe('T6.9 视觉', () => {
-  test('首页图标墙：12 个图标、没有重复的品牌 / 图片', async ({ page }, info) => {
-    test.skip(!isDesktop(info.project.name), '图标墙只在宽屏显示');
-    await page.goto('/');
-    const srcs = await page
-      .locator('.icon-wall img')
-      .evaluateAll((els) => els.map((e) => (e as HTMLImageElement).getAttribute('src')));
-    expect(srcs).toHaveLength(12);
-    expect(new Set(srcs).size).toBe(12);
-    // ChatGPT 与 Codex CLI 是同一个 OpenAI 标志：最多出现其一
-    const openai = srcs.filter((s) => /\/ai\/icons\/(chatgpt|codex-cli)-/.test(s ?? ''));
-    expect(openai.length).toBeLessThanOrEqual(1);
-  });
-
   test('「试试」关键词有意义，且每个都能搜到结果', async ({ page }, info) => {
     test.skip(!/chromium-desktop/.test(info.project.name), '与引擎 / 视口无关，只跑一次');
     await page.goto('/');
@@ -63,77 +50,61 @@ test.describe('T6.9 视觉', () => {
     });
   }
 
-  test('应用目录换页后（浏览器端渲染的卡片）仍是 <picture> 图标 + 色相', async ({ page }) => {
+  test('应用目录筛选后（浏览器端渲染的条目）与静态条目同结构：<picture> 图标 + 类型徽标 + 主操作', async ({
+    page,
+  }) => {
     await page.goto('/apps/?category=creative');
-    const card = page.locator('[data-catalog-grid] .app-card').first();
+    const card = page.locator('[data-catalog-grid] [data-entry]').first();
     await expect(card).toBeVisible();
-    await expect(card).toHaveAttribute('data-hue', /^(accent|green|teal|blue|orange|purple)$/);
+    await expect(card).toHaveClass(/entry entry--tile/);
     await expect(card.locator('picture source[type="image/avif"]')).toHaveCount(1);
+    await expect(card.locator('.entry__type')).toHaveText('应用');
+    await expect(card.locator('.entry__action')).toHaveAttribute('href', /^\/(apps|go)\//);
   });
 
-  test('色相渐变封面：卡片 / 详情页横幅用 CSS 渐变，没有额外图片请求', async ({ page }) => {
+  test('P10 紧凑档：列表条目是平面底（没有大面积渐变卡片底）；详情页横幅仍是 CSS 渐变、无额外图片', async ({
+    page,
+  }) => {
     const imgs: string[] = [];
     page.on('request', (r) => {
       if (r.resourceType() === 'image') imgs.push(new URL(r.url()).pathname);
     });
+    for (const route of ['/apps/', '/ai/', '/games/', '/']) {
+      await page.goto(route);
+      const entry = page.locator('main [data-entry]').first();
+      expect(await entry.evaluate((e) => getComputedStyle(e).backgroundImage), route).toBe('none');
+    }
     await page.goto('/apps/fablemotion/');
     const hero = page.locator('.app-hero');
     await expect(hero).toHaveAttribute('data-hue', 'purple');
     expect(await hero.evaluate((e) => getComputedStyle(e).backgroundImage)).toMatch(/gradient/);
-    await page.goto('/ai/');
-    const tool = page.locator('.tool-card').first();
-    await expect(tool).toHaveAttribute('data-hue', /.+/);
-    expect(await tool.evaluate((e) => getComputedStyle(e).backgroundImage)).toMatch(/radial-gradient/);
-    await page.goto('/games/');
-    const media = page.locator('.card--media .card__media').first();
-    expect(await media.evaluate((e) => getComputedStyle(e).backgroundImage)).toMatch(/gradient/);
-    // 渐变不是图片文件
     expect(imgs.filter((u) => /cover|gradient|banner/.test(u))).toEqual([]);
   });
 
-  test('悬停：卡片上浮 + 图标放大，只改 transform（周围元素不移动）', async ({ page }, info) => {
+  test('悬停：条目只换底色，不位移（周围元素不动）', async ({ page }, info) => {
     test.skip(!isDesktop(info.project.name), '只在能悬停的桌面视口');
     await page.goto('/apps/');
     await page.waitForLoadState('networkidle');
-    const cards = page.locator('[data-catalog-grid] .app-card');
+    const cards = page.locator('[data-catalog-grid] [data-entry]');
     const second = cards.nth(1);
-    // 评分 / 下载数一行由 island 异步填入：等它写完再量（预留了整行高度，填入前后卡片也应同高）
-    await expect(second.locator('[data-card-stats]'))
-      .not.toBeEmpty({ timeout: 3000 })
-      .catch(() => {});
     const before = await second.boundingBox();
-    await cards.first().locator('.card__link').hover();
-    await expect.poll(() => cards.first().evaluate((e) => getComputedStyle(e).transform)).not.toBe('none');
-    await expect
-      .poll(() =>
-        cards
-          .first()
-          .locator('.app-icon-img')
-          .evaluate((e) => getComputedStyle(e).transform),
-      )
-      .not.toBe('none');
-    // 邻居卡片位置不变（transform 不参与布局）
+    const bg0 = await cards.first().evaluate((e) => getComputedStyle(e).backgroundColor);
+    await cards.first().locator('.entry__link').hover();
+    await expect.poll(() => cards.first().evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(bg0);
+    expect(await cards.first().evaluate((e) => getComputedStyle(e).transform)).toBe('none');
     expect(await second.boundingBox()).toEqual(before);
-  });
-
-  test('减少动态效果：悬停不位移、不缩放', async ({ page }, info) => {
-    test.skip(!isDesktop(info.project.name), '只在能悬停的桌面视口');
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/apps/');
-    const card = page.locator('[data-catalog-grid] .app-card').first();
-    await card.locator('.card__link').hover();
-    await page.waitForTimeout(350);
-    expect(await card.evaluate((e) => getComputedStyle(e).transform)).toBe('none');
-    expect(await card.locator('.app-icon-img').evaluate((e) => getComputedStyle(e).transform)).toBe('none');
   });
 
   test('键盘焦点：卡片链接显示焦点环', async ({ page }, info) => {
     test.skip(!isDesktop(info.project.name), '键盘导航只在桌面视口');
     await page.goto('/apps/');
-    const link = page.locator('[data-catalog-grid] .app-card .card__link').first();
+    const link = page.locator('[data-catalog-grid] [data-entry] .entry__link').first();
     await link.focus();
-    // 焦点环画在 ::after（覆盖整张卡片）上；T9.1 起用不透明 outline（强制色下仍可见，DESIGN-SYSTEM §16）
-    const ring = await link.evaluate((e) => getComputedStyle(e, '::after').outlineStyle);
+    // P10 条目：焦点环画在整张条目上（:has(:focus-visible) 的 outline，强制色下仍可见，DESIGN-SYSTEM §16）
+    const ring = await page
+      .locator('[data-catalog-grid] [data-entry]')
+      .first()
+      .evaluate((e) => getComputedStyle(e).outlineStyle);
     expect(ring).not.toBe('none');
   });
 

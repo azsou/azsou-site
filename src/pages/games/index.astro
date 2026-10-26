@@ -3,11 +3,14 @@ import Base from '@/layouts/Base.astro';
 import { itemList } from '@/lib/seo';
 import { url } from '@/lib/routes';
 import PageHead from '@/components/PageHead.astro';
-import GameCard from '@/components/GameCard.astro';
+import AppTile from '@/components/store/AppTile.astro';
+import ListShell from '@/components/store/ListShell.astro';
 import { getGames } from '@/lib/content';
+import { fromGame, sortEntries } from '@/lib/store';
 const games = await getGames();
-/** T9.12 单套筛选：按形态（可玩 Demo / 开发中 / Web 3D）分段筛选，条目少于两种形态时不显示 */
+/** T10.8：统一列表外壳；分类栏 = 按形态（可玩 Demo / 开发中 / Web 3D）单套筛选（list-filter.ts） */
 const kinds = [...new Set(games.map((g) => g.data.kind))];
+const entries = sortEntries(games.map(fromGame), 'new');
 ---
 
 <Base
@@ -30,28 +33,25 @@ const kinds = [...new Set(games.map((g) => g.data.kind))];
     title="游戏与可玩 Demo"
     lede="浏览器里的 Roguelike、Web 3D 与物理小品。不包装成商业发行，版本号如实反映完成度。"
   />
-  {kinds.length > 1 && (
-    <div class="filter-bar">
-      <div class="segmented" role="group" aria-label="按形态筛选" data-list-filter data-param="kind">
-        <button type="button" data-value="" aria-pressed="true" disabled>
-          全部
-        </button>
-        {kinds.map((k) => (
-          <button type="button" data-value={k} aria-pressed="false" disabled>
-            {k}
-          </button>
-        ))}
-      </div>
-      <p class="filter-bar__status muted" data-list-status data-noun="个游戏" role="status">
-        共 {games.length} 个游戏
-      </p>
-    </div>
-  )}
-  <div class="grid" data-grid="media">
-    {games.map((g, i) => (
-      <GameCard game={g} eager={i < 2} filterValue={g.data.kind} />
-    ))}
-  </div>
+  <ListShell
+    railLabel="形态"
+    railName="按形态筛选"
+    filterParam="kind"
+    rail={[
+      { label: '全部', value: '', count: games.length, current: true },
+      ...kinds.map((k) => ({ label: k, value: k, count: games.filter((g) => g.data.kind === k).length })),
+    ]}
+    status={`共 ${games.length} 个游戏`}
+    statusAttrs={{ 'data-list-status': '', 'data-noun': '个游戏' }}
+  >
+    <ul class="list-items" data-grid="tile" role="list" data-list-items data-view="grid">
+      {entries.map((e, i) => (
+        <li data-filter-item data-filter-value={e.category.id}>
+          <AppTile entry={e} headingLevel="h2" eager={i < 10} fields={['category', 'version', 'updatedAt']} />
+        </li>
+      ))}
+    </ul>
+  </ListShell>
 </Base>
 
 <script>

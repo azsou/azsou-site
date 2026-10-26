@@ -40,16 +40,18 @@ test.describe('AI 工具列表 /ai/', () => {
     await expect(page.locator('.ai-note')).toContainText('图标版权归各自所有者');
     // 卡片：标题链接到本站详情页，图标来自本站
     const claude = page.locator('[data-tool="claude-code"]');
-    await expect(claude.getByRole('link', { name: 'Claude Code' })).toHaveAttribute(
+    await expect(claude.getByRole('link', { name: 'Claude Code', exact: true })).toHaveAttribute(
       'href',
       '/ai/claude-code/',
     );
-    // T6.9 / T9.3：<picture>（AVIF + WebP 1x / 2x），卡片图标 56 px 用 56 / 112 两档（规范化管线 /icons/n/）
-    await expect(claude.locator('img')).toHaveAttribute('src', /^\/ai\/icons\/n\/claude-code-112\.webp$/);
-    await expect(claude.locator('img')).toHaveAttribute('srcset', /claude-code-112\.webp 2x$/);
+    // P10 主操作：经 /go/ 中转页去官方渠道（不托管安装包）
+    await expect(claude.locator('.entry__action')).toHaveAttribute('href', /^\/go\/claude-code\//);
+    // T6.9 / T9.3：<picture>（AVIF + WebP 1x / 2x）；P10 格子图标 72 px 用 72 / 144 两档（规范化管线 /icons/n/）
+    await expect(claude.locator('img')).toHaveAttribute('src', /^\/ai\/icons\/n\/claude-code-144\.webp$/);
+    await expect(claude.locator('img')).toHaveAttribute('srcset', /claude-code-144\.webp 2x$/);
     await expect(claude.locator('picture source[type="image/avif"]')).toHaveAttribute(
       'srcset',
-      /claude-code-56\.avif 1x/,
+      /claude-code-72\.avif 1x/,
     );
     const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
     const list = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'ItemList');

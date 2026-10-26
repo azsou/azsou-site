@@ -4,13 +4,13 @@
  */
 import { expect, test } from '@playwright/test';
 
-/** 断点 → 列数：媒体卡 / 行卡（≥ 1600 各 +1 列） */
+/** 断点 → 列数：媒体卡 / 行卡（≥ 1600 各 +1 列）/ 商店格子（P10 T10.8 列表页，≥ 1200 有左侧分类栏） */
 const COLS = [
-  { w: 390, media: 1, row: 1 },
-  { w: 768, media: 2, row: 2 },
-  { w: 1024, media: 3, row: 2 },
-  { w: 1440, media: 4, row: 3 },
-  { w: 1920, media: 5, row: 4 },
+  { w: 390, media: 1, row: 1, tile: 2 },
+  { w: 768, media: 2, row: 2, tile: 4 },
+  { w: 1024, media: 3, row: 2, tile: 5 },
+  { w: 1440, media: 4, row: 3, tile: 5 },
+  { w: 1920, media: 5, row: 4, tile: 6 },
 ];
 const PAGES = [
   { name: 'apps', path: '/apps/' },
@@ -43,7 +43,7 @@ for (const p of PAGES) {
       );
       expect(grids.length, '页面上至少一个统一栅格').toBeGreaterThan(0);
       for (const g of grids) {
-        const want = g.kind === 'row' ? c.row : c.media;
+        const want = g.kind === 'row' ? c.row : g.kind === 'tile' ? c.tile : c.media;
         expect(g.cols, `${g.kind} 栅格列数`).toBe(want);
         expect(g.spread, `${g.kind} 栅格同一行高度差`).toBeLessThanOrEqual(1);
       }

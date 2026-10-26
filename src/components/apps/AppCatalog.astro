@@ -8,7 +8,10 @@
 import MoreFilters from '@/components/ui/MoreFilters.astro';
 import Base from '@/layouts/Base.astro';
 import PageHead from '@/components/PageHead.astro';
-import AppCard from '@/components/AppCard.astro';
+import AppTile from '@/components/store/AppTile.astro';
+import ListShell from '@/components/store/ListShell.astro';
+import { getApps } from '@/lib/content';
+import { fromApp, type StoreEntry } from '@/lib/store';
 import {
   CATEGORIES,
   CATEGORY_IDS,
@@ -62,6 +65,8 @@ const plats = PLATFORMS.filter((p) => all.some((a) => a.platforms.includes(p)));
 const prices = PRICE_MODELS.filter((p) => all.some((a) => a.price === p));
 const pageTitle = page > 1 ? `${title}（第 ${page} 页）` : title;
 const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
+// T10.8：统一商店条目（与首页货架、/ai/、/games/ 同一组件）
+const entryBySlug = new Map<string, StoreEntry>((await getApps()).map((a) => [a.id, fromApp(a)]));
 ---
 
 <Base
@@ -78,79 +83,85 @@ const count = (pred: (a: CatalogItem) => boolean) => all.filter(pred).length;
 >
   <PageHead eyebrow={eyebrow} title={title} lede={lede} />
 
-  <!--
-    T9.12 单套筛选：分类只用常驻胶囊（链接到可索引的分类页）；平台 / 价格 / 排序收进「更多筛选」。
-    原来的平台胶囊与分类下拉和这里重复，已去掉（平台页 /apps/platform/… 仍由首页与详情页链接）。
-  -->
-  <div class="filter-bar">
-    <nav class="chip-nav" aria-label="按分类浏览">
-      <a class="chip" href={url.apps()} aria-current={!fixedCategory && !fixedPlatform ? 'page' : undefined}>
-        全部 <span class="chip__n">{all.length}</span>
-      </a>
-      {cats.map((c) => (
-        <a class="chip" href={url.appCategory(c)} aria-current={fixedCategory === c ? 'page' : undefined}>
-          {CATEGORIES[c]} <span class="chip__n">{count((a) => a.category === c)}</span>
-        </a>
-      ))}
-    </nav>
-
-    <MoreFilters>
-      <div
-        class="catalog-filter"
-        data-catalog-filter
-        data-base={base}
-        data-fixed-category={fixedCategory}
-        data-fixed-platform={fixedPlatform}
-        role="group"
-        aria-label="更多筛选"
-      >
-        <div class="field">
-          <label for="cf-platform">平台</label>
-          <select id="cf-platform" name="platform" disabled={!!fixedPlatform}>
-            <option value="">全部平台</option>
-            {plats.map((p) => (
-              <option value={p} selected={fixedPlatform === p}>
-                {PLATFORM_LABEL[p]}（{count((a) => a.platforms.includes(p))}）
-              </option>
-            ))}
-          </select>
-        </div>
-        <div class="field">
-          <label for="cf-price">价格</label>
-          <select id="cf-price" name="price">
-            <option value="">全部</option>
-            {prices.map((p) => (
-              <option value={p}>{PRICE_LABEL[p]}</option>
-            ))}
-          </select>
-        </div>
-        <div class="field">
-          <span class="field__label" id="cf-sort-label">
-            排序
-          </span>
-          <div class="segmented segmented--inline" role="group" aria-labelledby="cf-sort-label">
-            {SORTS.map((s) => (
-              <button type="button" data-sort={s} aria-pressed={s === 'new' ? 'true' : 'false'}>
-                {SORT_LABEL[s]}
-              </button>
-            ))}
+  <ListShell
+    railLabel="分类"
+    railName="按分类浏览"
+    rail={[
+      { label: '全部', href: url.apps(), count: all.length, current: !fixedCategory && !fixedPlatform },
+      ...cats.map((c) => ({
+        label: CATEGORIES[c],
+        href: url.appCategory(c),
+        count: count((a) => a.category === c),
+        current: fixedCategory === c,
+      })),
+    ]}
+    status={`共 ${paged.total} 个应用${paged.pages > 1 ? ` · 第 ${paged.page} / ${paged.pages} 页` : ''} · 按最新排序`}
+    statusAttrs={{ 'data-catalog-status': '' }}
+    pageSize={0}
+  >
+    {/* T9.12 单套筛选：分类在分类栏（链接到可索引的分类页）；平台 / 价格 / 按真实数据排序收进「更多筛选」 */}
+    <div class="filter-bar" slot="before">
+      <MoreFilters>
+        <div
+          class="catalog-filter"
+          data-catalog-filter
+          data-base={base}
+          data-fixed-category={fixedCategory}
+          data-fixed-platform={fixedPlatform}
+          role="group"
+          aria-label="更多筛选"
+        >
+          <div class="field">
+            <label for="cf-platform">平台</label>
+            <select id="cf-platform" name="platform" disabled={!!fixedPlatform}>
+              <option value="">全部平台</option>
+              {plats.map((p) => (
+                <option value={p} selected={fixedPlatform === p}>
+                  {PLATFORM_LABEL[p]}（{count((a) => a.platforms.includes(p))}）
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <label for="cf-price">价格</label>
+            <select id="cf-price" name="price">
+              <option value="">全部</option>
+              {prices.map((p) => (
+                <option value={p}>{PRICE_LABEL[p]}</option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <span class="field__label" id="cf-sort-label">
+              按真实数据排序
+            </span>
+            <div class="segmented segmented--inline" role="group" aria-labelledby="cf-sort-label">
+              {SORTS.map((s) => (
+                <button type="button" data-sort={s} aria-pressed={s === 'new' ? 'true' : 'false'}>
+                  {SORT_LABEL[s]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </MoreFilters>
-  </div>
+      </MoreFilters>
+    </div>
 
-  <p class="catalog-status muted" data-catalog-status role="status">
-    共 {paged.total} 个应用{paged.pages > 1 && ` · 第 ${paged.page} / ${paged.pages} 页`} · 按最新排序
-  </p>
-
-  <div class="grid grid--wide" data-grid="row" data-catalog-grid>
-    {/* 单套筛选后 1440 首屏可见约 3 行：前 12 张图标 eager，只有前 6 张高优先级 */}
-    {paged.items.map((a, i) => (
-      <AppCard item={a} headingLevel="h2" eager={i < 12} priority={i < 6} />
-    ))}
-  </div>
-  {paged.items.length === 0 && <p class="empty-state">这里还没有应用。</p>}
+    <ul class="list-items" data-grid="tile" role="list" data-catalog-grid data-list-items data-view="grid">
+      {paged.items.map((a, i) => (
+        <li>
+          <AppTile
+            entry={entryBySlug.get(a.slug)!}
+            headingLevel="h2"
+            eager={i < 12}
+            priority={i < 6}
+            fields={['category', 'version', 'updatedAt']}
+          />
+        </li>
+      ))}
+    </ul>
+    {paged.items.length === 0 && <p class="empty-state">这里还没有应用。</p>}
+  </ListShell>
 
   <nav class="pagination" aria-label="分页" data-catalog-pages hidden={paged.pages < 2}>
     {paged.page > 1 && (

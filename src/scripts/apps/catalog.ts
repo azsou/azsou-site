@@ -127,7 +127,10 @@ if (form && grid && statusEl && pager) {
       statusEl!.textContent =
         `共 ${p.total} 个应用${p.pages > 1 ? ` · 第 ${p.page} / ${p.pages} 页` : ''} · 按${SORT_LABEL[fallback ? 'new' : (q.sort ?? 'new')]}排序` +
         (fallback ? '（统计数据暂时不可用，已按最新排序）' : '');
-      if (!p.items.length) grid!.append(el('p', 'muted', '没有符合条件的应用，换个筛选条件试试。'));
+      if (!p.items.length) {
+        const empty = el('li', 'muted', '没有符合条件的应用，换个筛选条件试试。');
+        grid!.append(empty);
+      }
       renderPager(p.page, p.pages);
     } catch {
       statusEl!.textContent = '筛选暂时不可用（目录数据加载失败），可以用上方的分类与平台入口浏览。';

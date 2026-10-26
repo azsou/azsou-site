@@ -1,0 +1,115 @@
+---
+/**
+ * 列表页外壳（P10 T10.8，/apps/、/ai/、/games/、/works/ 共用）：
+ *  - 分类栏：≥ 1200 是左侧竖栏，< 1200 是顶部一行胶囊（同一组元素，不重复）。
+ *    链接模式（应用 / AI 工具：分类有可索引的静态页）或按钮模式（游戏 / 作品：filterParam，交给 list-filter.ts）；
+ *  - 工具条：结果数（role=status，各页原有筛选脚本更新它）+ 排序（最新 / 名称 / 编辑推荐）+ 网格 / 列表切换；
+ *  - 条目超过一页（24）时「加载更多」（src/scripts/list-shell.ts）。没有 JS 时全部显示、按默认顺序。
+ */
+import '@/styles/store.css';
+import { ENTRY_SORTS, ENTRY_SORT_LABEL } from '@/lib/store';
+export interface RailItem {
+  label: string;
+  count: number;
+  /** 链接模式 */
+  href?: string;
+  /** 按钮模式（"" = 全部） */
+  value?: string;
+  current?: boolean;
+}
+interface Props {
+  /** 分类栏的可见标题（「分类」「形态」） */
+  railLabel: string;
+  /** 分类栏的无障碍名称（「AI 工具分类」「按形态筛选」）；不写 = 可见标题 */
+  railName?: string;
+  rail: RailItem[];
+  /** 按钮模式的查询参数名（如 kind）；不写 = 链接模式 */
+  filterParam?: string;
+  /** 结果数文字（静态） */
+  status: string;
+  /** 结果数元素上的 data-*（接入各页已有的筛选脚本） */
+  statusAttrs?: Record<string, string>;
+  /** 默认排序（静态 HTML 的顺序） */
+  sort?: 'new' | 'name' | 'editor';
+  /** 每页条数（加载更多）；0 = 不分批（已有服务端分页的页面） */
+  pageSize?: number;
+}
+const {
+  railLabel,
+  railName,
+  rail,
+  filterParam,
+  status,
+  statusAttrs = {},
+  sort = 'new',
+  pageSize = 24,
+} = Astro.props;
+const Rail = filterParam ? 'div' : 'nav';
+---
+
+<div class="list-layout list-layout--rail" data-list-shell data-page-size={pageSize} data-default-sort={sort}>
+  {/* 链接模式是导航（分类有静态页）；按钮模式是一组筛选按钮（list-filter.ts） */}
+  <Rail
+    class="list-rail"
+    aria-label={railName ?? railLabel}
+    role={filterParam ? 'group' : undefined}
+    data-list-filter={filterParam ? '' : undefined}
+    data-param={filterParam}
+  >
+    <h2 class="list-rail__title" aria-hidden="true">
+      {railLabel}
+    </h2>
+    <ul role="list">
+      {rail.map((r) => (
+        <li>
+          {r.href ? (
+            <a class="chip" href={r.href} aria-current={r.current ? 'page' : undefined}>
+              {r.label}
+              <span class="list-rail__n">{r.count}</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              class="chip"
+              data-value={r.value ?? ''}
+              aria-pressed={r.current ? 'true' : 'false'}
+              disabled
+            >
+              {r.label}
+              <span class="list-rail__n">{r.count}</span>
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  </Rail>
+  <div class="list-main">
+    <slot name="before" />
+    <div class="list-toolbar">
+      <p class="list-toolbar__count" role="status" {...statusAttrs}>
+        {status}
+      </p>
+      <div class="segmented" role="group" aria-label="排序" data-list-sort>
+        {ENTRY_SORTS.map((s) => (
+          <button type="button" data-entry-sort={s} aria-pressed={s === sort ? 'true' : 'false'} disabled>
+            {ENTRY_SORT_LABEL[s]}
+          </button>
+        ))}
+      </div>
+      <div class="segmented" role="group" aria-label="显示方式" data-list-viewtoggle>
+        <button type="button" data-view-set="grid" aria-pressed="true" disabled>
+          网格
+        </button>
+        <button type="button" data-view-set="list" aria-pressed="false" disabled>
+          列表
+        </button>
+      </div>
+    </div>
+    <slot />
+  </div>
+</div>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/list-shell'));
+</script>

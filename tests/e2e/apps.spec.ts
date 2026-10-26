@@ -43,9 +43,9 @@ async function mockStats(
   });
 }
 
-const cards = (page: Page) => page.locator('[data-catalog-grid] .app-card');
+const cards = (page: Page) => page.locator('[data-catalog-grid] [data-entry]');
 const titles = async (page: Page) =>
-  (await cards(page).locator('.card__title').allTextContents()).map((t) => t.trim());
+  (await cards(page).locator('.entry__title').allTextContents()).map((t) => t.trim());
 const catalogReady = (page: Page) =>
   expect(page.locator('[data-catalog-filter]')).toHaveAttribute('data-ready', 'yes');
 
@@ -279,11 +279,10 @@ test.describe('应用目录', () => {
     await expect(page).toHaveURL(/sort=hot/);
     await expect(cards(page).nth(0)).toContainText('Sub2API');
     await expect(cards(page).nth(1)).toContainText('Hermes');
-    await expect(cards(page).nth(1).locator('[data-card-stats]')).toHaveText('暂无评分 · 下载 26 次');
+    // P10：列表条目不再显示评分 / 下载数（站长决定），排序仍按真实数据
     await page.getByRole('button', { name: '评分' }).click();
     await expect(cards(page).nth(0)).toContainText('职业技能树工具');
     await expect(cards(page).nth(1)).toContainText('Capture Kit');
-    await expect(cards(page).nth(1).locator('[data-card-stats]')).toHaveText('★ 4.7（3 条评价）');
     await expect(page.locator('[data-catalog-status]')).toContainText('按评分排序');
     // 每页 24：一页放下，不出客户端分页
     await expect(cards(page)).toHaveCount(ALL_APPS);

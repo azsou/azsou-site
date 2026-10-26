@@ -263,6 +263,11 @@ export interface CatalogItem {
   updated: string;
   order: number;
   url: string;
+  /** 开发者短名（P10 商店条目） */
+  developer?: string;
+  /** 主操作（P10：官方渠道经 /go/ 中转，或详情页） */
+  action?: { label: string; href: string; outbound: boolean };
+  pinyin?: string;
 }
 
 export interface AppStats {

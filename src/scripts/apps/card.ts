@@ -1,6 +1,8 @@
-/** 目录卡片的浏览器端渲染（与 AppCard.astro 同一结构），以及卡片上的评分 / 下载数一行。 */
+/** 目录条目的浏览器端渲染，以及（详情页等仍在用的）评分 / 下载数文字。 */
 import { iconFallbackSrc, iconSrcset } from '@/lib/icons';
-import { PLATFORM_LABEL, formatCount, formatRating, type AppStats, type CatalogItem } from '@/lib/app-store';
+import { formatCount, formatRating, type AppStats, type CatalogItem } from '@/lib/app-store';
+import { formatDate } from '@/lib/dates';
+import { versionText } from '@/lib/store';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) {
   const e = document.createElement(tag);
@@ -9,56 +11,62 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+/**
+ * 目录条目的浏览器端渲染（P10：与 StoreEntry.astro 的 tile 形态同一结构，<li> 包 <article class="entry">）。
+ * 不显示评分（站长决定）；元数据只放有值的项。
+ */
 export function renderCard(item: CatalogItem, headingLevel: 'h2' | 'h3' = 'h3'): HTMLElement {
-  const card = el('article', 'card card--row card--hue app-card');
+  const li = el('li');
+  const card = el('article', 'entry entry--tile');
+  card.dataset.entry = item.slug;
   card.dataset.app = item.slug;
-  card.dataset.hue = item.hue;
-  const img = el('img', 'app-icon-img app-icon-img--md');
-  img.src = item.iconVariants ? iconFallbackSrc(item.iconSrc, 'md') : item.icon;
+  card.dataset.type = 'app';
+  card.dataset.sortNew = item.updated;
+  card.dataset.sortName = (item.pinyin || item.title).toLowerCase();
+  card.dataset.sortEditor = String(item.order);
+  const img = el('img', 'app-icon-img app-icon-img--lg');
+  img.src = item.iconVariants ? iconFallbackSrc(item.iconSrc, 'lg') : item.icon;
   img.alt = ''; // 名称就在旁边（DESIGN-SYSTEM §19.3）
-  img.width = 56;
-  img.height = 56;
+  img.width = 72;
+  img.height = 72;
   img.loading = 'lazy';
   img.decoding = 'async';
   // 与 AppIcon.astro（variants）同一结构：<picture> + AVIF source，WebP 1x / 2x 兜底
   let icon: HTMLElement = img;
   if (item.iconVariants) {
-    img.srcset = iconSrcset(item.iconSrc, 'md', 'webp');
+    img.srcset = iconSrcset(item.iconSrc, 'lg', 'webp');
     const pic = el('picture', 'app-icon-pic');
     const source = el('source');
     source.type = 'image/avif';
-    source.srcset = iconSrcset(item.iconSrc, 'md', 'avif');
+    source.srcset = iconSrcset(item.iconSrc, 'lg', 'avif');
     pic.append(source, img);
     icon = pic;
   }
-  const body = el('div', 'card__body');
-  const h = el(headingLevel, 'card__title');
-  const a = el('a', 'card__link', item.title);
+  const iconWrap = el('span', 'entry__icon');
+  iconWrap.append(icon);
+  const body = el('div', 'entry__body');
+  const h = el(headingLevel, 'entry__title');
+  const a = el('a', 'entry__link', item.title);
   a.href = item.url;
   h.append(a);
-  const meta = el('div', 'card__meta');
-  const dot = () => {
-    const s = el('span', undefined, '·');
-    s.setAttribute('aria-hidden', 'true');
-    return s;
-  };
-  meta.append(
-    el('span', undefined, item.categoryLabel),
-    dot(),
-    el('span', undefined, item.priceLabel),
-    el('span', `badge status status--${item.statusClass}`, item.status),
-  );
-  body.append(
-    h,
-    el('p', 'card__text', item.subtitle),
-    meta,
-    el('p', 'app-card__platforms', item.platforms.map((p) => PLATFORM_LABEL[p]).join(' · ')),
-  );
-  const stats = el('p', 'app-card__stats');
-  stats.dataset.cardStats = '';
-  body.append(stats);
-  card.append(icon, body);
-  return card;
+  const meta = el('p', 'entry__meta');
+  meta.append(el('span', 'entry__type entry__type--app', '应用'));
+  const facts = [
+    item.categoryLabel,
+    item.version && versionText(item.version),
+    item.updated && formatDate(item.updated),
+  ].filter(Boolean) as string[];
+  if (facts.length) meta.append(el('span', 'entry__facts', facts.join(' · ')));
+  body.append(h, el('p', 'entry__by', item.developer ?? item.subtitle), meta);
+  card.append(iconWrap, body);
+  const act = item.action ?? { label: '了解', href: item.url, outbound: false };
+  const btn = el('a', 'entry__action', act.label);
+  btn.href = act.href;
+  btn.setAttribute('aria-label', `${act.label}：${item.title}`);
+  if (act.outbound) btn.dataset.outbound = '';
+  card.append(btn);
+  li.append(card);
+  return li;
 }
 
 /** 卡片统计行：「★ 4.5（3 条评价）· 下载 12 次」；没有数据就写「暂无评分」，不编造 */
@@ -74,7 +82,7 @@ export function statsText(s: AppStats | undefined): string {
 }
 
 export function fillCardStats(root: ParentNode, stats: Record<string, AppStats>) {
-  for (const card of root.querySelectorAll<HTMLElement>('.app-card[data-app]')) {
+  for (const card of root.querySelectorAll<HTMLElement>('[data-app]')) {
     const line = card.querySelector<HTMLElement>('[data-card-stats]');
     if (line) line.textContent = statsText(stats[card.dataset.app!]);
   }

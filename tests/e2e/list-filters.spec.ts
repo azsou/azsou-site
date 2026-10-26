@@ -15,7 +15,8 @@ test.describe('列表页单套筛选（T9.12）', () => {
       await page.goto(path);
       const bar = page.locator('.filter-bar');
       await expect(bar).toHaveCount(1);
-      await expect(bar.locator('.chip-nav')).toBeVisible();
+      // P10 T10.8：/ai/ 的分类在统一列表外壳的分类栏（≥ 1200 左侧竖栏）；/videos/ 仍是胶囊行
+      await expect(page.locator(path === '/ai/' ? '.list-rail' : '.filter-bar .chip-nav')).toBeVisible();
       const more = bar.locator('[data-more-filters]');
       await expect(more).not.toHaveAttribute('open', '');
       await expect(more.locator('.more-filters__body')).toBeHidden();
@@ -54,7 +55,8 @@ test.describe('列表页单套筛选（T9.12）', () => {
     await expect(page.locator('[data-list-status]')).toHaveText(`共 ${total} 个游戏`);
     const group = page.getByRole('group', { name: '按形态筛选' });
     const second = group.getByRole('button').nth(1);
-    const kind = (await second.textContent())!.trim();
+    // 按钮里带数量（「可玩 Demo 4」），筛选值取 data-value
+    const kind = (await second.getAttribute('data-value'))!;
     await second.click();
     await expect(second).toHaveAttribute('aria-pressed', 'true');
     await expect(page).toHaveURL(
@@ -70,12 +72,9 @@ test.describe('列表页单套筛选（T9.12）', () => {
     await expect(page.locator('[data-list-status]')).toHaveText(`共 ${n} 个游戏 · ${kind}`);
     await page.reload();
     await ready(page);
-    await expect(group.getByRole('button', { name: kind, exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(group.locator(`button[data-value="${kind}"]`)).toHaveAttribute('aria-pressed', 'true');
     await expect(visibleIn(page, cards)).toHaveCount(n);
-    await group.getByRole('button', { name: '全部', exact: true }).click();
+    await group.locator('button[data-value=""]').click();
     await expect(page).toHaveURL(/\/games\/$/);
     await expect(visibleIn(page, cards)).toHaveCount(total);
     await page.goto('/games/?kind=nope');
@@ -84,17 +83,24 @@ test.describe('列表页单套筛选（T9.12）', () => {
     expect(errors).toEqual([]);
   });
 
-  test('/works/：按类别筛选整组，状态行计数正确', async ({ page, errors }) => {
+  test('/works/：按类别筛选（统一列表外壳，P10 T10.8），状态行计数正确', async ({ page, errors }) => {
     await page.goto('/works/');
     await ready(page);
-    const sections = page.locator('section[data-filter-item]');
-    const kinds = await sections.count();
-    expect(kinds).toBeGreaterThan(1);
+    const items = page.locator('[data-filter-item]');
+    const kinds = new Set(
+      await items.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.filterValue)),
+    );
+    expect(kinds.size).toBeGreaterThan(1);
     const group = page.getByRole('group', { name: '按类别筛选' });
-    await group.getByRole('button').nth(1).click();
-    await expect(visibleIn(page, 'section[data-filter-item]')).toHaveCount(1);
-    const shown = await visibleIn(page, 'section[data-filter-item]').locator('.card').count();
-    await expect(page.locator('[data-list-status]')).toContainText(`共 ${shown} 件作品 · `);
+    const btn = group.getByRole('button').nth(1);
+    const kind = (await btn.getAttribute('data-value'))!;
+    await btn.click();
+    const shown = visibleIn(page, '[data-filter-item]');
+    const n = await shown.count();
+    expect(n).toBeGreaterThan(0);
+    for (const v of await shown.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.filterValue)))
+      expect(v).toBe(kind);
+    await expect(page.locator('[data-list-status]')).toContainText(`共 ${n} 件作品 · `);
     expect(errors).toEqual([]);
   });
 });

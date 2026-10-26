@@ -147,6 +147,9 @@ export function catalogItem(a: App): CatalogItem {
     updated: d.updated ?? '',
     order: d.order,
     url: url.app(a.id),
+    developer: d.developer.short ?? d.developer.name,
+    action: fromApp(a).action,
+    pinyin: d.pinyin,
   };
 }
 
