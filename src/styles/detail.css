@@ -112,13 +112,13 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr);
     }
-    /* 三个以上平台：主按钮（按访客设备选出）独占首行，其余两列排，操作卡高度约减半 */
+    /* 三个以上平台：首个按钮独占首行，其余两列排，操作卡高度约减半。
+       按 DOM 位置而不是 .btn--primary 选：设备识别脚本加载后才改主按钮，按类名排会让按钮换位（CLS），也会让视觉顺序与 Tab 顺序不一致 */
     .detail-hero__actions .detail-actions:has(> :nth-child(3)) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .detail-hero__actions .detail-actions > .btn--primary {
+    .detail-hero__actions .detail-actions > :first-child {
       grid-column: 1 / -1;
-      order: -1;
     }
   }
   /* 文字按钮行：首个按钮的内边距向外抵消，文字与上方主按钮左缘光学对齐 */
@@ -374,8 +374,16 @@
 /* P10i r2：手机上主操作通栏（拇指区一眼可见，与下方信息块左右缘对齐） */
 @layer components {
   @media (max-width: 599.98px) {
-    .detail-hero__actions .detail-actions > .btn--primary {
-      width: 100%;
+    /* 按钮通栏；≥ 3 个时首个独占一行、其余两列（同样按 DOM 位置，不随设备识别换位） */
+    .detail-hero__actions .detail-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .detail-hero__actions .detail-actions:has(> :nth-child(3)) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .detail-hero__actions .detail-actions > :first-child {
+      grid-column: 1 / -1;
     }
   }
 }
