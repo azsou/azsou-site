@@ -54,7 +54,7 @@ for (const p of PAGES) {
 test('悬停卡片不引起布局位移', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/apps/');
-  const card = page.locator('main [data-grid] .card__link').first();
+  const card = page.locator('main [data-grid] :is(.card__link, .entry__link)').first();
   const before = await page.locator('main [data-grid] > *').nth(1).boundingBox();
   await card.hover();
   await page.waitForTimeout(400);

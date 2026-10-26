@@ -14,15 +14,17 @@ interface Props {
   note?: string;
   /** 最多几名（默认 10） */
   limit?: number;
+  /** 首屏内的排行：图标 eager（40px 小图标） */
+  eager?: boolean;
 }
-const { id, title, entries, more, note = '按编辑推荐排名', limit = 10 } = Astro.props;
+const { id, title, entries, more, note = '按编辑推荐排名', limit = 10, eager = false } = Astro.props;
 const top = [...entries].sort((a, b) => a.order - b.order).slice(0, limit);
 ---
 
 <Shelf id={id} title={title} note={note} more={more} kind="mini" ordered>
   {top.map((e, i) => (
     <li>
-      <AppMini entry={e} rank={i + 1} />
+      <AppMini entry={e} rank={i + 1} eager={eager} />
     </li>
   ))}
 </Shelf>
