@@ -116,6 +116,11 @@ test.describe('发帖', () => {
     await page.getByRole('button', { name: '发布主题' }).click();
     await expect(page.locator('[data-error-for="body"]')).toHaveText('正文最多 4000 个字符');
     await expect(page).toHaveURL(/\/forum\/new\//);
+    // DESIGN-AUDIT-3 A3-1：390 宽工具栏横向滚动，按钮里的 .visually-hidden 不再把文档撑宽
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+      .toBeLessThanOrEqual(0);
   });
 
   test('限流（PT429）显示中文提示', async ({ page, db, makeUser, signIn }) => {

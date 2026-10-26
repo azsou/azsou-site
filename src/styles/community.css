@@ -304,6 +304,8 @@
   }
   /* 窄屏：工具栏横向滚动（按钮本身可聚焦，键盘可达），不占两行 */
   .composer__bar {
+    /* 定位祖先：按钮里 .visually-hidden（absolute）跟着滚动容器裁剪，否则 390 宽把文档撑宽 70+ px（DESIGN-AUDIT-3 A3-1） */
+    position: relative;
     display: flex;
     flex: 1;
     min-width: 0;
