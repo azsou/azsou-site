@@ -402,21 +402,18 @@ export function profilePanels(
         ? h(
             'ul',
             { class: 'related-list', role: 'list', 'data-logins': true },
-            ...p.logins
-              .slice(0, 8)
-              .map((l) =>
-                h(
-                  'li',
-                  {},
-                  h('time', { datetime: l.createdAt, text: dateTime(l.createdAt) }),
-                  h('span', {
-                    class: 'muted',
-                    text:
-                      [l.ip, l.userAgent ? plainText(l.userAgent, 48) : ''].filter(Boolean).join(' · ') ||
-                      '—',
-                  }),
-                ),
+            ...p.logins.slice(0, 8).map((l) =>
+              h(
+                'li',
+                {},
+                h('time', { datetime: l.createdAt, text: dateTime(l.createdAt) }),
+                h('span', {
+                  class: 'muted',
+                  text:
+                    [l.ip, l.userAgent ? plainText(l.userAgent, 48) : ''].filter(Boolean).join(' · ') || '—',
+                }),
               ),
+            ),
           )
         : h('p', { class: 'muted', text: '没有登录会话记录（数据来自认证服务的会话表）。' }),
     ),
@@ -426,19 +423,17 @@ export function profilePanels(
         ? h(
             'ul',
             { class: 'related-list', role: 'list', 'data-posts': true },
-            ...p.posts
-              .slice(0, 10)
-              .map((x) =>
-                h(
-                  'li',
-                  {},
-                  h('span', {
-                    text: `${kindLabel[x.kind]}：${x.title || plainText(x.excerpt, 40) || '（空）'}`,
-                  }),
-                  x.published ? null : h('span', { class: 'badge badge--danger', text: '已隐藏' }),
-                  h('time', { datetime: x.createdAt, text: dateTime(x.createdAt) }),
-                ),
+            ...p.posts.slice(0, 10).map((x) =>
+              h(
+                'li',
+                {},
+                h('span', {
+                  text: `${kindLabel[x.kind]}：${x.title || plainText(x.excerpt, 40) || '（空）'}`,
+                }),
+                x.published ? null : h('span', { class: 'badge badge--danger', text: '已隐藏' }),
+                h('time', { datetime: x.createdAt, text: dateTime(x.createdAt) }),
               ),
+            ),
           )
         : h('p', { class: 'muted', text: '还没有发布内容。' }),
     ),
