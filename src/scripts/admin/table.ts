@@ -233,9 +233,13 @@ export function rowMenu(name: string, items: MenuItem[]): HTMLElement {
     place();
     openMenu = { close };
     document.addEventListener('pointerdown', onDoc, true);
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
-    entries[at === 'first' ? 0 : entries.length - 1]?.focus();
+    entries[at === 'first' ? 0 : entries.length - 1]?.focus({ preventScroll: true });
+    // 滚动 / 缩放关闭从下一帧开始监听：WebKit 移动端聚焦菜单项时可能触发一次滚动，不能把刚打开的菜单关掉
+    requestAnimationFrame(() => {
+      if (list.hidden) return;
+      window.addEventListener('scroll', onScroll, true);
+      window.addEventListener('resize', onScroll);
+    });
   }
   btn.addEventListener('click', () => (list.hidden ? open() : close(true)));
   btn.addEventListener('keydown', (e) => {
@@ -246,7 +250,7 @@ export function rowMenu(name: string, items: MenuItem[]): HTMLElement {
   });
   list.addEventListener('keydown', (e) => {
     const i = entries.indexOf(document.activeElement as HTMLButtonElement);
-    const go = (n: number) => entries[(n + entries.length) % entries.length]?.focus();
+    const go = (n: number) => entries[(n + entries.length) % entries.length]?.focus({ preventScroll: true });
     if (e.key === 'ArrowDown') go(i + 1);
     else if (e.key === 'ArrowUp') go(i - 1);
     else if (e.key === 'Home') go(0);

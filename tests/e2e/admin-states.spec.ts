@@ -83,8 +83,12 @@ test.describe('后台外壳与状态（夹具）', () => {
     await page.goto('/admin/content/');
     await expect(rows(page)).toHaveCount(CONTENT_ROWS.length);
     const btn = rows(page).nth(1).getByRole('button', { name: '更多操作' });
+    await expect(rows(page).first()).toBeVisible();
+    await expect(page.locator('tbody[data-rows]')).not.toHaveAttribute('aria-busy', 'true');
     await btn.focus();
+    await expect(btn).toBeFocused();
     await page.keyboard.press('ArrowDown');
+    await expect(btn).toHaveAttribute('aria-expanded', 'true');
     const menu = page.getByRole('menu');
     await expect(menu).toBeVisible();
     await expect(menu.getByRole('menuitem').first()).toBeFocused();
