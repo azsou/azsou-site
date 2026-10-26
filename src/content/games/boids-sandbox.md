@@ -5,7 +5,7 @@
   "art": "game-8",
   "hue": "teal",
   "version": "0.9",
-  "status": "可玩 · 打磨中",
+  "status": "打磨中",
   "date": "2026-06-25",
   "order": 5,
   "pinyin": "xqsh",
@@ -51,7 +51,7 @@
   "en": {
     "title": "Boids Swarm Sandbox",
     "kind": "Web 3D",
-    "status": "Playable · Polishing",
+    "status": "Polishing",
     "summary": "A Boids flocking sandbox with three thousand agents: tune separation, alignment and cohesion live, and export long-exposure trail images in one click (the one in the works section came from it).",
     "genre": "Swarm simulation sandbox"
   }

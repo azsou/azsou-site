@@ -5,7 +5,7 @@
   "art": "game-12",
   "hue": "blue",
   "version": "0.5",
-  "status": "开发中 · 可试用",
+  "status": "开发中",
   "date": "2026-06-29",
   "order": 9,
   "pinyin": "tsdkt",
@@ -51,7 +51,7 @@
   "en": {
     "title": "Voxel Sculpt",
     "kind": "In development",
-    "status": "In development · Try it",
+    "status": "In development",
     "summary": "A voxel sculpting tool in the browser with add/subtract brushes, mirror symmetry and a palette. Built for modelling EMBERDEEP characters and props, with export that plugs into the game pipeline.",
     "genre": "Creative tool (for games)"
   }

@@ -55,7 +55,7 @@ test.describe('列表页单套筛选（T9.12）', () => {
     await expect(page.locator('[data-list-status]')).toHaveText(`共 ${total} 个游戏`);
     const group = page.getByRole('group', { name: '按形态筛选' });
     const second = group.getByRole('button').nth(1);
-    // 按钮里带数量（「可玩 Demo 4」），筛选值取 data-value
+    // 按钮里带数量（「开发中 7」），筛选值取 data-value
     const kind = (await second.getAttribute('data-value'))!;
     await second.click();
     await expect(second).toHaveAttribute('aria-pressed', 'true');

@@ -8,17 +8,17 @@ import ListShell from '@/components/store/ListShell.astro';
 import { getGames } from '@/lib/content';
 import { fromGame, sortEntries } from '@/lib/store';
 const games = await getGames();
-/** T10.8：统一列表外壳；分类栏 = 按形态（可玩 Demo / 开发中 / Web 3D）单套筛选（list-filter.ts） */
+/** T10.8：统一列表外壳；分类栏 = 按形态（开发中 / Web 3D）单套筛选（list-filter.ts） */
 const kinds = [...new Set(games.map((g) => g.data.kind))];
 const entries = sortEntries(games.map(fromGame), 'new');
 ---
 
 <Base
-  title="游戏与可玩 Demo"
+  title="游戏与原型"
   description="EMBERDEEP、Three.js 魔方、声波塔防等浏览器游戏与原型：版本号如实反映完成度，附开发日志与已知问题。"
   schema={[
     itemList(
-      '游戏与可玩 Demo',
+      '游戏与原型',
       '/games/',
       games.map((g) => ({ name: g.data.title, path: url.game(g.id) })),
     ),
@@ -30,7 +30,7 @@ const entries = sortEntries(games.map(fromGame), 'new');
 >
   <PageHead
     eyebrow="游戏"
-    title="游戏与可玩 Demo"
+    title="游戏与原型"
     lede="浏览器里的 Roguelike、Web 3D 与物理小品。不包装成商业发行，版本号如实反映完成度。"
   />
   <ListShell

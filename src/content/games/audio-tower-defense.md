@@ -1,11 +1,11 @@
 ---
 {
   "title": "声波塔防",
-  "kind": "可玩 Demo",
+  "kind": "开发中",
   "art": "game-7",
   "hue": "green",
   "version": "0.6",
-  "status": "开发中 · 可玩",
+  "status": "开发中",
   "date": "2026-07-02",
   "order": 4,
   "pinyin": "sbtf",
@@ -50,8 +50,8 @@
   "issues": "Safari 的 AudioWorklet 兼容性待验证；关卡只有 3 个。",
   "en": {
     "title": "Audio Tower Defense",
-    "kind": "Playable demo",
-    "status": "In development · Playable",
+    "kind": "In development",
+    "status": "In development",
     "summary": "A tower defense driven by real-time Web Audio analysis: enemies march over waveform terrain and tower fire rates follow the audio bands. A playable spin-off of the Procedural Soundfield project.",
     "genre": "Audio tower defense"
   }

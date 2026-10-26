@@ -1,11 +1,11 @@
 ---
 {
   "title": "像素地牢实验",
-  "kind": "可玩 Demo",
+  "kind": "开发中",
   "art": "game-3",
   "hue": "teal",
   "version": "0.5",
-  "status": "实验 · 可玩",
+  "status": "实验",
   "date": "2026-06-15",
   "order": 3,
   "pinyin": "xsdlsy",
@@ -50,8 +50,8 @@
   "issues": "平衡性未调；作为机制试验田长期保持实验状态。",
   "en": {
     "title": "Pixel Dungeon Lab",
-    "kind": "Playable demo",
-    "status": "Experiment · Playable",
+    "kind": "In development",
+    "status": "Experiment",
     "summary": "A pixel-art dungeon crawl experiment with turn-based movement, fog of war and torch lighting. Many EMBERDEEP mechanics are tried out here at small scale first.",
     "genre": "Pixel roguelike"
   }

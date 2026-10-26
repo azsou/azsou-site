@@ -5,7 +5,7 @@
   "art": "game-2",
   "hue": "blue",
   "version": "1.0",
-  "status": "已完成 · 可玩",
+  "status": "已完成",
   "date": "2026-05-20",
   "order": 2,
   "pinyin": "mf",
@@ -51,7 +51,7 @@
   "en": {
     "title": "Three.js Rubik's Cube",
     "kind": "Web 3D",
-    "status": "Finished · Playable",
+    "status": "Finished",
     "summary": "A Three.js practice project: a fully interactive Rubik's cube with drag-to-turn layers, scrambling and solve animation. As the first lesson of the Web 3D series, it keeps dependencies to a minimum.",
     "genre": "Web 3D interaction"
   }

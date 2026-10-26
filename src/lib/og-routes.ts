@@ -23,7 +23,7 @@ export const OG_SECTIONS: Record<
   'en-apps': { title: 'Apps', tagline: 'Apps by AZ Studio and curated picks', icons: 'apps' },
   'en-ai': { title: 'AI Tools', tagline: 'Coding agents, model clients and MCP servers', icons: 'tools' },
   'en-videos': { title: 'Videos', tagline: 'Curated AI coding and game dev videos', icons: 'tools' },
-  'en-games': { title: 'Games', tagline: 'Playable small games and tech prototypes', icons: 'mixed' },
+  'en-games': { title: 'Games', tagline: 'Small games and tech prototypes', icons: 'mixed' },
   'en-articles': { title: 'Articles', tagline: 'Dev notes and long-form write-ups', icons: 'mixed' },
   'en-site': { title: 'AZ Studio', tagline: 'Indie apps, AI tools, games and dev notes', icons: 'mixed' },
 };

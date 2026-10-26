@@ -1,11 +1,11 @@
 ---
 {
   "title": "重力高尔夫",
-  "kind": "可玩 Demo",
+  "kind": "开发中",
   "art": "game-9",
   "hue": "orange",
   "version": "0.7",
-  "status": "可玩 · 开发中",
+  "status": "开发中",
   "date": "2026-06-18",
   "order": 6,
   "pinyin": "zlgef",
@@ -47,8 +47,8 @@
   "issues": "关卡编辑器只在开发构建里；手感参数仍在迭代。",
   "en": {
     "title": "Gravity Golf",
-    "kind": "Playable demo",
-    "status": "Playable · In development",
+    "kind": "In development",
+    "status": "In development",
     "summary": "Golf in planetary gravity fields: aim, charge and watch the trajectory bend around several bodies. The physics is a hand-written two-body approximation whose error is acceptable at level scale.",
     "genre": "Physics trajectory puzzle"
   }

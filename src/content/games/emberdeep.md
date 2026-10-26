@@ -1,11 +1,11 @@
 ---
 {
   "title": "EMBERDEEP",
-  "kind": "可玩 Demo",
+  "kind": "开发中",
   "art": "game-4",
   "hue": "green",
   "version": "0.8",
-  "status": "活跃开发 · 可玩 Demo",
+  "status": "活跃开发",
   "date": "2026-07-17",
   "order": 1,
   "pinyin": "",
@@ -54,8 +54,8 @@
   ],
   "issues": "移动端触控操作仍在设计；超大地图（>64³）在低端设备上生成耗时明显；音效占位。",
   "en": {
-    "kind": "Playable demo",
-    "status": "Active development · Playable demo",
+    "kind": "In development",
+    "status": "Active development",
     "summary": "A voxel roguelike with voxel dungeons, torch lighting, classes and skill trees. Version 0.8 focuses on migrating old saves to the new class system. The demo runs the current build in the browser; it is not presented as a commercial release, and the version number reflects how complete it is.",
     "genre": "Voxel Roguelike"
   }
