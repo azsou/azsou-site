@@ -3,11 +3,12 @@ import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './fixtures';
 
 /**
- * T6.8 首页（应用商店 + 内容门户）：区块按真实数据渲染、没有数据的区块整块隐藏、横向行的上一组 / 下一组按钮、
- * hero 搜索与 Ctrl/⌘K、站内链接全部可用、移动端底部 TabBar 不遮挡内容、结构化数据、不出现伪造指标。
+ * P10 T10.6 首页（纯货架）：紧凑搜索头 → 货架（最新更新 / AI 工具编辑推荐排行 / 我们的应用 / 游戏 / 按平台 / 分类）
+ * → 文章、视频各一行。货架按真实数据渲染、不出现评分 / 下载量等伪造指标；搜索与 Ctrl/⌘K；
+ * 窄屏货架横滑不撑宽页面；站内链接全部可用；移动端底部 TabBar 不遮挡内容；结构化数据。
  */
 
-const EXPECTED = ['featured', 'apps', 'ai', 'updates', 'videos', 'articles', 'more'];
+const EXPECTED = ['latest', 'ai', 'apps', 'games', 'platforms', 'categories', 'articles', 'videos'];
 const isDesktop = (name: string) => name.endsWith('-desktop');
 const sections = (page: Page) =>
   page
@@ -15,37 +16,51 @@ const sections = (page: Page) =>
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-section')));
 
 test.describe('首页 /', () => {
-  test('区块按顺序渲染、每块都有真实条目；没有数据的「最新上架」整块隐藏', async ({ page, errors }) => {
+  test('货架按顺序渲染、每块都有真实条目；没有 hero 装饰与大 CTA；不显示评分 / 下载量', async ({
+    page,
+    errors,
+  }) => {
     await page.goto('/');
-    await expect(page.locator('h1')).toContainText('一站找到');
+    await expect(page.locator('h1')).toHaveText('应用、AI 工具与游戏');
     expect(await sections(page)).toEqual(EXPECTED);
-    // 首屏有一个明确的主按钮（T9.11）
-    await expect(page.locator('.home-hero .btn--primary')).toHaveCount(1);
-    await expect(page.locator('.home-hero .btn--primary')).toBeVisible();
-    // 应用都没有 releaseDate → 不渲染「最新上架」，也没有空壳 / 占位框
-    await expect(page.locator('[data-section="new"]')).toHaveCount(0);
+    // T10.7：装饰图标拼贴、平台胶囊区、大 CTA 区已删除
+    await expect(page.locator('.icon-wall, .home-chips, .home-cta, .home-hero')).toHaveCount(0);
     for (const id of EXPECTED) {
-      const items = page.locator(`[data-section="${id}"] :is(li, article)`);
+      const items = page.locator(`[data-section="${id}"] li`);
       expect(await items.count(), id).toBeGreaterThan(0);
     }
-    // 不伪造评分 / 下载量 / 用户数，没有广告位
     const text = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
-    expect(text).not.toMatch(/★|评分\s*\d|\d+(\.\d+)?\s*(万|千)?\s*次下载|下载量\s*\d|\d+\s*位用户|广告/);
-    await expect(page.locator('[data-section="ai"] .home-sec__note')).toContainText('按编辑推荐顺序');
+    expect(text).not.toMatch(
+      /★|评分\s*\d|\d+(\.\d+)?\s*(万|千)?\s*次下载|下载量\s*\d|\d+\s*位用户|广告|N\/A/,
+    );
+    // 排行如实标注编辑推荐，名次 1–10
+    await expect(page.locator('[data-section="ai"] .shelf__note')).toContainText('按编辑推荐');
+    await expect(page.locator('[data-section="ai"] [data-entry]')).toHaveCount(10);
+    // 每个商店条目都有类型徽标与主操作
+    const entries = page.locator('[data-section="latest"] [data-entry]');
+    expect(await entries.count()).toBeGreaterThanOrEqual(12);
+    await expect(entries.first().locator('.entry__type')).toHaveText(/应用|AI 工具|游戏/);
+    await expect(entries.first().locator('.entry__action')).toHaveAttribute(
+      'href',
+      /^\/(apps|ai|games|go)\//,
+    );
     expect(errors).toEqual([]);
   });
 
-  test('编辑精选 = featured 的自研应用 + AI 工具，与 ItemList 结构化数据一致', async ({ page }) => {
+  test('最新更新 = 有更新日期的条目（新的在前），与 ItemList 结构化数据一致', async ({ page }) => {
     await page.goto('/');
     const slugs = await page
-      .locator('[data-section="featured"] [data-featured]')
-      .evaluateAll((els) => els.map((e) => e.getAttribute('data-featured')));
-    expect(slugs[0]).toBe('fablemotion');
-    expect(slugs).toEqual(expect.arrayContaining(['claude-code', 'codex-cli', 'cursor']));
+      .locator('[data-section="latest"] [data-entry]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-entry')));
+    const dates = await page
+      .locator('[data-section="latest"] [data-entry]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-sort-new') ?? ''));
+    expect(dates.every(Boolean)).toBe(true);
+    expect([...dates].sort().reverse()).toEqual(dates);
     const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
     const list = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'ItemList');
     expect(list.numberOfItems).toBe(slugs.length);
-    expect(list.itemListElement[0].url).toBe('https://azsou.com/apps/fablemotion/');
+    expect(list.itemListElement[0].url).toMatch(/^https:\/\/azsou\.com\/(apps|games)\//);
     const site = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'WebSite');
     expect(site.potentialAction.target.urlTemplate).toContain('/search/?q=');
     expect(ld['@graph'].map((n: { '@type': string }) => n['@type'])).toEqual(
@@ -53,7 +68,7 @@ test.describe('首页 /', () => {
     );
   });
 
-  test('hero 搜索提交到 /search/；快捷入口带真实数量', async ({ page }) => {
+  test('搜索头提交到 /search/；推荐搜索词；按平台入口带真实数量', async ({ page }) => {
     await page.goto('/');
     const input = page.getByRole('search', { name: '站内搜索' }).getByLabel('搜索关键词');
     await input.fill('塔防');
@@ -62,12 +77,11 @@ test.describe('首页 /', () => {
     await expect(page.locator('[data-results] a').first()).toContainText('声波塔防');
 
     await page.goto('/');
-    const chips = page.locator('.home-chips a');
-    // T9.11：平台 / 分类胶囊 ≤ 6
-    expect(await chips.count()).toBeGreaterThan(3);
-    expect(await chips.count()).toBeLessThanOrEqual(6);
-    await expect(page.locator('.home-chips a[href="/ai/category/agent/"]')).toContainText(/Agent\D*\d+/);
-    await expect(page.locator('.home-chips a[href="/apps/platform/browser-ext/"]')).toBeVisible();
+    await expect(page.locator('.home-try a')).toHaveCount(4);
+    await expect(
+      page.locator('[data-section="platforms"] a[href="/apps/platform/browser-ext/"]'),
+    ).toBeAttached();
+    await expect(page.locator('[data-section="platforms"] .gate').first()).toContainText(/\d+ 个应用/);
   });
 
   test('Ctrl/⌘K 打开全站搜索面板（首页同样适用）', async ({ page }, info) => {
@@ -78,62 +92,37 @@ test.describe('首页 /', () => {
     await expect(page.getByRole('combobox', { name: '搜索关键词' })).toBeFocused();
   });
 
-  test('横向行：上一组 / 下一组按钮（到头禁用、可键盘操作、有无障碍名称）', async ({ page }, info) => {
-    test.skip(!isDesktop(info.project.name), '按钮只在 ≥ 600px 显示；窄屏用手势滑动');
-    await page.emulateMedia({ reducedMotion: 'reduce' });
+  test('窄屏：货架横向滑动、可聚焦，不撑宽页面', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) >= 900, '只看 < 900px（宽屏是 2 行网格）');
     await page.goto('/');
-    const sec = page.locator('[data-section="apps"]');
-    const track = sec.locator('[data-srow]');
-    const prev = sec.getByRole('button', { name: '上一组：AZ Studio 出品' });
-    const next = sec.getByRole('button', { name: '下一组：AZ Studio 出品' });
-    await expect(next).toBeVisible();
-    await expect(next).toHaveAttribute('aria-controls', 'row-apps');
-    await expect(prev).toBeDisabled();
-    await expect(next).toBeEnabled();
-    await next.click();
-    await expect.poll(() => track.evaluate((e) => e.scrollLeft)).toBeGreaterThan(100);
-    await expect(prev).toBeEnabled();
-    // 键盘：Tab 到按钮、Enter 触发
-    await prev.focus();
-    await page.keyboard.press('Enter');
-    await expect.poll(() => track.evaluate((e) => e.scrollLeft)).toBeLessThan(3);
-    await expect(prev).toBeDisabled();
-    // 滚到尾：下一组禁用、上一组可用（按钮状态在 scroll 事件后的下一帧更新，所以等状态而不是连点）
-    await track.evaluate((e) => e.scrollTo({ left: e.scrollWidth, behavior: 'instant' }));
-    await expect(next).toBeDisabled();
-    await expect(prev).toBeEnabled();
-    // 滚动区域可聚焦（键盘用户能用方向键滚动）
-    await expect(track).toHaveAttribute('tabindex', '0');
-    await expect(track).toHaveAttribute('aria-label', 'AZ Studio 出品');
-    // 整数张 + 露出：可见区里完整显示的卡片数为整数，且没有被硬切的半张（除了最后 48px 露出）
-    const box = await track.evaluate((e) => {
-      const r = e.getBoundingClientRect();
-      const pad = parseFloat(getComputedStyle(e).paddingLeft);
-      const cards = [...e.children].map((c) => c.getBoundingClientRect());
-      const full = cards.filter((c) => c.left >= r.left + pad - 1 && c.right <= r.right - 40).length;
-      return { full, w: cards[0].width };
-    });
-    expect(box.full).toBeGreaterThanOrEqual(1);
-  });
-
-  test('窄屏：按钮隐藏，行可横向滑动且不撑宽页面', async ({ page }) => {
-    test.skip((page.viewportSize()?.width ?? 0) >= 768, '只看 < 768px（平板及以上显示按钮）');
-    await page.goto('/');
-    await expect(page.locator('[data-section="featured"] .srow-ctl')).toBeHidden();
-    const track = page.locator('#row-featured');
+    const track = page.locator('[data-section="latest"] [data-shelf]');
     expect(await track.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
+    await expect(track).toHaveAttribute('tabindex', '0');
+    await expect(track).toHaveAttribute('aria-label', '最新更新');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-    // 失败时列出撑宽页面的元素（不在横向滚动容器里、右边超出视口的）
     const culprits = await page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>('body *')]
         .filter((e) => e.getBoundingClientRect().right > innerWidth + 1)
-        .filter((e) => !e.parentElement?.closest('.srow, .home-chips ul, .tabbar'))
+        .filter((e) => !e.parentElement?.closest('[data-shelf], .home-try, .tabbar'))
         .slice(0, 5)
         .map(
           (e) => `${e.tagName.toLowerCase()}.${e.className} ${Math.round(e.getBoundingClientRect().right)}`,
         ),
     );
     expect(overflow, culprits.join(' | ')).toBeLessThanOrEqual(1);
+  });
+
+  test('宽屏：货架是 2 行网格（多出的条目隐藏，去「更多」看全部）', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 1200, '只看 ≥ 1200');
+    await page.goto('/');
+    const tops = await page
+      .locator('[data-section="latest"] [data-entry]')
+      .evaluateAll((els) =>
+        els
+          .filter((e) => e.getBoundingClientRect().width > 0)
+          .map((e) => Math.round(e.getBoundingClientRect().top)),
+      );
+    expect(new Set(tops).size).toBe(2);
   });
 
   test('移动端：底部 TabBar 不遮挡最后的内容', async ({ page }, info) => {
@@ -144,7 +133,7 @@ test.describe('首页 /', () => {
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     await page.waitForTimeout(200);
     const tabTop = await tabbar.evaluate((e) => e.getBoundingClientRect().top);
-    for (const sel of ['[data-section="more"] .home-more', '.site-footer .footer-bottom']) {
+    for (const sel of ['[data-section="videos"] [data-shelf]', '.site-footer .footer-bottom']) {
       const bottom = await page.locator(sel).evaluate((e) => e.getBoundingClientRect().bottom);
       expect(bottom, sel).toBeLessThanOrEqual(tabTop + 1);
     }
@@ -156,8 +145,8 @@ test.describe('首页 /', () => {
     const hrefs = await page
       .locator('main a[href^="/"]')
       .evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('href')!))]);
-    // T9.11 区块 ≤ 8（分类 / 游戏 / 作品 / 论坛 / 关于并入「更多」或页脚），站内链接从 60+ 降到 50 左右
-    expect(hrefs.length).toBeGreaterThan(40);
+    // P10 纯货架：条目 + 主操作 + 平台 / 分类入口，站内链接 60 以上
+    expect(hrefs.length).toBeGreaterThan(50);
     const bad: string[] = [];
     for (const h of hrefs) {
       const r = await request.get(h);

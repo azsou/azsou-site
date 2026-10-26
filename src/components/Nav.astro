@@ -58,15 +58,20 @@ const extra = items.slice(PRIMARY);
       </li>
     </ul>
     <div class="nav-actions">
+      {/* T10.10：≥ 1200 是常驻搜索框（同一个元素按宽度换形态：打开 Ctrl K 面板，无 JS 时去 /search/）；< 1200 是图标 */}
       <a
-        class="icon-btn"
+        class="icon-btn nav-search"
         href="/search/"
-        aria-label={en ? 'Search (Ctrl K)' : '搜索（Ctrl K）'}
         aria-keyshortcuts="Control+K Meta+K"
         aria-current={path.startsWith('/search/') ? 'page' : undefined}
         data-palette-open
       >
         <Icon name="search" />
+        {/* 可访问名称 = 这段文字（< 1200 视觉隐藏、仍可读；≥ 1200 显示为占位提示） */}
+        <span class="nav-search__text">{en ? 'Search apps & AI tools' : '搜索应用、AI 工具'}</span>
+        <kbd class="nav-search__kbd" aria-hidden="true">
+          Ctrl K
+        </kbd>
       </a>
       <button
         class="icon-btn theme-btn"

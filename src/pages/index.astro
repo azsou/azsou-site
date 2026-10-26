@@ -1,180 +1,85 @@
 ---
-import { formatDate } from '@/lib/dates';
-import GeoIcon from '@/components/GeoIcon.astro';
 /**
- * 首页（T6.8）：应用商店 + 内容门户。只用内容集合里的真实数据：
- * 没有数据的区块整块不渲染（homeSections()），不放占位框，不显示评分 / 下载量 / 用户数。
- * 首页只有一个小脚本（横向行的上一组 / 下一组按钮 + Ctrl/⌘K），没有框架 island。
+ * 首页（P10 T10.6，站长选定方案 B「纯货架」）：紧凑搜索头（≤ 160px，含热门词）→ 货架：
+ * 最新更新 / AI 工具（编辑推荐排行）/ 我们的应用 / 游戏 / 按平台 / 分类 → 文章、视频各一行。
+ * 只用内容集合里的真实数据：没有条目的货架整块不渲染；不显示评分 / 下载量 / 热度（没有真实数据，不编造），
+ * 排行如实标注「按编辑推荐」。T10.7：去掉了 hero 大标题、装饰图标拼贴、平台胶囊区与大 CTA 区，关于文案在 /about/。
  */
 import '@/styles/home.css';
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import Base from '@/layouts/Base.astro';
 import AppIcon from '@/components/apps/AppIcon.astro';
-import HomeSection from '@/components/home/HomeSection.astro';
-import FeatureCard from '@/components/home/FeatureCard.astro';
-import AppTile from '@/components/home/AppTile.astro';
-import ArticleCard from '@/components/ArticleCard.astro';
 import Icon from '@/components/Icon.astro';
 import VideoCard from '@/components/videos/VideoCard.astro';
-import {
-  getApps,
-  getArticles,
-  getGames,
-  getTools,
-  getVideos,
-  getWorks,
-  forum,
-  videoItem,
-} from '@/lib/content';
-import { AI_CATEGORIES, CATEGORIES, PLATFORM_LABEL, PRICE_LABEL } from '@/lib/app-store';
-import {
-  categoryTiles,
-  featuredItemList,
-  featuredItems,
-  homeSections,
-  homeVideos,
-  iconWall,
-  appBrand,
-  toolBrand,
-  TRY_QUERIES,
-  latestByDate,
-  latestThreads,
-  newReleases,
-  quickChips,
-  recentUpdates,
-  toolsByEditorOrder,
-} from '@/lib/home';
-import { toolHue } from '@/lib/hue';
+import AppTile from '@/components/store/AppTile.astro';
+import Ranking from '@/components/store/Ranking.astro';
+import Shelf from '@/components/store/Shelf.astro';
+import { getArticles, getStoreEntries, getApps, getTools, getVideos, videoItem } from '@/lib/content';
+import { PLATFORMS, PLATFORM_LABEL, type PlatformOs } from '@/lib/app-store';
+import { categoryTiles, homeVideos, TRY_QUERIES } from '@/lib/home';
+import { latestUpdated, sortEntries, type StoreEntry } from '@/lib/store';
+import { formatDate } from '@/lib/dates';
 import { abs } from '@/lib/seo';
 import { SITE } from '@/lib/site';
 import { url } from '@/lib/routes';
 
-const [apps, tools, videos, games, articles, works] = await Promise.all([
+const [{ apps, tools, games }, rawApps, rawTools, videos, articles] = await Promise.all([
+  getStoreEntries(),
   getApps(),
   getTools(),
   getVideos(),
-  getGames(),
   getArticles(),
-  getWorks(),
 ]);
 
-const featured = featuredItems(apps, tools);
-const chips = quickChips(apps, tools);
-const ownApps = apps.filter((a) => a.data.developer.type === 'self');
-const fresh = newReleases(apps);
-const aiTools = toolsByEditorOrder(tools, 12);
-const updates = recentUpdates(apps, games, 6);
-const cats = categoryTiles(apps, tools);
-const homeVids = homeVideos(videos, 4).map(videoItem);
-const homeGames = [...games].sort((a, b) => a.data.order - b.data.order);
-const homeArticles = articles.slice(0, 4);
-const homeWorks = latestByDate(works, 8);
-const threads = latestThreads(forum.seeds, 5);
-
-const show = new Set(
-  homeSections({
-    featured: featured.length,
-    apps: ownApps.length,
-    new: fresh.length,
-    ai: aiTools.length,
-    updates: updates.length,
-    videos: homeVids.length,
-    articles: homeArticles.length,
-    more: 1,
-  }),
+const ownApps = sortEntries(
+  apps.filter((a) => rawApps.find((r) => r.id === a.slug)?.data.developer.type === 'self'),
+  'editor',
 );
-// 「更多内容」（T9.11：区块 ≤ 8）：游戏 / 作品 / 论坛 / 分类 / 关于 / 订阅并成一组入口卡，只写真实数量
-const moreLinks = [
-  homeGames.length > 0 && {
-    href: url.games(),
-    icon: 'games',
-    title: '游戏与可玩 Demo',
-    note: `${homeGames.length} 个，可在浏览器里试玩`,
-  },
-  homeWorks.length > 0 && {
-    href: url.works(),
-    icon: 'works',
-    title: '作品',
-    note: `${works.length} 件插画、动效与实验`,
-  },
-  threads.length > 0 && {
-    href: url.forum(),
-    icon: 'forum',
-    title: '论坛',
-    note: `最新：${threads[0].title}`,
-  },
-  cats.length > 0 && {
-    href: url.apps(),
-    icon: 'apps',
-    title: '分类浏览',
-    note: `${cats.length} 个应用与 AI 工具分类`,
-  },
-  { href: '/about/', icon: 'user', title: '关于作者', note: `${SITE.author.name}，独立开发者` },
-  { href: '/subscribe/', icon: 'rss', title: '订阅更新', note: '邮件（需确认、随时退订）或 RSS' },
-].filter(Boolean) as { href: string; icon: 'games'; title: string; note: string }[];
-// hero 平台胶囊最多 6 个（DESIGN-SYSTEM §13 / T9.11）
-const heroChips = chips.slice(0, 6);
-
-// hero 右侧的图标墙（装饰，只给鼠标用户点；读屏与键盘用户走下方的精选行）。
-// 同一品牌 / 同一图片只出现一次（按文件内容去重：ChatGPT 与 Codex CLI 是同一个 OpenAI 标志）
-const fingerprint = (src: string) => {
-  try {
-    return createHash('sha1')
-      .update(readFileSync(`public${src.replace(/\.(png|svg|webp)$/, '-64.webp')}`))
-      .digest('hex');
-  } catch {
-    return src;
-  }
+// 最新更新：有真实更新日期的应用与游戏（AI 工具跟随官方更新、没有日期，不进来）
+const latest = latestUpdated([...apps, ...games, ...tools], 16);
+const gameList = sortEntries(games, 'editor');
+const cats = categoryTiles(rawApps, rawTools);
+// 按平台：只列有平台目录页（/apps/platform/<os>/）的平台，数量 = 该平台的应用数
+const PLATFORM_ICON: Partial<Record<PlatformOs, 'globe' | 'apps' | 'monitor' | 'settings' | 'message'>> = {
+  web: 'globe',
+  'browser-ext': 'apps',
+  cli: 'monitor',
+  windows: 'monitor',
+  macos: 'monitor',
+  linux: 'monitor',
+  ios: 'apps',
+  android: 'apps',
 };
-const mosaic = iconWall(
-  [
-    ...featured.map((f) => ({ title: f.title, icon: f.icon, href: f.url, brand: f.brand })),
-    ...ownApps.map((a) => ({
-      title: a.data.title,
-      icon: a.data.icon,
-      href: url.app(a.id),
-      brand: appBrand(a),
+const platforms = PLATFORMS.filter((os) => os !== 'ai-bot' && os !== 'mcp')
+  .map((os) => ({ os, count: apps.filter((a) => a.platformIds.includes(os)).length }))
+  .filter((p) => p.count > 0);
+const homeVids = homeVideos(videos, 4).map(videoItem);
+const homeArticles = articles.slice(0, 4);
+
+// 首屏条目（1440 首屏约两个货架）：前 14 个图标 eager，前 7 个高优先级
+const eagerSet = new Set(latest.slice(0, 14).map((e) => e.slug));
+const isEager = (e: StoreEntry) => eagerSet.has(e.slug);
+
+const schema = [
+  {
+    '@type': 'ItemList',
+    '@id': `${abs('/')}#latest`,
+    name: '最新更新',
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    numberOfItems: latest.length,
+    itemListElement: latest.map((e, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: e.title,
+      url: abs(e.href),
     })),
-    ...aiTools.map((t) => ({
-      title: t.data.title,
-      icon: t.data.icon,
-      href: url.tool(t.id),
-      brand: toolBrand(t),
-    })),
-  ],
-  12,
-  fingerprint,
-);
-
-const appMeta = (a: (typeof apps)[number]) =>
-  [
-    CATEGORIES[a.data.category],
-    a.data.price.model === 'paid' && a.data.price.amount
-      ? a.data.price.amount
-      : PRICE_LABEL[a.data.price.model],
-    a.data.platforms.map((p) => PLATFORM_LABEL[p.os]).join(' / '),
-  ].join(' · ');
-
-// 「试试」：有意义的真实关键词（每个都能在站内搜到结果，tests/unit/home.test.ts 校验）
-const tryQueries = TRY_QUERIES;
-
-// Organization / WebSite / Person 由 Base 输出（全站每页都有）
-const schema = featured.length ? [featuredItemList(featured, abs)] : [];
+  },
+];
 ---
 
 <Base title={SITE.title} description={SITE.description} schema={schema}>
-  <section class="home-hero" aria-labelledby="hero-title">
-    <div class="home-hero__text">
-      <p class="eyebrow">AZ Studio · 应用与内容</p>
-      <h1 id="hero-title">
-        <span>一站找到</span>
-        <span>好用的应用、AI 工具与游戏</span>
-      </h1>
-      <p class="hero__lede">
-        AZ Studio 出品的应用、{tools.length} 个 AI 工具的官方入口，还有可玩的游戏
-        Demo、开发文章和精选视频。每一项都写明版本与最后核对日期。
-      </p>
+  <section class="store-head" aria-labelledby="hero-title">
+    <h1 id="hero-title">应用、AI 工具与游戏</h1>
+    <div class="store-head__search">
       <form class="home-search" action={url.search()} method="get" role="search" aria-label="站内搜索">
         <label class="visually-hidden" for="home-q">
           搜索关键词
@@ -184,7 +89,7 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
           id="home-q"
           name="q"
           type="search"
-          placeholder="搜索应用、AI 工具、文章…"
+          placeholder="搜索应用、AI 工具、游戏、文章…"
           autocomplete="off"
           enterkeyhint="search"
           data-home-search
@@ -192,237 +97,150 @@ const schema = featured.length ? [featuredItemList(featured, abs)] : [];
         <kbd class="home-search__kbd" aria-hidden="true">
           <span data-kbd-mod>Ctrl</span> K
         </kbd>
-        <button class="btn home-search__btn" type="submit">
+        <button class="btn btn--primary home-search__btn" type="submit">
           搜索
         </button>
       </form>
-      <ul class="home-try" role="list" aria-label="热门搜索">
-        {tryQueries.map((q) => (
-          <li>
-            <a class="chip chip--quiet" href={url.search(q)}>
-              <Icon name="search" size={16} />
-              {q}
-            </a>
-          </li>
-        ))}
-      </ul>
-      <p class="home-cta btn-row">
-        <a class="btn btn--primary" href={url.apps()}>
-          浏览全部应用
-          <Icon name="arrow-right" size={20} />
-        </a>
-        <a class="btn btn--text" href={url.ai()}>
-          AI 工具目录
-          <Icon name="chevron-right" size={20} />
-        </a>
-      </p>
-      {heroChips.length > 0 && (
-        <nav class="home-chips" aria-label="按平台与类型浏览">
-          <ul role="list">
-            {heroChips.map((c) => (
-              <li>
-                <a class={`chip chip--${c.kind}`} href={c.url}>
-                  {c.label}
-                  <span class="chip__count">
-                    <span class="visually-hidden">，</span>
-                    {c.count}
-                    <span class="visually-hidden">{c.kind === 'ai' ? '个工具' : '个应用'}</span>
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-    </div>
-    {mosaic.length >= 6 && (
-      <div class="home-hero__art" aria-hidden="true">
-        <ul class="icon-wall" role="list">
-          {mosaic.map((m) => (
+      <div class="home-try">
+        <span class="home-try__label" aria-hidden="true">
+          推荐搜索
+        </span>
+        <ul role="list" aria-label="推荐搜索">
+          {TRY_QUERIES.map((q) => (
             <li>
-              <a href={m.href} tabindex="-1">
-                <AppIcon src={m.icon.src} alt="" variants={m.icon.variants} eager />
+              <a class="chip" href={url.search(q)}>
+                {q}
               </a>
             </li>
           ))}
         </ul>
       </div>
-    )}
+    </div>
   </section>
 
-  {show.has('featured') && (
-    <HomeSection id="featured" title="编辑精选" note="作者挑选的应用与 AI 工具" row="feature">
-      {featured.map((f) => (
-        <li>
-          <FeatureCard item={f} eager />
-        </li>
-      ))}
-    </HomeSection>
-  )}
-
-  {show.has('apps') && (
-    <HomeSection
-      id="apps"
-      title="AZ Studio 出品"
-      note={`${ownApps.length} 个应用 · 按作者排序`}
-      more={{ href: url.apps(), label: '全部应用' }}
-      row="tile"
-    >
-      {ownApps.map((a) => (
-        <li>
-          <AppTile
-            eager
-            slug={a.id}
-            title={a.data.title}
-            subtitle={a.data.tagline}
-            meta={appMeta(a)}
-            href={url.app(a.id)}
-            icon={a.data.icon}
-            hue={a.data.hue}
-          />
-        </li>
-      ))}
-    </HomeSection>
-  )}
-
-  {show.has('new') && (
-    <HomeSection id="new" title="最新上架" note="按首次发布日期" row="tile">
-      {fresh.map((a) => (
-        <li>
-          <AppTile
-            slug={a.id}
-            title={a.data.title}
-            subtitle={a.data.tagline}
-            meta={`${formatDate(a.data.releaseDate)} 上架 · ${CATEGORIES[a.data.category]}`}
-            href={url.app(a.id)}
-            icon={a.data.icon}
-            hue={a.data.hue}
-          />
-        </li>
-      ))}
-    </HomeSection>
-  )}
-
-  {show.has('ai') && (
-    <HomeSection
-      id="ai"
-      title="AI 工具"
-      note="按编辑推荐顺序"
-      more={{ href: url.ai(), label: `全部 ${tools.length} 个` }}
-    >
-      <ul class="home-ai-grid" role="list">
-        {aiTools.map((t) => (
-          <li>
-            <AppTile
-              slug={t.id}
-              title={t.data.title}
-              subtitle={t.data.tagline}
-              meta={`${AI_CATEGORIES[t.data.categories[0]]} · ${PRICE_LABEL[t.data.price.model]}`}
-              href={url.tool(t.id)}
-              icon={t.data.icon}
-              hue={toolHue(t.data)}
-            />
-          </li>
-        ))}
-      </ul>
-    </HomeSection>
-  )}
-
-  {show.has('updates') && (
-    <HomeSection
-      id="updates"
-      title="最近更新"
-      note="按档案里记录的更新日期"
+  {latest.length > 0 && (
+    <Shelf
+      id="latest"
+      title="最新更新"
+      note="按档案里的更新日期"
       more={{ href: '/changelog/', label: '更新日志' }}
     >
-      <ul class="update-list" role="list">
-        {updates.map((u) => (
-          <li class="update-row">
-            {u.icon ? (
-              <AppIcon src={u.icon.src} alt="" variants={u.icon.variants} size="sm" />
-            ) : (
-              <GeoIcon seed={u.url} hue={u.hue} />
-            )}
-            <span class="update-row__main">
-              <a class="update-row__title" href={u.url}>
-                {u.title}
-              </a>
-              <span class="update-row__sub">
-                {u.label} · 版本 {u.version}
-              </span>
-            </span>
-            <time
-              class="update-row__date"
-              datetime={u.date}
-              title={formatDate(u.date)}
-              data-relative
-              data-dynamic
-            >
-              {formatDate(u.date)}
-            </time>
-          </li>
-        ))}
-      </ul>
-    </HomeSection>
+      {latest.map((e, i) => (
+        <li>
+          <AppTile entry={e} eager={isEager(e)} priority={i < 7} fields={['updatedAt']} />
+        </li>
+      ))}
+    </Shelf>
   )}
 
-  {show.has('videos') && (
-    <HomeSection
-      id="videos"
-      title="精选视频"
-      note="官方频道视频 · 点击后才加载播放器"
-      more={{ href: url.videos(), label: '视频' }}
+  {tools.length > 0 && (
+    <Ranking
+      id="ai"
+      title="热门 AI 工具"
+      note="按编辑推荐排名（不是下载量）"
+      entries={tools}
+      more={{ href: url.ai(), label: `全部 ${tools.length} 个` }}
+    />
+  )}
+
+  {ownApps.length > 0 && (
+    <Shelf id="apps" title="我们的应用" note="AZ Studio 出品" more={{ href: url.apps(), label: '全部应用' }}>
+      {ownApps.map((e) => (
+        <li>
+          <AppTile entry={e} />
+        </li>
+      ))}
+    </Shelf>
+  )}
+
+  {gameList.length > 0 && (
+    <Shelf
+      id="games"
+      title="游戏"
+      note="浏览器游戏与可玩 Demo"
+      more={{ href: url.games(), label: '全部游戏' }}
     >
-      <div class="home-grid4">
-        {homeVids.map((v) => (
-          <VideoCard item={v} headingLevel="h3" />
-        ))}
-      </div>
-    </HomeSection>
+      {gameList.map((e) => (
+        <li>
+          <AppTile entry={e} />
+        </li>
+      ))}
+    </Shelf>
   )}
 
-  {show.has('articles') && (
-    <HomeSection
+  {platforms.length > 0 && (
+    <Shelf id="platforms" title="按平台" note="AZ Studio 应用" kind="chip">
+      {platforms.map((p) => (
+        <li class="gate">
+          <span class="gate__icon" aria-hidden="true">
+            <Icon name={PLATFORM_ICON[p.os] ?? 'apps'} />
+          </span>
+          <a href={url.appPlatform(p.os)}>{PLATFORM_LABEL[p.os]}</a>
+          <span class="gate__n">{p.count} 个应用</span>
+        </li>
+      ))}
+    </Shelf>
+  )}
+
+  {cats.length > 0 && (
+    <Shelf id="categories" title="分类" note="应用与 AI 工具" kind="chip">
+      {cats.map((c) => (
+        <li class="gate">
+          <span class="gate__icon" aria-hidden="true">
+            {c.icons[0] && <AppIcon src={c.icons[0].src} alt="" variants={c.icons[0].variants} size="xs" />}
+          </span>
+          <a href={c.url}>{c.name}</a>
+          <span class="gate__n">
+            {c.count} 个{c.kind === 'ai' ? '工具' : '应用'}
+          </span>
+        </li>
+      ))}
+    </Shelf>
+  )}
+
+  {homeArticles.length > 0 && (
+    <Shelf
       id="articles"
       title="最新文章"
       note="按发布日期"
       more={{ href: url.articles(), label: '文章中心' }}
+      kind="card"
     >
-      <div class="home-grid4">
-        {homeArticles.map((a) => (
-          <ArticleCard article={a} headingLevel="h3" />
-        ))}
-      </div>
-    </HomeSection>
-  )}
-
-  <HomeSection id="more" title="更多内容">
-    <ul class="home-more" role="list">
-      {moreLinks.map((m) => (
-        <li class="home-more__item">
-          <Icon name={m.icon} class="home-more__icon" />
-          <span class="home-more__text">
-            <a class="home-more__link" href={m.href}>
-              {m.title}
-            </a>
-            <span class="home-more__note">{m.note}</span>
-          </span>
-          <Icon name="chevron-right" size={20} class="home-more__chev" />
+      {homeArticles.map((a) => (
+        <li class="post-mini">
+          <h3>
+            <a href={url.article(a.id)}>{a.data.title}</a>
+          </h3>
+          <p>
+            {formatDate(a.data.date)} · {a.data.readingMinutes} 分钟
+          </p>
         </li>
       ))}
-    </ul>
-  </HomeSection>
+    </Shelf>
+  )}
+
+  {homeVids.length > 0 && (
+    <Shelf
+      id="videos"
+      title="精选视频"
+      note="点击后才加载播放器"
+      more={{ href: url.videos(), label: '视频' }}
+      kind="card"
+    >
+      {homeVids.map((v) => (
+        <li>
+          <VideoCard item={v} headingLevel="h3" />
+        </li>
+      ))}
+    </Shelf>
+  )}
 </Base>
 
 <script>
   // 旧版 hash 路由（#/article/xxx、#project …）→ 新的真实 URL
   import { mapLegacyHash } from '@/lib/hash-redirect';
-  import { initRelativeTimes, initRows, initSearchShortcut } from '@/scripts/home/rows';
+  import { initSearchShortcut } from '@/scripts/home/rows';
   const target = mapLegacyHash(location.hash);
   if (target) location.replace(target);
-  else {
-    initRows();
-    initSearchShortcut();
-    initRelativeTimes();
-  }
+  else initSearchShortcut();
 </script>

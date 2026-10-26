@@ -435,6 +435,68 @@
     width: 20px;
     height: 20px;
   }
+  /* 顶栏搜索（P10 T10.10）：< 1200 图标按钮；≥ 1200 常驻搜索框外观 */
+  .nav-search__kbd {
+    display: none;
+  }
+  @media (max-width: 1199.98px) {
+    .nav-search__text {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+  @media (min-width: 1200px) {
+    .nav-search {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      width: 240px;
+      min-height: var(--control-sm);
+      padding-inline: var(--space-3) var(--space-2);
+      border-radius: var(--radius-pill);
+      background: var(--c-fill);
+      color: var(--c-label-3);
+      font-size: var(--fs-meta);
+      text-decoration: none;
+    }
+    .nav-search .icon {
+      flex: none;
+      width: 16px;
+      height: 16px;
+    }
+    .nav-search__text {
+      display: block;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .nav-search__kbd {
+      display: block;
+      flex: none;
+      padding: 0 var(--space-1);
+      border-radius: var(--radius-xs);
+      background: var(--c-bg-elevated);
+      color: var(--c-label-2);
+      font-family: var(--font-sans);
+      font-size: var(--fs-caption);
+    }
+  }
+  @media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
+    .nav-search:hover {
+      background: var(--c-fill-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .nav-search {
+      border: 1px solid ButtonText;
+    }
+  }
   /* 语言切换（T7.6）：文字按钮，和图标按钮同样的触控尺寸 */
   .lang-btn {
     font-size: var(--fs-meta);
@@ -672,13 +734,13 @@
   }
 
   /* ---------- 区块 ---------- */
+  /* P10 T10.3 紧凑档：区块间距 48 → 40（手机 36 → 32） */
   .section {
-    margin-top: var(--space-12);
+    margin-top: var(--density-section-gap);
   }
-  /* 手机：区块间距收紧一档（48 → 36 px），首屏能多露出一块内容 */
   @media (max-width: 599.98px) {
     .section {
-      margin-top: calc(var(--space-8) + var(--space-1));
+      margin-top: var(--density-section-gap-sm);
     }
   }
   .section__head {

@@ -282,16 +282,12 @@ describe('首页源码与构建产物', () => {
     const site = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'WebSite');
     expect(site.potentialAction['@type']).toBe('SearchAction');
   });
-  it.skipIf(!html)('图标墙没有重复的 logo（按图片内容）', () => {
-    const wall = /<ul class="icon-wall"[\s\S]*?<\/ul>/.exec(html)![0];
-    const srcs = [...wall.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]);
-    expect(srcs.length).toBe(12);
-    const hashes = srcs.map((s) =>
-      createHash('sha1')
-        .update(fs.readFileSync(`public${s}`))
-        .digest('hex'),
-    );
-    expect(new Set(hashes).size).toBe(srcs.length);
+  // P10 T10.7：首页去掉了装饰图标墙、平台胶囊区与大 CTA（纯货架）
+  it.skipIf(!html)('首页没有装饰图标墙 / 平台胶囊区 / 大 CTA，货架条目都有类型徽标', () => {
+    expect(html).not.toMatch(/class="icon-wall"|class="home-chips"|class="home-cta/);
+    const entries = [...html.matchAll(/<article class="entry entry--(tile|mini)"/g)];
+    expect(entries.length).toBeGreaterThan(30);
+    expect([...html.matchAll(/class="entry__type entry__type--/g)].length).toBe(entries.length);
   });
   // T9.4（DESIGN-SYSTEM §19.3）：首屏图片 eager（设计测试 Q18 断言首屏无 lazy），其余懒加载；eager 只给小图标，数量有上限
   it.skipIf(!html)('首页 eager 图片只有首屏图标（≤ 32 张小图标），其余懒加载', () => {
