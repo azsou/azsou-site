@@ -16,13 +16,33 @@ async function primaryAboveFold(page: Page, selector: string) {
 }
 
 test.describe('详情页首屏主按钮（T9.12）', () => {
-  test('游戏详情：试玩 / 观看演示 / 上线时通知我 三选一', async ({ page }) => {
+  test('游戏详情：试玩 / 看视频 / 上线时通知我 三选一', async ({ page }) => {
     for (const p of ['/games/emberdeep/', '/games/audio-tower-defense/', '/en/games/emberdeep/']) {
       await page.goto(p);
       await primaryAboveFold(page, '[data-game-cta] [data-primary-cta]');
       await expect(page.locator('[data-game-cta] [disabled], [data-game-cta] [aria-disabled]')).toHaveCount(
         0,
       );
+    }
+  });
+
+  test('T10.15 游戏详情：没有 playUrl / demoVideo 的游戏首屏不出现「可玩 / 试玩」，状态如实', async ({
+    page,
+  }) => {
+    for (const slug of [
+      'audio-tower-defense',
+      'boids-sandbox',
+      'emberdeep',
+      'gravity-golf',
+      'pixel-dungeon-lab',
+      'threejs-rubik',
+      'voxel-sculpt',
+    ]) {
+      await page.goto(`/games/${slug}/`);
+      const hero = page.locator('[data-detail-hero]');
+      await expect(hero.locator('[data-detail-status]')).not.toBeEmpty();
+      await expect(hero).not.toContainText(/可玩|可试用|试玩/);
+      await expect(hero.locator('[data-game-cta] [data-notify]')).toHaveCount(1);
     }
   });
 

@@ -370,7 +370,10 @@ export function detailMetrics(e: StoreEntry, fmtDate: (d: string) => string = (d
   push('updatedAt', m.updatedAt && fmtDate(m.updatedAt));
   push('platforms', m.platforms?.join(' / '));
   push('pricing', m.pricing);
-  push('license', m.license && (m.openSource && !/开源/.test(m.license) ? `${m.license}（开源）` : m.license));
+  push(
+    'license',
+    m.license && (m.openSource && !/开源/.test(m.license) ? `${m.license}（开源）` : m.license),
+  );
   return out;
 }
 

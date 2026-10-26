@@ -158,20 +158,34 @@ test.describe('AI 工具详情 /ai/<slug>/', () => {
     await expect(page.locator('[data-dl-hint]')).toContainText(/外链提示页|推荐/);
     await expect(page.locator('#h-about')).toHaveText('介绍与点评');
     expect(await page.locator('#h-about + .prose p').count()).toBeGreaterThanOrEqual(3);
-    const info = page.locator('.info-table');
+    const info = page.locator('section:has(#h-info) .info-table');
     await expect(info).toContainText('图标版权归各自所有者');
     await expect(info).toContainText(/MIT\s*（开源）/);
     await expect(info).toContainText('ollama.com');
     await expect(info).toContainText('最后核对');
-    // 版本跟随官方：不写死版本号
-    await expect(page.locator('.app-stat__value').nth(3)).toHaveText('随官方更新');
+    // 版本跟随官方：指标条不写版本格（没有真实值的字段整项省略，T10.11）；不放评分
+    const metrics = page.locator('[data-detail-metrics]');
+    await expect(metrics.locator('[data-metric="version"]')).toHaveCount(0);
+    await expect(metrics.locator('dt')).toHaveText(['平台', '价格', '许可']);
+    await expect(metrics).not.toContainText(/评分|随官方更新|—/);
+    // T10.14 AI 专属字段：只显示填了的项
+    const ai = page.locator('[data-ai-facts]');
+    await expect(ai.locator('[data-ai="freeTier"] dd')).toHaveText('本地运行免费');
+    await expect(ai.locator('[data-ai="api"] dd')).toHaveText('本地 OpenAI 兼容 API');
+    await expect(ai.locator('[data-ai="mcp"], [data-ai="china"]')).toHaveCount(0);
+    await expect(ai.locator('[data-ai="entry"] a')).toHaveAttribute('href', 'https://ollama.com/');
+    // T10.12 安全与来源说明
+    await expect(page.locator('[data-source-note]')).toContainText('链接指向官方渠道，本站不托管安装包');
     // 没有截图区、没有「迁移补建」提示
     await expect(page.locator('#h-shots')).toHaveCount(0);
     await expect(page.locator('.notice[role="note"]')).toHaveCount(0);
     // 评论挂在 tool:ollama；相关工具
     await expect(page.locator('[data-comments]')).toHaveAttribute('data-page-key', 'tool:ollama');
-    await expect(page.locator('#h-related')).toHaveText('相关工具');
-    expect(await page.locator('section:has(#h-related) [data-tool]').count()).toBeGreaterThan(0);
+    // T10.13 导流区：同类替代（AppMini 条目）
+    await expect(page.locator('#h-alt')).toHaveText('同类替代');
+    expect(await page.locator('[data-detail-side] section:has(#h-alt) [data-entry]').count()).toBeGreaterThan(
+      0,
+    );
     // JSON-LD
     const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent())!);
     const appNode = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'SoftwareApplication');

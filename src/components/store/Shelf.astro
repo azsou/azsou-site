@@ -12,8 +12,9 @@ interface Props {
   /** 排序依据的如实说明（如「按编辑推荐顺序」） */
   note?: string;
   more?: { href: string; label?: string };
-  /** tile = 竖排格子；mini = 排行条目；card = 媒体卡（文章 / 视频）；chip = 平台 / 分类入口 */
-  kind?: 'tile' | 'mini' | 'card' | 'chip';
+  /** tile = 竖排格子；mini = 排行条目；card = 媒体卡（文章 / 视频）；chip = 平台 / 分类入口；
+   *  stack = 竖排列表（详情页侧栏导流区，T10.13：不横滑、不截断、不是滚动区） */
+  kind?: 'tile' | 'mini' | 'card' | 'chip' | 'stack';
   /** 有序（排行榜）时用 <ol> */
   ordered?: boolean;
 }
@@ -35,7 +36,13 @@ const List = ordered ? 'ol' : 'ul';
       </a>
     )}
   </div>
-  <List class={`shelf__track shelf__track--${kind}`} role="list" tabindex="0" aria-label={title} data-shelf>
+  <List
+    class={`shelf__track shelf__track--${kind}`}
+    role="list"
+    tabindex={kind === 'stack' ? undefined : '0'}
+    aria-label={title}
+    data-shelf
+  >
     <slot />
   </List>
 </section>

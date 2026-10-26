@@ -1,10 +1,9 @@
 ---
-import Icon from '@/components/Icon.astro';
 import Base from '@/layouts/Base.astro';
-import ArticleCard from '@/components/ArticleCard.astro';
-import AppCard from '@/components/AppCard.astro';
 import StoreDetail from '@/components/apps/StoreDetail.astro';
-import { catalogItem, getApps, getArticles, platformText, relatedApps, type App } from '@/lib/content';
+import { getApps, getArticles, platformText, type App } from '@/lib/content';
+import { fromApp } from '@/lib/store';
+import { relatedArticleLinks, sideGroups } from '@/lib/detail-side';
 import { CATEGORIES, CATEGORY_SCHEMA, PLATFORM_SCHEMA } from '@/lib/app-store';
 import { url, ogArt } from '@/lib/routes';
 import { ogFor } from '@/lib/og-routes';
@@ -19,10 +18,16 @@ const { app, all } = Astro.props as { app: App; all: App[] };
 const d = app.data;
 // 正文是仓库里的可信 HTML（迁移内容），原样输出，不经 Markdown 二次处理
 const bodyHtml = app.body ?? '';
-const articles = (await getArticles()).filter((a) => d.relatedArticles.includes(a.id));
-const related = relatedApps(app, all);
+const entries = all.map(fromApp);
+const entry = entries.find((e) => e.slug === app.id)!;
+const path0 = url.app(app.id);
+const articles = relatedArticleLinks(await getArticles(), path0, d.relatedArticles);
+const side = sideGroups(entry, entries, {
+  more: { href: url.appCategory(d.category), label: `更多${CATEGORIES[d.category]}` },
+  typeNoun: '应用',
+});
 const image = d.art ? ogArt(d.art) : undefined;
-const path = url.app(app.id);
+const path = path0;
 const oses = d.platforms.map((p) => p.os);
 const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。当前 ${d.version} · ${d.status}。`;
 ---
@@ -72,34 +77,10 @@ const description = `${d.title}：${d.summary} 平台：${platformText(oses)}。
     categoryHref={url.appCategory(d.category)}
     platformHref={url.appPlatform}
     hue={d.hue}
-  >
-    {related.length > 0 && (
-      <section class="section" aria-labelledby="h-related" slot="related" data-pagefind-ignore>
-        <div class="section__head">
-          <h2 id="h-related">相关应用</h2>
-          <a href={url.appCategory(d.category)}>
-            更多{CATEGORIES[d.category]}
-            <Icon name="chevron-right" size={16} class="icon--trail" />
-          </a>
-        </div>
-        <div class="grid grid--wide" data-grid="row">
-          {related.map((a) => (
-            <AppCard item={catalogItem(a)} headingLevel="h3" />
-          ))}
-        </div>
-      </section>
-    )}
-    {articles.length > 0 && (
-      <section class="section" aria-labelledby="h-articles" slot="articles" data-pagefind-ignore>
-        <h2 id="h-articles">相关文章</h2>
-        <div class="grid mt-4" data-grid="media">
-          {articles.map((a) => (
-            <ArticleCard article={a} headingLevel="h3" />
-          ))}
-        </div>
-      </section>
-    )}
-  </StoreDetail>
+    entry={entry}
+    side={side}
+    articles={articles}
+  />
 </Base>
 
 <script>

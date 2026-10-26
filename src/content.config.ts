@@ -356,7 +356,7 @@ const games = defineCollection({
       .string()
       .regex(/^(\/|https:\/\/)/)
       .optional(),
-    /** 演示视频：本站 videos 集合的 slug；没有试玩时主按钮是「观看演示」 */
+    /** 演示视频：本站 videos 集合的 slug；没有试玩时主按钮是「看视频」 */
     demoVideo: z.string().optional(),
     en: enText
       .omit({ subtitle: true })

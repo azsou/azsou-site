@@ -1,0 +1,263 @@
+/* 详情页（P10 PR G：T10.11–T10.15）——应用 / AI 工具 / 游戏共用。
+   头部：图标 112（窄屏 96）+ 名称 / 副标题 / 开发者 + 类型徽标 → 指标条（只放真实字段）→ 主按钮（含大小）+ 次按钮；
+   主体 ≥ 1200 两栏（正文 + 右侧导流栏），窄屏堆叠。平面底，不用横幅渐变。 */
+@layer reset, tokens, base, components, utilities;
+
+@layer components {
+  .app-page.detail {
+    max-width: none;
+  }
+  /* ---------- 头部 ---------- */
+  .detail-hero.app-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icon main'
+      'icon metrics'
+      'icon actions';
+    gap: var(--space-3) var(--space-6);
+    align-items: start;
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--c-separator);
+  }
+  .detail-hero__icon {
+    grid-area: icon;
+  }
+  .detail-hero__main {
+    grid-area: main;
+    min-width: 0;
+  }
+  .detail-hero .app-hero__title {
+    font-size: var(--fs-title-1);
+    line-height: var(--lh-title-1);
+  }
+  .detail-hero .app-hero__subtitle {
+    margin-top: 0;
+  }
+  .detail-hero .app-hero__dev {
+    margin-top: var(--space-1);
+  }
+  .detail-hero__status {
+    color: var(--c-label-2);
+  }
+
+  /* 指标条：版本｜大小｜更新｜平台｜价格｜许可（没有值的格不渲染） */
+  .detail-metrics {
+    grid-area: metrics;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .detail-metric {
+    display: grid;
+    gap: 0;
+    min-width: 0;
+    padding: 0 var(--space-4);
+  }
+  .detail-metric:first-child {
+    padding-left: 0;
+  }
+  .detail-metric + .detail-metric {
+    border-left: 1px solid var(--c-separator);
+  }
+  .detail-metric dt {
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--c-label-3);
+  }
+  .detail-metric dd {
+    margin: 0;
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--c-label);
+    white-space: nowrap;
+  }
+
+  .detail-hero__actions {
+    grid-area: actions;
+    min-width: 0;
+  }
+  .detail-hero__actions .app-downloads,
+  .detail-hero__actions .game-cta {
+    margin-top: 0;
+  }
+  .detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .dl-btn__size {
+    font-weight: var(--fw-regular);
+  }
+  .detail-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    min-height: var(--touch);
+    margin-top: var(--space-2);
+    font-size: var(--fs-meta);
+  }
+  .detail-links a,
+  .detail-links button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: var(--touch);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+  }
+  .detail-links button {
+    border: 0;
+    background: transparent;
+    color: var(--c-link);
+    font: inherit;
+    cursor: pointer;
+  }
+  .detail-links button:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+  .detail-share__status {
+    color: var(--c-label-2);
+  }
+
+  @media (max-width: 599.98px) {
+    .detail-hero.app-hero {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas:
+        'icon main'
+        'metrics metrics'
+        'actions actions';
+      justify-items: stretch;
+      gap: var(--space-3) var(--space-4);
+      padding-top: var(--space-3);
+    }
+    .detail-hero .app-hero__icon {
+      grid-auto-flow: row;
+      align-items: start;
+    }
+    .detail-hero .app-icon-img--xl,
+    .detail-hero .app-hero__icon picture,
+    .detail-hero .app-icon--xl {
+      width: 96px;
+      height: 96px;
+    }
+    .detail-hero .app-hero__title {
+      font-size: var(--fs-title-2);
+      line-height: var(--lh-title-2);
+    }
+    /* 窄屏指标条：3 列网格（不做横滑——横滑区没有可聚焦内容会触发 axe scrollable-region-focusable） */
+    .detail-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      row-gap: var(--space-2);
+    }
+    .detail-metric {
+      padding: 0 var(--space-3);
+    }
+    .detail-metric:nth-child(3n + 1) {
+      padding-left: 0;
+      border-left: 0;
+    }
+    .detail-metric dd {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  /* ---------- 主体两栏 ---------- */
+  .detail-layout {
+    display: grid;
+    gap: var(--density-section-gap);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 1200px) {
+    .detail-layout {
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: var(--space-8);
+      align-items: start;
+    }
+  }
+  .detail-main {
+    min-width: 0;
+  }
+  .detail-side {
+    min-width: 0;
+  }
+  .detail-side .shelf:first-child {
+    margin-top: var(--density-section-gap);
+  }
+  .shelf__track.shelf__track--stack {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+    scroll-snap-type: none;
+  }
+  @media (min-width: 600px) and (max-width: 1199.98px) {
+    .shelf__track.shelf__track--stack {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .detail-articles {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .detail-articles a {
+    display: block;
+    padding: var(--space-2) 0;
+    min-height: var(--touch);
+  }
+  .detail-articles small {
+    display: block;
+    color: var(--c-label-3);
+    font-size: var(--fs-caption);
+  }
+
+  /* ---------- 简介折叠（服务端切分，<details> 无 JS） ---------- */
+  .intro-more > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+    color: var(--c-link);
+    cursor: pointer;
+    list-style: none;
+  }
+  .intro-more > summary::-webkit-details-marker {
+    display: none;
+  }
+  .intro-more[open] > summary {
+    display: none;
+  }
+  .intro-more > summary:focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  .detail-features {
+    display: grid;
+    gap: var(--space-2);
+    padding-left: var(--space-5);
+  }
+  .detail-source {
+    font-size: var(--fs-meta);
+  }
+  .detail-source code {
+    word-break: break-all;
+  }
+  /* 评分 / 计数格挪到评价区上方：两格都隐藏时整条不占位 */
+  .app-stats--below:not(:has(.app-stat:not([hidden]))) {
+    display: none;
+  }
+}

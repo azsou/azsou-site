@@ -270,7 +270,12 @@ describe('T10.15 游戏状态与按钮一致', () => {
 
 describe('T10.14 AI 工具专属字段只填已有内容', () => {
   it('ai 字段的每个值都能在该工具已有的正文 / 价格说明 / 平台说明里找到依据（关键词）', () => {
-    const KEY: Record<string, RegExp> = { mcp: /MCP/, api: /API/, china: /国内|中国大陆|\.cn/, freeTier: /免费/ };
+    const KEY: Record<string, RegExp> = {
+      mcp: /MCP/,
+      api: /API/,
+      china: /国内|中国大陆|\.cn/,
+      freeTier: /免费/,
+    };
     for (const [slug, t] of Object.entries(tools)) {
       const ai = t.data.ai as Record<string, string> | undefined;
       if (!ai) continue;

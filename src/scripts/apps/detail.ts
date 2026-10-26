@@ -90,12 +90,40 @@ async function initStats(root: HTMLElement, app: string) {
       .filter(([, n]) => n > 0)
       .map(([os, n]) => `${PLATFORM_LABEL[os]} ${formatCount(n)}`);
     detail.textContent = total > 0 ? `共 ${formatCount(total)} 次（${parts.join('，')}）` : '0 次';
+    // 信息表只放真实值：0 次时整行保持隐藏
+    const row = detail.closest<HTMLElement>('[data-downloads-row]');
+    if (row) row.hidden = total === 0;
   }
   return s.reviews;
 }
 
+// ------------------------------------------------------------ 分享（T10.11） ----
+/** 有 Web Share 用系统分享面板，否则复制链接；按钮在 JS 可用时才出现（无 JS 不画不能用的按钮） */
+export function initShare(root: ParentNode) {
+  const btn = root.querySelector<HTMLButtonElement>('[data-share]');
+  if (!btn) return;
+  const status = root.querySelector<HTMLElement>('[data-share-status]');
+  const canShare = typeof navigator.share === 'function';
+  const canCopy = !!navigator.clipboard?.writeText;
+  if (!canShare && !canCopy) return;
+  btn.hidden = false;
+  btn.addEventListener('click', async () => {
+    const data = { title: document.title, url: location.href.split('#')[0] };
+    try {
+      if (canShare) await navigator.share(data);
+      else {
+        await navigator.clipboard.writeText(data.url);
+        if (status) status.textContent = '链接已复制';
+      }
+    } catch {
+      /* 用户取消分享面板：什么都不做 */
+    }
+  });
+}
+
 if (page) {
   const app = page.dataset.app!;
+  initShare(page);
   const shots = page.querySelector<HTMLElement>('[data-shots]');
   if (shots) initShots(shots);
   const stats = initStats(page, app).catch(() => null);

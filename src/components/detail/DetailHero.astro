@@ -1,0 +1,59 @@
+---
+/**
+ * 详情页头部（P10 T10.11）：应用 / AI 工具 / 游戏共用。
+ * 面包屑由 Base 渲染；这里是 图标（112，窄屏 96）+ 名称 / 副标题 / 开发者 + 类型徽标 → 指标条 → 主按钮与次按钮（slot）。
+ * 指标条只放真实字段（版本｜大小｜更新｜平台｜价格｜许可，src/lib/store.ts detailMetrics），不放评分，没值的整格省略。
+ * 沿用 .app-hero* 类名（旧用例与英文版共用的选择器），新排版在 detail.css。
+ */
+import '@/styles/store.css';
+import '@/styles/detail.css';
+import { formatDate } from '@/lib/dates';
+import { detailMetrics, type StoreEntry } from '@/lib/store';
+
+interface Props {
+  entry: StoreEntry;
+  title: string;
+  subtitle?: string;
+  developer?: { name: string; url?: string };
+  /** 状态文字（如「开发中」）；只写真实状态 */
+  status?: string;
+}
+const { entry, title, subtitle, developer, status } = Astro.props;
+const metrics = detailMetrics(entry, (d) => formatDate(d));
+---
+
+<header class="app-hero detail-hero" data-detail-hero data-type={entry.type}>
+  <div class="app-hero__icon detail-hero__icon">
+    <slot name="icon" />
+  </div>
+  <div class="app-hero__main detail-hero__main">
+    <h1 class="app-hero__title">{title}</h1>
+    {subtitle && <p class="app-hero__subtitle">{subtitle}</p>}
+    <p class="app-hero__dev">
+      {developer &&
+        (developer.url ? <a href={developer.url}>{developer.name}</a> : <span>{developer.name}</span>)}
+      <span class={`entry__type entry__type--${entry.type}`} data-type-badge>
+        {entry.typeLabel}
+      </span>
+      <slot name="badges" />
+      {status && (
+        <span class="detail-hero__status" data-detail-status>
+          {status}
+        </span>
+      )}
+    </p>
+  </div>
+  {metrics.length > 0 && (
+    <dl class="detail-metrics" data-detail-metrics aria-label={`${title} 基本信息`}>
+      {metrics.map((m) => (
+        <div class="detail-metric" data-metric={m.key}>
+          <dt>{m.label}</dt>
+          <dd>{m.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )}
+  <div class="detail-hero__actions" data-detail-actions>
+    <slot name="actions" />
+  </div>
+</header>

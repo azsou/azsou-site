@@ -1,8 +1,8 @@
 ---
 /**
  * 游戏详情首屏主操作（T9.12，DESIGN-SYSTEM §10 / §16）：状态驱动，只画一个可用主按钮，不画禁用按钮。
- *  - 有 playUrl → 「试玩」（主）；同时有 demoVideo → 「观看演示」（次）；
- *  - 只有 demoVideo → 「观看演示」（主，链到本站视频详情）；
+ *  - 有 playUrl → 「试玩」（主）；同时有 demoVideo → 「看视频」（次）；
+ *  - 只有 demoVideo → 「看视频」（主，链到本站视频详情）；
  *  - 都没有 → 「上线时通知我」（主，进订阅页）。
  */
 import Icon from '@/components/Icon.astro';
@@ -16,7 +16,7 @@ const { playUrl, demoVideo, en = false } = Astro.props;
 const ext = playUrl?.startsWith('https://') ?? false;
 const t = en
   ? { play: 'Play the demo', demo: 'Watch the demo', notify: 'Notify me at launch' }
-  : { play: '试玩', demo: '观看演示', notify: '上线时通知我' };
+  : { play: '试玩', demo: '看视频', notify: '上线时通知我' };
 const demoHref = demoVideo ? url.video(demoVideo) : undefined;
 ---
 

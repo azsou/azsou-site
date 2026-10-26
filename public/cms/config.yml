@@ -344,6 +344,17 @@ collections:
       - { name: license, label: 许可, widget: string }
       - { name: openSource, label: 开源, widget: boolean, default: false }
       - { name: website, label: 官网（https）, widget: string }
+      - name: ai
+        label: AI 专属信息（只填正文 / 官网已写明的，没有就不填）
+        widget: object
+        required: false
+        fields:
+          - { name: freeTier, label: 免费额度, widget: string, required: false }
+          - { name: api, label: API（工具本身提供的）, widget: string, required: false }
+          - { name: mcp, label: MCP 支持, widget: string, required: false }
+          - { name: china, label: 国内可用性, widget: string, required: false }
+          - { name: officialEntry, label: 另一个官方入口（https，如国内版）, widget: string, required: false }
+      - { name: features, label: 特性要点（每条一句）, widget: list, required: false }
       - { name: sourceRepo, label: 源码仓库, widget: string, required: false }
       - { name: privacy, label: 隐私, widget: object, required: false, fields: *privacyFields }
       - { name: changelog, label: 更新日志, widget: list, required: false, fields: *changelogFields }

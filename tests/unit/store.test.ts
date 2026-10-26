@@ -159,7 +159,7 @@ describe('详情页（P10 PR G）', () => {
     const all = [
       fromTool(tool({}, 't1')),
       fromTool(tool({ order: 5, developer: { name: 'Acme' } }, 't2')),
-      fromTool(tool({ order: 1, categories: ['chat'], developer: { name: 'Other' } }, 't3')),
+      fromTool(tool({ order: 1, categories: ['ai-bot'], developer: { name: 'Other' } }, 't3')),
       fromTool(tool({ order: 0, categories: ['agent', 'cli'], developer: { name: 'Other' } }, 't4')),
     ];
     const self = all[0];
@@ -182,9 +182,9 @@ describe('详情页（P10 PR G）', () => {
 
   it('T10.15 没有试玩地址 / 演示视频时不能声称可玩', () => {
     expect(gamePlayClaims({ kind: '可玩 Demo', status: '开发中' })).toEqual(['可玩 Demo']);
-    expect(gamePlayClaims({ kind: '开发中', status: '实验', en: { status: 'Experiment · Playable' } })).toEqual([
-      'Experiment · Playable',
-    ]);
+    expect(
+      gamePlayClaims({ kind: '开发中', status: '实验', en: { status: 'Experiment · Playable' } }),
+    ).toEqual(['Experiment · Playable']);
     expect(gamePlayClaims({ kind: '可玩 Demo', status: '可玩', playUrl: '/play/x/' })).toEqual([]);
     expect(gamePlayClaims({ kind: '可玩 Demo', status: '可玩', demoVideo: 'v' })).toEqual([]);
   });
