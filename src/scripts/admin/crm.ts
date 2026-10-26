@@ -8,13 +8,8 @@
  * 拿不到的数据（旧库没有 0017、版主看不到订阅）整块省略或如实说明，不放假数据。
  */
 import type { AdminUser, ContentRow, ContentType } from '@/lib/data';
-import type {
-  AdminNote,
-  ContentVersion,
-  NoteTarget,
-  UserProfileExtra,
-  WorkflowStatus,
-} from '@/lib/data/admin';
+import type { WorkflowStatus } from '@/lib/data/admin';
+import type { AdminNote, ContentVersion, NoteTarget, UserProfileExtra } from '@/lib/data/admin-crm-api';
 import { diffStats, fillTemplate, lineDiff, recentCount, SEGMENT_LABEL, userSegments } from '@/lib/admin-crm';
 import { markdownHtml } from '@/lib/sanitize';
 import { confirmDialog, toast } from '../community/ui';
@@ -22,24 +17,10 @@ import { openDrawer } from './drawer';
 import { adminRepo, dateTime, errorText, field, formDialog, h, ROLE_LABEL } from './shell';
 import { plainText } from './table';
 
-export const WF_LABEL: Record<WorkflowStatus, string> = {
-  draft: '草稿',
-  review: '待审',
-  published: '已发布',
-  offline: '已隐藏',
-};
-const WF_BADGE: Record<WorkflowStatus, string> = {
-  draft: 'badge--muted',
-  review: 'badge--info',
-  published: 'badge--ok',
-  offline: 'badge--danger',
-};
-export const wfBadge = (s: WorkflowStatus, at?: string | null) =>
-  h('span', {
-    class: `badge ${WF_BADGE[s]}`,
-    'data-wf': s,
-    text: at && s === 'review' ? `定时 ${dateTime(at)}` : WF_LABEL[s],
-  });
+import { WF_LABEL, wfBadge } from './crm-badge';
+import { createCrmApi } from '@/lib/data/admin-crm-api';
+
+const crm = () => createCrmApi(adminRepo().raw());
 
 const TYPE_LABEL: Record<ContentType, string> = { thread: '主题', reply: '回复', comment: '评论' };
 const section = (title: string, ...kids: (Node | null)[]) =>
@@ -82,7 +63,7 @@ export function notesBlock(type: NoteTarget, id: string, meId: string | null, is
         del?.addEventListener('click', async () => {
           if (!(await confirmDialog('删除这条备注？', '删除'))) return;
           try {
-            await adminRepo().deleteNote(n.id);
+            await crm().deleteNote(n.id);
             toast('已删除备注。');
             await load();
           } catch (e) {
@@ -105,7 +86,7 @@ export function notesBlock(type: NoteTarget, id: string, meId: string | null, is
   };
   const load = async () => {
     try {
-      paint(await adminRepo().notes(type, id));
+      paint(await crm().notes(type, id));
     } catch {
       wrap.replaceChildren(h('p', { class: 'muted', text: '备注功能需要数据库迁移 0017。' }));
     }
@@ -115,7 +96,7 @@ export function notesBlock(type: NoteTarget, id: string, meId: string | null, is
     if (!text) return area.focus();
     add.disabled = true;
     try {
-      await adminRepo().addNote(type, id, text);
+      await crm().addNote(type, id, text);
       area.value = '';
       toast('已添加备注。');
       await load();
@@ -188,10 +169,13 @@ export async function openContentDrawer(
   opts: { meId: string | null; isAdmin: boolean; onChange?: () => void },
 ) {
   const { body } = openDrawer(`${TYPE_LABEL[r.type]}详情`);
-  const repo = adminRepo();
   const [full, versions] = await Promise.all([
-    repo.contentBody(r.type, r.id).catch(() => null),
-    repo.versions(r.type, r.id).catch(() => null),
+    crm()
+      .contentBody(r.type, r.id)
+      .catch(() => null),
+    crm()
+      .versions(r.type, r.id)
+      .catch(() => null),
   ]);
   const text = full?.body ?? r.excerpt;
   body.removeAttribute('aria-busy');
@@ -218,7 +202,7 @@ export async function openContentDrawer(
       const s = status.value as WorkflowStatus;
       const at = s === 'review' && when.value ? new Date(when.value).toISOString() : null;
       if (at && Date.parse(at) <= Date.now()) throw new Error('定时时间需要晚于现在');
-      await repo.setWorkflow(r.type, [r.id], s, at);
+      await crm().setWorkflow(r.type, [r.id], s, at);
       toast(at ? `已设为定时发布：${dateTime(at)}` : `已改为「${WF_LABEL[s]}」。`);
       opts.onChange?.();
     } catch (e) {
@@ -300,7 +284,7 @@ export function profilePanels(
         );
         x.addEventListener('click', async () => {
           try {
-            await adminRepo().removeTag(u.id, t);
+            await crm().removeTag(u.id, t);
             p.tags = p.tags.filter((y) => y !== t);
             paintTags();
           } catch (e) {
@@ -324,7 +308,7 @@ export function profilePanels(
     const t = tagInput.value.trim();
     if (!t) return tagInput.focus();
     try {
-      await adminRepo().addTag(u.id, t);
+      await crm().addTag(u.id, t);
       if (!p.tags.includes(t)) p.tags.push(t);
       tagInput.value = '';
       paintTags();

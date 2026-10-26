@@ -2,7 +2,7 @@
 import { enhanceTables, serverSort, type ServerSort } from './table2';
 import { CATEGORY_NAMES, type ContentRow, type ContentType, type Profile } from '@/lib/data';
 import type { ContentSort } from '@/lib/data/admin';
-import { openContentDrawer, wfBadge } from './crm';
+import { crmApi, wfBadge } from './crm-badge';
 import { confirmDialog, toast } from '../community/ui';
 import {
   adminRepo,
@@ -148,11 +148,13 @@ function row(r: ContentRow) {
     {
       label: '详情 / 预览 / 版本…',
       run: () =>
-        void openContentDrawer(r, {
-          meId: me?.id ?? null,
-          isAdmin: isAdminRole(me),
-          onChange: () => void load(),
-        }),
+        void import('./crm').then(({ openContentDrawer }) =>
+          openContentDrawer(r, {
+            meId: me?.id ?? null,
+            isAdmin: isAdminRole(me),
+            onChange: () => void load(),
+          }),
+        ),
     },
     {
       label: '查看作者',
@@ -219,8 +221,8 @@ async function bulk(kind: string) {
     let n = 0;
     if (kind === 'hide') n = await repo.setPublished(t, ids, false);
     else if (kind === 'restore') n = await repo.setPublished(t, ids, true);
-    else if (kind === 'draft') n = await repo.setWorkflow(t, ids, 'draft');
-    else if (kind === 'review') n = await repo.setWorkflow(t, ids, 'review');
+    else if (kind === 'draft') n = await (await crmApi()).setWorkflow(t, ids, 'draft');
+    else if (kind === 'review') n = await (await crmApi()).setWorkflow(t, ids, 'review');
     else if (kind === 'lock') n = await repo.setThreadFlags(ids, { locked: true });
     else if (kind === 'pin') n = await repo.setThreadFlags(ids, { pinned: true });
     else if (kind === 'delete') {
@@ -347,8 +349,8 @@ void initAdmin().then(async (p) => {
   me = p;
   if (!p) return;
   // 到点的定时发布先落地（旧库没有 0017 时静默跳过）
-  const n = await adminRepo()
-    .workflowTick()
+  const n = await crmApi()
+    .then((c) => c.workflowTick())
     .catch(() => 0);
   if (n) toast(`已按计划发布 ${n} 条内容。`);
   await load();

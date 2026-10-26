@@ -5,7 +5,6 @@ import { getRepository, LIMITS, type Comment, type LikeSummary, type Profile, ty
 import { markdownHtml } from '@/lib/sanitize';
 import { url } from '@/lib/routes';
 import { initials } from '../render';
-import { createComposer } from './editor';
 import { busy, confirmDialog, h, isMod, reportDialog, timeEl, toast, toastError } from './ui';
 
 export type PostKind = 'reply' | 'comment';
@@ -106,7 +105,9 @@ export function postNode(p: Post, ctx: PostContext): HTMLLIElement {
   const canEdit = ctx.me && !ctx.me.banned && (mine || mod) && (!ctx.locked || mod);
   if (canEdit) {
     const edit = h('button', { type: 'button', class: 'act', 'data-act': 'edit', text: '编辑' });
-    edit.addEventListener('click', () => {
+    edit.addEventListener('click', async () => {
+      // 编辑器按需加载（只读访客不下载）
+      const { createComposer } = await import('./editor');
       const lim = ctx.kind === 'reply' ? LIMITS.replyBody : LIMITS.commentBody;
       const { form, editor } = createComposer({
         fieldLabel: ctx.kind === 'reply' ? '编辑回复' : '编辑评论',

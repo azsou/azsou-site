@@ -7,7 +7,6 @@ import type { AdminUser, Profile, Role } from '@/lib/data';
 import { toast } from '../community/ui';
 import { openUserDrawer } from './drawer';
 import { enhanceTables, serverSort, type ServerSort } from './table2';
-import { emailDraftDialog } from './crm';
 import type { UserSort } from '@/lib/data/admin';
 import { url } from '@/lib/routes';
 import {
@@ -198,7 +197,7 @@ sort = serverSort(table);
 // 批量邮件草稿（仅管理员；只预览 / 复制，后台不发信）
 document.querySelector<HTMLButtonElement>('[data-mail-draft]')?.addEventListener('click', () => {
   if (!current.length) return toast('当前页没有用户。', 'error');
-  emailDraftDialog(current);
+  void import('./crm').then((m) => m.emailDraftDialog(current));
 });
 void initAdmin().then((p) => {
   me = p;

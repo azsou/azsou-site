@@ -16,7 +16,8 @@ import {
 import { markdownToText } from '@/lib/markdown';
 import { url } from '@/lib/routes';
 import { friendlyError } from '@/lib/community-errors';
-import { createComposer, mountEditor } from './editor';
+// 编辑器（含图片上传）按需加载：只读访客不下载（首屏 JS 预算）
+const loadEditor = () => import('./editor');
 import { bodyNode, likeButton, postNode } from './posts';
 import {
   busy,
@@ -145,7 +146,11 @@ function replyNode(s: State, r: Reply, likes: Record<string, { likes: number; li
   });
 }
 
+let composerSeq = 0;
 function mountComposer(s: State) {
+  void mountComposerAsync(s, ++composerSeq).catch((e) => toastError(e));
+}
+async function mountComposerAsync(s: State, seq: number) {
   const box = s.root.querySelector<HTMLElement>('[data-composer]')!;
   box.replaceChildren();
   if (s.locked && !isMod(s.me)) {
@@ -160,6 +165,9 @@ function mountComposer(s: State) {
     box.append(h('p', { class: 'notice notice--error', role: 'note', text: '你的账号已被限制发言。' }));
     return;
   }
+  const { createComposer } = await loadEditor();
+  if (seq !== composerSeq) return; // 加载期间状态又变了：以最新一次为准
+  box.replaceChildren();
   const { form } = createComposer({
     fieldLabel: '写回复',
     limit: LIMITS.replyBody,
@@ -193,7 +201,7 @@ function threadActions(s: State, t: Thread, likes: { likes: number; liked: boole
   bar.append(bookmarkButton(t.id, s.me));
   if (s.me && !s.me.banned && (mine || mod) && (!t.locked || mod)) {
     const edit = h('button', { type: 'button', class: 'act', 'data-act': 'edit-thread', text: '编辑' });
-    edit.addEventListener('click', () => editThread(s, t));
+    edit.addEventListener('click', () => void editThread(s, t).catch((e) => toastError(e)));
     bar.append(edit);
   }
   if (s.me && (mine || mod)) {
@@ -345,7 +353,8 @@ function renderHeader(s: State, t: Thread) {
   if (t.editedAt) meta.append(h('span', { class: 'comment__edited' }, '已编辑 ', timeEl(t.editedAt)));
 }
 
-function editThread(s: State, t: Thread) {
+async function editThread(s: State, t: Thread) {
+  const { mountEditor } = await loadEditor();
   const bodyBox = s.root.querySelector<HTMLElement>('[data-body]')!;
   const bar = s.root.querySelector<HTMLElement>('[data-thread-actions]')!;
   const titleId = 'edit-title';

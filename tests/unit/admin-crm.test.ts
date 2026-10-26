@@ -86,8 +86,10 @@ describe('createAdminApi：排序参数只传白名单', async () => {
   });
   it('备注 / 版本对非法 id 不发请求', async () => {
     const n = calls.length;
-    expect(await api.versions('thread', 'x')).toEqual([]);
-    expect(await api.deleteNote(-1)).toBe(0);
+    const { createCrmApi } = await import('@/lib/data/admin-crm-api');
+    const crm = createCrmApi(api.raw());
+    expect(await crm.versions('thread', 'x')).toEqual([]);
+    expect(await crm.deleteNote(-1)).toBe(0);
     expect(calls.length).toBe(n);
   });
 });
