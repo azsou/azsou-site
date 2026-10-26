@@ -2239,10 +2239,17 @@
     height: 36px;
     margin: 0 0 2px;
   }
+  /* 手机两列卡窄：趋势只和数字同一行，说明通栏（否则「版主 3 · 管理员 1」会折成两行） */
   @media (max-width: 599.98px) {
     .dash .stat > .stat__spark {
+      grid-row: 2;
+      align-self: center;
       width: 56px;
       height: 28px;
+      margin: 0;
+    }
+    .dash .stat > .stat__sub {
+      grid-column: 1 / -1;
     }
   }
 }
