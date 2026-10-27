@@ -32,6 +32,29 @@ describe('D04 图标', () => {
         .map(([k]) => k),
     ).toEqual([]);
   });
+  it('D04 跟进：每个第三方品牌图标都登记了具体取图地址与日期（或标明是本站自制字母标识），登记表里不再有「待补」', () => {
+    const manifest = JSON.parse(fs.readFileSync('src/data/icon-manifest.json', 'utf8')) as Record<
+      string,
+      { kind: string }
+    >;
+    const sources = JSON.parse(fs.readFileSync('src/data/icon-sources.json', 'utf8')) as Record<
+      string,
+      { url?: string; retrieved?: string; monogram?: boolean; note?: string }
+    >;
+    const tools = Object.keys(manifest).filter((k) => manifest[k].kind !== 'app');
+    const bad = tools.filter((k) => {
+      const s = sources[k];
+      if (!s) return true;
+      if (s.monogram) return !s.note;
+      return !/^https:\/\/\S+$/.test(s.url ?? '') || !/^\d{4}-\d{2}-\d{2}$/.test(s.retrieved ?? '');
+    });
+    expect(bad).toEqual([]);
+    // 登记里没有多余（已删除图标）的条目
+    expect(Object.keys(sources).filter((k) => !tools.includes(k))).toEqual([]);
+    const doc = fs.readFileSync('docs/ICON-LICENSES.md', 'utf8');
+    expect(doc).not.toContain('待补');
+    for (const k of tools) if (sources[k].url) expect(doc).toContain(sources[k].url!);
+  });
   it('每个应用 / 品牌图标都有来源与许可登记，登记文件与生成结果一致', () => {
     const manifest = JSON.parse(fs.readFileSync('src/data/icon-manifest.json', 'utf8')) as Record<
       string,
