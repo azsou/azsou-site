@@ -57,8 +57,16 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : process.env.CI ? 2 : undefined,
-  // CI 也加 list：日志里逐条列出跑了哪些用例（例如确认 admin-faults 真的执行而非跳过）
-  reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : [['list']],
+  // CI 也加 list：日志里逐条列出跑了哪些用例（例如确认 admin-faults 真的执行而非跳过）。
+  // json：scripts/ci/flaky-report.mjs 据此把「首跑失败、重试通过」单独注解 + 写入任务摘要（docs/CI.md）
+  reporter: process.env.CI
+    ? [
+        ['github'],
+        ['list'],
+        ['html', { open: 'never' }],
+        ['json', { outputFile: process.env.PW_JSON_REPORT ?? 'reports/e2e-results.json' }],
+      ]
+    : [['list']],
   timeout: 30_000,
   expect: { timeout: 7_000 },
   use: {
