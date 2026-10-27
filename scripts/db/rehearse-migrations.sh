@@ -11,7 +11,7 @@
 #   3. 按 docs/MIGRATION.md 顺序执行 0002 → 0019（每步后 status.sql）
 #   4. 迁移后：同一套快照 → 与迁移前 diff（行数必须不变；策略 / 授权差异全部列出供审计）
 #   5. 幂等：再执行一遍 0017、0018、0019，以及整套 0002 → 0019 → 快照必须与第 4 步完全一致
-#   6. 回滚 / 恢复演练：把第 2 步的备份恢复到新库 → 行数与迁移前一致、status 回到迁移前
+#   6. 回滚 / 恢复演练：把第 2 步的备份单事务恢复到全新空库（不用 --clean 破坏式覆盖）→ 行数与迁移前一致、status 回到迁移前
 #
 # 拒绝：连接串主机不是 127.0.0.1 / localhost / ::1 时直接退出（防止误连生产）。
 # =============================================================================
@@ -106,9 +106,9 @@ snapshot() { # $1 = 库连接串 $2 = 标签
   psqlq "$d" -A -F' | ' -t -f "$ROOT/db/verify/status.sql" >"$OUT/status-$tag.txt"
 }
 
-log "2. 迁移前快照 + 备份（pg_dump -Fc，含 auth.users）"
+log "2. 迁移前快照 + 备份（pg_dump -Fc，含 auth / private / storage）"
 snapshot "$DB" before
-pg_dump "$DB" -Fc -n public -n auth -n private -f "$OUT/.pre-migration.dump" 2>/dev/null || pg_dump "$DB" -Fc -n public -n auth -f "$OUT/.pre-migration.dump"
+pg_dump "$DB" -Fc -n public -n auth -n private -n storage -f "$OUT/.pre-migration.dump" 2>/dev/null || pg_dump "$DB" -Fc -n public -n auth -n storage -f "$OUT/.pre-migration.dump"
 sha256sum "$OUT/.pre-migration.dump" | awk '{print $1}' >"$OUT/pre-migration.sha256"
 
 log "3. 执行 0002 → 0019（每步后 status）"
@@ -160,10 +160,12 @@ log "   重跑后快照与首次迁移后一致：$idem"
 [ "$idem" = ok ] || exit 4
 
 log "6. 回滚演练：迁移前备份恢复到新库"
+# 站长第三轮：不用 --clean（先在目标上 DROP 再建）这类破坏式回滚——恢复进一个**全新的空库**，单事务，出错整体回滚；
+# 演练失败时第 0 步的 trap 会删掉这个新库。全新库不跑 shim：备份本身含 auth / public / private 三个 schema。
 psqlq "$DATABASE_URL" -c "create database $RESTORED" >/dev/null
-# 不再 `|| true`：shim 或 pg_restore 任何一处出错都让演练失败（以前错误被吞掉，只靠行数 diff 兜底）
-psqlq "$RDB" -f "$ROOT/db/shim/plain.sql" >/dev/null
-pg_restore -d "$RDB" --no-owner --clean --if-exists --exit-on-error "$OUT/.pre-migration.dump" 2>"$OUT/restore-stderr.txt" \
+# 不再 `|| true`：pg_restore 任何一处出错都让演练失败（以前错误被吞掉，只靠行数 diff 兜底）
+pg_restore -l "$OUT/.pre-migration.dump" | grep -vE ' SCHEMA - public ' >"$OUT/.pre-migration.list" # 新库自带 public schema
+pg_restore -d "$RDB" --no-owner --single-transaction --exit-on-error -L "$OUT/.pre-migration.list" "$OUT/.pre-migration.dump" 2>"$OUT/restore-stderr.txt" \
   || { log "   pg_restore 失败（见 restore-stderr.txt）"; tail -5 "$OUT/restore-stderr.txt" >&2; exit 6; }
 snapshot "$RDB" restored
 if diff -q "$OUT/counts-before.csv" "$OUT/counts-restored.csv" >/dev/null && diff -q "$OUT/status-before.txt" "$OUT/status-restored.txt" >/dev/null; then
@@ -171,5 +173,5 @@ if diff -q "$OUT/counts-before.csv" "$OUT/counts-restored.csv" >/dev/null && dif
 else
   log "   恢复后与迁移前不一致：见 diff"; diff "$OUT/counts-before.csv" "$OUT/counts-restored.csv" >"$OUT/diff-restored.txt" || true; exit 5
 fi
-rm -f "$OUT/.pre-migration.dump"
+rm -f "$OUT/.pre-migration.dump" "$OUT/.pre-migration.list"
 log "完成。生产库未连接、未改动。"
