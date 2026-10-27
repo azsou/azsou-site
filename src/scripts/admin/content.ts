@@ -347,13 +347,18 @@ async function load() {
 
 enhanceTables();
 sort = serverSort(table);
-void initAdmin().then(async (p) => {
+void initAdmin().then((p) => {
   me = p;
   if (!p) return;
-  // 到点的定时发布先落地（旧库没有 0017 时静默跳过）
-  const n = await crmApi()
+  void load();
+  // 到点的定时发布在旁边结算，不挡列表读取（A15 故障注入：结算请求超时曾让列表多等 8s 才出错误条）；
+  // 有内容落地再刷新一次列表。旧库没有 0017 / 结算失败时静默跳过。
+  void crmApi()
     .then((c) => c.workflowTick())
-    .catch(() => 0);
-  if (n) toast(`已按计划发布 ${n} 条内容。`);
-  await load();
+    .catch(() => 0)
+    .then((n) => {
+      if (!n) return;
+      toast(`已按计划发布 ${n} 条内容。`);
+      void load();
+    });
 });
