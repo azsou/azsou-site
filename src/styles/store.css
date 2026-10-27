@@ -1058,4 +1058,11 @@
     min-width: 7.5em;
     min-height: var(--touch);
   }
+  /* 首帧（catalog.ts 空闲时才加载）下拉带 disabled，只为零 JS 时不误导；外观与可用态一致（同旧分段控件的首帧），
+     不显示成灰色「不可用」，也避免视觉基线随脚本加载早晚在两种外观间摇摆。 */
+  .list-toolbar .list-sort__select:disabled {
+    background-color: var(--c-surface-2);
+    color: var(--c-label);
+    cursor: progress;
+  }
 }
