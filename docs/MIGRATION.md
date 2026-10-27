@@ -43,10 +43,10 @@ SQL 编辑器方式：打开文件 → 全选复制 → 粘贴到 Supabase → S
 - 本地：
 
   ```bash
-  BACKUP_INCLUDE_AUTH=1 BACKUP_PASSPHRASE='<自选口令>' bash scripts/db-backup.sh "$DB" backups/$(date +%F)
+  BACKUP_PASSPHRASE='<自选口令>' bash scripts/db-backup.sh "$DB" backups/$(date +%F)
   ```
 
-产物：`azsou-public-*.dump`（public 全部结构 + 数据 + 策略）、`azsou-auth-users-*.dump`（账户）、结构 SQL、行数清单、校验和。
+产物：`azsou-public-*.dump`（public 全部结构 + 数据 + 策略）、`azsou-auth-*.dump`（账户 + 第三方登录绑定）、`azsou-private-*.dump`、`azsou-storage-*.dump`（元数据）、globals 清单（全部 gpg 加密，见 BACKUP.md §2B）、结构 SQL、行数清单、校验和。
 另外记下当前行数，供之后对比：
 
 ```sql
@@ -212,13 +212,13 @@ select pg_get_constraintdef(oid) from pg_constraint where conname = 'reports_tar
 
 ## 9. 回滚方案
 
-| 情况                            | 做法                                                                                                                                                                                                                                                                       |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 某个迁移文件执行报错            | 文件在事务里，已自动回滚；看报错修正后**重跑同一个文件**。库停在上一步，V72 不受影响                                                                                                                                                                                       |
-| 迁移完成但 V72 出现异常         | 先确认是否为预期变化（例如 V72 的作者现在不能自己置顶 —— 这是安全修复）；如需撤销某项权限收紧，联系开发者针对性修复，**不要**整库恢复                                                                                                                                      |
-| v2 前端上线后有严重问题         | Vercel → Deployments → 选 V72 的最后一个生产部署 → **Instant Rollback**（或把 Production Branch 改回 `main` 的 V72 提交）。数据库不用动                                                                                                                                    |
-| 注册钩子误拦正常用户            | Dashboard → Authentication → Hooks → Before User Created → Disable（立即生效）；或清空 `private.app_settings` 里的密钥（钩子放行所有人）                                                                                                                                   |
-| 数据被误删 / 库损坏（灾难恢复） | 新建一个 Supabase 项目 → `bash scripts/db-restore.sh "<新库连接串>" azsou-public-*.dump azsou-auth-users-*.dump` → Vercel 改 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY` 指向新项目并 Redeploy；Auth / Storage 设置按 CONFIG.md 重配。脚本已在 CI 里演练（见 BACKUP.md） |
+| 情况                            | 做法                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 某个迁移文件执行报错            | 文件在事务里，已自动回滚；看报错修正后**重跑同一个文件**。库停在上一步，V72 不受影响                                                                                                                                                                                                                                                                 |
+| 迁移完成但 V72 出现异常         | 先确认是否为预期变化（例如 V72 的作者现在不能自己置顶 —— 这是安全修复）；如需撤销某项权限收紧，联系开发者针对性修复，**不要**整库恢复                                                                                                                                                                                                                |
+| v2 前端上线后有严重问题         | Vercel → Deployments → 选 V72 的最后一个生产部署 → **Instant Rollback**（或把 Production Branch 改回 `main` 的 V72 提交）。数据库不用动                                                                                                                                                                                                              |
+| 注册钩子误拦正常用户            | Dashboard → Authentication → Hooks → Before User Created → Disable（立即生效）；或清空 `private.app_settings` 里的密钥（钩子放行所有人）                                                                                                                                                                                                             |
+| 数据被误删 / 库损坏（灾难恢复） | 新建一个 Supabase 项目 → `bash scripts/db-restore.sh "<新库连接串>" azsou-public-*.dump azsou-auth-*.dump --private azsou-private-*.dump --storage azsou-storage-*.dump`（先 gpg -d 解密） → Vercel 改 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY` 指向新项目并 Redeploy；Auth / Storage 设置按 CONFIG.md 重配。脚本已在 CI 里演练（见 BACKUP.md） |
 
 0002–0015 没有「down」脚本：它们只增加列 / 表 / 函数 / 策略，不删除数据；撤销它们反而会再次暴露 V72 时代的权限问题。
 需要回到迁移前的精确状态时，用第 1 步的备份恢复到新项目（上表最后一行），不要在生产库上手工删除对象。
@@ -380,13 +380,13 @@ run db/migrations/0019_restore_review_version_window.sql;    status   # 恢复 �
 
 **回滚 / 恢复**：
 
-| 情况                                              | 做法                                                                                                                                                                                         |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 某个迁移文件报错                                  | 文件在事务里，已整体回滚；修正后重跑同一文件。库停在上一步                                                                                                                                   |
-| 0018 的行为变化不被接受（例如要让版主改他人正文） | 不回退迁移；按站长决定改策略：版主改正文 = 调整 `az_content_edit_guard()` 判断并放开 `mod_edit_content()` 给版主；隐藏不取消排程 = 把 `az_hide_cancels_schedule()` 改为 `select false`       |
-| 0019 行为不被接受                                 | 不回退迁移：恢复 → 待审是 `mod_set_visibility` 的函数体，可按站长决定再替换；版本上限同理替换 `az_save_content_version`                                                                      |
-| 只想停用 0018 的触发器                            | `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on <表>`（三张表各一）——前端照常工作，回到 0017 行为                                                             |
-| 数据损坏 / 需要精确回到迁移前                     | 用第 2 步的备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-users-*.dump`，再切换 Vercel 环境变量（见第 9 节最后一行）。不要在生产库上手工删对象 |
+| 情况                                              | 做法                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 某个迁移文件报错                                  | 文件在事务里，已整体回滚；修正后重跑同一文件。库停在上一步                                                                                                                                                                                                             |
+| 0018 的行为变化不被接受（例如要让版主改他人正文） | 不回退迁移；按站长决定改策略：版主改正文 = 调整 `az_content_edit_guard()` 判断并放开 `mod_edit_content()` 给版主；隐藏不取消排程 = 把 `az_hide_cancels_schedule()` 改为 `select false`                                                                                 |
+| 0019 行为不被接受                                 | 不回退迁移：恢复 → 待审是 `mod_set_visibility` 的函数体，可按站长决定再替换；版本上限同理替换 `az_save_content_version`                                                                                                                                                |
+| 只想停用 0018 的触发器                            | `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on <表>`（三张表各一）——前端照常工作，回到 0017 行为                                                                                                                                       |
+| 数据损坏 / 需要精确回到迁移前                     | 用第 2 步的备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-*.dump --private azsou-private-*.dump --storage azsou-storage-*.dump`（先 gpg -d 解密），再切换 Vercel 环境变量（见第 9 节最后一行）。不要在生产库上手工删对象 |
 
 ## 附：最终执行顺序
 

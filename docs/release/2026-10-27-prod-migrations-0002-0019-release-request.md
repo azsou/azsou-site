@@ -91,12 +91,12 @@ psql "$PROD" -X -A -t -c "select count(*) from cron.job" 2>/dev/null || echo "pg
 
 ## 6. 回滚
 
-| 情况                          | 做法                                                                                                                                                                       |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 某个文件报错                  | 该文件已整体回滚；记录报错，停止。修正后从这个文件重跑（每个文件可重复执行）                                                                                               |
-| 0018 行为不被接受             | 不回退迁移：停用触发器 `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on forum_threads / forum_replies / comments`（回到 0017 行为）          |
-| 前端异常                      | Vercel → Deployments → 把 §1 记录的部署 Promote 回生产                                                                                                                     |
-| 数据损坏 / 必须精确回到迁移前 | 用 §2 的已校验备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-users-*.dump`，再切换 Vercel 环境变量；不要在生产库上手工删对象 |
+| 情况                          | 做法                                                                                                                                                                                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 某个文件报错                  | 该文件已整体回滚；记录报错，停止。修正后从这个文件重跑（每个文件可重复执行）                                                                                                                                                                         |
+| 0018 行为不被接受             | 不回退迁移：停用触发器 `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on forum_threads / forum_replies / comments`（回到 0017 行为）                                                                                    |
+| 前端异常                      | Vercel → Deployments → 把 §1 记录的部署 Promote 回生产                                                                                                                                                                                               |
+| 数据损坏 / 必须精确回到迁移前 | 用 §2 的已校验备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-*.dump --private azsou-private-*.dump --storage azsou-storage-*.dump`（先 gpg -d 解密），再切换 Vercel 环境变量；不要在生产库上手工删对象 |
 
 ## 7. 站长签字
 

@@ -78,8 +78,9 @@ echo "== 准备：源库（shim + 全部迁移 + 演练数据）与两份备份�
 for f in db/shim/plain.sql db/migrations/*.sql db/restore/drill-seed.sql; do
   "$REAL_PSQL" "$(url $SRC)" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f "$f" >/dev/null
 done
-BACKUP_INCLUDE_AUTH=1 BACKUP_PASSPHRASE= bash scripts/db-backup.sh "$(url $SRC)" "$W/good" >/dev/null
-BACKUP_INCLUDE_AUTH=1 BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$(url $SRC)" "$W/enc" >/dev/null
+# 明文只允许本机隔离库 + 显式 BACKUP_ALLOW_PLAINTEXT=1（这里要篡改文件内容做负面用例）
+BACKUP_ALLOW_PLAINTEXT=1 BACKUP_PASSPHRASE= bash scripts/db-backup.sh "$(url $SRC)" "$W/good" >/dev/null
+BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$(url $SRC)" "$W/enc" >/dev/null
 copy() { rm -rf "$W/$1"; cp -r "$W/good" "$W/$1"; }
 resum() { (cd "$W/$1" && rm -f azsou-SHA256SUMS-*.txt && ts=$(ls azsou-public-*.dump | sed -E 's/.*-([0-9TZ]+)\.dump/\1/') && "$REAL_SHA" azsou-*"$ts"* >"azsou-SHA256SUMS-$ts.txt"); }
 fresh_tgt() { "$REAL_PSQL" "$DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 -c "drop database if exists $TGT with (force)" -c "create database $TGT" >/dev/null
@@ -105,10 +106,28 @@ expect_fail "V8 恢复后行数与清单不一致" "恢复演练通过" -- bash 
 copy t9; f=$(ls "$W"/t9/azsou-rowcounts-*.tsv); printf 'public.az_no_such_table\t0\n' >>"$f"; resum t9; fresh_tgt
 expect_fail "V9 恢复库里数不出某张表（psql 出错必须冒泡）" "恢复演练通过" -- bash scripts/db-verify-backup.sh "$W/t9" --restore "$(url $TGT)"
 
+copy t10; rm "$W"/t10/azsou-auth-*.dump; resum t10
+expect_fail "V10 缺 auth 范围（账户 / 第三方绑定）" "校验通过" -- bash scripts/db-verify-backup.sh "$W/t10"
+copy t11; rm "$W"/t11/azsou-globals-*.tsv; resum t11
+expect_fail "V11 缺 globals 清单（扩展 / 角色）" "校验通过" -- bash scripts/db-verify-backup.sh "$W/t11"
+copy t12; f=$(ls "$W"/t12/azsou-rowcounts-*.tsv); awk -F'\t' 'BEGIN{OFS="\t"} $1=="auth.identities"{$2=$2+1}1' "$f" >"$f.n" && mv "$f.n" "$f"; resum t12; fresh_tgt
+expect_fail "V12 恢复后 auth.identities 行数不一致（auth 范围也逐表核对）" "恢复演练通过" -- bash scripts/db-verify-backup.sh "$W/t12" --restore "$(url $TGT)"
+copy t13; f=$(ls "$W"/t13/azsou-rowcounts-*.tsv); awk -F'\t' 'BEGIN{OFS="\t"} $1=="storage.objects"{$2=$2+1}1' "$f" >"$f.n" && mv "$f.n" "$f"; resum t13; fresh_tgt
+expect_fail "V13 恢复后 storage.objects 行数不一致（storage 元数据也逐表核对）" "恢复演练通过" -- bash scripts/db-verify-backup.sh "$W/t13" --restore "$(url $TGT)"
+
+echo "== 强制加密"
+expect_fail "E1 非本机库没有口令：拒绝且不导出任何文件" "备份完成" -- bash scripts/db-backup.sh "postgres://u:p@db.example.com:5432/x" "$W/e1"
+[ ! -e "$W/e1" ] && { pass=$((pass + 1)); results+=("✓ E1b 拒绝时没有建输出目录"); } || { failn=$((failn + 1)); results+=("✗ E1b 拒绝时仍产生了 $W/e1"); }
+expect_fail "E2 本机库没有口令、也没声明 BACKUP_ALLOW_PLAINTEXT：拒绝" "备份完成" -- env -u BACKUP_ALLOW_PLAINTEXT BACKUP_PASSPHRASE= bash scripts/db-backup.sh "$(url $SRC)" "$W/e2"
+expect_fail "E3 明文备份目录过不了上传前闸门" "全部加密" -- bash scripts/ops/assert-encrypted.sh "$W/good"
+mkdir -p "$W/e4"; cp "$(ls "$W"/good/azsou-public-*.dump)" "$W/e4/azsou-public-x.dump.gpg"
+expect_fail "E4 明文改名成 .gpg 也过不了闸门（检查 OpenPGP 包头）" "全部加密" -- bash scripts/ops/assert-encrypted.sh "$W/e4"
+expect_ok "E5 加密备份目录通过闸门" -- bash scripts/ops/assert-encrypted.sh "$W/enc"
+
 echo "== db-backup.sh"
-expect_fail "B1 源库连不上" "备份完成" -- bash scripts/db-backup.sh "postgres://postgres:postgres@127.0.0.1:1/none" "$W/b1"
+expect_fail "B1 源库连不上" "备份完成" -- env BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "postgres://postgres:postgres@127.0.0.1:1/none" "$W/b1"
 "$REAL_PSQL" "$DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 -c "drop database if exists $NOAUTH with (force)" -c "create database $NOAUTH" >/dev/null
-expect_fail "B2 行数清单查询失败（库里没有 auth.users）" "备份完成" -- bash scripts/db-backup.sh "$(url $NOAUTH)" "$W/b2"
+expect_fail "B2 账户范围导出失败（库里没有 auth.users）" "备份完成" -- env BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$(url $NOAUTH)" "$W/b2"
 
 echo "== db-restore.sh"
 PUB=$(ls "$W"/good/azsou-public-*.dump)
