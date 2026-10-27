@@ -14,9 +14,9 @@ export const EN_SITE = {
 export const EN_NAV = [
   { href: '/en/', label: 'Home', tab: 'Home', icon: 'home' },
   { href: '/en/apps/', label: 'Apps', tab: 'Apps', icon: 'apps' },
-  { href: '/en/ai/', label: 'AI Tools' },
-  { href: '/en/videos/', label: 'Videos' },
-  { href: '/en/games/', label: 'Games', tab: 'Games', icon: 'games' },
+  { href: '/en/ai/', label: 'AI Tools', tab: 'AI', icon: 'sparkle' },
+  { href: '/en/videos/', label: 'Videos', icon: 'play' },
+  { href: '/en/games/', label: 'Games', icon: 'games' },
   { href: '/en/articles/', label: 'Articles', tab: 'Articles', icon: 'articles' },
 ];
 

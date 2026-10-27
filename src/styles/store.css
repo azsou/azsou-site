@@ -167,8 +167,11 @@
     margin-top: var(--space-1);
   }
   /* 元数据按「事实」整段换行：不在「2026年7月 / 18日」中间断开，分隔点留在行尾、不出现在行首 */
+  /* D06：每个事实是一个整体（inline-block，行内不在中间断开）；只有单个事实比整行还长（超长版本号、200% 文字下的日期）
+     时才在内部换行，不再撑出卡片 */
   .entry__fact {
-    white-space: nowrap;
+    display: inline-block;
+    max-width: 100%;
   }
   /* row：列表行 */
   .entry--row,
@@ -277,7 +280,9 @@
     .shelf__track {
       grid-auto-flow: column;
       grid-template-rows: repeat(var(--shelf-rows, 2), auto);
-      grid-auto-columns: 34%;
+      /* D11（批次 3 跟进）：原 34% × 3 列正好铺满 390 / 320 宽，第 4 列完全在屏外 → 没有「可横滑」的提示。
+         40% 时第 3 列露出约一半（按比例，不是固定像素），首屏条目数不变（露出的也算） */
+      grid-auto-columns: 40%;
       overflow-x: auto;
       overscroll-behavior-x: contain;
       scroll-snap-type: x mandatory;
@@ -314,8 +319,9 @@
     .shelf__track--card {
       grid-auto-columns: 40%;
     }
+    /* D11：34% × 3 在 600–899 宽几乎正好铺满（第 3 个只藏 2%），改 40% 让第 3 个露出约一半 */
     .shelf__track--chip {
-      grid-auto-columns: 34%;
+      grid-auto-columns: 40%;
     }
   }
   /* ≥ 900：网格，按行数截断（看全部走「更多」）。tile 每行 6 / 7 / 8 列 × 2 行；mini（排行）5 列 × 2 行；card 4 列 × 1 行 */
@@ -656,7 +662,7 @@
       background-color var(--dur-fast) var(--ease-out);
   }
   .entry__icon {
-    transition: transform var(--dur-base) var(--ease-out);
+    transition: transform var(--dur) var(--ease-out);
   }
   .entry__type {
     background: color-mix(in srgb, var(--type-ink) var(--tint-rest), transparent);
@@ -883,7 +889,7 @@
   .bento-tile__shot img {
     width: 100%;
     height: auto;
-    transition: transform var(--dur-base) var(--ease-out);
+    transition: transform var(--dur) var(--ease-out);
   }
   .bento-tile__badge {
     position: absolute;
@@ -926,16 +932,130 @@
       grid-template-columns: auto minmax(0, 1fr);
       column-gap: var(--space-4);
       align-items: center;
+      /* CLS（批次 3 跟进）：≥ 1200 主栏与分类栏同一行，HTML 解析到一半先画的那一帧里主栏比分类栏矮、被拉高；
+         默认 align-content（stretch）会把 auto 行一起拉高，第一行居中的「更多筛选」/ 工具条随之下移，条目到齐后再弹回
+         （桌面 /apps/ 偶发约 83px 跳动）。行高只由内容决定，多余高度留在网格底部。 */
+      align-content: start;
     }
     .list-main > * {
       grid-column: 1 / -1;
     }
     .list-main > .filter-bar {
       grid-column: 1;
+      /* 与工具条同样的上下外边距：工具条还没解析出来的那一帧，「更多筛选」也已在最终位置 */
+      margin-block: var(--space-3);
+    }
+    /* 分段控件全局自带 24px 下外边距（独立成行时用）；在同一行的工具条里它会把整行撑高 24px，
+       且只在视图切换解析出来之后才撑高 → 首帧之后整行下移 12px。这里归零，行高只由 44 的控件决定 */
+    .list-main:has(> .filter-bar) > .list-toolbar .segmented,
+    .list-main:has(> .filter-bar) > .list-toolbar .list-sort {
       margin-bottom: 0;
     }
     .list-main > .filter-bar + .list-toolbar {
       grid-column: 2;
     }
+  }
+}
+
+/* F01（批次 3）：< 1200 分类在顶部一行时，「更多筛选」并进分类胶囊这一行的行首，排序 / 视图切换是第二行，结果数放在其后。
+   手机首屏的工具区从 4 行（分类 / 更多筛选 / 计数 / 排序视图）收为 2 行控件 + 1 行计数。不支持 :has() 的浏览器保持原来的堆叠排版。 */
+@layer components {
+  @media (max-width: 1199.98px) {
+    .list-layout--rail:has(> .list-main > .filter-bar) {
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: var(--space-2);
+      row-gap: 0;
+      align-items: center;
+    }
+    .list-layout--rail:has(> .list-main > .filter-bar) > .list-main {
+      display: contents;
+    }
+    .list-layout--rail:has(> .list-main > .filter-bar) > .list-rail {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .list-layout--rail:has(> .list-main > .filter-bar) > .list-main > * {
+      grid-column: 1 / -1;
+    }
+    .list-layout--rail:has(> .list-main > .filter-bar) > .list-main > .filter-bar {
+      grid-column: 1;
+      grid-row: 1;
+      margin: 0;
+    }
+    /* 弹层改为相对筛选按钮浮出（就地展开会把第一列撑宽、挤掉分类胶囊） */
+    .list-layout--rail:has(> .list-main > .filter-bar) .more-filters__body {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: var(--z-overlay);
+      width: max-content;
+      max-width: min(560px, calc(100vw - 2 * var(--space-4)));
+      box-shadow: var(--elev-2);
+    }
+  }
+  @media (max-width: 899.98px) {
+    .list-layout--rail:has(> .list-main > .filter-bar) .list-toolbar__count {
+      order: 1;
+      flex-basis: 100%;
+    }
+    .list-layout--rail:has(> .list-main > .filter-bar) .more-filters__chev {
+      display: none;
+    }
+  }
+}
+
+/* D03 / T008（批次 3）：紧凑视觉与真实命中区分开。列表工具条的分段按钮视觉 40、分类胶囊视觉 36，
+   命中区用按钮自身的透明 ::before 补到 44（只向上下扩，不越过左右相邻按钮；补区落在容器内边距里，不会被横滑容器裁掉）。 */
+@layer components {
+  .list-toolbar .segmented button {
+    position: relative;
+    min-height: 40px;
+  }
+  .list-toolbar .segmented button::before {
+    content: '';
+    position: absolute;
+    inset: -2px 0;
+  }
+  .list-rail ul {
+    padding-block: 5px;
+  }
+  .list-rail .chip {
+    position: relative;
+  }
+  /* 横滑容器按整像素裁切：补区多留 1px（36 + 2 × 5 = 46），保证 44 命中区不被舍入吃掉 */
+  .list-rail .chip::before {
+    content: '';
+    position: absolute;
+    inset: -5px 0;
+  }
+  @media (min-width: 1200px) {
+    .list-rail ul {
+      padding-block: 2px;
+    }
+    .list-rail .chip::before {
+      content: none;
+    }
+  }
+}
+
+/* F02 跟进（站长 2026-10-27）：/apps/ 目录的单一排序控件——带可见标签的原生下拉，放在工具条原排序分段的位置。
+   五个选项用分段控件在 390 宽放不下（会把视图切换挤到第三行），下拉一行即可；高 44 = 命中区。 */
+@layer components {
+  .list-sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    /* 与同排的分段控件（全局 margin-bottom: --space-6）对齐；≥ 900 同一行工具条里两者都归零 */
+    margin-bottom: var(--space-6);
+  }
+  .list-sort__label {
+    font-size: var(--fs-meta);
+    color: var(--c-label-2);
+  }
+  .list-toolbar .list-sort__select {
+    width: auto;
+    min-width: 7.5em;
+    min-height: var(--touch);
   }
 }

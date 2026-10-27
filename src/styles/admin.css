@@ -129,6 +129,8 @@
     }
     .admin {
       grid-template-columns: minmax(0, 1fr);
+      /* A18：内容很短（如用户详情缺参态）时，剩余高度不能均分给顶部导航行（曾撑出约 260px 空白） */
+      grid-template-rows: auto 1fr;
     }
     .admin-nav {
       position: sticky;
@@ -1127,15 +1129,23 @@
       padding: 0;
       justify-content: center;
     }
-    .admin-search__text,
     .admin-search__kbd {
       display: none;
+    }
+    /* A18：窄屏只显示图标，但「搜索或跳转」仍是按钮的可访问名称（视觉隐藏，不 display:none） */
+    .admin-search__text {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
 
   /* ---------- 分组侧栏 ---------- */
   .admin {
-    transition: grid-template-columns var(--dur-base) var(--ease-out);
+    transition: grid-template-columns var(--dur) var(--ease-out);
   }
   .admin-nav {
     display: grid;
@@ -1526,7 +1536,7 @@
   .drawer[open] {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    animation: drawer-in var(--dur-base) var(--ease-out);
+    animation: drawer-in var(--dur) var(--ease-out);
   }
   .drawer::backdrop {
     /* stylelint-disable-next-line function-disallowed-list -- 固定色：遮罩不随主题 */
@@ -1948,6 +1958,37 @@
   .perm-note {
     margin-top: var(--space-3);
   }
+  /* A18 / D10：手机（< 600，最窄 320）时后台顶栏（站点名 + 搜索 + 快捷键 + 返回前台 + 外观 + 账户）会把整页撑宽约 13px。
+     站点名改为视觉隐藏（链接仍可读出「AZ Studio」），快捷键帮助在手机上没有用处，隐藏 */
+  @media (max-width: 599.98px) {
+    .admin-top__brand span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .admin-top__help {
+      display: none;
+    }
+  }
+  /* A18：手机上三列角色固定 112px 会把「能力」列挤成每行 1–2 字的文字柱。
+     窄屏改为角色列 64px、能力列至少 9em；仍放不下（320 / 200% 文字）时只在表格容器内横向滚动，整页不横溢 */
+  @media (max-width: 599.98px) {
+    .perm-table__role,
+    .perm-table__cell {
+      width: 64px;
+      padding-inline: var(--space-1);
+    }
+    .data-table.perm-table th[scope='row'] {
+      min-width: 9em;
+    }
+    .perm-table__role {
+      font-size: var(--fs-caption);
+      white-space: nowrap;
+    }
+  }
 
   /* ---------- 列宽调整（T10.17） ---------- */
   .data-table thead th {
@@ -1997,7 +2038,7 @@
     }
   }
   .drawer__body > * {
-    animation: rise-in var(--dur-base) var(--ease-out) both;
+    animation: rise-in var(--dur) var(--ease-out) both;
   }
   .drawer__body > :nth-child(2) {
     animation-delay: 40ms;

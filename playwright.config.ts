@@ -47,8 +47,9 @@ for (const [b, base] of Object.entries(BROWSERS)) {
   }
 }
 
-/** 本地多个工作区并行跑 E2E 时用 E2E_PORT 错开端口（默认 4321，CI 不设） */
-const PORT = Number(process.env.E2E_PORT) || 4321;
+/** 本地多个工作区并行跑 E2E 时错开端口（默认 4321，CI 不设）。
+ *  整合候选：#5 用 E2E_PORT、#6 用 PW_PORT，两者都认（PW_PORT 优先） */
+const PORT = Number(process.env.PW_PORT) || Number(process.env.E2E_PORT) || 4321;
 
 export default defineConfig({
   testDir: 'tests/e2e',

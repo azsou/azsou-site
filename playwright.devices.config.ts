@@ -9,6 +9,8 @@ import { defineConfig, devices, type Project } from '@playwright/test';
  */
 process.env.NO_PROXY = [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(',');
 process.env.no_proxy = process.env.NO_PROXY;
+// 本地并行多套工作区时可换端口（默认 4323，CI 不设）
+const PORT = process.env.PW_DEVICES_PORT ?? '4323';
 
 const desk = (w: number, h: number) => ({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
 const DEVICES: Record<string, Record<string, unknown>> = {
@@ -58,15 +60,15 @@ export default defineConfig({
   timeout: 45_000,
   expect: { timeout: 8_000 },
   use: {
-    baseURL: 'http://127.0.0.1:4323',
+    baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
     serviceWorkers: 'block',
   },
   projects,
   webServer: {
-    command: 'node scripts/serve.mjs 4323 dist/client',
-    url: 'http://127.0.0.1:4323/',
+    command: `node scripts/serve.mjs ${PORT} dist/client`,
+    url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
