@@ -562,15 +562,91 @@
     padding: 0;
     list-style: none;
   }
-  .tabbar a {
+  .tabbar a,
+  .tabbar__more {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 2px;
+    width: 100%;
     min-height: var(--tabbar-h);
     font-size: var(--fs-caption);
     color: var(--c-label-2);
+  }
+  /* D01「更多」：与 Tab 链接同一外观；面板是原生 popover（顶层），贴在底栏上方并让出安全区 */
+  .tabbar__more {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--fs-caption);
+    cursor: pointer;
+  }
+  .tabbar__more.is-current,
+  .tabbar__more:has(+ .tabbar-more:popover-open) {
+    color: var(--c-accent);
+    font-weight: var(--fw-semibold);
+  }
+  .tabbar-more {
+    position: fixed;
+    inset: auto calc(var(--space-3) + var(--safe-right))
+      calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-2)) calc(var(--space-3) + var(--safe-left));
+    width: auto;
+    max-height: calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - var(--nav-h) - var(--space-4));
+    margin: 0;
+    padding: var(--space-3) var(--space-3) var(--space-2);
+    overflow: auto;
+    border: 1px solid var(--c-separator);
+    border-radius: var(--radius-lg);
+    background: var(--c-bg-elevated);
+    color: var(--c-label);
+    box-shadow: var(--elev-2);
+  }
+  .tabbar-more__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding-inline-start: var(--space-2);
+  }
+  .tabbar-more__title {
+    margin: 0;
+    font-size: var(--fs-headline);
+    font-weight: var(--fw-semibold);
+  }
+  .tabbar-more__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: var(--space-1);
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tabbar-more__list a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    min-height: 64px;
+    border-radius: var(--radius-md);
+    font-size: var(--fs-meta);
+    color: var(--c-label);
+  }
+  .tabbar-more__list a:hover {
+    background: var(--c-fill);
+    text-decoration: none;
+  }
+  .tabbar-more__list a[aria-current='page'] {
+    color: var(--c-accent);
+    font-weight: var(--fw-semibold);
+    background: color-mix(in srgb, var(--c-accent) var(--tint-rest), transparent);
+  }
+  .tabbar-more__list svg {
+    width: 24px;
+    height: 24px;
   }
   /* 底部 Tab 的文字很小（caption）：毛玻璃只留 8% 透明度，下面滚过深色 / 彩色块时对比度仍 ≥ 4.5（WebKit axe 曾在 /guestbook/ 报 color-contrast） */
   @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
@@ -583,7 +659,8 @@
       text-decoration: none;
     }
   }
-  .tabbar a[aria-current='page'] {
+  .tabbar a[aria-current='page'],
+  .tabbar__more[aria-current='page'] {
     color: var(--c-accent);
     font-weight: var(--fw-semibold);
   }
