@@ -101,6 +101,7 @@ async function run(q: string) {
     );
     out.hidden = hits.length === 0;
     paintTabs(hits);
+    applyType(urlType());
     emptySlot.replaceChildren(...(hits.length ? [] : [noResultsNode(term, suggestion)]));
     status.textContent = hits.length
       ? `「${term}」共 ${hits.length} 条结果`
@@ -137,37 +138,70 @@ function paintTabs(hits: SearchHit[]) {
     ...[...counts].map(([t, n]) => mk(t, TYPE_LABEL[t as SearchHit['type']], n)),
   );
 }
-function selectTab(type: string) {
+/** F10 / T027：类型筛选写进 URL（?q=…&type=video），刷新、分享、前进后退都能还原 */
+const urlType = () => new URLSearchParams(location.search).get('type') || 'all';
+function writeUrl(q: string, type: string, mode: 'push' | 'replace') {
+  const u = new URL(location.href);
+  if (q.trim()) u.searchParams.set('q', q.trim());
+  else u.searchParams.delete('q');
+  if (type && type !== 'all') u.searchParams.set('type', type);
+  else u.searchParams.delete('type');
+  if (u.href === location.href) return;
+  if (mode === 'push') history.pushState(null, '', u);
+  else history.replaceState(null, '', u);
+}
+/** 按类型显示；URL 里的类型在本次结果中不存在（未知参数 / 换了关键词）时安全回退到「全部」并改写 URL */
+function applyType(type: string) {
+  const has = [...tabs.querySelectorAll<HTMLElement>('[role="tab"]')].some((b) => b.dataset.type === type);
+  const t = !tabs.hidden && has ? type : 'all';
+  showType(t, false);
+  if (t !== urlType()) writeUrl(input.value, t, 'replace');
+}
+function showType(type: string, focus: boolean) {
   for (const b of tabs.querySelectorAll<HTMLElement>('[role="tab"]')) {
     const on = b.dataset.type === type;
     b.setAttribute('aria-selected', String(on));
     b.tabIndex = on ? 0 : -1;
-    if (on) b.focus();
+    if (on && focus) b.focus();
   }
   for (const li of out.querySelectorAll<HTMLElement>('li'))
     li.hidden = type !== 'all' && li.dataset.type !== type;
+}
+/** 点击 = 新历史记录（后退回到上一个类型）；方向键逐个移动只替换当前记录 */
+function selectTab(type: string, mode: 'push' | 'replace' = 'push') {
+  showType(type, true);
+  writeUrl(input.value, type, mode);
 }
 tabs.addEventListener('keydown', (e) => {
   if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
   const all = [...tabs.querySelectorAll<HTMLElement>('[role="tab"]')];
   const i = all.findIndex((b) => b.getAttribute('aria-selected') === 'true');
   const next = all[(i + (e.key === 'ArrowRight' ? 1 : all.length - 1)) % all.length];
-  selectTab(next.dataset.type!);
+  selectTab(next.dataset.type!, 'replace');
 });
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const q = input.value;
-  const u = new URL(location.href);
-  if (q.trim()) u.searchParams.set('q', q.trim());
-  else u.searchParams.delete('q');
-  history.replaceState(null, '', u);
+  writeUrl(q, urlType(), 'replace');
   void run(q);
 });
 let timer: ReturnType<typeof setTimeout> | undefined;
 input.addEventListener('input', () => {
   clearTimeout(timer);
-  timer = setTimeout(() => void run(input.value), 300);
+  timer = setTimeout(() => {
+    // 边输入边把关键词写进 URL（replace，不制造一串历史记录），刷新不丢
+    writeUrl(input.value, urlType(), 'replace');
+    void run(input.value);
+  }, 300);
+});
+// 前进 / 后退：关键词变了就重搜，只是类型变了就就地切换
+addEventListener('popstate', () => {
+  const q = new URLSearchParams(location.search).get('q') || '';
+  if (q !== input.value.trim()) {
+    input.value = q;
+    void run(q);
+  } else applyType(urlType());
 });
 
 const initial = new URLSearchParams(location.search).get('q') || '';

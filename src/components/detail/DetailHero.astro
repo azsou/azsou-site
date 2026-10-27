@@ -30,7 +30,7 @@ const metrics = detailMetrics(entry, (d) => formatDate(d));
   <div class="app-hero__main detail-hero__main">
     <h1 class="app-hero__title">{title}</h1>
     {subtitle && <p class="app-hero__subtitle">{subtitle}</p>}
-    <p class="app-hero__dev">
+    <p class="app-hero__dev" data-pagefind-ignore>
       {developer &&
         (developer.url ? <a href={developer.url}>{developer.name}</a> : <span>{developer.name}</span>)}
       <span class={`entry__type entry__type--${entry.type}`} data-type-badge>
@@ -45,7 +45,7 @@ const metrics = detailMetrics(entry, (d) => formatDate(d));
     </p>
   </div>
   {metrics.length > 0 && (
-    <dl class="detail-metrics" data-detail-metrics>
+    <dl class="detail-metrics" data-detail-metrics data-pagefind-ignore>
       {metrics.map((m) => (
         <div class="detail-metric" data-metric={m.key}>
           <dt>{m.label}</dt>
