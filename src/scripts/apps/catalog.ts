@@ -109,8 +109,15 @@ if (form && grid && statusEl && pager) {
         moreRoot,
         Number(!fixedPlatform && !!q.platform) + Number(!!q.price) + Number((q.sort ?? 'new') !== 'new'),
       );
-    if (push) history.replaceState(null, '', location.pathname + urlQuery(q, page));
-    if (isDefault(q) && page === 1 && !new URLSearchParams(location.search).has('page')) {
+    // F02：地址是唯一的状态来源。只写规范化后的查询串（未知参数、无效取值丢弃）；越界页码在下面按实际页数纠正
+    const canon = (p: number) => location.pathname + urlQuery(q, p) + location.hash;
+    const setUrl = (p: number) => {
+      if (location.pathname + location.search + location.hash !== canon(p))
+        history.replaceState(null, '', canon(p));
+    };
+    const wantedPage = new URLSearchParams(location.search).has('page') || page > 1;
+    if (push || location.search) setUrl(page);
+    if (isDefault(q) && page === 1 && !wantedPage) {
       restoreStatic();
       return;
     }
@@ -121,6 +128,8 @@ if (form && grid && statusEl && pager) {
       const s = needStats ? await loadStats() : stats;
       const sorted = sortApps(items, q.sort ?? 'new', needStats ? s : null);
       const p = paginate(sorted, page);
+      // 页码超出（分享的旧链接 / 筛选后结果变少）：纠正到最后一页并写回地址
+      if (p.page !== page) setUrl(p.page);
       grid!.replaceChildren(...p.items.map((it) => renderCard(it, 'h2')));
       if (s) fillCardStats(grid!, s);
       const fallback = needStats && !s;

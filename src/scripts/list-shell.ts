@@ -3,6 +3,10 @@
  * 只重排 / 切换已渲染的条目（[data-list-items] > li），不请求数据。排序键来自条目上的
  * data-sort-new / data-sort-name / data-sort-editor（src/lib/store.ts sortAttrs）。
  * 排序写进查询串 ?sort=（可分享），显示方式记在 localStorage（个人偏好，不进地址）。
+ * F02 状态约定：地址优先于本地偏好。
+ *  - ?sort= 无效 / 等于默认值时从地址里去掉（未知参数不残留，分享出去的链接是规范的）；
+ *  - 显示方式是「全站共用」的个人偏好（各栏目同一个 az-list-view）；分享链接带 ?view=grid|list 时本次按地址显示，
+ *    但不覆盖访客自己存的偏好；访客在页面上点了切换才写偏好，并同步去掉地址里的 view。
  */
 const VIEW_KEY = 'az-list-view';
 
@@ -23,6 +27,15 @@ for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) 
   };
   const items = () => [...list.children] as HTMLElement[];
 
+  /** 改写地址里的一个参数（replaceState，不新增历史记录）；value 为 null 时删除 */
+  const setParam = (name: string, value: string | null) => {
+    const q = new URLSearchParams(location.search);
+    if (value === null) q.delete(name);
+    else q.set(name, value);
+    const qs = q.toString();
+    history.replaceState(null, '', `${location.pathname}${qs ? `?${qs}` : ''}${location.hash}`);
+  };
+
   const applySort = (s: string, push: boolean) => {
     const xs = items();
     const editor = (li: Element) => Number(key(li, 'sortEditor') || 1e9);
@@ -34,13 +47,7 @@ for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) 
     });
     list.append(...xs);
     for (const b of sortBtns) b.setAttribute('aria-pressed', String(b.dataset.entrySort === s));
-    if (push) {
-      const q = new URLSearchParams(location.search);
-      if (s === defaultSort) q.delete('sort');
-      else q.set('sort', s);
-      const qs = q.toString();
-      history.replaceState(null, '', `${location.pathname}${qs ? `?${qs}` : ''}${location.hash}`);
-    }
+    if (push) setParam('sort', s === defaultSort ? null : s);
     paginate();
   };
 
@@ -108,6 +115,7 @@ for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) 
       } catch {
         /* 隐私模式：不记 */
       }
+      setParam('view', null);
     });
   }
   let saved = 'grid';
@@ -116,10 +124,19 @@ for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) 
   } catch {
     /* 忽略 */
   }
-  applyView(saved);
-  const s = new URLSearchParams(location.search).get('sort');
+  const params = new URLSearchParams(location.search);
+  const urlView = params.get('view');
+  if (urlView === 'grid' || urlView === 'list') applyView(urlView);
+  else {
+    applyView(saved);
+    if (urlView !== null) setParam('view', null);
+  }
+  const s = params.get('sort');
   if (s && sortBtns.some((b) => b.dataset.entrySort === s) && s !== defaultSort) applySort(s, false);
-  else paginate();
+  else {
+    if (s !== null) setParam('sort', null);
+    paginate();
+  }
   root.dataset.ready = 'yes';
 }
 
