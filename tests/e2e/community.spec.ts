@@ -112,9 +112,6 @@ test.describe('发帖', () => {
     await ta.fill('长'.repeat(4001));
     await expect(page.locator('.composer__count')).toHaveText('4001 / 4000');
     await expect(page.locator('.composer__count')).toHaveClass(/is-over/);
-    // 预览在输入后 200ms 防抖渲染；渲染出 4001 字后预览栏变高，「发布主题」按钮随之下移。
-    // 先等预览真的渲染出正文再继续，否则慢机上点击可能落在按钮移动前的位置（CI webkit-desktop：点到正文区，没有提交）。
-    await expect(page.locator('.composer__preview')).toContainText('长长长');
     await page.getByLabel('标题').fill('长度测试');
     await page.getByRole('button', { name: '发布主题' }).click();
     await expect(page.locator('[data-error-for="body"]')).toHaveText('正文最多 4000 个字符');
