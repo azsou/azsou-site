@@ -63,6 +63,7 @@ const THIN_TAGS = thinTags();
  * tests/built/js-budget.test.ts 用它检查：公开页面能加载到的任何 chunk 都不含后台专用模块（站长 2026-10-27：前后台共享依赖拆开，
  * /apps/ JS 预算 49,152 B 不放宽）。只记录确实打进 chunk 的模块（renderedLength > 0）。
  */
+/** @returns {import('astro').AstroIntegration} */
 function clientChunkManifest() {
   let outDir = new URL('./dist/', import.meta.url);
   return {
@@ -74,28 +75,28 @@ function clientChunkManifest() {
       'astro:build:setup': ({ vite, target }) => {
         if (target !== 'client') return;
         const root = path.resolve('.') + path.sep;
-        vite.plugins = [
-          ...(vite.plugins ?? []),
-          {
-            name: 'az-client-chunk-manifest',
-            generateBundle(_opts, bundle) {
-              const chunks = {};
-              for (const c of Object.values(bundle)) {
-                if (c.type !== 'chunk') continue;
-                chunks[c.fileName] = {
-                  modules: Object.entries(c.modules)
-                    .filter(([, m]) => m.renderedLength > 0)
-                    .map(([id]) => id.replace(/\0/g, '').split('?')[0].replace(root, '')),
-                  imports: c.imports,
-                  dynamicImports: c.dynamicImports,
-                };
-              }
-              const dir = new URL('meta/', outDir);
-              fs.mkdirSync(dir, { recursive: true });
-              fs.writeFileSync(new URL('client-chunks.json', dir), JSON.stringify(chunks, null, 1));
-            },
+        /** @type {import('vite').Plugin} */
+        const plugin = {
+          name: 'az-client-chunk-manifest',
+          generateBundle(_opts, bundle) {
+            /** @type {Record<string, { modules: string[]; imports: string[]; dynamicImports: string[] }>} */
+            const chunks = {};
+            for (const c of Object.values(bundle)) {
+              if (c.type !== 'chunk') continue;
+              chunks[c.fileName] = {
+                modules: Object.entries(c.modules)
+                  .filter(([, m]) => m.renderedLength > 0)
+                  .map(([id]) => id.replace(/\0/g, '').split('?')[0].replace(root, '')),
+                imports: c.imports,
+                dynamicImports: c.dynamicImports,
+              };
+            }
+            const dir = new URL('meta/', outDir);
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(new URL('client-chunks.json', dir), JSON.stringify(chunks, null, 1));
           },
-        ];
+        };
+        vite.plugins = [...(vite.plugins ?? []), plugin];
       },
     },
   };

@@ -31,7 +31,8 @@ export function adminApiFor(repo: DataRepository): AdminRepo | null {
   let api = cache.get(repo);
   if (!api) {
     const rest: AdminRest = {
-      rest: (path, init) => raw.rest(path, init).catch(rethrow),
+      rest: <T>(path: string, init?: Parameters<AdminRest['rest']>[1]) =>
+        raw.rest<T>(path, init).catch(rethrow),
       restCount: (path, init) => raw.restCount(path, init).catch(rethrow),
     };
     api = createAdminApi(rest);
