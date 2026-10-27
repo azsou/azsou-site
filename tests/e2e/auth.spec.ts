@@ -332,3 +332,88 @@ test.describe('账户设置', () => {
     expect(await page.evaluate(() => localStorage.getItem('az-session-v68'))).toBeNull();
   });
 });
+
+/**
+ * I01 / T074（安全）：回调重放与错误 redirect——**本地回归层**。
+ * GoTrue 在这里是假实现（与本文件其余用例相同），只验证站点前端自己的判断：
+ * 外域 / 伪装成站内路径的 next 不跳外域、PKCE 授权码不能在本浏览器重放、没有发起过的登录流程被拒、出错时地址栏不残留 token。
+ * 真实 Supabase Auth / GitHub OAuth / 收件箱上的 T046 / T074 验收需要隔离测试项目，见 docs/audits/evidence/batch1/i01/README.md（阻塞项）。
+ */
+test.describe('T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现）', () => {
+  const EVIL = [
+    '//evil.example/x',
+    '/\\evil.example',
+    'https://evil.example/',
+    // 浏览器解析 URL 时会删掉制表符 / 换行：「/<TAB>/evil.example」实际变成「//evil.example」（协议相对地址 → 外域）
+    '/\t/evil.example',
+    '/\n/evil.example',
+    '/\r\n/evil.example',
+    '/\t\\evil.example',
+    ' //evil.example',
+  ];
+  for (const n of EVIL)
+    test(`外域 next ${JSON.stringify(n)} → 登录成功后留在本站首页`, async ({ page }) => {
+      await mockAuth(page);
+      const outside: string[] = [];
+      await page.route(/^https?:\/\/evil\.example\//, (r) => {
+        outside.push(r.request().url());
+        return r.abort();
+      });
+      await page.goto(
+        `/auth/callback/?next=${encodeURIComponent(n)}#access_token=jwt-access&refresh_token=jwt-refresh&expires_in=3600&type=magiclink`,
+      );
+      await page.waitForURL((u) => u.pathname === '/' && u.hostname === '127.0.0.1');
+      expect(outside).toEqual([]);
+      expect(page.url()).not.toContain('evil.example');
+      expect(page.url()).not.toContain('access_token');
+    });
+
+  test('注册确认：外域 next → 回到欢迎页（不是外域）', async ({ page }) => {
+    await mockAuth(page);
+    await page.goto(
+      `/auth/callback/?next=${encodeURIComponent('/\t/evil.example')}#access_token=jwt-access&refresh_token=jwt-refresh&expires_in=3600&type=signup`,
+    );
+    await page.waitForURL('**/settings/?welcome=1');
+    expect(new URL(page.url()).hostname).toBe('127.0.0.1');
+  });
+
+  test('PKCE 授权码重放：同一个 ?code 第二次打开被拒，不再请求换取会话', async ({ page }) => {
+    const m = await mockAuth(page);
+    await page.goto('/login/?next=/articles/');
+    await page.getByRole('button', { name: '使用 GitHub 登录' }).click();
+    await page.waitForURL((u) => u.pathname === '/articles/');
+    const exchanges = () => m.calls.filter((c) => c.url.includes('grant_type=pkce')).length;
+    expect(exchanges()).toBe(1);
+    await page.evaluate(() => localStorage.removeItem('az-session-v68'));
+    await page.goto('/auth/callback/?code=oauth-code-1&next=%2Farticles%2F');
+    await expect(page.getByRole('heading', { name: '链接无法使用' })).toBeVisible();
+    await expect(page.locator('[data-cb-error]')).toHaveText('登录流程已失效，请在同一个浏览器里重新开始。');
+    expect(exchanges()).toBe(1);
+    expect(page.url()).not.toContain('code=');
+  });
+
+  test('没有在本浏览器发起过的登录（错 state / 缺 code_verifier）：拒绝，不请求换取会话', async ({
+    page,
+  }) => {
+    const m = await mockAuth(page);
+    await page.goto('/auth/callback/?code=forged-code&state=forged');
+    await expect(page.getByRole('heading', { name: '链接无法使用' })).toBeVisible();
+    expect(m.calls.filter((c) => c.url.includes('grant_type=pkce'))).toEqual([]);
+    expect(page.url()).not.toContain('forged');
+  });
+
+  test('伪造 / 过期的 access_token：服务端拒绝 → 错误页，地址栏与本地都不留 token', async ({ page }) => {
+    await mockAuth(page);
+    await page.route('**/auth/v1/user', (r) =>
+      r.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 401, error_code: 'bad_jwt', msg: 'invalid JWT' }),
+      }),
+    );
+    await page.goto('/auth/callback/#access_token=forged&refresh_token=x&expires_in=3600&type=magiclink');
+    await expect(page.getByRole('heading', { name: '链接无法使用' })).toBeVisible();
+    expect(page.url()).not.toContain('forged');
+    expect(await page.evaluate(() => localStorage.getItem('az-session-v68'))).toBeNull();
+  });
+});
