@@ -2,6 +2,7 @@ import { createAdminApi } from './admin';
 import { localStore, type SessionStore } from './session';
 import { createSupabaseAuth } from './supabase-auth';
 import { IMAGE_BUCKET, objectPath, publicImageUrl } from '../images';
+import { migrationOf, objectFromPath } from './schema-map';
 import {
   categoryId,
   categoryName,
@@ -9,6 +10,7 @@ import {
   ForbiddenError,
   NotSignedInError,
   RateLimitedError,
+  SchemaMissingError,
   ValidationError,
   type Author,
   type AuthProvider,
@@ -123,9 +125,26 @@ const LEGACY = {
   reply: 'id,thread_id,body,author,published,created_at,profiles(display_name)',
   comment: 'id,page_key,body,author,published,created_at,profiles(display_name)',
 };
-class MissingColumnError extends Error {}
+/** 旧库（生产迁移前）没有这一列：42703。path = 出错的 PostgREST 路径 */
+class MissingColumnError extends Error {
+  constructor(readonly path = '') {
+    super('42703');
+  }
+}
 /** 旧库（生产迁移前）没有这个 RPC / 表：PGRST202 / PGRST205 */
-class MissingObjectError extends Error {}
+class MissingObjectError extends Error {
+  constructor(
+    readonly code: string,
+    readonly path = '',
+  ) {
+    super(code);
+  }
+}
+/** 内部「缺对象 / 缺列」→ 对外的 SchemaMissingError（带对象名与迁移编号） */
+export function schemaMissing(path: string, code: string): SchemaMissingError {
+  const object = objectFromPath(path);
+  return new SchemaMissingError(object, code, migrationOf(object));
+}
 
 /** 游标：`<created_at>|<id>`（keyset 分页，新内容插入不会造成重复或漏项） */
 export const encodeCursor = (createdAt: string, id: string) => `${createdAt}|${id}`;
@@ -165,7 +184,7 @@ export function restError(status: number, body: Record<string, unknown> | null):
     return new ValidationError(/[\u4e00-\u9fff]/.test(msg) ? msg : '内容长度或格式不符合要求');
   // 后台 RPC 的参数错误 / 目标不存在（0009，中文提示）
   if ((code === '22023' || code === 'P0002') && /[\u4e00-\u9fff]/.test(msg)) return new ValidationError(msg);
-  if (status >= 500) return new DataUnavailableError(`HTTP ${status}`);
+  if (status >= 500) return new DataUnavailableError(`HTTP ${status}`, { kind: 'server', status });
   return new Error(msg || `HTTP ${status}`);
 }
 
@@ -235,7 +254,9 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
         signal: ctrl.signal,
       });
     } catch (e) {
-      throw new DataUnavailableError((e as Error)?.message);
+      throw new DataUnavailableError((e as Error)?.message, {
+        kind: ctrl.signal.aborted ? 'timeout' : 'network',
+      });
     } finally {
       clearTimeout(timer);
     }
@@ -245,13 +266,14 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
     try {
       json = text ? JSON.parse(text) : null;
     } catch {
-      if (res.ok) throw new DataUnavailableError('响应不是 JSON');
+      if (res.ok)
+        throw new DataUnavailableError('响应不是 JSON', { kind: 'bad-response', status: res.status });
     }
     if (!res.ok) {
       const code = (json as { code?: string } | null)?.code;
-      if (code === '42703') throw new MissingColumnError();
+      if (code === '42703') throw new MissingColumnError(path);
       if (code === 'PGRST202' || code === 'PGRST205' || code === '42883' || code === '42P01')
-        throw new MissingObjectError(code);
+        throw new MissingObjectError(code, path);
       throw restError(res.status, json as Record<string, unknown>);
     }
     return { json, res };
@@ -272,10 +294,10 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
     const m = /\/(\d+)$/.exec(res.headers.get('content-range') ?? '');
     return { rows, total: m ? Number(m[1]) : rows.length };
   }
-  /** 后台接口依赖 0009：旧库上给出明确提示 */
+  /** 后台接口：旧库上给出「缺哪个对象 / 哪个迁移」的明确错误（A15），不再归为网络问题 */
   const notMigrated = (e: unknown): never => {
-    if (e instanceof MissingObjectError || e instanceof MissingColumnError)
-      throw new DataUnavailableError('数据库还没有执行管理后台迁移（0009）');
+    if (e instanceof MissingObjectError) throw schemaMissing(e.path, e.code);
+    if (e instanceof MissingColumnError) throw schemaMissing(e.path, '42703');
     throw e;
   };
   /** 读：先用新列，库还没迁移时退回旧列 */

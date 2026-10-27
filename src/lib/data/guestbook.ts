@@ -3,7 +3,7 @@
  * 写入走本站 /api/submit/<kind>（Turnstile 服务端校验 + 票据），审核走 RPC。权限全部在数据库。
  * 单独一个模块：只有留言板 / 友链 / 后台这几页的包里带它。
  */
-import { restError } from './supabase';
+import { restError, schemaMissing } from './supabase';
 import { DataUnavailableError, NotSignedInError, ValidationError } from './types';
 import { DEFAULT_SUPABASE } from '../supabase-config';
 import { getRepository } from './index';
@@ -139,7 +139,9 @@ export function createGuestbookApi(cfg: GuestbookConfig): GuestbookApi {
         signal: ctrl.signal,
       });
     } catch (e) {
-      throw new DataUnavailableError((e as Error)?.message);
+      throw new DataUnavailableError((e as Error)?.message, {
+        kind: ctrl.signal.aborted ? 'timeout' : 'network',
+      });
     } finally {
       clearTimeout(timer);
     }
@@ -148,12 +150,14 @@ export function createGuestbookApi(cfg: GuestbookConfig): GuestbookApi {
     try {
       json = text ? JSON.parse(text) : null;
     } catch {
-      if (res.ok) throw new DataUnavailableError('响应不是 JSON');
+      if (res.ok)
+        throw new DataUnavailableError('响应不是 JSON', { kind: 'bad-response', status: res.status });
     }
     if (!res.ok) {
       const code = (json as { code?: string } | null)?.code;
+      // 缺 RPC / 表 = 留言板 / 订阅迁移（0015 / 0016）没执行：明确报「缺哪个对象」（A15），不归为网络问题
       if (code === 'PGRST202' || code === 'PGRST205' || code === '42P01' || code === '42883')
-        throw new DataUnavailableError('数据库还没有执行留言板 / 订阅迁移（0015 / 0016）');
+        throw schemaMissing(path, code);
       throw restError(res.status, json as Record<string, unknown>);
     }
     return { json, res };

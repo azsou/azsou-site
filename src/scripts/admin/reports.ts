@@ -5,7 +5,6 @@ import {
   adminRepo,
   createSelection,
   dateTime,
-  errorText,
   field,
   formDialog,
   h,
@@ -290,7 +289,7 @@ async function load() {
   } catch (e) {
     if (my !== seq) return;
     list.replaceChildren(
-      h('li', { class: 'state-li' }, stateBlock('error', { text: errorText(e), retry: () => void load() })),
+      h('li', { class: 'state-li' }, stateBlock('error', { error: e, retry: () => void load() })),
     );
     pager.replaceChildren();
     setStatusText(status, '');

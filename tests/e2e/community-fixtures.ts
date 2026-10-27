@@ -28,9 +28,8 @@ interface CommunityFixtures {
 let pool: pg.Pool | null = null;
 const getPool = () => (pool ??= new pg.Pool({ connectionString: process.env.E2E_DB_URL, max: 3 }));
 
-/** 把一个 /rest/v1 请求转发到本地 PostgREST */
-async function forward(route: Route) {
-  const target = process.env.E2E_PGRST!;
+/** 把一个 /rest/v1 请求转发到本地 PostgREST（默认 = 跑完全部迁移的库；target 可指向旧结构的库） */
+async function forward(route: Route, target = process.env.E2E_PGRST!) {
   const req = route.request();
   const u = new URL(req.url());
   const headers = { ...req.headers() };
@@ -67,8 +66,8 @@ const PUBLIC_SETTINGS = /\/rest\/v1\/site_content\?kind=eq\.setting&published=eq
  * 站点设置是全局的：为了不让「后台设置」用例影响并行的其他用例，公开页面读设置默认得到空（= 默认设置），
  * 需要真实设置的用例调用 useRealSettings(page)。
  */
-export async function forwardRest(page: Page) {
-  await page.route('**/rest/v1/**', forward);
+export async function forwardRest(page: Page, target?: string) {
+  await page.route('**/rest/v1/**', (route) => forward(route, target));
   await page.route(PUBLIC_SETTINGS, (route) =>
     route.fulfill({
       status: 200,
@@ -84,7 +83,7 @@ export async function forwardRest(page: Page) {
 
 /** 本页面读真实的站点设置（后注册的路由优先） */
 export async function useRealSettings(page: Page) {
-  await page.route(PUBLIC_SETTINGS, forward);
+  await page.route(PUBLIC_SETTINGS, (route) => forward(route));
 }
 
 export const uniq = (p = '') => `${p}${randomUUID().slice(0, 8)}`;

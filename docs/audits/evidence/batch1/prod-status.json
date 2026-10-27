@@ -1,0 +1,35 @@
+[
+  { "step": "0002", "item": "forum_seed_threads 表存在", "ok": false },
+  { "step": "0002", "item": "forum_threads 有 locked / featured / edited_at 列", "ok": false },
+  { "step": "0002", "item": "profiles.role 允许 moderator", "ok": false },
+  { "step": "0003", "item": "点赞 / 收藏 / 举报 / 通知 / 审计 / 限流表存在", "ok": false },
+  { "step": "0004", "item": "主题守卫触发器存在", "ok": false },
+  { "step": "0004", "item": "限流与守卫函数存在", "ok": false },
+  { "step": "0005", "item": "anon 不能写 forum_threads", "ok": false },
+  { "step": "0005", "item": "authenticated 不能 TRUNCATE", "ok": false },
+  { "step": "0006", "item": "forum_threads 写策略只给 authenticated（V72 旧策略已替换）", "ok": false },
+  { "step": "0006", "item": "社交表的行级策略已建立（likes / reports / audit_log）", "ok": false },
+  { "step": "0007", "item": "注册钩子函数与 private.app_settings 存在", "ok": false },
+  { "step": "0008", "item": "pg_trgm 与 search_threads 存在", "ok": false },
+  { "step": "0009", "item": "user_bans 表与版主 RPC 存在", "ok": false },
+  { "step": "0009", "item": "注册钩子读取「注册开关」", "ok": false },
+  { "step": "0010", "item": "ugc-images 桶（公开读、2 MB）与 3 条存储策略", "ok": false },
+  { "step": "0010", "item": "图片上传校验函数存在", "ok": false },
+  { "step": "0011", "item": "停用分类触发器存在", "ok": false },
+  { "step": "0012", "item": "下载计数表与计数 RPC 存在，举报可指向评价", "ok": false },
+  { "step": "0012", "item": "评价表（RLS 已开启）与评分统计视图存在", "ok": false },
+  { "step": "0013", "item": "评论可以挂在 AI 工具页（page_key 允许 tool:）", "ok": false },
+  { "step": "0014", "item": "评论可以挂在视频页（page_key 允许 video:）", "ok": false },
+  {
+    "step": "0015",
+    "item": "提交记录表存在（限流 / 票据一次性；另需写入 community_ticket_secret，见 0015 文件头）",
+    "ok": false
+  },
+  { "step": "0015", "item": "留言板与友链表（RLS 已开启）与提交 RPC 存在", "ok": false },
+  { "step": "0016", "item": "订阅表（RLS 已开启，无公开读写）与确认 / 退订 / 计数 RPC 存在", "ok": false },
+  {
+    "step": "0017",
+    "item": "后台 CRM：备注 / 用户标签 / 内容流程 / 版本表（RLS 已开启）与排序参数、画像、流程 RPC 存在",
+    "ok": false
+  }
+]
