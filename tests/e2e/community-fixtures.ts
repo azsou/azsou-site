@@ -170,3 +170,26 @@ export async function seedReply(db: pg.Pool, author: string, threadId: string, b
 }
 
 export { expect };
+
+/**
+ * 点「发布主题」并等到新主题页可用。发布 = 一次真实写库 + 一次整页跳转，按真实信号逐段等待：
+ * 写库请求返回 201 → 浏览器发出新主题页的文档请求（带新 id）→ 新文档的模块脚本执行完（DOMContentLoaded）。
+ * 不用一个 7 秒的 toHaveURL 同时覆盖这三段——CI 40522111734 webkit-iphone 首跑就是导航已提交到新 id、
+ * 但新文档 7 秒内没跑完脚本，toHaveURL 只拿到旧页地址（docs/audits/evidence/ci/images-flake-2026-10-28.md）。
+ * 返回新主题页地址（已断言是 /forum/t/?id=<uuid>，且当前页就是它）。
+ */
+export async function publishThread(page: Page): Promise<string> {
+  const created = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && /\/rest\/v1\/forum_threads/.test(r.url()),
+  );
+  const navigation = page.waitForRequest(
+    (r) => r.isNavigationRequest() && r.frame() === page.mainFrame() && /\/forum\/t\/\?id=/.test(r.url()),
+  );
+  await page.getByRole('button', { name: '发布主题' }).click();
+  expect((await created).status()).toBe(201);
+  const threadUrl = (await navigation).url();
+  expect(threadUrl).toMatch(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+  await page.waitForURL(threadUrl, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(threadUrl);
+  return threadUrl;
+}
