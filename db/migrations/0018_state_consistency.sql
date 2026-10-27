@@ -8,8 +8,10 @@
 --  * A01 一条状态接口：mod_set_visibility()（隐藏 / 恢复）与 mod_workflow_apply()（草稿 / 待审 / 发布 / 下线 / 定时）
 --    在同一事务里同时改公开标志与 content_workflow；任何其他路径直接改 published（旧前端 PATCH、前台版主按钮、
 --    举报处理）由触发器 az_workflow_sync 同步 workflow，不再漂移。
---  * 待站长确认的唯一策略开关：az_hide_cancels_schedule()（默认 true = 手工隐藏会取消定时发布）。
---    改成 false：create or replace function public.az_hide_cancels_schedule() returns boolean
+--  * 唯一策略开关 az_hide_cancels_schedule()：站长 2026-10-27 定稿 = true（手工隐藏会取消定时发布）。
+--    恢复（取消隐藏）不复活旧排程：恢复 = 立即公开，scheduled_at 清空；被取消的排程时间只写进审计
+--    （content.visibility.cancelled_scheduled_at / content.workflow.schedule_cancelled），需要时由版主重新排程。
+--    开关仍保留，仅供站长日后改主意：create or replace function public.az_hide_cancels_schedule() returns boolean
 --      language sql immutable as $$ select false $$;  —— 之后「隐藏」对排程中的内容不取消排程，到点仍会发布。
 --  * A02 tick 核对目标 UPDATE 行数：目标已删 → 不计成功、不写成功审计，排程行标记 orphaned_at 并写
 --    content.workflow.orphaned 审计；删除内容时触发器同步标记孤儿。版本历史保留（保留期待站长定）。
@@ -31,9 +33,9 @@
 
 begin;
 
--- ------------------------------------------------------- 策略开关（待站长确认）
+-- ------------------------------------------------------- 策略开关（站长 2026-10-27 已定：true）
 -- 手工隐藏 / 下线一条「待审 + 定时发布」的内容时，是否取消它的定时发布。
--- true（默认，提议）：取消排程，内容保持隐藏，不会被 tick 重新公开。
+-- true（默认，站长已定）：取消排程，内容保持隐藏，不会被 tick 重新公开；之后恢复也不会复活旧排程。
 -- false：保留排程，到点仍按计划发布（后台提示「仍将于 … 发布」）。
 create or replace function public.az_hide_cancels_schedule()
  returns boolean
@@ -41,6 +43,8 @@ create or replace function public.az_hide_cancels_schedule()
  immutable
  set search_path to 'public'
 as $$ select true $$;
+comment on function public.az_hide_cancels_schedule() is
+  '站长 2026-10-27 定稿：true = 手工隐藏取消定时发布；恢复不复活旧排程（恢复 = 立即公开，scheduled_at 清空）';
 
 -- ------------------------------------------------------- 表结构增量 ---------
 alter table public.content_workflow add column if not exists orphaned_at timestamptz;
@@ -133,6 +137,11 @@ begin
        where target_type = kind and target_id = new.id
          and (status is distinct from case when wf.status in ('published', 'review') then 'offline' else wf.status end
               or scheduled_at is not null);
+      if wf.scheduled_at is not null then
+        -- 站长决定：隐藏取消排程；被取消的时间只留在审计里（恢复不会复活它）
+        perform public.az_audit('content.workflow.schedule_cancelled', kind, new.id::text,
+          jsonb_build_object('cancelled_scheduled_at', wf.scheduled_at, 'via', 'published=false'));
+      end if;
     end if;
   end if;
   return null;
@@ -526,9 +535,13 @@ begin
             on conflict (target_type, target_id) do update
               set status = excluded.status, scheduled_at = excluded.scheduled_at,
                   updated_by = excluded.updated_by, updated_at = now();
+          -- 站长决定：恢复 = 立即公开、排程清空（schedule_revived 恒为 false）；隐藏取消的排程时间只写进审计
           perform public.az_audit('content.visibility', p_type, i::text,
-            jsonb_build_object('published', p_published, 'status', coalesce(new_status, null),
-                               'schedule_cancelled', wf.scheduled_at is not null and new_sched is null));
+            jsonb_strip_nulls(jsonb_build_object('published', p_published, 'status', new_status,
+                               'schedule_cancelled', wf.scheduled_at is not null and new_sched is null,
+                               'cancelled_scheduled_at', case when wf.scheduled_at is not null and new_sched is null
+                                                              then wf.scheduled_at end,
+                               'schedule_revived', case when p_published then false end)));
           res := 'ok';
         end if;
       end if;
