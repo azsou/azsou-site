@@ -158,6 +158,32 @@
   .url {
     overflow-wrap: anywhere;
   }
+  /*
+   * D06：长标题与中英文混排（规则见 docs/DESIGN-SYSTEM 补充 / tests/design/batch3.spec.ts T011）
+   *  1. 不截断、不加省略号（设计门禁 Q5）：卡片 / 列表 / 详情标题都完整显示、完整可读；窄格子自然换行。
+   *  2. 只有放不下的超长拉丁串（URL、版本号、无空格英文）才在任意处断开（anywhere 同时把它们的
+   *     min-content 降下来，网格 / flex 不会被撑宽）；中文照常按字断行。
+   *  3. 中文标点禁则用 strict（行首不出现「，。）」等）；标题用 balance、正文与说明用 pretty，避免单字孤行。
+   */
+  .entry__title,
+  .entry__by,
+  .entry__facts,
+  .card__title,
+  .list-row__title,
+  .list-row__sub,
+  .video-card__title,
+  .app-hero__title,
+  .app-hero__subtitle,
+  .article-head h1 {
+    overflow-wrap: anywhere;
+    line-break: strict;
+  }
+  .entry__title,
+  .card__title,
+  .list-row__title,
+  .video-card__title {
+    text-wrap: balance;
+  }
   code,
   pre {
     font-family: var(--font-mono);
