@@ -57,14 +57,20 @@ async function signIn(page: Page, u: Who) {
   await page.addInitScript((s) => localStorage.setItem('az-session-v68', s), JSON.stringify(session));
 }
 
+/** 本文件造的主题：用例结束后删除，避免挤占同一共享库里其他用例的分类列表 */
+const created: string[] = [];
 async function threads(author: string, prefix: string, n: number): Promise<string[]> {
+  // 创建时间放在很久以前：并行 worker 上的论坛分类页用例（按时间倒序取前几页）不会被这些夹具挤到后面
   const r = await db().query(
     `insert into public.forum_threads (cat, title, body, author, created_at)
-     select '站务反馈', $2 || lpad(g::text, 2, '0'), '批次 2 夹具', $1, now() - (g || ' minutes')::interval
+     select '站务反馈', $2 || lpad(g::text, 2, '0'), '批次 2 夹具', $1,
+            timestamptz '2001-01-01 00:00+00' - (g || ' minutes')::interval
        from generate_series(1, $3::int) g returning id`,
     [author, prefix, n],
   );
-  return r.rows.map((x) => x.id as string);
+  const ids = r.rows.map((x) => x.id as string);
+  created.push(...ids);
+  return ids;
 }
 
 async function shot(page: Page, info: TestInfo, name: string) {
@@ -75,6 +81,11 @@ async function shot(page: Page, info: TestInfo, name: string) {
   const pre = process.env.EVIDENCE_PREFIX ?? 'after';
   await page.screenshot({ path: `${dir}/${pre}-${name}-${w}.png`, fullPage: false });
 }
+
+test.afterEach(async () => {
+  if (!created.length) return;
+  await db().query(`delete from public.forum_threads where id = any($1::uuid[])`, [created.splice(0)]);
+});
 
 test.afterAll(async () => {
   await pool?.end();
