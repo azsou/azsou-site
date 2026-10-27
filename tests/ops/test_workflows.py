@@ -85,12 +85,15 @@ class DisabledByDefault(unittest.TestCase):
             if re.search(r'backup', p.name):
                 self.assertNotIn('schedule', load(p)['on'], p.name)
 
-    def test_monitor_daily_offsite_live_only_in_disabled_dir(self):
+    def test_monitor_daily_offsite_not_active(self):
+        # 运维 PR #8 根本不带这些模板；PR #5 把它们放在 ops/disabled-workflows/（GitHub 不运行）
         for name in ('backup-monitor.yml', 'db-backup-daily.yml', 'backup-offsite.yml'):
             self.assertFalse((WF / name).exists(), f'{name} 不应在 .github/workflows/')
-            self.assertTrue((DISABLED / name).exists(), f'{name} 应在 ops/disabled-workflows/')
-            self.assertIn('默认不启用', (DISABLED / name).read_text(encoding='utf-8'))
+            if DISABLED.exists():
+                self.assertTrue((DISABLED / name).exists(), f'{name} 应在 ops/disabled-workflows/')
+                self.assertIn('默认不启用', (DISABLED / name).read_text(encoding='utf-8'))
 
+    @unittest.skipUnless(DISABLED.exists(), '本分支不带默认不启用的模板（运维 PR #8）')
     def test_daily_template_keeps_the_same_gate(self):
         d = load(DISABLED / 'db-backup-daily.yml')
         job = d['jobs']['backup']
