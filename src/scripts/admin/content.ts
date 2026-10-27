@@ -67,6 +67,12 @@ function paintFilters() {
     .forEach((b) => (b.hidden = state.type !== 'thread'));
 }
 
+const QUICK = {
+  hide: { label: '隐藏', done: '已隐藏。' },
+  restore: { label: '恢复', done: '已恢复为待审，需「发布」后才公开。' },
+  publish: { label: '发布', done: '已发布。' },
+} as const;
+
 function badges(r: ContentRow) {
   return h(
     'span',
@@ -127,9 +133,17 @@ function row(r: ContentRow) {
       : h('span', { class: 'cell-title', text: titleText }),
     sub ? h('span', { class: 'cell-sub', text: sub }) : null,
   );
-  const quick = btn(r.published ? '隐藏' : '恢复', async () => {
-    assertSingle(await repo.setPublished(t, [r.id], !r.published, newIdemKey()));
-    toast(r.published ? '已隐藏。' : '已恢复。');
+  // 站长 2026-10-27 21:06：已公开 → 「隐藏」；已隐藏 / 下线 → 「恢复」（回到待审，不公开）；
+  // 待审 / 草稿 → 「发布」（显式公开，0019 mod_publish_content）
+  const quickKind = r.published ? 'hide' : r.wfStatus === 'offline' ? 'restore' : 'publish';
+  const quick = btn(QUICK[quickKind].label, async () => {
+    const key = newIdemKey();
+    assertSingle(
+      quickKind === 'publish'
+        ? await repo.publish(t, [r.id], key)
+        : await repo.setPublished(t, [r.id], quickKind === 'restore', key),
+    );
+    toast(QUICK[quickKind].done);
     await load();
   });
   const menu = rowMenu(label(r), [
@@ -217,7 +231,13 @@ function row(r: ContentRow) {
   );
 }
 
-const BULK_VERB: Record<string, string> = { hide: '隐藏', restore: '恢复', draft: '转草稿', review: '送审' };
+const BULK_VERB: Record<string, string> = {
+  hide: '隐藏',
+  restore: '恢复',
+  publish: '发布',
+  draft: '转草稿',
+  review: '送审',
+};
 
 /** 网络中断 / 超时：同一幂等键再试一次（服务端已执行过则直接返回第一次的结果，不会重复执行） */
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -242,6 +262,7 @@ async function bulk(kind: string, only?: string[]) {
       let r: BatchResult;
       if (kind === 'hide' || kind === 'restore')
         r = await withRetry(() => repo.setPublished(t, ids, kind === 'restore', key));
+      else if (kind === 'publish') r = await withRetry(() => repo.publish(t, ids, key));
       else {
         const crm = await crmApi();
         r = await withRetry(() =>

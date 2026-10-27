@@ -48,6 +48,8 @@ export const OBJECT_MIGRATION: Record<string, string> = {
   mod_user_profile: '0017',
   mod_set_workflow: '0017',
   mod_workflow_tick: '0017',
+  // 0019 站长第二轮：恢复回到待审 + 显式发布
+  mod_publish_content: '0019',
 };
 
 /** 0017 才有的「排序参数」版本（旧函数存在但签名不同） */

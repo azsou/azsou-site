@@ -482,6 +482,7 @@ describe('(5)(6)(7) 结构约定', () => {
       'mod_list_content_page:authenticated', // 0018 A09
       'mod_list_users:authenticated',
       'mod_list_users_page:authenticated', // 0018 A09
+      'mod_publish_content:authenticated', // 0019 站长第二轮：显式发布
       'mod_set_visibility:authenticated', // 0018 A01 / A08
       'mod_set_workflow:authenticated',
       'mod_unban_user:authenticated',

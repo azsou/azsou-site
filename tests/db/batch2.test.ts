@@ -124,7 +124,11 @@ describe('A01 / T032 工作流与公开标志一致', () => {
     );
     expect(r[0].r).toMatchObject({ ok: 1, results: [{ id, result: 'ok' }] });
     expect(await state('thread', id)).toMatchObject({ published: false, wf: { status: 'offline' } });
+    // 站长第二轮（2026-10-27 21:06）：恢复默认回到「待审」，不公开；公开要显式「发布」
     ok(await act('mia', `select mod_set_visibility('thread', array[$1]::uuid[], true)`, [id]));
+    expect(await state('thread', id)).toMatchObject({ published: false, wf: { status: 'review' } });
+    expect(await anonSees('thread', id)).toBe(false);
+    ok(await act('mia', `select mod_publish_content('thread', array[$1]::uuid[])`, [id]));
     expect(await state('thread', id)).toMatchObject({ published: true, wf: { status: 'published' } });
   });
 });
