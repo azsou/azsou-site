@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { test, expect, forwardRest, seedReply, seedThread, uniq } from './community-fixtures';
+import { BASE_URL } from './port';
 
 /**
  * P3 社区流程（真实 Postgres + PostgREST + RLS + 触发器）：
@@ -182,7 +183,7 @@ test.describe('主题页', () => {
 
     // 楼主：未读角标与通知页
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
@@ -307,7 +308,7 @@ test.describe('主题页', () => {
     expect(row.rows[0]).toEqual({ pinned: true, featured: true, locked: true });
     // 普通用户：看到锁定提示，没有回复框
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
@@ -387,7 +388,7 @@ test.describe('评论', () => {
     // 版主隐藏
     const mod = await makeUser(uniq('版主'), { role: 'moderator' });
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
