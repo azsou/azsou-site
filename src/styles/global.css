@@ -320,10 +320,12 @@
     border-bottom: 1px solid var(--c-separator);
   }
   .site-nav__inner {
-    height: var(--nav-h);
+    /* D10：放得下时就是一行 --nav-h；320 宽 + 200% 文字等放不下时允许换到第二行（自然增高），不再撑出整页横向滚动 */
+    min-height: var(--nav-h);
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
+    gap: 0 var(--space-4);
   }
   .brand {
     display: inline-flex;
