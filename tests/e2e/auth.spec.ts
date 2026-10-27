@@ -1,5 +1,7 @@
 import type { Page, Route } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { BASE_URL } from './port';
+import { EVIL_NEXT } from '../redirect-vectors';
 
 /**
  * 账户流程（GoTrue / PostgREST / 站内 Turnstile 端点全部用假实现，结果可复现）：
@@ -415,5 +417,141 @@ test.describe('T074 回调重放与错误 redirect（本地回归层，GoTrue �
     await expect(page.getByRole('heading', { name: '链接无法使用' })).toBeVisible();
     expect(page.url()).not.toContain('forged');
     expect(await page.evaluate(() => localStorage.getItem('az-session-v68'))).toBeNull();
+  });
+});
+
+/**
+ * I01 / T074 第 3 轮：点段规范化 / 编码点与斜杠 / 反斜杠混用 / 编码控制字符（向量表 tests/redirect-vectors.ts，与单测共用）。
+ * 走真实的站点前端流程（回调页、密码登录页；GoTrue 仍是假实现——这是本地回归层，不是真实服务验收），
+ * 断言最终 page.url() 的源仍是本站，并且主框架从未发起过去往外站的导航。
+ */
+test.describe('T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现）', () => {
+  const SITE = new URL(BASE_URL).origin;
+  // 向量与视口无关：整表只在每个引擎的 desktop 项目跑（3 引擎全覆盖），其余视口由上面逐条的 8 个向量覆盖，避免 CI 时长翻倍
+  test.skip(({ viewport }) => (viewport?.width ?? 0) < 1440, '整表向量只在 desktop（1440）项目跑');
+
+  /** 记录主框架去往外站的导航并拦下；返回「是否已离站」 */
+  async function guardOutside(page: Page) {
+    const outside: string[] = [];
+    await page.route(
+      (u) => u.origin !== SITE,
+      (r) => {
+        const req = r.request();
+        if (req.isNavigationRequest() && req.frame() === page.mainFrame()) {
+          outside.push(req.url());
+          return r.abort();
+        }
+        return r.fallback();
+      },
+    );
+    return outside;
+  }
+
+  /** 回到本站同源页再清会话（离站被拦后当前文档是错误页，读不到 localStorage） */
+  async function resetSession(page: Page) {
+    for (let i = 0; i < 3; i++) {
+      await page.waitForLoadState('load').catch(() => {});
+      const ok = await page.goto('/robots.txt').then(
+        () => true,
+        () => false,
+      );
+      if (ok) break;
+    }
+    await page.evaluate(() => localStorage.clear());
+  }
+
+  /** 等到离开登录 / 回调页（落地）或尝试离站，然后核对最终落点 */
+  async function settle(page: Page, outside: string[], from: string, want: (u: URL) => boolean) {
+    const left = await expect
+      .poll(
+        () => {
+          if (outside.length > 0) return true;
+          const u = new URL(page.url());
+          // 服务端 3xx 跳到外站时 route 看不到第二跳，直接看地址栏
+          return u.origin !== SITE || u.pathname !== from;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
+      .then(
+        () => true,
+        () => false,
+      );
+    if (!left) return { ok: false, where: `停在 ${page.url()}（10 秒内没有跳转）` };
+    const u = new URL(page.url());
+    const ok = outside.length === 0 && u.origin === SITE && want(u);
+    return { ok, where: outside[0] ?? page.url() };
+  }
+
+  test('邮件回调（magiclink）：每个向量登录后都留在本站首页', async ({ page }) => {
+    test.setTimeout(240_000);
+    await mockAuth(page);
+    const outside = await guardOutside(page);
+    const bad: string[] = [];
+    for (const n of EVIL_NEXT) {
+      outside.length = 0;
+      await page.goto(
+        `/auth/callback/?next=${encodeURIComponent(n)}#access_token=jwt-access&refresh_token=jwt-refresh&expires_in=3600&type=magiclink`,
+      );
+      const r = await settle(page, outside, '/auth/callback/', (u) => u.pathname === '/');
+      if (!r.ok) bad.push(`${JSON.stringify(n)} → ${r.where}`);
+      await resetSession(page);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('注册确认回调（signup）：每个向量都回到本站欢迎页', async ({ page }) => {
+    test.setTimeout(240_000);
+    await mockAuth(page);
+    const outside = await guardOutside(page);
+    const bad: string[] = [];
+    for (const n of EVIL_NEXT) {
+      outside.length = 0;
+      await page.goto(
+        `/auth/callback/?next=${encodeURIComponent(n)}#access_token=jwt-access&refresh_token=jwt-refresh&expires_in=3600&type=signup`,
+      );
+      const r = await settle(
+        page,
+        outside,
+        '/auth/callback/',
+        (u) => u.pathname === '/settings/' && u.search === '?welcome=1',
+      );
+      if (!r.ok) bad.push(`${JSON.stringify(n)} → ${r.where}`);
+      await resetSession(page);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('邮箱密码登录（/login/?next=）：每个向量登录后都留在本站首页', async ({ page }) => {
+    test.setTimeout(300_000);
+    await mockAuth(page);
+    const outside = await guardOutside(page);
+    const bad: string[] = [];
+    for (const n of EVIL_NEXT) {
+      outside.length = 0;
+      await page.goto(`/login/?next=${encodeURIComponent(n)}`);
+      await page.getByLabel('邮箱').fill('alice@example.com');
+      await page.getByLabel('密码', { exact: true }).fill('Passw0rd!');
+      await page.getByRole('button', { name: '登录', exact: true }).click();
+      const r = await settle(page, outside, '/login/', (u) => u.pathname === '/');
+      if (!r.ok) bad.push(`${JSON.stringify(n)} → ${r.where}`);
+      await resetSession(page);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('静态服务器补尾斜杠：编码斜杠 / 多斜杠路径的 308 Location 仍是本站', async ({ request }) => {
+    for (const p of [
+      '/%2F/evil.example',
+      '/%2f%2fevil.example',
+      '/.%2f/evil.example',
+      '/%5c%5cevil.example',
+    ]) {
+      const res = await request.get(p, { maxRedirects: 0 });
+      const loc = res.headers()['location'];
+      if (!loc) continue; // 不跳转（直接 404）也安全
+      expect(new URL(loc, BASE_URL).origin, `${p} → ${loc}`).toBe(SITE);
+      expect(loc.startsWith('//') || loc.startsWith('/\\'), `${p} → ${loc}`).toBe(false);
+    }
   });
 });
