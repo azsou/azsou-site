@@ -1,13 +1,14 @@
 /**
  * 站长决定（2026-10-27 定稿）：
  *   ① 手工隐藏「待审 + 定时发布」的内容默认取消排程（开关 az_hide_cancels_schedule() 保留、默认 true）；
- *   ② 恢复（取消隐藏）不会复活旧排程——恢复就是「现在公开」，排程字段清空；被取消的排程只留在审计里，
- *      需要重新排程时由版主手工再设。
+ *   ② 恢复（取消隐藏）不会复活旧排程；被取消的排程只留在审计里，需要重新排程时由版主手工再设。
+ * 站长第二轮（2026-10-27 21:06，取代「恢复即公开」）：恢复默认回到「待审」（published=false、排程为空），
+ *   公开必须走显式「发布」mod_publish_content（版主 / 管理员，逐项结果、幂等键、写 content.published 审计）。
  * 两条路径都覆盖：统一接口 mod_set_visibility 与旧前端直接 PATCH published（触发器 az_workflow_sync）。
  */
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { dbUrl, run, type Outcome } from './helpers';
+import { dbUrl, run, type Outcome, type Who } from './helpers';
 import { U } from './fixtures';
 import { freshDb } from './setup';
 
@@ -79,7 +80,7 @@ describe('站长决定：隐藏取消排程（默认）；恢复不复活旧排�
     expect(r.c).toMatch(/站长.*2026-10-27/);
   });
 
-  it('mod_set_visibility：隐藏取消排程并在审计里留下被取消的时间；恢复 = 立即公开、排程为空、审计 schedule_revived=false', async () => {
+  it('mod_set_visibility：隐藏取消排程并在审计里留下被取消的时间；恢复 = 回到待审（不公开）、排程为空、审计 schedule_revived=false', async () => {
     const { id, at } = await scheduledHidden();
     ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], false)`, [id]));
     expect(await wf(id)).toMatchObject({ published: false, status: 'offline', scheduled_at: null });
@@ -88,23 +89,28 @@ describe('站长决定：隐藏取消排程（默认）；恢复不复活旧排�
     expect(new Date(hide.cancelled_scheduled_at).toISOString()).toBe(new Date(at).toISOString());
 
     ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], true)`, [id]));
-    expect(await wf(id)).toMatchObject({ published: true, status: 'published', scheduled_at: null });
+    expect(await wf(id)).toMatchObject({ published: false, status: 'review', scheduled_at: null });
     expect(await lastAudit('content.visibility', id)).toMatchObject({
-      published: true,
+      restored: true,
+      published: false,
+      status: 'review',
       schedule_revived: false,
     });
 
-    // 原排程时间到了也不会有第二次「定时发布」
+    // 原排程时间到了也不会有第二次「定时发布」，恢复后的待审内容也不会被 tick 公开
     const r = await tickAsIfOldScheduleDue(id);
     expect(r.published).toBe(0);
+    expect((await wf(id)).published).toBe(false);
     expect(await auditCount('content.workflow.scheduled', id)).toBe(0);
   });
 
-  it('隐藏 → 恢复 → 再隐藏：不会冒出旧排程；再恢复仍为空', async () => {
+  it('隐藏 → 恢复 → 再隐藏：不会冒出旧排程；再恢复仍为待审、排程为空', async () => {
     const { id } = await scheduledHidden();
     for (const pub of [false, true, false, true])
       ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], $2)`, [id, pub]));
-    expect(await wf(id)).toMatchObject({ published: true, scheduled_at: null });
+    expect(await wf(id)).toMatchObject({ published: false, status: 'review', scheduled_at: null });
+    const r = await tickAsIfOldScheduleDue(id);
+    expect(r.published).toBe(0);
   });
 
   it('隐藏后改回「待审」（不填时间）：旧排程不会被带回', async () => {
@@ -130,7 +136,7 @@ describe('站长决定：隐藏取消排程（默认）；恢复不复活旧排�
     expect(r.published).toBe(0);
   });
 
-  it('开关改为 false（仅本连接的事务内模拟）：隐藏保留排程；但「恢复」仍是立即公开并清空排程，不会再到点重复发布', async () => {
+  it('开关改为 false（仅本连接的事务内模拟）：隐藏保留排程；但「恢复」仍回到待审并清空排程，不会到点发布', async () => {
     const { id } = await scheduledHidden();
     const c = new pg.Client({ connectionString: dbUrl(db.name) });
     await c.connect();
@@ -154,7 +160,7 @@ describe('站长决定：隐藏取消排程（默认）；恢复不复活旧排�
       const after = (
         await c.query(`select status, scheduled_at from content_workflow where target_id = $1`, [id])
       ).rows[0];
-      expect(after).toMatchObject({ status: 'published', scheduled_at: null });
+      expect(after).toMatchObject({ status: 'review', scheduled_at: null });
       const audit = (
         await c
           .query(`reset role`)
@@ -165,12 +171,104 @@ describe('站长决定：隐藏取消排程（默认）；恢复不复活旧排�
             ),
           )
       ).rows[0].detail;
-      expect(audit).toMatchObject({ published: true, schedule_revived: false });
+      expect(audit).toMatchObject({ restored: true, published: false, schedule_revived: false });
     } finally {
       await c.query('rollback').catch(() => undefined);
       await c.end();
     }
     const [v] = await q(`select public.az_hide_cancels_schedule() as v`);
     expect(v.v).toBe(true); // 回滚后仍是站长定的默认值
+  });
+});
+
+describe('站长第二轮：恢复 → 待审；显式「发布」mod_publish_content', () => {
+  const pub = (id: string, key: string | null = null, who: Who = mia) =>
+    run(db.pool, who, `select mod_publish_content('thread', array[$1]::uuid[], $2) as r`, [id, key], {
+      commit: true,
+    });
+  const anonSees = async (id: string) => {
+    const o = await run(db.pool, { role: 'anon' }, `select id from forum_threads where id = $1`, [id]);
+    return o.ok && o.rowCount === 1;
+  };
+
+  it('普通已公开内容：隐藏 → 恢复 = 待审（匿名不可见）→ 发布 = 公开；审计 content.published 带来源状态', async () => {
+    const id = await mkThread();
+    ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], false)`, [id]));
+    const r = ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], true) as r`, [id]));
+    expect(r[0].r).toMatchObject({ ok: 1, failed: 0, results: [{ id, result: 'ok' }] });
+    expect(await wf(id)).toMatchObject({ published: false, status: 'review', scheduled_at: null });
+    expect(await anonSees(id)).toBe(false);
+
+    const p = ok(await pub(id));
+    expect(p[0].r).toMatchObject({ ok: 1, failed: 0, results: [{ id, result: 'ok' }] });
+    expect(await wf(id)).toMatchObject({ published: true, status: 'published', scheduled_at: null });
+    expect(await anonSees(id)).toBe(true);
+    expect(await lastAudit('content.published', id)).toMatchObject({
+      from_status: 'review',
+      published: true,
+    });
+  });
+
+  it('对已公开内容点「恢复」不会把它降回待审（unchanged）', async () => {
+    const id = await mkThread();
+    ok(await act(`select mod_workflow_apply('thread', array[$1]::uuid[], 'published')`, [id]));
+    const r = ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], true) as r`, [id]));
+    expect(r[0].r.results[0].result).toBe('unchanged');
+    expect(await wf(id)).toMatchObject({ published: true, status: 'published' });
+  });
+
+  it('发布：已公开 → unchanged；同一幂等键重试不重复执行；待审 + 定时的内容发布 = 立即公开并清空排程（审计记被取消的时间）', async () => {
+    const id = await mkThread();
+    ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], false)`, [id]));
+    ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], true)`, [id]));
+    const key = `pub-${id}`;
+    expect(ok(await pub(id, key))[0].r).toMatchObject({ ok: 1, replayed: false });
+    expect(ok(await pub(id, key))[0].r).toMatchObject({ ok: 1, replayed: true });
+    expect(await auditCount('content.published', id)).toBe(1);
+    expect(ok(await pub(id))[0].r.results[0].result).toBe('unchanged');
+
+    const { id: s, at } = await scheduledHidden();
+    ok(await pub(s));
+    expect(await wf(s)).toMatchObject({ published: true, status: 'published', scheduled_at: null });
+    const a = await lastAudit('content.published', s);
+    expect(new Date(a.cancelled_scheduled_at).toISOString()).toBe(new Date(at).toISOString());
+  });
+
+  it('恢复永不复活排程：定时内容 → 隐藏 → 恢复 → 原时间到期 tick → 仍是待审、未公开；只有显式发布才公开', async () => {
+    const { id } = await scheduledHidden();
+    ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], false)`, [id]));
+    ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], true)`, [id]));
+    // 即使有人把旧时间写回去再拨到过去，恢复后的状态也不带排程——tick 无事可做
+    const r = await tickAsIfOldScheduleDue(id);
+    expect(r.published).toBe(0);
+    expect(await wf(id)).toMatchObject({ published: false, status: 'review', scheduled_at: null });
+    expect(await auditCount('content.workflow.scheduled', id)).toBe(0);
+    ok(await pub(id));
+    expect((await wf(id)).published).toBe(true);
+  });
+
+  it('权限：普通用户与匿名不能发布；不存在的 id 返回 not_found；一次最多 200 条', async () => {
+    const id = await mkThread();
+    ok(await act(`select mod_set_visibility('thread', array[$1]::uuid[], false)`, [id]));
+    const bob = await pub(id, null, { role: 'authenticated', uid: U.bob });
+    expect(bob.ok).toBe(false);
+    const anon = await run(
+      db.pool,
+      { role: 'anon' },
+      `select mod_publish_content('thread', array[$1]::uuid[])`,
+      [id],
+    );
+    expect(anon.ok).toBe(false);
+    expect((await wf(id)).published).toBe(false);
+    const ghost = '00000000-0000-4000-a000-0000000000ff';
+    expect(ok(await pub(ghost))[0].r.results[0].result).toBe('not_found');
+    const many = Array.from(
+      { length: 201 },
+      (_, i) => `00000000-0000-4000-b000-${String(i).padStart(12, '0')}`,
+    );
+    const big = await run(db.pool, mia, `select mod_publish_content('thread', $1::uuid[])`, [many]);
+    expect(big.ok).toBe(false);
+    // 管理员同样可以发布
+    expect(ok(await pub(id, null, { role: 'authenticated', uid: U.ada }))[0].r.ok).toBe(1);
   });
 });

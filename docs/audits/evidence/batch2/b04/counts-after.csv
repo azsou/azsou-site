@@ -21,5 +21,6 @@ reports,0
 site_content,5
 subscribers,0
 user_bans,1
+workflow_scheduler_heartbeat,0
 workflow_tick_runs,0
 auth.users,60

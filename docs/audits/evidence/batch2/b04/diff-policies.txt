@@ -1,4 +1,4 @@
-1,17c1,53
+1,17c1,54
 < comments | comments_delete | DELETE | {public} | ((author = auth.uid()) OR is_admin()) | 
 < comments | comments_insert | INSERT | {public} |  | ((author = auth.uid()) AND can_write())
 < comments | comments_read | SELECT | {public} | (published OR (author = auth.uid()) OR is_admin()) | 
@@ -69,4 +69,5 @@
 > site_content | content_admin_update | UPDATE | {authenticated} | ( SELECT is_admin() AS is_admin) | ( SELECT is_admin() AS is_admin)
 > site_content | content_read | SELECT | {anon,authenticated} | (published OR ( SELECT is_admin() AS is_admin)) | 
 > user_bans | user_bans_read | SELECT | {authenticated} | ((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+> workflow_scheduler_heartbeat | workflow_scheduler_heartbeat_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 
 > workflow_tick_runs | workflow_tick_runs_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 

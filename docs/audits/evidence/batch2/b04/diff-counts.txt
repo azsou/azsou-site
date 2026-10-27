@@ -19,7 +19,8 @@
 4a19,20
 > rate_limit_events,0
 > reports,0
-5a22,24
+5a22,25
 > subscribers,0
 > user_bans,1
+> workflow_scheduler_heartbeat,0
 > workflow_tick_runs,0

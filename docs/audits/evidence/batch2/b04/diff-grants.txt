@@ -321,7 +321,7 @@
 > site_content | authenticated | UPDATE | kind
 > site_content | authenticated | UPDATE | published
 > site_content | authenticated | UPDATE | slug
-105a287,309
+105a287,317
 > subscribers | service_role | DELETE | *
 > subscribers | service_role | INSERT | *
 > subscribers | service_role | REFERENCES | *
@@ -337,6 +337,14 @@
 > user_bans | service_role | TRIGGER | *
 > user_bans | service_role | TRUNCATE | *
 > user_bans | service_role | UPDATE | *
+> workflow_scheduler_heartbeat | authenticated | SELECT | *
+> workflow_scheduler_heartbeat | service_role | DELETE | *
+> workflow_scheduler_heartbeat | service_role | INSERT | *
+> workflow_scheduler_heartbeat | service_role | REFERENCES | *
+> workflow_scheduler_heartbeat | service_role | SELECT | *
+> workflow_scheduler_heartbeat | service_role | TRIGGER | *
+> workflow_scheduler_heartbeat | service_role | TRUNCATE | *
+> workflow_scheduler_heartbeat | service_role | UPDATE | *
 > workflow_tick_runs | authenticated | SELECT | *
 > workflow_tick_runs | service_role | DELETE | *
 > workflow_tick_runs | service_role | INSERT | *

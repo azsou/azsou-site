@@ -77,7 +77,7 @@
   发现心跳过期也会触发告警。从未有过心跳（尚未启用调度）不算过期。
 - 锁顺序：所有改公开状态的路径都「先锁内容行、后锁排程行」；tick 对内容行 `SKIP LOCKED`、锁内复核排程仍有效才发布，
   返回值里 `skipped` = 本轮因内容正被隐藏 / 编辑而跳过的条数（下一分钟再处理）。
-- 站长决定（2026-10-27）：隐藏已排期内容默认取消排期；恢复不自动复活旧排期（恢复 = 立即公开）。
+- 站长决定（2026-10-27）：隐藏已排期内容默认取消排期；恢复不自动复活旧排期。站长第二轮（2026-10-27 21:06）：恢复默认回到「待审」，公开要点显式「发布」（0019 `mod_publish_content`，审计 `content.published`）。
 - 内容版本保留 90 天：`select public.az_prune_content_versions(90);`（表所有者 / service_role；未排定时任务，见放行申请 ② §7）。
   承诺：到期 2 分钟内公开；双 worker 不重复发布（`FOR UPDATE SKIP LOCKED`，`tests/db/batch2.test.ts` T062）。
 - 无 pg_cron 的替代：任意外部调度器以 service_role 调 `node scripts/ops/workflow-tick.mjs <来源名>`

@@ -352,6 +352,39 @@ describe('Supabase 后台接口', () => {
     expect(calls).toHaveLength(1);
     expect(uuidList(['A0000000-0000-4000-b000-000000000001'])).toHaveLength(1);
   });
+  it('显式发布（0019，站长 2026-10-27 21:06）：走 rpc/mod_publish_content，只发合法 uuid、带幂等键，返回逐项结果', async () => {
+    const { admin, calls } = repoWith([
+      [
+        /POST .*rpc\/mod_publish_content/,
+        () => ({
+          json: {
+            requested: 1,
+            unique: 1,
+            duplicates: 0,
+            ok: 1,
+            failed: 0,
+            replayed: false,
+            results: [{ id: ID1, result: 'ok' }],
+          },
+        }),
+      ],
+    ]);
+    const r = await admin.publish('thread', [ID1, 'x),id.neq.(', ID1], 'k-pub');
+    expect(r.ok).toBe(1);
+    expect(r.results).toEqual([{ id: ID1, result: 'ok' }]);
+    expect(calls[0].body).toEqual({ p_type: 'thread', p_ids: [ID1], p_idem_key: 'k-pub' });
+    expect((await admin.publish('thread', ['nope'])).ok).toBe(0);
+    expect(calls).toHaveLength(1);
+  });
+  it('显式发布：库里没有 0019（PGRST202）→ 抛出缺迁移错误并写明 0019；绝不退回 PATCH published=true', async () => {
+    const { admin, calls } = repoWith([[/rpc\/mod_publish_content/, () => PGRST202('mod_publish_content')]]);
+    await expect(admin.publish('reply', [ID1])).rejects.toMatchObject({
+      name: 'SchemaMissingError',
+      migration: '0019',
+    });
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+    expect(calls).toHaveLength(1);
+  });
   it('批量隐藏：库里没有 0018（PGRST202）→ 退回旧 PATCH，返回行 = ok、其余 = not_found，并标记降级', async () => {
     const { admin, calls } = repoWith([
       [/rpc\/mod_set_visibility/, () => PGRST202('mod_set_visibility')],

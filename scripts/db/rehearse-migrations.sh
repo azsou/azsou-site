@@ -5,12 +5,12 @@
 #   DATABASE_URL=postgres://postgres@127.0.0.1:54529/postgres bash scripts/db/rehearse-migrations.sh <输出目录>
 #
 # 步骤：
-#   1. 建「类生产」库：db/shim/plain.sql + 0001_baseline.sql（= 生产库当前结构，0002–0018 均未执行；
+#   1. 建「类生产」库：db/shim/plain.sql + 0001_baseline.sql（= 生产库当前结构，0002–0019 均未执行；
 #      见 docs/audits/evidence/batch1/prod-status.json 的只读核对）+ 合成数据（V72 时代形状，无真实用户）
 #   2. 迁移前：status.sql、各表行数、RLS 策略、表 / 函数授权快照；pg_dump 一份「迁移前备份」
-#   3. 按 docs/MIGRATION.md 顺序执行 0002 → 0018（每步后 status.sql）
+#   3. 按 docs/MIGRATION.md 顺序执行 0002 → 0019（每步后 status.sql）
 #   4. 迁移后：同一套快照 → 与迁移前 diff（行数必须不变；策略 / 授权差异全部列出供审计）
-#   5. 幂等：再执行一遍 0017、0018，以及整套 0002 → 0018 → 快照必须与第 4 步完全一致
+#   5. 幂等：再执行一遍 0017、0018、0019，以及整套 0002 → 0019 → 快照必须与第 4 步完全一致
 #   6. 回滚 / 恢复演练：把第 2 步的备份恢复到新库 → 行数与迁移前一致、status 回到迁移前
 #
 # 拒绝：连接串主机不是 127.0.0.1 / localhost / ::1 时直接退出（防止误连生产）。
@@ -111,7 +111,7 @@ snapshot "$DB" before
 pg_dump "$DB" -Fc -n public -n auth -n private -f "$OUT/.pre-migration.dump" 2>/dev/null || pg_dump "$DB" -Fc -n public -n auth -f "$OUT/.pre-migration.dump"
 sha256sum "$OUT/.pre-migration.dump" | awk '{print $1}' >"$OUT/pre-migration.sha256"
 
-log "3. 执行 0002 → 0018（每步后 status）"
+log "3. 执行 0002 → 0019（每步后 status）"
 : >"$OUT/status-each-step.txt"
 for f in "$ROOT"/db/migrations/00*.sql; do
   b=$(basename "$f")
@@ -143,9 +143,10 @@ print("   原有表行数变化：", changed or "无")
 if changed: sys.exit(3)
 PY
 
-log "5. 幂等：重跑 0017、0018，再重跑整套 0002 → 0018"
+log "5. 幂等：重跑 0017、0018、0019，再重跑整套 0002 → 0019"
 run "$ROOT/db/migrations/0017_admin_crm.sql"
 run "$ROOT/db/migrations/0018_state_consistency.sql"
+run "$ROOT/db/migrations/0019_restore_review_version_window.sql"
 for f in "$ROOT"/db/migrations/00*.sql; do
   [ "$(basename "$f")" = 0001_baseline.sql ] || run "$f"
 done

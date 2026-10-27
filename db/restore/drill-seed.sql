@@ -36,3 +36,17 @@ do $$ begin
        '{"size":1234,"mimetype":"image/webp"}');
   end if;
 end $$;
+
+-- 备份范围 auth.identities / private / storage.buckets 也要有数据，恢复后逐表核对才有意义
+do $$ begin
+  if to_regclass('auth.identities') is not null then
+    insert into auth.identities (provider_id, user_id, identity_data, provider) values
+      ('drill-gh-1', 'd0000000-0000-4000-a000-000000000002', '{"sub":"drill-gh-1"}', 'github'),
+      ('d0000000-0000-4000-a000-000000000001', 'd0000000-0000-4000-a000-000000000001', '{"sub":"d0000000"}', 'email');
+  end if;
+  if to_regclass('private.community_submissions') is not null then
+    insert into private.app_settings (key, value) values ('drill_secret', 'drill-only-not-a-real-secret')
+      on conflict (key) do nothing;
+  end if;
+end $$;
+

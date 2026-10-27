@@ -34,8 +34,10 @@ describe('备份工作流配置', () => {
     expect(wf).toMatch(/^defaults:\s*\n\s+run:\s*\n\s+shell:\s*bash\s*$/m);
     expect(read('.github/workflows/ci.yml')).toMatch(/^defaults:\s*\n\s+run:\s*\n\s+shell:\s*bash\s*$/m);
   });
-  it('缺加密口令时不备份 auth.users（明文账户数据不进 artifact）', () => {
-    expect(wf).toMatch(/BACKUP_INCLUDE_AUTH=\$\(\[ -n "\$BACKUP_PASSPHRASE" \]/);
+  // 站长 2026-10-27 方案 C：比「缺口令时不备份 auth.users」更严——缺口令时整份备份都不做，明文产物永不上传
+  it('缺加密口令时整份备份都不做（明文产物永不进 artifact）', () => {
+    expect(wf).toMatch(/\[ -n "\$BACKUP_PASSPHRASE" \] \|\| missing=/);
+    expect(wf).not.toMatch(/BACKUP_ALLOW_PLAINTEXT/);
   });
 });
 

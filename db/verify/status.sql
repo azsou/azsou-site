@@ -3,7 +3,7 @@
 --
 -- 每一行是一项检查：step = 对应的迁移文件，ok = 是否已生效。
 -- 生产切换时每执行完一个迁移文件就跑一次：该步及之前的所有行都应为 true，之后的行为 false。
--- 全部为 true = 0002…0018 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
+-- 全部为 true = 0002…0019 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
 -- =============================================================================
 with c(step, item, ok) as (
   values
@@ -105,6 +105,10 @@ with c(step, item, ok) as (
      and to_regprocedure('public.mod_list_content_page(text,text,text,boolean,boolean,uuid,integer,integer,text,text)') is not null
      and to_regprocedure('public.mod_list_users_page(text,text,boolean,integer,integer,uuid,text,text)') is not null
      and exists (select 1 from pg_trigger where tgname = 'az_workflow_sync')
-     and exists (select 1 from pg_trigger where tgname = 'az_content_edit_guard'))
+     and exists (select 1 from pg_trigger where tgname = 'az_content_edit_guard')),
+  ('0019', '站长第二轮：恢复回到待审 + 显式发布 RPC 存在',
+     to_regprocedure('public.mod_publish_content(text,uuid[],text)') is not null),
+  ('0019', '版本 50 条上限只裁剪早于 90 天的版本（az_save_content_version 已替换）',
+     coalesce(pg_get_functiondef(to_regprocedure('public.az_save_content_version()')) like '%interval ''90 days''%', false))
 )
 select step, item, ok from c order by step, item;

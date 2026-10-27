@@ -273,8 +273,16 @@ export const EXPORT_COLUMNS: Record<ExportTable, string> = {
 export interface AdminRepo {
   stats(): Promise<AdminStats>;
   listContent(q: ContentQuery): Promise<Listed<ContentRow>>;
-  /** 批量隐藏 / 恢复（A01 / A08：0018 的 mod_set_visibility，逐项结果；同一 idemKey 重试不重复执行） */
+  /**
+   * 批量隐藏 / 恢复（A01 / A08：0018 的 mod_set_visibility，逐项结果；同一 idemKey 重试不重复执行）。
+   * 0019 起「恢复」= 回到待审（不公开）；公开用 publish()。
+   */
   setPublished(type: ContentType, ids: string[], published: boolean, idemKey?: string): Promise<BatchResult>;
+  /**
+   * 显式发布（0019 mod_publish_content；站长 2026-10-27 21:06：「恢复」只回到待审，公开必须走这里）。
+   * 逐项结果 + 幂等键；库里没有 0019 时抛 SchemaMissingError（不退回 PATCH，避免绕过「恢复 → 待审」）。
+   */
+  publish(type: ContentType, ids: string[], idemKey?: string): Promise<BatchResult>;
   setThreadFlags(ids: string[], flags: Omit<ThreadFlags, 'published'>): Promise<number>;
   deleteContent(type: ContentType, ids: string[]): Promise<number>;
   listReports(q?: ReportQuery): Promise<Listed<Report>>;
@@ -527,6 +535,16 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
           { feature: '逐项结果与流程状态同步', migration: BATCH_MIGRATION },
         );
       }
+    },
+    async publish(type, ids, idemKey) {
+      const list = uuidList(ids);
+      if (!list.length) return batchFromRows([], []);
+      const r = await rpc<Record<string, unknown>>('mod_publish_content', {
+        p_type: type,
+        p_ids: list,
+        p_idem_key: idemKey ?? null,
+      });
+      return toBatchResult(r);
     },
     async setThreadFlags(ids, flags) {
       const list = uuidList(ids);

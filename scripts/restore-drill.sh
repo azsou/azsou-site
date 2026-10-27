@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# 恢复演练（本地 / CI）：建一个有数据的源库 → scripts/db-backup.sh 备份 →
-#   A. 整库恢复：新库只跑 Supabase 环境模拟（shim）→ pg_restore 账户 + 完整 public → post-restore.sql
+# 恢复演练（本地 / CI）：建一个有数据的源库 → scripts/db-backup.sh **加密**备份（每次随机口令，不落盘、不打印）
+#   → 确认只有 .gpg → 解密 →
+#   A. 整库恢复：新库只跑 Supabase 环境模拟（shim）→ db-restore.sh 恢复全部范围（auth 账户与绑定 / public / private / storage 元数据）
 #   B. 换库恢复：新库跑 shim + 全部迁移 → 只导数据（--data-only --disable-triggers）
 # → 逐表核对行数（源库 = A = B）、A 的策略 / 函数 / 授权与源库一致 → 以 A 为模板跑 RLS / 后台 / 回归测试。
 #
@@ -27,10 +28,18 @@ run_sql $SRC db/shim/plain.sql
 for f in db/migrations/*.sql; do run_sql $SRC "$f"; done
 run_sql $SRC db/restore/drill-seed.sql
 
-echo "== 2. 备份"
-BACKUP_INCLUDE_AUTH=1 BACKUP_PASSPHRASE= bash scripts/db-backup.sh "$(db_url $SRC)" "$OUT" >/dev/null
+echo "== 2. 备份（强制加密：与生产工作流同一路径）"
+PASS=$(head -c 24 /dev/urandom | base64)
+BACKUP_PASSPHRASE=$PASS bash scripts/db-backup.sh "$(db_url $SRC)" "$OUT/enc" >/dev/null
+bash scripts/ops/assert-encrypted.sh "$OUT/enc"
+for f in "$OUT"/enc/*.gpg; do
+  gpg --batch --quiet --pinentry-mode loopback --passphrase-fd 3 --decrypt --output "$OUT/$(basename "${f%.gpg}")" "$f" 3<<<"$PASS"
+done
+unset PASS
 PUB=$(ls "$OUT"/azsou-public-*.dump)
-AUTH=$(ls "$OUT"/azsou-auth-users-*.dump)
+AUTH=$(ls "$OUT"/azsou-auth-*.dump)
+PRIV=$(ls "$OUT"/azsou-private-*.dump)
+STOR=$(ls "$OUT"/azsou-storage-*.dump)
 # 注意：不能写成 `(…) && echo`——set -e 不会因 && 链里前一条失败而退出，校验和不一致会被吞掉
 (cd "$OUT" && sha256sum -c azsou-SHA256SUMS-*.txt >/dev/null) || { echo "✗ 备份校验和不一致" >&2; exit 1; }
 echo "   校验和 OK：$(ls "$OUT" | tr '\n' ' ')"
@@ -38,7 +47,7 @@ echo "   校验和 OK：$(ls "$OUT" | tr '\n' ' ')"
 echo "== 3A. 整库恢复（scripts/db-restore.sh）"
 recreate $FULL
 run_sql $FULL db/shim/plain.sql
-bash scripts/db-restore.sh "$(db_url $FULL)" "$PUB" "$AUTH" >/dev/null
+bash scripts/db-restore.sh "$(db_url $FULL)" "$PUB" "$AUTH" --private "$PRIV" --storage "$STOR" >/dev/null
 
 echo "== 3B. 换库恢复（迁移建结构 + 只导数据）"
 recreate $DATA
@@ -52,17 +61,30 @@ psql "$(db_url $DATA)" -Xq -v ON_ERROR_STOP=1 -c "
       execute 'truncate ' || t || ' cascade';
     end loop; end \$\$;"
 pg_restore --data-only --disable-triggers --no-owner --exit-on-error -d "$(db_url $DATA)" "$PUB"
+# private / storage：迁移已建结构并写了种子行（下载盐、ugc-images 桶）——清掉后导备份数据
+psql "$(db_url $DATA)" -Xq -v ON_ERROR_STOP=1 -c "
+  do \$\$ declare t text; begin
+    for t in select format('%I.%I', schemaname, tablename) from pg_tables where schemaname = 'private' loop
+      execute 'truncate ' || t || ' cascade';
+    end loop; end \$\$;" -c "truncate storage.objects, storage.buckets cascade"
+pg_restore --data-only --disable-triggers --no-owner --exit-on-error -d "$(db_url $DATA)" "$PRIV"
+pg_restore --data-only --disable-triggers --no-owner --exit-on-error -d "$(db_url $DATA)" "$STOR"
 
 echo "== 4. 核对"
 counts() {
   # ON_ERROR_STOP：任何一张表数不出来都要让演练失败，而不是少一行后两边「一致」
   psql "$(db_url "$1")" -XAt -v ON_ERROR_STOP=1 -F ' ' <<'SQL'
 select format('select %L, count(*) from %I.%I', schemaname || '.' || relname, schemaname, relname)
-from pg_stat_user_tables where schemaname in ('public') order by relname
+from pg_stat_user_tables where schemaname in ('public', 'private') order by schemaname, relname
 \gexec
 select 'auth.users', count(*) from auth.users;
+select 'auth.identities', count(*) from auth.identities;
+select 'storage.buckets', count(*) from storage.buckets;
+select 'storage.objects', count(*) from storage.objects;
 SQL
 }
+# 按范围汇总一份 counts 输出：范围 表数 行数
+by_scope() { awk '{split($1, a, "."); t[a[1]]++; r[a[1]] += $2} END {for (k in t) printf "%s %d %d\n", k, t[k], r[k]}' "$1" | sort; }
 shape() {
   psql "$(db_url "$1")" -XAt -v ON_ERROR_STOP=1 <<'SQL'
 select 'policy ' || tablename || '.' || policyname || ' ' || cmd || ' ' || coalesce(qual, '') || ' ' || coalesce(with_check, '')
@@ -85,9 +107,16 @@ fail=0
 counts $SRC > "$OUT/src.txt"
 for t in $FULL $DATA; do
   counts $t > "$OUT/$t.txt"
-  if diff -u "$OUT/src.txt" "$OUT/$t.txt"; then echo "   行数一致：$t（$(wc -l < "$OUT/src.txt") 张表）"; else echo "✗ 行数不一致：$t"; fail=1; fi
+  if diff -u "$OUT/src.txt" "$OUT/$t.txt"; then
+    echo "   行数一致：$t（$(wc -l < "$OUT/src.txt") 张表）"
+    by_scope "$OUT/$t.txt" | while read -r sc nt nr; do echo "     范围 $sc：$nt 张表 / $nr 行"; done
+  else echo "✗ 行数不一致：$t"; fail=1; fi
 done
 grep -q '^public.forum_threads [1-9]' "$OUT/src.txt" || { echo '✗ 源库没有数据'; fail=1; }
+# 每个范围都必须有数据，否则「一致」没有意义
+for k in auth.identities private.app_settings storage.buckets storage.objects; do
+  grep -qE "^$k [1-9]" "$OUT/src.txt" || { echo "✗ 源库 $k 没有数据（演练覆盖不到该范围）"; fail=1; }
+done
 shape $SRC > "$OUT/src-shape.txt"
 shape $FULL > "$OUT/full-shape.txt"
 if diff -u "$OUT/src-shape.txt" "$OUT/full-shape.txt"; then
@@ -111,6 +140,7 @@ delete from public.forum_threads where author in (select id from auth.users wher
 delete from public.comments where author in (select id from auth.users where email like 'drill-%');
 delete from public.reports where reporter in (select id from auth.users where email like 'drill-%');
 delete from auth.users where email like 'drill-%';
+delete from private.app_settings where key = 'drill_secret';
 delete from public.site_content where kind = 'setting';
 delete from public.audit_log;
 delete from public.rate_limit_events;

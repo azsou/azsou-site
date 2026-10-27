@@ -4,7 +4,9 @@
 #   bash scripts/db-verify-backup.sh <备份目录> [--restore <隔离库连接串>]
 #   BACKUP_PASSPHRASE=…  产物是 .gpg 时用来解密（不会写进日志）
 # 检查：① 有 SHA256SUMS 且每个文件校验和一致 ② .gpg 能解密 ③ .dump 能被 pg_restore --list 读出目录
-#       ④ 行数清单存在且非空 ⑤（可选 --restore）恢复到隔离库后行数与清单一致
+#       ④ 行数清单、globals 清单存在且非空，public 与 auth 两个范围必须都在
+#       ⑤（可选 --restore）用 db-restore.sh 恢复全部范围（public / auth / private / storage）到隔离库，
+#          逐表核对行数（含 auth.users / auth.identities / storage.*），按范围汇总；globals 里的扩展 / 角色在目标库都存在
 # 任何一步失败 → 非 0 退出（工作流标红），绝不打印「备份成功」。
 # =============================================================================
 set -euo pipefail
@@ -44,6 +46,12 @@ for d in *.dump; do
 done
 counts=(*-rowcounts-*.tsv)
 [ ${#counts[@]} -eq 1 ] && [ -s "${counts[0]}" ] || fail "行数清单缺失或为空"
+globals=(*-globals-*.tsv)
+[ ${#globals[@]} -eq 1 ] && [ -s "${globals[0]}" ] || fail "globals 清单（扩展 / 角色 / 策略数）缺失或为空"
+authd=(*-auth-*.dump)
+[ ${#authd[@]} -eq 1 ] || fail "找不到 auth 范围备份（auth.users / auth.identities）"
+privd=(*-private-*.dump)
+stord=(*-storage-*.dump)
 listing=$(pg_restore --list "${dumps[0]}") || fail "pg_restore 读不出目录：${dumps[0]}"
 tables=$(grep -c ' TABLE DATA public ' <<<"$listing" || true) # grep 无匹配返回 1，只对它放行
 [ "$tables" -gt 0 ] || fail "备份里没有任何 public 表数据：${dumps[0]}"
@@ -52,16 +60,30 @@ echo "校验通过：$(basename "${dumps[0]}")（${size} 字节，表数据 $tab
 if [ -n "$RESTORE_URL" ]; then
   host=$(python3 -c 'import sys,urllib.parse as u;print(u.urlparse(sys.argv[1]).hostname or "")' "$RESTORE_URL")
   case "$host" in 127.0.0.1 | localhost | ::1) ;; *) fail "--restore 只允许本机隔离库" ;; esac
-  # 用正式恢复脚本（与灾难恢复同一路径：pre-restore → 账户 → public → post-restore → ACL → 重跑迁移）
-  authd=(*-auth-users-*.dump)
-  bash "$HERE/db-restore.sh" "$RESTORE_URL" "$work/${dumps[0]}" ${authd:+"$work/${authd[0]}"} >/dev/null 2>"$work/restore.err" \
+  # 用正式恢复脚本（与灾难恢复同一路径：pre-restore → 账户 → public → post-restore → ACL → private → storage → 重跑迁移）
+  bash "$HERE/db-restore.sh" "$RESTORE_URL" "$work/${dumps[0]}" "$work/${authd[0]}" \
+    ${privd:+--private "$work/${privd[0]}"} ${stord:+--storage "$work/${stord[0]}"} >/dev/null 2>"$work/restore.err" \
     || { tail -5 "$work/restore.err" >&2; fail "恢复到隔离库失败"; }
   bad=0
+  declare -A scope_t=() scope_r=()
   while IFS=$'\t' read -r t n; do
-    [ "$t" = auth.users ] && continue
     got=$(psql "$RESTORE_URL" -XAt -v ON_ERROR_STOP=1 -c "select count(*) from $t") || fail "恢复库里数不出 $t 的行数"
     [ "$got" = "$n" ] || { echo "行数不一致：$t 备份 $n / 恢复 $got" >&2; bad=1; }
+    sc=${t%%.*}
+    scope_t[$sc]=$((${scope_t[$sc]:-0} + 1))
+    scope_r[$sc]=$((${scope_r[$sc]:-0} + n))
   done <"${counts[0]}"
   [ $bad = 0 ] || fail "恢复后行数与清单不一致"
+  for sc in public private auth storage; do
+    if [ -n "${scope_t[$sc]:-}" ]; then echo "  范围 $sc：${scope_t[$sc]} 张表 / ${scope_r[$sc]} 行，与清单一致"; fi
+  done
+  while IFS=$'\t' read -r kind name _; do
+    case "$kind" in
+      extension) [ "$(psql "$RESTORE_URL" -XAt -v ON_ERROR_STOP=1 -c "select count(*) from pg_extension where extname = '$name'")" = 1 ] \
+        || echo "  提示：目标库没有扩展 $name（Supabase 新项目按需在 Dashboard 启用）" ;;
+      role) [ "$(psql "$RESTORE_URL" -XAt -v ON_ERROR_STOP=1 -c "select count(*) from pg_roles where rolname = '$name'")" = 1 ] \
+        || fail "目标库缺少自定义角色 $name（globals 清单里有；先按 docs/BACKUP.md §2B 建角色再恢复）" ;;
+    esac
+  done <"${globals[0]}"
   echo "恢复演练通过：行数与清单一致"
 fi

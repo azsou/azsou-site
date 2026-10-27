@@ -153,7 +153,7 @@ describe('A15 错误分类', () => {
 describe('对象 → 迁移 对照表与迁移文件一致', () => {
   const dir = join(import.meta.dirname, '../../db/migrations');
   const files = Object.fromEntries(
-    ['0003', '0004', '0008', '0009', '0012', '0015', '0016', '0017'].map((n) => {
+    ['0003', '0004', '0008', '0009', '0012', '0015', '0016', '0017', '0019'].map((n) => {
       const name = readdirSync(dir).find((x) => x.startsWith(n))!;
       return [n, readFileSync(join(dir, name), 'utf8')];
     }),
