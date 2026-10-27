@@ -31,7 +31,9 @@ echo "== 2. 备份"
 BACKUP_INCLUDE_AUTH=1 BACKUP_PASSPHRASE= bash scripts/db-backup.sh "$(db_url $SRC)" "$OUT" >/dev/null
 PUB=$(ls "$OUT"/azsou-public-*.dump)
 AUTH=$(ls "$OUT"/azsou-auth-users-*.dump)
-(cd "$OUT" && sha256sum -c azsou-SHA256SUMS-*.txt >/dev/null) && echo "   校验和 OK：$(ls "$OUT" | tr '\n' ' ')"
+# 注意：不能写成 `(…) && echo`——set -e 不会因 && 链里前一条失败而退出，校验和不一致会被吞掉
+(cd "$OUT" && sha256sum -c azsou-SHA256SUMS-*.txt >/dev/null) || { echo "✗ 备份校验和不一致" >&2; exit 1; }
+echo "   校验和 OK：$(ls "$OUT" | tr '\n' ' ')"
 
 echo "== 3A. 整库恢复（scripts/db-restore.sh）"
 recreate $FULL
@@ -42,7 +44,7 @@ echo "== 3B. 换库恢复（迁移建结构 + 只导数据）"
 recreate $DATA
 run_sql $DATA db/shim/plain.sql
 for f in db/migrations/*.sql; do run_sql $DATA "$f"; done
-pg_restore --data-only --disable-triggers --no-owner -d "$(db_url $DATA)" "$AUTH"
+pg_restore --data-only --disable-triggers --no-owner --exit-on-error -d "$(db_url $DATA)" "$AUTH"
 # 迁移已经写入的种子行（论坛种子主题、存储桶等）先清掉，再导备份里的数据
 psql "$(db_url $DATA)" -Xq -v ON_ERROR_STOP=1 -c "
   do \$\$ declare t text; begin
@@ -53,7 +55,8 @@ pg_restore --data-only --disable-triggers --no-owner --exit-on-error -d "$(db_ur
 
 echo "== 4. 核对"
 counts() {
-  psql "$(db_url "$1")" -XAt -F ' ' <<'SQL'
+  # ON_ERROR_STOP：任何一张表数不出来都要让演练失败，而不是少一行后两边「一致」
+  psql "$(db_url "$1")" -XAt -v ON_ERROR_STOP=1 -F ' ' <<'SQL'
 select format('select %L, count(*) from %I.%I', schemaname || '.' || relname, schemaname, relname)
 from pg_stat_user_tables where schemaname in ('public') order by relname
 \gexec
@@ -61,7 +64,7 @@ select 'auth.users', count(*) from auth.users;
 SQL
 }
 shape() {
-  psql "$(db_url "$1")" -XAt <<'SQL'
+  psql "$(db_url "$1")" -XAt -v ON_ERROR_STOP=1 <<'SQL'
 select 'policy ' || tablename || '.' || policyname || ' ' || cmd || ' ' || coalesce(qual, '') || ' ' || coalesce(with_check, '')
   from pg_policies where schemaname = 'public'
 union all
@@ -96,7 +99,7 @@ fi
 psql "$(db_url $FULL)" -XqAt -v ON_ERROR_STOP=1 -c "insert into auth.users (email) values ('after-restore@example.com')" \
   -c "select 1 from public.profiles p join auth.users u on u.id = p.id where u.email = 'after-restore@example.com'" | grep -q 1 \
   && echo '   恢复后新用户注册正常（profiles 自动创建）' || { echo '✗ 恢复后注册触发器缺失'; fail=1; }
-psql "$(db_url $FULL)" -Xq -c "delete from auth.users where email = 'after-restore@example.com'"
+psql "$(db_url $FULL)" -Xq -v ON_ERROR_STOP=1 -c "delete from auth.users where email = 'after-restore@example.com'"
 [ $fail = 0 ] || exit 1
 
 echo "== 5. 以整库恢复的库（去掉演练数据，保留恢复出的结构 / 策略 / 授权）为模板跑 RLS 角色矩阵 / 后台 RPC / 回归 / P5 / P6 测试"

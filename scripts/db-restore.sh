@@ -23,7 +23,10 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 sql() { psql "$URL" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f "$1" >/dev/null; }
 
-if psql "$URL" -XAtc "select to_regclass('public.forum_threads') is not null" | grep -q t; then
+# 连不上 / 查询失败必须直接失败（以前 `psql … | grep -q t` 在 psql 出错时等于「库是空的」继续往下走）
+exists=$(psql "$URL" -XAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.forum_threads') is not null") \
+  || { echo "✗ 连不上目标库或查询失败" >&2; exit 1; }
+if [ "$exists" = t ]; then
   echo "✗ 目标库已经有 public.forum_threads：整库恢复只用于全新库" >&2
   exit 1
 fi
@@ -33,11 +36,13 @@ if [ -n "$AUTH" ]; then
   pg_restore --data-only --no-owner --exit-on-error -d "$URL" "$AUTH"
 fi
 echo "恢复 public（结构 + 数据 + 策略）…"
-pg_restore -l "$PUB" | grep -vE ' SCHEMA - public | COMMENT - SCHEMA public | ACL ' > "$tmp/main.list"
+pg_restore -l "$PUB" > "$tmp/all.list"
+grep -vE ' SCHEMA - public | COMMENT - SCHEMA public | ACL ' "$tmp/all.list" > "$tmp/main.list"
 pg_restore --no-owner --exit-on-error -L "$tmp/main.list" -d "$URL" "$PUB"
 sql db/restore/post-restore.sql
 echo "恢复授权（ACL）…"
-pg_restore -l "$PUB" | grep -E ' ACL ' | grep -vE ' ACL - SCHEMA public ' > "$tmp/acl.list" || true
+# 只对「没有 ACL 条目」（grep 无匹配）放行；pg_restore -l 本身的失败已在上面直接退出
+{ grep -E ' ACL ' "$tmp/all.list" || true; } | { grep -vE ' ACL - SCHEMA public ' || true; } > "$tmp/acl.list"
 pg_restore --no-owner --exit-on-error -L "$tmp/acl.list" -d "$URL" "$PUB"
 # public 以外的对象不在备份里：private.app_settings（注册钩子密钥表，密钥需重新写入）、
 # storage 的 ugc-images 桶与策略、各函数的最终版本——按顺序重跑 0002 起的迁移（每个文件可重复执行）补齐

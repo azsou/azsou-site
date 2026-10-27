@@ -32,6 +32,11 @@ cd "$work"
 sums=(*-SHA256SUMS-*.txt)
 [ ${#sums[@]} -eq 1 ] || fail "找不到唯一的 SHA256SUMS 清单"
 sha256sum --quiet -c "${sums[0]}" || fail "校验和不一致（文件损坏或被改动）"
+# 清单必须覆盖目录里的每个产物（多出未登记的文件 = 来源不明）
+for f in *; do
+  case "$f" in "${sums[0]}" | restore.err) continue ;; esac
+  awk '{sub(/^\*/, "", $2); print $2}' "${sums[0]}" | grep -qxF -- "$f" || fail "SHA256SUMS 未登记：$f"
+done
 dumps=(*-public-*.dump)
 [ ${#dumps[@]} -eq 1 ] || fail "找不到 public 备份文件"
 for d in *.dump; do
@@ -39,7 +44,9 @@ for d in *.dump; do
 done
 counts=(*-rowcounts-*.tsv)
 [ ${#counts[@]} -eq 1 ] && [ -s "${counts[0]}" ] || fail "行数清单缺失或为空"
-tables=$(pg_restore --list "${dumps[0]}" | grep -c ' TABLE DATA public ' || true)
+listing=$(pg_restore --list "${dumps[0]}") || fail "pg_restore 读不出目录：${dumps[0]}"
+tables=$(grep -c ' TABLE DATA public ' <<<"$listing" || true) # grep 无匹配返回 1，只对它放行
+[ "$tables" -gt 0 ] || fail "备份里没有任何 public 表数据：${dumps[0]}"
 size=$(du -b "${dumps[0]}" | cut -f1)
 echo "校验通过：$(basename "${dumps[0]}")（${size} 字节，表数据 $tables 张），清单 $(wc -l <"${counts[0]}") 行"
 if [ -n "$RESTORE_URL" ]; then
@@ -52,7 +59,7 @@ if [ -n "$RESTORE_URL" ]; then
   bad=0
   while IFS=$'\t' read -r t n; do
     [ "$t" = auth.users ] && continue
-    got=$(psql "$RESTORE_URL" -XAtc "select count(*) from $t")
+    got=$(psql "$RESTORE_URL" -XAt -v ON_ERROR_STOP=1 -c "select count(*) from $t") || fail "恢复库里数不出 $t 的行数"
     [ "$got" = "$n" ] || { echo "行数不一致：$t 备份 $n / 恢复 $got" >&2; bad=1; }
   done <"${counts[0]}"
   [ $bad = 0 ] || fail "恢复后行数与清单不一致"

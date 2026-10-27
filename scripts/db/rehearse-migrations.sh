@@ -160,8 +160,10 @@ log "   重跑后快照与首次迁移后一致：$idem"
 
 log "6. 回滚演练：迁移前备份恢复到新库"
 psqlq "$DATABASE_URL" -c "create database $RESTORED" >/dev/null
-psqlq "$RDB" -f "$ROOT/db/shim/plain.sql" >/dev/null 2>&1 || true
-pg_restore -d "$RDB" --no-owner --clean --if-exists "$OUT/.pre-migration.dump" 2>"$OUT/restore-stderr.txt" || true
+# 不再 `|| true`：shim 或 pg_restore 任何一处出错都让演练失败（以前错误被吞掉，只靠行数 diff 兜底）
+psqlq "$RDB" -f "$ROOT/db/shim/plain.sql" >/dev/null
+pg_restore -d "$RDB" --no-owner --clean --if-exists --exit-on-error "$OUT/.pre-migration.dump" 2>"$OUT/restore-stderr.txt" \
+  || { log "   pg_restore 失败（见 restore-stderr.txt）"; tail -5 "$OUT/restore-stderr.txt" >&2; exit 6; }
 snapshot "$RDB" restored
 if diff -q "$OUT/counts-before.csv" "$OUT/counts-restored.csv" >/dev/null && diff -q "$OUT/status-before.txt" "$OUT/status-restored.txt" >/dev/null; then
   log "   恢复后行数与 status 与迁移前一致：ok"
