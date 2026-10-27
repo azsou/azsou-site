@@ -129,7 +129,7 @@ pg_dump "$DATABASE_URL" --schema=auth --table=auth.users --data-only \
 
 1. Supabase 升级 Pro 并开启 **PITR 附加项**（付费；约 $100/月 7 天档，需 Small 及以上计算规格）——RPO ≤ 1 小时只能靠它保证。
 2. 在仓库 Settings → Secrets 配置 `SUPABASE_DB_URL`、`BACKUP_PASSPHRASE`（口令离线另存一份）；Settings → Actions → General 确认 artifact 保留上限 ≥ 30 天。
-3. 审批并合并运维 PR「运维：备份与监控工作流（需站长审批，勿自动合并）」（只含备份 + 监控工作流与脚本）——GitHub 只运行默认分支上的定时 / 手动工作流。
+3. 审批并合并运维 PR #8「运维：备份与监控工作流（需站长审批，勿自动合并）」（https://github.com/azsou/azsou-site/pull/8，分支 `ops/backup-workflow-2026-10-27`，基于 main）（只含备份 + 监控工作流与脚本）——GitHub 只运行默认分支上的定时 / 手动工作流。
 4. 合并后手动运行一次 DB backup，再用 CI 的 `backup-restore`（`backup_run_id`）做云端真实恢复验收，实测 RTO。
 5. 如需 Storage 文件本体的备份，另批「Storage 同步」。
 

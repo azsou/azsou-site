@@ -6,7 +6,6 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error -- 运维脚本是纯 .mjs，没有类型声明
 import { evaluate, issueBody, DEFAULT_MAX_AGE_HOURS } from '../../scripts/ops/backup-monitor.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
