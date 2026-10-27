@@ -80,3 +80,78 @@ describe('批次 2 跟进 6：内容版本保留 90 天', () => {
     expect(src).not.toMatch(/cron\./);
   });
 });
+
+/**
+ * 站长第二轮（2026-10-27 21:06）：90 天内的版本一条都不许被 0017 的「每条最多 50 个版本」上限删掉。
+ * 0019 替换 az_save_content_version：上限只裁剪「超出最新 50 条且早于 90 天」的版本；90 天内的全部保留。
+ */
+describe('0019：90 天内不按 50 条上限删版本', () => {
+  async function mkThread(): Promise<string> {
+    return (
+      await q(
+        `insert into forum_threads (cat, title, body, author) values ('技术', $1, 'v0', $2) returning id`,
+        [`ver-${Math.random().toString(36).slice(2, 8)}`, U.bob],
+      )
+    )[0].id;
+  }
+  const edit = (id: string, n: number) =>
+    q(
+      `do $$ begin for i in 1..${n} loop
+         update forum_threads set body = 'edit-' || i || '-' || clock_timestamp() where id = '${id}';
+       end loop; end $$`,
+    );
+  const count = async (id: string, where = 'true') =>
+    Number(
+      (
+        await q(
+          `select count(*) from content_versions where target_type = 'thread' and target_id = $1 and ${where}`,
+          [id],
+        )
+      )[0].count,
+    );
+  const seedOld = (id: string, n: number, fromDays = 100) =>
+    q(
+      `insert into content_versions (target_type, target_id, title, body, editor, created_at)
+       select 'thread', $1, 'old-' || g, 'old', $2, now() - make_interval(days => $3 + g) from generate_series(1, $4) g`,
+      [id, U.ada, fromDays, n],
+    );
+
+  it('51 次编辑 → 51 个版本全部保留', async () => {
+    const id = await mkThread();
+    await edit(id, 51);
+    expect(await count(id)).toBe(51);
+  });
+
+  it('100 次编辑 → 100 个版本全部保留', async () => {
+    const id = await mkThread();
+    await edit(id, 100);
+    expect(await count(id)).toBe(100);
+  });
+
+  it('超出最新 50 条且早于 90 天的版本被裁剪；90 天内的一条不少', async () => {
+    const id = await mkThread();
+    await seedOld(id, 55); // 55 个 101–155 天前的版本
+    await edit(id, 1); // 1 个新版本 → 共 56；最新 50 = 1 新 + 49 旧 → 裁掉 6 个最旧的
+    expect(await count(id)).toBe(50);
+    expect(await count(id, `created_at > now() - interval '90 days'`)).toBe(1);
+    const [{ oldest }] = await q(
+      `select max(extract(day from now() - created_at))::int as oldest from content_versions where target_id = $1`,
+      [id],
+    );
+    expect(oldest).toBeLessThanOrEqual(150);
+
+    // 30 个旧 + 70 次新编辑：新版本全部保留（超过 50 也不删），超出最新 50 的旧版本全部裁掉
+    const id2 = await mkThread();
+    await seedOld(id2, 30);
+    await edit(id2, 70);
+    expect(await count(id2, `created_at > now() - interval '90 days'`)).toBe(70);
+    expect(await count(id2, `created_at <= now() - interval '90 days'`)).toBe(0);
+  });
+
+  it('89 天前的版本即使排在 50 条之外也保留（边界）', async () => {
+    const id = await mkThread();
+    await seedOld(id, 10, 79); // 80–89 天前
+    await edit(id, 50);
+    expect(await count(id)).toBe(60);
+  });
+});

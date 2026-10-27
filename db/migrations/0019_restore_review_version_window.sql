@@ -10,10 +10,15 @@
 --  * 显式发布：mod_publish_content(p_type, p_ids, p_idem_key)——版主 / 管理员（az_require_moderator，与
 --    mod_workflow_apply 相同的角色规则）；逐项结果、去重、上限 200、幂等键；公开内容并把流程置为 published、
 --    清空排程（被清掉的排程时间写进审计）；写 content.published 审计（from_status / cancelled_scheduled_at）。
+--  * 90 天内不按上限删版本：0017 的 az_save_content_version 每次编辑后只保留最新 50 个版本（先到为准），
+--    会删掉 90 天内的版本，违反站长「内容版本保留 90 天」的决定。这里替换该触发器函数（不改 0017 文件）：
+--    50 条上限只裁剪「排在最新 50 条之外 且 早于 90 天」的版本；90 天内的版本一条不删（51 次 / 100 次编辑全部保留）。
+--    0018 的 az_prune_content_versions(p_days ≥ 90) 不变，仍只删早于保留期的版本。
 --  * 旧前端直接 PATCH published=true（0018 触发器 az_workflow_sync 同步）仍等同于一次显式发布——
 --    这是明确把公开标志改为 true 的写入，只有版主 / 管理员能做（RLS）；新后台的「恢复」不再走这条路。
 --
--- 纯增量、可重复执行：替换 0018 的 mod_set_visibility 函数体（签名、授权不变），新增 mod_publish_content。
+-- 纯增量、可重复执行：替换 0018 的 mod_set_visibility、0017 的 az_save_content_version 函数体（签名、授权、触发器不变），
+-- 新增 mod_publish_content。
 -- 不删列、不改已有数据。
 -- =============================================================================
 
@@ -224,5 +229,35 @@ do $$ begin
     execute 'grant execute on function public.mod_publish_content(text, uuid[], text) to authenticated';
   end if;
 end $$;
+
+-- ---------------------------------------------- 版本上限只裁 90 天前（替换 0017 触发器函数体）
+create or replace function public.az_save_content_version()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $$
+declare
+  kind text := case tg_table_name when 'forum_threads' then 'thread'
+                                  when 'forum_replies' then 'reply' else 'comment' end;
+  old_title text := case when tg_table_name = 'forum_threads' then to_jsonb(old) ->> 'title' end;
+  new_title text := case when tg_table_name = 'forum_threads' then to_jsonb(new) ->> 'title' end;
+begin
+  if old.body is distinct from new.body or old_title is distinct from new_title then
+    insert into public.content_versions (target_type, target_id, title, body, editor)
+      values (kind, old.id, old_title, coalesce(old.body, ''), auth.uid());
+    -- 站长 2026-10-27：版本保留 90 天。上限 50 只裁「最新 50 条之外 且 早于 90 天」的版本
+    delete from public.content_versions v
+     where v.target_type = kind and v.target_id = old.id
+       and v.created_at < now() - interval '90 days'
+       and v.id not in (select v2.id from public.content_versions v2
+                         where v2.target_type = kind and v2.target_id = old.id
+                         order by v2.created_at desc, v2.id desc limit 50);
+  end if;
+  return new;
+end
+$$;
+comment on function public.az_save_content_version() is
+  '保存旧版本；50 条上限只裁剪早于 90 天的版本（0019，站长 2026-10-27：90 天内的版本不得删除）';
 
 commit;

@@ -320,7 +320,7 @@ run db/migrations/0017_admin_crm.sql;            status   # admin_notes / admin_
 
 ## 5G. 状态一致性 / 调度 / 权限（0018，交接批次 2）——**站长尚未批准，生产未执行**
 
-> 生产执行走放行申请 ①：[docs/release/2026-10-27-prod-migrations-0002-0018-release-request.md](release/2026-10-27-prod-migrations-0002-0018-release-request.md)；
+> 生产执行走放行申请 ①：[docs/release/2026-10-27-prod-migrations-0002-0019-release-request.md](release/2026-10-27-prod-migrations-0002-0019-release-request.md)；
 > 开启调度走放行申请 ②（独立审批）：[docs/release/2026-10-27-scheduler-cron-release-request.md](release/2026-10-27-scheduler-cron-release-request.md)。
 
 ```bash
@@ -333,7 +333,8 @@ run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 /
   - 版主（以及管理员）不能再直接 PATCH 他人内容的 `title` / `body` / `cat`；版主只调整审核标志（隐藏 / 置顶 / 锁定 / 精华）。
     管理员改他人内容走 `mod_edit_content()`（理由必填，写版本、审计、通知作者）。前台「编辑」按钮只对作者本人显示。（A04，站长 2026-10-27 已定）
   - 手工隐藏「待审 + 定时」内容会**取消**定时发布（开关 `az_hide_cancels_schedule()`，默认 true，站长 2026-10-27 已定）；
-    **恢复不复活旧排程**：恢复 = 立即公开、`scheduled_at` 清空，被取消的时间只记在审计（`cancelled_scheduled_at`）。
+    **恢复不复活旧排程**：`scheduled_at` 清空，被取消的时间只记在审计（`cancelled_scheduled_at`）。
+    （0018 里恢复 = 立即公开；站长 2026-10-27 21:06 改为「恢复回到待审 + 显式发布」，由 0019 实现，见 5I。）
   - 锁顺序统一为「先内容行、后排程行」：tick 对内容行 `FOR UPDATE SKIP LOCKED` 并在锁内复核，隐藏与 tick 交错不再死锁、
     也不会把正在隐藏的内容公开（`tests/db/b2-tick-lock.test.ts`）。
   - 调度心跳：`mod_workflow_tick_job(source, interval)` 每次写 `workflow_scheduler_heartbeat`，超过 2× 间隔 → `az_workflow_health().heartbeat_stale`、告警。
@@ -342,11 +343,25 @@ run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 /
 - 依赖 0017；0016 及以前的库请先补 0017。前端对缺 0018 的库自动退回旧接口（逐项结果与状态同步不可用，后台显示降级提示）。
 - 调度：0018 **不创建任何 cron 任务**。启用无人值守调度见 `db/ops/workflow-cron.sql` 与 OPERATIONS.md「4A」，同样需站长批准。
 
-## 5H. B04 迁移演练与回滚 / 恢复预案（0017 / 0018）
+## 5I. 恢复回到待审 + 显式发布 + 90 天内不按上限删版本（0019，站长第二轮 2026-10-27 21:06）——**站长尚未批准，生产未执行**
+
+```bash
+run db/migrations/0019_restore_review_version_window.sql;    status   # 恢复 → 待审 / mod_publish_content / 版本上限只裁 90 天前
+```
+
+- 纯增量、可重复执行：替换 0018 的 `mod_set_visibility` 函数体（签名、授权不变），新增 `mod_publish_content(text, uuid[], text)`（只授予 authenticated，函数内要求版主 / 管理员）。
+- **行为变化（站长已定）**：
+  - 「恢复」（`mod_set_visibility(..., true)`）不再公开：被隐藏 / 下线 / 草稿的内容恢复后 `published = false`、流程状态「待审」、`scheduled_at` 为空（永不复活旧排程）；对已公开内容点恢复 = unchanged。
+  - 公开必须走显式「发布」`mod_publish_content`：逐项结果、去重、上限 200、幂等键；写 `content.published` 审计（来源状态、被清掉的排程时间）。后台内容表：已隐藏 → 「恢复」，待审 / 草稿 → 「发布」，批量条新增「发布」。
+  - 旧前端直接 PATCH `published=true` 仍等同一次发布（明确改公开标志，只有版主 / 管理员能做）；新后台不走这条路。
+- **90 天内不按上限删版本**：替换 0017 的触发器函数 `az_save_content_version`（不改 0017 文件）——每条内容「最多 50 个版本」的上限只裁剪排在最新 50 条之外**且早于 90 天**的版本；90 天内的版本一条不删（51 次 / 100 次编辑全部保留）。`az_prune_content_versions(p_days ≥ 90)` 不变。
+- 依赖 0018。前端对缺 0019 的库：「发布」按钮报「缺少迁移 0019」（不退回 PATCH，避免绕过「恢复 → 待审」）。
+
+## 5H. B04 迁移演练与回滚 / 恢复预案（0017 / 0018 / 0019）
 
 **演练（隔离库，已执行）**：`DATABASE_URL=<本机 Postgres> bash scripts/db/rehearse-migrations.sh <输出目录>`。
 脚本拒绝非本机地址。步骤：类生产库（plain shim + 0001 + 合成数据）→ 迁移前快照（status / 行数 / 策略 / 表与列授权 / 函数授权）与
-`pg_dump` → 0002 → 0018（每步 status）→ 迁移后快照与 diff（原有表行数必须不变）→ 重跑 0017、0018 与整套 0002 → 0018
+`pg_dump` → 0002 → 0019（每步 status）→ 迁移后快照与 diff（原有表行数必须不变）→ 重跑 0017、0018、0019 与整套 0002 → 0019
 （快照必须完全一致）→ 用迁移前备份恢复到新库（行数与 status 回到迁移前）。2026-10-27 的结果在
 `docs/audits/evidence/batch2/b04/`：原有 5 张表与 auth.users 行数无变化；status 未通过项 23 → 0；重跑一致；恢复一致。
 
@@ -369,6 +384,7 @@ run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 /
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 某个迁移文件报错                                  | 文件在事务里，已整体回滚；修正后重跑同一文件。库停在上一步                                                                                                                                   |
 | 0018 的行为变化不被接受（例如要让版主改他人正文） | 不回退迁移；按站长决定改策略：版主改正文 = 调整 `az_content_edit_guard()` 判断并放开 `mod_edit_content()` 给版主；隐藏不取消排程 = 把 `az_hide_cancels_schedule()` 改为 `select false`       |
+| 0019 行为不被接受                                 | 不回退迁移：恢复 → 待审是 `mod_set_visibility` 的函数体，可按站长决定再替换；版本上限同理替换 `az_save_content_version`                                                                      |
 | 只想停用 0018 的触发器                            | `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on <表>`（三张表各一）——前端照常工作，回到 0017 行为                                                             |
 | 数据损坏 / 需要精确回到迁移前                     | 用第 2 步的备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-users-*.dump`，再切换 Vercel 环境变量（见第 9 节最后一行）。不要在生产库上手工删对象 |
 
@@ -386,6 +402,7 @@ run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 /
      → 0016_subscribers（邮件订阅，双重确认；依赖 0015 的密钥）
      → 0017_admin_crm（后台：服务端排序、备注、用户标签 / 画像、内容流程 + 定时发布、版本历史）
      → 0018_state_consistency（统一状态接口、调度运行记录 / 心跳 / 告警、他人正文只经管理员 RPC、批量逐项结果；待站长批准，放行申请 ①）
+     → 0019_restore_review_version_window（恢复 → 待审 + 显式发布；版本 50 条上限只裁 90 天前；待站长批准，放行申请 ①）
      → （另需批准，放行申请 ②）db/ops/workflow-cron.sql 启用 pg_cron 调度
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url

@@ -39,6 +39,7 @@ az_notify_mentions() | service_role | t | search_path=public
 az_notify_reply() | service_role | t | search_path=public
 az_profiles_ban_sync() | service_role | t | search_path=public
 az_profiles_guard() | service_role | t | search_path=public
+az_prune_content_versions(integer) | service_role | t | search_path=public
 az_rate_limit(text,integer,interval) | service_role | t | search_path=public
 az_replies_guard() | service_role | t | search_path=public
 az_reports_after() | service_role | t | search_path=public
@@ -105,6 +106,8 @@ mod_list_users(text,text,boolean,integer,integer,uuid,text,text) | authenticated
 mod_list_users(text,text,boolean,integer,integer,uuid,text,text) | service_role | t | search_path=public, auth
 mod_list_users_page(text,text,boolean,integer,integer,uuid,text,text) | authenticated | t | search_path=public
 mod_list_users_page(text,text,boolean,integer,integer,uuid,text,text) | service_role | t | search_path=public
+mod_publish_content(text,uuid[],text) | authenticated | t | search_path=public
+mod_publish_content(text,uuid[],text) | service_role | t | search_path=public
 mod_set_visibility(text,uuid[],boolean,text) | authenticated | t | search_path=public
 mod_set_visibility(text,uuid[],boolean,text) | service_role | t | search_path=public
 mod_set_workflow(text,uuid[],text,timestamp with time zone) | authenticated | t | search_path=public
@@ -119,7 +122,7 @@ mod_workflow_apply(text,uuid[],text,timestamp with time zone,jsonb,text) | authe
 mod_workflow_apply(text,uuid[],text,timestamp with time zone,jsonb,text) | service_role | t | search_path=public
 mod_workflow_tick() | authenticated | t | search_path=public
 mod_workflow_tick() | service_role | t | search_path=public
-mod_workflow_tick_job(text) | service_role | t | search_path=public
+mod_workflow_tick_job(text,integer) | service_role | t | search_path=public
 search_threads(text,integer,integer) | anon | f | search_path=public, extensions
 search_threads(text,integer,integer) | authenticated | f | search_path=public, extensions
 search_threads(text,integer,integer) | service_role | f | search_path=public, extensions

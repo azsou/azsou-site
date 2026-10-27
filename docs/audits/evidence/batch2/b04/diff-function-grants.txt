@@ -7,7 +7,7 @@
 > admin_friend_link_set_status(uuid[],text) | service_role | t | search_path=public, pg_temp
 > admin_list_friend_links(text) | authenticated | t | search_path=public, pg_temp
 > admin_list_friend_links(text) | service_role | t | search_path=public, pg_temp
-3a9,63
+3a9,64
 > admin_stats() | authenticated | t | search_path=public
 > admin_stats() | service_role | t | search_path=public
 > admin_subscriber_counts() | authenticated | t | search_path=public, pg_temp
@@ -41,6 +41,7 @@
 > az_notify_reply() | service_role | t | search_path=public
 > az_profiles_ban_sync() | service_role | t | search_path=public
 > az_profiles_guard() | service_role | t | search_path=public
+> az_prune_content_versions(integer) | service_role | t | search_path=public
 > az_rate_limit(text,integer,interval) | service_role | t | search_path=public
 > az_replies_guard() | service_role | t | search_path=public
 > az_reports_after() | service_role | t | search_path=public
@@ -63,7 +64,7 @@
 > az_workflow_orphan() | service_role | t | search_path=public
 > az_workflow_sync() | service_role | t | search_path=public
 > az_workflow_tick_run(text) | service_role | t | search_path=public
-7,8c67,75
+7,8c68,76
 < handle_new_user() | anon | t | search_path=public
 < handle_new_user() | authenticated | t | search_path=public
 ---
@@ -76,7 +77,7 @@
 > guestbook_submit(text,text,text) | anon | t | search_path=public, pg_temp
 > guestbook_submit(text,text,text) | authenticated | t | search_path=public, pg_temp
 > guestbook_submit(text,text,text) | service_role | t | search_path=public, pg_temp
-12a80,139
+12a81,142
 > is_moderator() | anon | t | search_path=public
 > is_moderator() | authenticated | t | search_path=public
 > is_moderator() | service_role | t | search_path=public
@@ -105,6 +106,8 @@
 > mod_list_users(text,text,boolean,integer,integer,uuid,text,text) | service_role | t | search_path=public, auth
 > mod_list_users_page(text,text,boolean,integer,integer,uuid,text,text) | authenticated | t | search_path=public
 > mod_list_users_page(text,text,boolean,integer,integer,uuid,text,text) | service_role | t | search_path=public
+> mod_publish_content(text,uuid[],text) | authenticated | t | search_path=public
+> mod_publish_content(text,uuid[],text) | service_role | t | search_path=public
 > mod_set_visibility(text,uuid[],boolean,text) | authenticated | t | search_path=public
 > mod_set_visibility(text,uuid[],boolean,text) | service_role | t | search_path=public
 > mod_set_workflow(text,uuid[],text,timestamp with time zone) | authenticated | t | search_path=public
@@ -119,7 +122,7 @@
 > mod_workflow_apply(text,uuid[],text,timestamp with time zone,jsonb,text) | service_role | t | search_path=public
 > mod_workflow_tick() | authenticated | t | search_path=public
 > mod_workflow_tick() | service_role | t | search_path=public
-> mod_workflow_tick_job(text) | service_role | t | search_path=public
+> mod_workflow_tick_job(text,integer) | service_role | t | search_path=public
 > search_threads(text,integer,integer) | anon | f | search_path=public, extensions
 > search_threads(text,integer,integer) | authenticated | f | search_path=public, extensions
 > search_threads(text,integer,integer) | service_role | f | search_path=public, extensions
