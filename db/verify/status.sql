@@ -99,6 +99,7 @@ with c(step, item, ok) as (
      and to_regprocedure('public.mod_workflow_apply(text,uuid[],text,timestamptz,jsonb,text)') is not null
      and to_regprocedure('public.mod_workflow_tick_job(text,integer)') is not null
      and to_regclass('public.workflow_scheduler_heartbeat') is not null
+     and to_regprocedure('public.az_prune_content_versions(integer)') is not null
      and to_regprocedure('public.az_workflow_health()') is not null
      and to_regprocedure('public.mod_edit_content(text,uuid,text,text,text,text,timestamptz)') is not null
      and to_regprocedure('public.mod_list_content_page(text,text,text,boolean,boolean,uuid,integer,integer,text,text)') is not null

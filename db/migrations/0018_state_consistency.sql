@@ -14,7 +14,9 @@
 --    开关仍保留，仅供站长日后改主意：create or replace function public.az_hide_cancels_schedule() returns boolean
 --      language sql immutable as $$ select false $$;  —— 之后「隐藏」对排程中的内容不取消排程，到点仍会发布。
 --  * A02 tick 核对目标 UPDATE 行数：目标已删 → 不计成功、不写成功审计，排程行标记 orphaned_at 并写
---    content.workflow.orphaned 审计；删除内容时触发器同步标记孤儿。版本历史保留（保留期待站长定）。
+--    content.workflow.orphaned 审计；删除内容时触发器同步标记孤儿。
+--  * 内容版本保留 90 天（站长 2026-10-27 定稿）：az_prune_content_versions(90) 只建函数、不排定时任务
+--    （0017 的「每条最多 50 个版本」上限仍在，两者先到为准）；生产何时清理随「开启调度」放行申请审批。
 --  * A03 mod_workflow_tick_job(source)：给 pg_cron / 外部调度器调用（只授予 service_role，表所有者天然可调），
 --    每次运行写 workflow_tick_runs（开始 / 结束 / 发布 / 孤儿 / 失败数 / 错误）；az_workflow_health() 给告警读。
 --    本迁移不创建任何 cron 任务——见 db/ops/workflow-cron.sql（待站长批准）。
@@ -822,6 +824,29 @@ begin
 end
 $$;
 
+-- ---------------------------------------------- 内容版本保留（站长定稿 90 天）
+-- 删除早于保留期的 content_versions，返回删除条数并写审计。p_days 不得小于 90（防误删）。
+-- 只给表所有者 / service_role；本迁移不创建任何定时任务（见 docs/release/2026-10-27-scheduler-cron-release-request.md）。
+create or replace function public.az_prune_content_versions(p_days integer default 90)
+ returns integer
+ language plpgsql
+ volatile security definer
+ set search_path to 'public'
+as $$
+declare
+  n integer;
+begin
+  if p_days is null or p_days < 90 then
+    raise exception '内容版本至少保留 90 天（站长 2026-10-27 定稿）' using errcode = '22023';
+  end if;
+  delete from public.content_versions where created_at < now() - make_interval(days => p_days);
+  get diagnostics n = row_count;
+  perform public.az_audit('content.versions.pruned', 'content_versions', 'all',
+    jsonb_build_object('deleted', n, 'retention_days', p_days));
+  return n;
+end
+$$;
+
 -- ---------------------------------------------- A09 分页 envelope -----------
 create or replace function public.mod_list_content_page(
   p_type text,
@@ -898,6 +923,7 @@ revoke execute on function
   public.mod_workflow_apply(text, uuid[], text, timestamptz, jsonb, text),
   public.mod_set_visibility(text, uuid[], boolean, text),
   public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert(),
+  public.az_prune_content_versions(integer),
   public.mod_list_content_page(text, text, text, boolean, boolean, uuid, integer, integer, text, text),
   public.mod_list_users_page(text, text, boolean, integer, integer, uuid, text, text)
   from public;
@@ -911,6 +937,7 @@ do $$ begin
       public.mod_workflow_apply(text, uuid[], text, timestamptz, jsonb, text),
       public.mod_set_visibility(text, uuid[], boolean, text),
       public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert(),
+      public.az_prune_content_versions(integer),
       public.mod_list_content_page(text, text, text, boolean, boolean, uuid, integer, integer, text, text),
       public.mod_list_users_page(text, text, boolean, integer, integer, uuid, text, text)
       from anon, authenticated';
@@ -925,7 +952,7 @@ do $$ begin
       to authenticated';
   end if;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant execute on function public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert() to service_role';
+    execute 'grant execute on function public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert(), public.az_prune_content_versions(integer) to service_role';
   end if;
 end $$;
 
