@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { Resvg } from '@resvg/resvg-js';
 import type { Page } from '@playwright/test';
-import { test, expect, seedThread, uniq } from './community-fixtures';
+import { test, expect, publishThread, seedThread, uniq } from './community-fixtures';
 
 /**
  * P5 编辑器图片上传：Storage 接口用 page.route 模拟（本地 / CI 没有 storage-api），
@@ -138,8 +138,8 @@ test.describe('编辑器图片上传', () => {
     await expect(pimg).toHaveAttribute('width', '1600');
     await expect.poll(() => pimg.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1600);
 
-    await page.getByRole('button', { name: '发布主题' }).click();
-    await expect(page).toHaveURL(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+    // 发布：等写库 201 → 新主题文档请求 → DOMContentLoaded（不是只加等待，见 publishThread 注释）
+    await publishThread(page);
     await expect(page.locator('h1')).toHaveText(title);
     const img = page.locator('[data-body] img');
     await expect(img).toHaveAttribute('alt', '渐变横幅示意图');
