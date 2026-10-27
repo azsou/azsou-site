@@ -280,7 +280,9 @@
     .shelf__track {
       grid-auto-flow: column;
       grid-template-rows: repeat(var(--shelf-rows, 2), auto);
-      grid-auto-columns: 34%;
+      /* D11（批次 3 跟进）：原 34% × 3 列正好铺满 390 / 320 宽，第 4 列完全在屏外 → 没有「可横滑」的提示。
+         40% 时第 3 列露出约一半（按比例，不是固定像素），首屏条目数不变（露出的也算） */
+      grid-auto-columns: 40%;
       overflow-x: auto;
       overscroll-behavior-x: contain;
       scroll-snap-type: x mandatory;
@@ -317,8 +319,9 @@
     .shelf__track--card {
       grid-auto-columns: 40%;
     }
+    /* D11：34% × 3 在 600–899 宽几乎正好铺满（第 3 个只藏 2%），改 40% 让第 3 个露出约一半 */
     .shelf__track--chip {
-      grid-auto-columns: 34%;
+      grid-auto-columns: 40%;
     }
   }
   /* ≥ 900：网格，按行数截断（看全部走「更多」）。tile 每行 6 / 7 / 8 列 × 2 行；mini（排行）5 列 × 2 行；card 4 列 × 1 行 */

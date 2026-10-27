@@ -165,3 +165,105 @@ for (const theme of ['light', 'dark'] as const) {
     });
   }
 }
+
+// ------------------------------------------------------------------ D11 / T016
+const CARD_PAGES = ['/', '/apps/', '/ai/', '/games/'];
+for (const path of CARD_PAGES) {
+  for (const vp of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`D11 ${path} @${vp.width}：同一行同模板卡片的标题与主操作基线一致，DOM 顺序 = 阅读顺序，卡内元数据不重复`, async ({
+      page,
+    }) => {
+      await open(page, path, vp);
+      const res = await page.evaluate(() => {
+        const issues: string[] = [];
+        const lists = [...document.querySelectorAll<HTMLElement>('ul, ol')].filter((l) =>
+          [...l.children].some((c) => c.querySelector(':scope > .entry--tile')),
+        );
+        for (const l of lists) {
+          const cards = [...l.children]
+            .map((li) => li.querySelector<HTMLElement>(':scope > .entry--tile'))
+            .filter((c): c is HTMLElement => !!c && c.getBoundingClientRect().height > 0);
+          const rows = new Map<number, HTMLElement[]>();
+          for (const c of cards) {
+            const top = Math.round(c.getBoundingClientRect().top);
+            const key = [...rows.keys()].find((k) => Math.abs(k - top) <= 2) ?? top;
+            rows.set(key, [...(rows.get(key) ?? []), c]);
+          }
+          const name = l.getAttribute('aria-label') || l.className;
+          for (const [, row] of rows) {
+            if (row.length < 2) continue;
+            const ys = (sel: string) =>
+              row
+                .map((c) => c.querySelector(sel)?.getBoundingClientRect().top)
+                .filter((y): y is number => y != null);
+            for (const sel of ['.entry__title', '.entry__action']) {
+              const v = ys(sel);
+              if (v.length > 1 && Math.max(...v) - Math.min(...v) > 1)
+                issues.push(`${name} ${sel} 基线差 ${Math.round(Math.max(...v) - Math.min(...v))}px`);
+            }
+          }
+          // 阅读顺序：按（行、左→右）排序后应与 DOM 顺序一致（横滑轨道只看可见部分也成立）
+          const vis = cards.map((c) => ({ c, r: c.getBoundingClientRect() }));
+          const sorted = [...vis].sort((a, b) =>
+            Math.abs(a.r.top - b.r.top) > 2 ? a.r.top - b.r.top : a.r.left - b.r.left,
+          );
+          const horizontalScroll = getComputedStyle(l).gridAutoFlow.startsWith('column');
+          if (!horizontalScroll && sorted.some((s, i) => s.c !== vis[i].c))
+            issues.push(`${name} 视觉顺序 ≠ DOM 顺序`);
+        }
+        // 卡内元数据：类型 / 开发者 / 事实字段不重复
+        for (const e of document.querySelectorAll<HTMLElement>('.entry')) {
+          const tok = [
+            e.querySelector('.entry__type')?.textContent,
+            e.querySelector('.entry__by')?.textContent,
+            ...[...e.querySelectorAll('.entry__fact')].map((f) => f.textContent),
+          ]
+            .filter(Boolean)
+            .map((t) => t!.replace(/·/g, '').trim().toLowerCase())
+            .filter(Boolean);
+          const dup = tok.filter((t, i) => tok.indexOf(t) !== i);
+          if (dup.length) issues.push(`${e.dataset.entry} 重复：${dup.join(',')}`);
+        }
+        return issues;
+      });
+      expect(res).toEqual([]);
+    });
+  }
+}
+
+for (const width of [320, 390, 600, 768]) {
+  test(`D11 首页横滑货架 @${width}：有露出下一项的提示，露出量按比例而不是固定 48px`, async ({ page }) => {
+    await open(page, '/', { width, height: 844 });
+    const res = await page.evaluate(() => {
+      const out: { name: string; frac: number; px: number }[] = [];
+      for (const t of document.querySelectorAll<HTMLElement>('[data-shelf]')) {
+        if (t.scrollWidth <= t.clientWidth + 1) continue;
+        const tr = t.getBoundingClientRect();
+        const items = [...t.children] as HTMLElement[];
+        const cut = items.find((li) => {
+          const r = li.getBoundingClientRect();
+          return r.left < tr.right - 1 && r.right > tr.right + 1;
+        });
+        if (!cut) {
+          out.push({ name: t.getAttribute('aria-label') ?? '', frac: 0, px: 0 });
+          continue;
+        }
+        const r = cut.getBoundingClientRect();
+        out.push({
+          name: t.getAttribute('aria-label') ?? '',
+          frac: (tr.right - r.left) / r.width,
+          px: Math.round(tr.right - r.left),
+        });
+      }
+      return out;
+    });
+    expect(res.length).toBeGreaterThan(0);
+    for (const s of res) {
+      expect(s.frac, `${s.name} 露出比例`).toBeGreaterThan(0.08);
+      expect(s.frac, `${s.name} 露出比例`).toBeLessThan(0.75);
+    }
+  });
+}
