@@ -1,4 +1,35 @@
-# I01（T046 / T074）执行记录——2026-10-27
+# I01（T046 / T074）执行记录——2026-10-27（第 3 轮更新 2026-10-28）
+
+## 第 3 轮（站长 2026-10-28 02:43 拍板）：两层分开
+
+| 层                    | 是什么                                                                                                                                                                                                                                                                 | 状态               | 在哪                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| （a）官方测试密钥回归 | 只用公开的官方测试凭据：Cloudflare Turnstile 官方测试 secret（真实请求 Cloudflare siteverify：总是通过 / 总是失败 / token 已用过）+ Supabase Auth（GoTrue v2.197.0 官方二进制）跑在本地 Postgres；通过与失败两条路径都断言。CI 的 db 任务（`npm run test:db`）自动执行 | 17/17 通过（本地） | `tests/db/i01-official-keys.test.ts`、`tests/db/gotrue.ts`                  |
+| （b）真实链路验收     | 隔离 Supabase 测试项目 + 真实收件箱 + GitHub OAuth 测试应用 + 真实 Turnstile 密钥                                                                                                                                                                                      | **阻塞，未执行**   | [real-acceptance.md](real-acceptance.md)、`scripts/i01/real-acceptance.mjs` |
+
+**（a）不是真实验收**：GoTrue 是本地实例、Turnstile 用的是官方测试密钥（Cloudflare 对测试密钥固定返回结果），证明的是站点代码与 GoTrue 的判断逻辑，不证明真实项目的配置、邮件投递与 OAuth 应用。
+
+（a）覆盖：siteverify 三种官方 secret；站点 `/api/auth` 守卫 → 真实 siteverify → 本地 GoTrue（通过时建出用户，失败 / 已用过 / 缺 token 时 GoTrue 收不到注册）；GoTrue 自带 Turnstile 的通过 / 失败 / 已用过 / 缺 token；GoTrue redirect 白名单（外域、点段回落到 Site URL）；魔法链接只能用一次；密码错误；refresh token 重放（紧接着重用上一个 = 安全幂等，轮换后再用旧 token = `refresh_token_already_used` 并吊销整条链）；过期 / 伪造签名 JWT 被拒（`bad_jwt`）。
+未覆盖（在（b））：真实邮件投递与链接、GitHub OAuth、真实 Turnstile 成功挑战、Supabase 云端限流。
+
+### safeNext 第 3 轮（点段规范化绕过）
+
+修复前 `/.//evil.example`、`/a/..//evil.example`、`/%2e//evil.example`、`/..//evil` 等经 URL 解析后路径为 `//evil.example`，safeNext 原样返回 → `location.assign` 跳外域。
+向量表 `tests/redirect-vectors.ts`（39 个：点段、编码点 / 斜杠 / 反斜杠、二次 / 三次编码、反斜杠混用、编码控制字符 + 第 1 轮的制表符 / 换行），单测与 e2e 共用。
+
+| 检查                                              | 修复前                                                                                                                                                                | 修复后                                              |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `safeNext` 单测（39 向量）                        | 27 个未被拒，其中 9 个直接返回 `//evil…`（[safe-next-r3-before.txt](safe-next-r3-before.txt)）                                                                        | 0                                                   |
+| e2e：回调页 magiclink 全表                        | 27 失败：11 个落到外站（含 2 个经测试静态服务器 308 离站），15 个停在带编码分隔符的站内路径、1 个停在浏览器错误页（[t074-r3-e2e-before.txt](t074-r3-e2e-before.txt)） | 0（[t074-r3-e2e-after.txt](t074-r3-e2e-after.txt)） |
+| e2e：回调页 signup、`/login/?next=` 密码登录 全表 | （同一实现，未单独留修复前日志）                                                                                                                                      | 0                                                   |
+| 测试静态服务器补尾斜杠 `/%2F/evil.example`        | 308 → `//evil.example/`（离站）                                                                                                                                       | 308 → `/%2F/evil.example/`（本站）                  |
+
+修复：`src/lib/safe-next.ts` 用 `new URL(next, origin)` 解析，要求同源且规范化路径不以 `//`、`/\` 开头，返回规范化的 路径+查询+锚点；反复解码（≤4 层）后任何一层出现控制字符 / 空白 / 反斜杠 / 编码的 `.` `/` `\` 一律拒绝。
+最终导航同源校验：`navigateSameOrigin()`——登录后 `afterSignIn`、回调页 `location.replace`、首页旧 hash 跳转都改走它。
+其余 redirect / Location 汇点排查：服务端 `/api/auth` 的 `safeRedirect`（本来就按 URL 解析同源 + `/auth/callback/` 前缀，补了点段单测，未改）；`scripts/serve.mjs` 补 / 去尾斜杠（已修，`scripts/lib/slash-redirect.mjs`）；CMS OAuth（目标固定为 github.com 授权页，不含用户输入）；`vercel.json` redirects（目标固定）；其余 `location.assign` 的目标都是代码生成的站内路径（通知链接经 `url.forumThread` 正则 / 编码、后台表格视图只换查询串、命令面板为固定条目），不含外部输入。
+线上 Vercel 对编码斜杠的补尾斜杠行为未实测（只在测试服务器上验证，生产不碰）；站内路径已不会产出编码斜杠，next 中出现即拒绝。
+
+---
 
 站长 21:06：「I01 按原 T046/T074 执行」。原文出自交接 PR #3（分支 `docs/hark-handoff-2026-10-27`，head `e65fcae`）。
 

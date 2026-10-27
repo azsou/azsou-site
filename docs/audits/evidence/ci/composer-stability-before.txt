@@ -1,0 +1,34 @@
+b4ci-cs-before.log:  ✘  1 [chromium-desktop] › tests/e2e/composer-stability.spec.ts:11:3 › 发帖表单稳定性 › 宽屏：预览渲染出长正文后「发布主题」位置不变（预览在框内滚动，不撑高表单） (4.4s)
+b4ci-cs-before.log:  ✘  3 [webkit-desktop] › tests/e2e/composer-stability.spec.ts:11:3 › 发帖表单稳定性 › 宽屏：预览渲染出长正文后「发布主题」位置不变（预览在框内滚动，不撑高表单） (2.3s)
+b4ci-cs-before.log:  ✘  4 [webkit-desktop] › tests/e2e/composer-stability.spec.ts:38:3 › 发帖表单稳定性 › 发布成功到页面离开之间：按钮保持禁用，重复提交被忽略（不再闪出「正文不能为空」，不发第二次请求） (9.2s)
+b4ci-cs-before.log:  ✘  6 [webkit-iphone] › tests/e2e/composer-stability.spec.ts:38:3 › 发帖表单稳定性 › 发布成功到页面离开之间：按钮保持禁用，重复提交被忽略（不再闪出「正文不能为空」，不发第二次请求） (10.4s)
+b4ci-cs-before.log:  ✘  2 [chromium-desktop] › tests/e2e/composer-stability.spec.ts:38:3 › 发帖表单稳定性 › 发布成功到页面离开之间：按钮保持禁用，重复提交被忽略（不再闪出「正文不能为空」，不发第二次请求） (35.3s)
+b4ci-cs-before.log:    Error: 按钮从 y=1039.171875 移到 y=3556.421875
+b4ci-cs-before.log:    Expected: <= 1
+b4ci-cs-before.log:    Received:    2517.25
+b4ci-cs-before.log:    > 30 |     expect(Math.abs(after!.y - before!.y), `按钮从 y=${before!.y} 移到 y=${after!.y}`).toBeLessThanOrEqual(1);
+b4ci-cs-before.log:    Error: response.json: Test timeout of 30000ms exceeded.
+b4ci-cs-before.log:    Error: 按钮从 y=1039.171875 移到 y=3642.421875
+b4ci-cs-before.log:    Expected: <= 1
+b4ci-cs-before.log:    Received:    2603.25
+b4ci-cs-before.log:    > 30 |     expect(Math.abs(after!.y - before!.y), `按钮从 y=${before!.y} 移到 y=${after!.y}`).toBeLessThanOrEqual(1);
+b4ci-cs-before.log:    Error: expect(locator).toBeDisabled() failed
+b4ci-cs-before.log:    Expected: disabled
+b4ci-cs-before.log:    Received: undefined
+b4ci-cs-before.log:    Error: expect(locator).toBeDisabled() failed
+b4ci-cs-before.log:    Expected: disabled
+b4ci-cs-before.log:    Received: undefined
+b4ci-cs-before.log:  5 failed
+b4ci-cs-before4.log:  ✘  1 [webkit-desktop] › tests/e2e/composer-stability.spec.ts:38:3 › 发帖表单稳定性 › 发布成功到页面离开之间：按钮保持禁用，重复提交被忽略（不再闪出「正文不能为空」，不发第二次请求） (5.1s)
+b4ci-cs-before4.log:  ✘  2 [chromium-desktop] › tests/e2e/composer-stability.spec.ts:38:3 › 发帖表单稳定性 › 发布成功到页面离开之间：按钮保持禁用，重复提交被忽略（不再闪出「正文不能为空」，不发第二次请求） (4.9s)
+b4ci-cs-before4.log:  ✘  3 [webkit-iphone] › tests/e2e/composer-stability.spec.ts:38:3 › 发帖表单稳定性 › 发布成功到页面离开之间：按钮保持禁用，重复提交被忽略（不再闪出「正文不能为空」，不发第二次请求） (3.0s)
+b4ci-cs-before4.log:    Error: expect(received).toMatchObject(expected)
+b4ci-cs-before4.log:    - Expected  - 2
+b4ci-cs-before4.log:    + Received  + 2
+b4ci-cs-before4.log:    Error: expect(received).toMatchObject(expected)
+b4ci-cs-before4.log:    - Expected  - 2
+b4ci-cs-before4.log:    + Received  + 2
+b4ci-cs-before4.log:    Error: expect(received).toMatchObject(expected)
+b4ci-cs-before4.log:    - Expected  - 2
+b4ci-cs-before4.log:    + Received  + 2
+b4ci-cs-before4.log:  3 failed

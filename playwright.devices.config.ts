@@ -54,7 +54,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : process.env.CI ? 3 : 4,
-  reporter: process.env.CI ? [['github'], ['list']] : [['list']],
+  // json：首跑失败（flaky）单独报告，见 scripts/ci/flaky-report.mjs 与 docs/CI.md
+  reporter: process.env.CI
+    ? [
+        ['github'],
+        ['list'],
+        ['json', { outputFile: process.env.PW_JSON_REPORT ?? 'reports/devices-results.json' }],
+      ]
+    : [['list']],
   timeout: 45_000,
   expect: { timeout: 8_000 },
   use: {

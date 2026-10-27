@@ -1,0 +1,11 @@
+I01 真实链路验收：阻塞（未发出任何请求）。缺少：
+  - I01_CONFIRM_ISOLATED：必须为 1：确认目标是隔离测试项目（不是生产）
+  - I01_SUPABASE_URL：隔离 Supabase 测试项目 URL（https://<ref>.supabase.co）
+  - I01_SUPABASE_ANON_KEY：该测试项目的 anon key
+  - I01_SITE_URL：指向该测试项目的测试预览站（Auth 设置 Site URL / Redirect URLs 已配成它的 /auth/callback/**）
+  - I01_INBOX_API：可程序读取的测试收件箱 API 根地址（如 Mailosaur / Mailpit / 自建 IMAP 网关）
+  - I01_INBOX_TOKEN：收件箱 API 令牌
+  - I01_INBOX_DOMAIN：收件箱接收域名（每次运行生成 i01-<时间戳>@<域名>）
+  - （可选，缺则对应步骤记为阻塞）I01_GITHUB_TEST_LOGIN：GitHub OAuth 测试账号（专用、无权限）用户名——OAuth 步骤需要；缺则 OAuth 步骤记为阻塞
+  - （可选，缺则对应步骤记为阻塞）I01_GITHUB_TEST_PASSWORD：同上，密码（只从环境变量读，不写日志）
+  - （可选，缺则对应步骤记为阻塞）I01_TURNSTILE_EXPECT_REAL：1 = 预览站与测试项目配的是真实 Turnstile 密钥（不是官方测试密钥）
