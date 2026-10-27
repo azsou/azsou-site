@@ -3,6 +3,7 @@
  * 界面上的权限判断只为体验；每个写操作都由数据库再校验一次。
  */
 import { getRepository, type AdminRepo, type Profile } from '@/lib/data';
+import { adminApiFor } from '@/lib/data/admin-repo';
 import { friendlyError } from '@/lib/community-errors';
 import { adminErrorLine, describeAdminError } from '@/lib/admin-errors';
 import { url } from '@/lib/routes';
@@ -18,7 +19,7 @@ export { h };
 const root = () => document.querySelector<HTMLElement>('[data-admin]')!;
 
 export function adminRepo(): AdminRepo {
-  const a = getRepository().admin;
+  const a = adminApiFor(getRepository());
   if (!a) throw new Error('当前数据适配器不支持管理后台');
   return a;
 }

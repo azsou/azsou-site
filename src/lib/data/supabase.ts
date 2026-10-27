@@ -1,8 +1,6 @@
-import { createAdminApi } from './admin';
 import { localStore, type SessionStore } from './session';
 import { createSupabaseAuth } from './supabase-auth';
 import { IMAGE_BUCKET, objectPath, publicImageUrl } from '../images';
-import { migrationOf, objectFromPath } from './schema-map';
 import {
   categoryId,
   categoryName,
@@ -11,6 +9,7 @@ import {
   NotSignedInError,
   RateLimitedError,
   SchemaMissingError,
+  objectFromPath,
   ValidationError,
   type Author,
   type AuthProvider,
@@ -140,10 +139,12 @@ class MissingObjectError extends Error {
     super(code);
   }
 }
-/** 内部「缺对象 / 缺列」→ 对外的 SchemaMissingError（带对象名与迁移编号） */
+/**
+ * 内部「缺对象 / 缺列」→ 对外的 SchemaMissingError（带对象名）。
+ * 迁移编号不在这里查：编号表（schema-map.ts）只进后台的包——后台接口（admin-repo.ts）与后台错误提示（admin-errors.ts）补上编号。
+ */
 export function schemaMissing(path: string, code: string): SchemaMissingError {
-  const object = objectFromPath(path);
-  return new SchemaMissingError(object, code, migrationOf(object));
+  return new SchemaMissingError(objectFromPath(path), code);
 }
 
 /** 游标：`<created_at>|<id>`（keyset 分页，新内容插入不会造成重复或漏项） */
@@ -387,10 +388,11 @@ export function createSupabaseRepository(cfg: SupabaseConfig): DataRepository {
         await storage(`${IMAGE_BUCKET}/${path}`, { method: 'DELETE' });
       },
     },
-    admin: createAdminApi({
+    // 后台原始通道：后台接口由 adminApiFor(repo)（admin-repo.ts）在后台页面里按需创建，公开页面的包不带它
+    adminRest: {
       rest: <T>(path: string, init?: Parameters<typeof rest>[1]) => rest<T>(path, init).catch(notMigrated),
       restCount: (path, init) => restCount(path, init).catch(notMigrated),
-    }),
+    },
     profiles: {
       async get(id) {
         const rows = await rest(`profiles?id=eq.${enc(id)}&select=id,display_name,role,banned,created_at`);

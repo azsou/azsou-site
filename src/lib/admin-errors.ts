@@ -13,6 +13,7 @@
  */
 import { friendlyError } from './community-errors';
 import { DataUnavailableError, ForbiddenError, NotSignedInError, SchemaMissingError } from './data/types';
+import { migrationOf } from './data/schema-map';
 
 export type AdminErrorKind = 'schema' | 'network' | 'timeout' | 'server' | 'auth' | 'permission' | 'other';
 
@@ -28,7 +29,9 @@ export interface AdminErrorInfo {
 
 export function describeAdminError(e: unknown, fallback = '加载失败，请稍后再试。'): AdminErrorInfo {
   if (e instanceof SchemaMissingError) {
-    const need = e.migration ? `迁移 ${e.migration}` : '相关迁移';
+    // 数据层（含留言板 / 友链 / 订阅这类公开与后台共用的接口）不带迁移编号表，这里按对象名补上
+    const migration = e.migration ?? migrationOf(e.object);
+    const need = migration ? `迁移 ${migration}` : '相关迁移';
     return {
       kind: 'schema',
       title: `数据库未就绪：缺少「${e.object}」`,

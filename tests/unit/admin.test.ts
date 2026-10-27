@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseRepository, DataUnavailableError, memoryStore, type Session } from '@/lib/data';
+import { adminApiFor } from '@/lib/data/admin-repo';
 import { auditPath, toContentRow, uuidList } from '@/lib/data/admin';
 import { csvCell, toCsv } from '@/lib/csv';
 import { groupedBars, niceMax } from '@/lib/chart';
@@ -225,7 +226,7 @@ const repoWith = (routes: Parameters<typeof fakeFetch>[0]) => {
     fetch: ff.f,
     store: memoryStore(session),
   });
-  return { admin: repo.admin!, calls: ff.calls };
+  return { admin: adminApiFor(repo)!, calls: ff.calls };
 };
 const ID1 = '10000000-0000-4000-b000-000000000001';
 const ID2 = '10000000-0000-4000-b000-000000000002';
