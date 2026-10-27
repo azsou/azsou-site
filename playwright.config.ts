@@ -1,4 +1,6 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
+// 端口：PW_PORT → E2E_PORT → 4321（与自建 context 的用例共用，tests/e2e/port.ts）
+import { BASE_URL, PORT } from './tests/e2e/port';
 
 /**
  * 3 引擎 × 4 视口 = 12 个项目。
@@ -47,9 +49,6 @@ for (const [b, base] of Object.entries(BROWSERS)) {
   }
 }
 
-/** 本地多个工作区并行跑 E2E 时用 E2E_PORT 错开端口（默认 4321，CI 不设） */
-const PORT = Number(process.env.E2E_PORT) || 4321;
-
 export default defineConfig({
   testDir: 'tests/e2e',
   // 社区（P3）用例的真实后端：本地 Postgres + PostgREST（未配置时这些用例跳过）
@@ -58,11 +57,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : process.env.CI ? 2 : undefined,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
+  // CI 也加 list：日志里逐条列出跑了哪些用例（确认用例实际执行而非跳过）
+  reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : [['list']],
   timeout: 30_000,
   expect: { timeout: 7_000 },
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
+    baseURL: BASE_URL,
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
     trace: 'retain-on-failure',
@@ -72,7 +72,7 @@ export default defineConfig({
   projects,
   webServer: {
     command: `node scripts/serve.mjs ${PORT} dist/client`,
-    url: `http://127.0.0.1:${PORT}/`,
+    url: `${BASE_URL}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

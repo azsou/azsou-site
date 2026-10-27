@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { emulateColorScheme } from './fixtures';
+import { BASE_URL } from './port';
 import {
   test,
   expect,
@@ -677,7 +678,7 @@ test.describe('@提及', () => {
     expect(n.rows).toEqual([{ kind: 'mention', thread_key: tid }]);
 
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
