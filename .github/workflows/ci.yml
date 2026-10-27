@@ -2,6 +2,8 @@ name: CI
 # 全部任务阻断（无 continue-on-error）。每个 PR 与非 main 分支推送：lint（含 stylelint error）→ 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
 # 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ 设计门禁 + 视觉回归 → 设备矩阵 → Lighthouse（移动 + 桌面，四项 ≥ 95）
 # 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
+# 安装（浏览器 / apt）与测试分开：各自 timeout-minutes，安装失败注解「安装超时（基础设施）」；
+# 重试通过的用例注解「首跑失败（flaky）」并写入任务摘要 + 产物 flaky-*（策略见 docs/CI.md）
 on:
   pull_request:
   push:
@@ -81,13 +83,21 @@ jobs:
           curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
           .bin/postgrest --version
       - run: npm run test:db
-      - name: PostgreSQL 17 客户端（恢复演练用 pg_dump / pg_restore）
+      - name: PostgreSQL 17 客户端（恢复演练用 pg_dump / pg_restore；基础设施）
+        id: install
+        timeout-minutes: 10
         run: |
+          echo 'Acquire::Retries "3"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -qq postgresql-client-17
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
+        run: |
+          echo "::error title=安装超时（基础设施）::db：PostgreSQL 17 客户端安装失败或超过 10 分钟，恢复演练没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
       - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
         run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
@@ -95,7 +105,8 @@ jobs:
         with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
 
   e2e:
-    timeout-minutes: 50
+    # 各步骤自带 timeout-minutes（安装 ≤ 25、测试 ≤ 45），任务上限只兜底；安装卡住不再吃掉测试时间（docs/CI.md）
+    timeout-minutes: 85
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -126,25 +137,63 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: dist-ads, path: . }
       - name: PostgREST 14
+        timeout-minutes: 5
         run: |
           mkdir -p .bin
-          curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
-      - name: 浏览器（安装偶发卡住：10 分钟超时 + 清理 apt 锁 + 最多 3 次）
+          curl -fsSL --retry 3 --retry-delay 5 https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-${{ matrix.browser }}
+      - name: 安装浏览器与系统依赖（基础设施）
+        id: install
+        timeout-minutes: 25
         run: bash scripts/ci/pw-install.sh ${{ matrix.browser }}
-      - run: npx playwright test --shard=${{ matrix.shard }}/2
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
+        run: |
+          echo "::error title=安装超时（基础设施）::${{ matrix.browser }} 第 ${{ matrix.shard }} 片：浏览器 / 系统依赖安装失败或超过 25 分钟，测试没有运行。这不是测试失败——按 docs/CI.md 重跑一次该任务。"
+          echo "### 安装超时（基础设施）：${{ matrix.browser }} 第 ${{ matrix.shard }} 片，测试未运行" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: E2E 测试
+        id: test
+        timeout-minutes: 45
+        run: npx playwright test --shard=${{ matrix.shard }}/2
         env:
           PW_BROWSERS: ${{ matrix.browser }}
-      - if: ${{ !cancelled() }}
+      - name: 测试超时
+        if: ${{ failure() && steps.test.outcome == 'failure' && hashFiles('reports/e2e-results.json') == '' }}
+        run: |
+          echo "::error title=测试超时::${{ matrix.browser }} 第 ${{ matrix.shard }} 片：测试步骤超过 45 分钟或异常退出、没有写出报告（不是安装问题）。"
+          exit 1
+      - name: 首跑失败（flaky）与失败清单
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        run: node scripts/ci/flaky-report.mjs reports/e2e-results.json reports/flaky.json
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+          PW_SHARD: ${{ matrix.shard }}
+      - if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-e2e-${{ matrix.browser }}-${{ matrix.shard }}
+          path: reports/flaky.json
+          retention-days: 30
+          if-no-files-found: ignore
+      # 首跑失败的 trace（retain-on-failure）在 html 报告里：重试通过也保留，可直接下载分析
+      - if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
           path: playwright-report
-          retention-days: 7
+          retention-days: 14
 
   # P9 设计门禁（T9.2）：Q5 / Q8 / Q11 / Q12 / Q18 断言 + Q2 视觉回归（Chromium + Noto CJK，2 片并行）。
   # 没有基线（首次）或手动触发 update_visual 时写出基线并上传为产物，审阅后提交到 tests/visual/__screenshots__/。
   design:
-    timeout-minutes: 35
+    timeout-minutes: 55
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -161,12 +210,25 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
-      - name: Chromium + 中文字体
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-chromium
+      - name: 安装 Chromium + 中文字体（基础设施）
+        id: install
+        timeout-minutes: 25
+        run: bash scripts/ci/pw-install.sh chromium fonts-noto-cjk
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk
-          bash scripts/ci/pw-install.sh chromium
+          echo "::error title=安装超时（基础设施）::设计门禁第 ${{ matrix.shard }} 片：Chromium / 字体安装失败或超过 25 分钟，测试没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
       - name: 设计门禁 + 视觉回归
+        id: test
+        timeout-minutes: 25
         run: |
           UPDATE=""
           if [ "${{ inputs.update_visual }}" = "true" ] || [ -z "$(ls tests/visual/__screenshots__ 2>/dev/null)" ]; then UPDATE="--update-snapshots=all"; fi
@@ -189,7 +251,7 @@ jobs:
   # T9.19 设备 / 浏览器矩阵（Playwright 设备模拟：iPhone SE / 15、Pixel 7、iPad 竖横、1024 / 1440 / 1920 × 三引擎），阻断。
   # 首屏截图 + 每格结果（test-results/devices/<引擎>.jsonl）上传为产物 device-matrix-<引擎>，汇总见 docs/DEVICE-MATRIX.md。
   devices:
-    timeout-minutes: 20
+    timeout-minutes: 50
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -203,14 +265,41 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
-      - name: 浏览器 + 中文字体
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-${{ matrix.browser }}
+      - name: 安装浏览器 + 中文字体（基础设施）
+        id: install
+        timeout-minutes: 25
+        run: bash scripts/ci/pw-install.sh ${{ matrix.browser }} fonts-noto-cjk
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk
-          bash scripts/ci/pw-install.sh ${{ matrix.browser }}
-      - run: npx playwright test -c playwright.devices.config.ts
+          echo "::error title=安装超时（基础设施）::设备矩阵 ${{ matrix.browser }}：浏览器 / 字体安装失败或超过 25 分钟，测试没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
+      - name: 设备矩阵测试
+        id: test
+        timeout-minutes: 15
+        run: npx playwright test -c playwright.devices.config.ts
         env:
           PW_BROWSERS: ${{ matrix.browser }}
+      - name: 首跑失败（flaky）与失败清单
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        run: node scripts/ci/flaky-report.mjs reports/devices-results.json reports/flaky.json
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+          PW_TESTDIR: tests/devices
+      - if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-devices-${{ matrix.browser }}
+          path: reports/flaky.json
+          retention-days: 30
+          if-no-files-found: ignore
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:

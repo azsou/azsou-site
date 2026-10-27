@@ -17,3 +17,4 @@ coverage/
 .bin/
 dist-ads/
 dist-ads.vercel.json
+reports/
