@@ -16,7 +16,7 @@ name: DB backup
 #   Environment variables：BACKUP_ENVIRONMENT_GUARD = backup-production
 #   Environment secrets：SUPABASE_DB_URL（Session pooler 5432）、SUPABASE_URL（https://<ref>.supabase.co）、
 #                        SUPABASE_SERVICE_ROLE_KEY（Storage 文件下载）、BACKUP_PASSPHRASE（gpg 口令，离线另存）
-# 缺任何一项 → 失败、不导出任何数据。上传前 assert-encrypted 闸门只放行 *.gpg。详见 docs/BACKUP.md §2E。
+# 缺任何一项 → 失败、不导出任何数据。上传前 assert-encrypted 闸门只放行 *.gpg。站长操作卡：ops/BACKUP-OPS.md（详版 docs/BACKUP.md §2E）。
 on:
   workflow_dispatch:
     inputs:

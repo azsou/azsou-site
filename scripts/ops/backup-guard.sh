@@ -26,7 +26,7 @@ case "${GITHUB_EVENT_NAME:-}" in
   *) fail "只允许手动触发（workflow_dispatch），本次是 ${GITHUB_EVENT_NAME:-未知}" ;;
 esac
 [ "${BACKUP_ENVIRONMENT_GUARD:-}" = backup-production ] \
-  || fail "没有在受保护环境 backup-production 里运行（环境变量 BACKUP_ENVIRONMENT_GUARD 缺失）——站长需先按 docs/BACKUP.md §2E 创建环境并设必需审批人"
+  || fail "没有在受保护环境 backup-production 里运行（环境变量 BACKUP_ENVIRONMENT_GUARD 缺失）——站长需先按 ops/BACKUP-OPS.md 创建环境并设必需审批人"
 missing=""
 for v in SUPABASE_DB_URL SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY BACKUP_PASSPHRASE; do
   [ -n "${!v:-}" ] || missing="$missing $v"
