@@ -267,6 +267,21 @@ describe('A03 无人值守调度入口 + 运行记录 + 健康检查（告警数
     const [h1] = await q(`select az_workflow_health() as h`);
     expect(h1.h).toMatchObject({ overdue: 0, ok: true });
   });
+  it('az_workflow_alert：积压超时 → 给管理员发系统通知并写审计；1 小时内不重复', async () => {
+    const id = await mk('reply');
+    ok(await act('mia', `select mod_set_workflow('reply', array[$1]::uuid[], 'review', $2)`, [id, future()]));
+    await q(`update content_workflow set scheduled_at = now() - interval '10 minutes' where target_id = $1`, [id]);
+    const [a1] = await q(`select az_workflow_alert() as r`);
+    expect(a1.r).toMatchObject({ ok: false, alerted: true });
+    const [{ n }] = await q(`select count(*)::int as n from notifications where kind = 'system' and target_type = 'workflow' and user_id = $1`, [U.ada]);
+    expect(n).toBe(1);
+    const [a2] = await q(`select az_workflow_alert() as r`);
+    expect(a2.r).toMatchObject({ alerted: false, suppressed: true });
+    expect((await act('mia', `select az_workflow_alert()`)).ok).toBe(false);
+    await q(`select mod_workflow_tick_job('test')`);
+    const [a3] = await q(`select az_workflow_alert() as r`);
+    expect(a3.r).toMatchObject({ ok: true, alerted: false });
+  });
   it('调度入口只给表所有者 / service_role：普通登录用户、匿名都不能直接调 tick_job', async () => {
     expect((await act('alice', `select mod_workflow_tick_job('x')`)).ok).toBe(false);
     expect((await act('anon', `select mod_workflow_tick_job('x')`)).ok).toBe(false);

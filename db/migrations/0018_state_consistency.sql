@@ -693,6 +693,35 @@ begin
 end
 $$;
 
+-- 告警动作：不健康时给所有管理员发一条站内通知（同类告警 1 小时内只发一次）；返回健康快照。
+-- 只给表所有者 / service_role（pg_cron 或外部调度器调用），不授予 authenticated。
+create or replace function public.az_workflow_alert()
+ returns jsonb
+ language plpgsql
+ volatile security definer
+ set search_path to 'public'
+as $$
+declare
+  h jsonb := public.az_workflow_health();
+  msg text;
+begin
+  if (h ->> 'ok')::boolean then
+    return h || jsonb_build_object('alerted', false);
+  end if;
+  if exists (select 1 from public.notifications where kind = 'system' and target_type = 'workflow'
+               and created_at > now() - interval '1 hour') then
+    return h || jsonb_build_object('alerted', false, 'suppressed', true);
+  end if;
+  msg := format('定时发布异常：积压 %s 条，最久超时 %s 秒，最近 1 小时失败运行 %s 次。请检查调度任务。',
+                h ->> 'overdue', h ->> 'oldest_overdue_seconds', h ->> 'failed_runs_1h');
+  insert into public.notifications (user_id, actor, kind, target_type, target_id, excerpt)
+  select p.id, null, 'system', 'workflow', 'scheduler', left(msg, 200)
+    from public.profiles p where p.role = 'admin' and not p.banned;
+  perform public.az_audit('content.workflow.alert', 'workflow', 'scheduler', h);
+  return h || jsonb_build_object('alerted', true);
+end
+$$;
+
 -- ---------------------------------------------- A09 分页 envelope -----------
 create or replace function public.mod_list_content_page(
   p_type text,
@@ -768,7 +797,7 @@ revoke execute on function
   public.mod_edit_content(text, uuid, text, text, text, text, timestamptz),
   public.mod_workflow_apply(text, uuid[], text, timestamptz, jsonb, text),
   public.mod_set_visibility(text, uuid[], boolean, text),
-  public.mod_workflow_tick_job(text), public.az_workflow_health(),
+  public.mod_workflow_tick_job(text), public.az_workflow_health(), public.az_workflow_alert(),
   public.mod_list_content_page(text, text, text, boolean, boolean, uuid, integer, integer, text, text),
   public.mod_list_users_page(text, text, boolean, integer, integer, uuid, text, text)
   from public;
@@ -781,7 +810,7 @@ do $$ begin
       public.mod_edit_content(text, uuid, text, text, text, text, timestamptz),
       public.mod_workflow_apply(text, uuid[], text, timestamptz, jsonb, text),
       public.mod_set_visibility(text, uuid[], boolean, text),
-      public.mod_workflow_tick_job(text), public.az_workflow_health(),
+      public.mod_workflow_tick_job(text), public.az_workflow_health(), public.az_workflow_alert(),
       public.mod_list_content_page(text, text, text, boolean, boolean, uuid, integer, integer, text, text),
       public.mod_list_users_page(text, text, boolean, integer, integer, uuid, text, text)
       from anon, authenticated';
@@ -796,7 +825,7 @@ do $$ begin
       to authenticated';
   end if;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant execute on function public.mod_workflow_tick_job(text), public.az_workflow_health() to service_role';
+    execute 'grant execute on function public.mod_workflow_tick_job(text), public.az_workflow_health(), public.az_workflow_alert() to service_role';
   end if;
 end $$;
 

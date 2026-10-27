@@ -53,13 +53,30 @@
   - **站长需要添加仓库 Secret**（Settings → Secrets and variables → Actions → New repository secret）：
     - `SUPABASE_DB_URL`：Supabase → Project Settings → Database → Connection string → Session pooler（5432），把 `[YOUR-PASSWORD]` 换成数据库密码。
     - `BACKUP_PASSPHRASE`（强烈建议）：任意长口令，**另外妥善保存**；设置后产物加密，并额外备份 `auth.users`。
-  - 未配置 `SUPABASE_DB_URL` 时工作流会成功结束并提示「跳过备份」。
+  - 未配置 `SUPABASE_DB_URL` 时工作流**失败**并提示「未备份」（不会显示为成功）；备份后自动跑
+    `scripts/db-verify-backup.sh`（校验和 / 解密 / `pg_restore --list` / 行数清单），任何一步不通过都标红。
+  - 恢复演练：`BACKUP_PASSPHRASE=… bash scripts/db-verify-backup.sh <下载的备份目录> --restore <本机隔离库>`。
   - 定时触发只在默认分支 `main` 上生效；合并前可在 Actions 页面手动运行（Run workflow → 分支 `v2/astro`）。
   - 每次手动大改数据前（批量删除、导入、迁移）先手动运行一次。
 - **恢复**：见 [BACKUP.md](BACKUP.md)。`scripts/restore-drill.sh` 在每次 CI 中演练「备份 → 恢复到新库 → 核对行数 / 策略 / 授权 → 跑 RLS 测试」。
 - **不在数据库备份里的东西**：Storage 里的图片文件（只有元数据在库里）、Auth 设置、邮件模板、Vercel 环境变量。
   图片可定期用 Supabase Storage 的 S3 兼容接口同步到别处（`rclone sync`，见 PORTABILITY.md）；设置项以 CONFIG.md 为准。
 - Supabase 免费版不提供可下载的每日备份；升级 Pro 后另有每日备份与 PITR，可与本工作流并存。
+
+## 4A. 定时发布调度（A03，迁移 0018，**待站长批准启用**）
+
+- 现状：定时发布只在有人打开后台内容页时补偿执行（`mod_workflow_tick()`），不是无人值守。
+- 推荐方案：Supabase pg_cron，SQL 见 `db/ops/workflow-cron.sql`——每分钟 `mod_workflow_tick_job('pg_cron')`，
+  每 5 分钟 `az_workflow_alert()`（积压超过 2 分钟或最近一次运行失败 → 给所有管理员发站内通知，1 小时内不重复）。
+  承诺：到期 2 分钟内公开；双 worker 不重复发布（`FOR UPDATE SKIP LOCKED`，`tests/db/batch2.test.ts` T062）。
+- 无 pg_cron 的替代：任意外部调度器以 service_role 调 `node scripts/ops/workflow-tick.mjs <来源名>`
+  （环境变量 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`；退出码 1 = 不健康，调度器据此告警）。
+  可选调度器与限制：Vercel Cron（Pro 才能每分钟；Hobby 每天一次，达不到 2 分钟承诺）、cron-job.org 一类外部服务
+  （需要部署一个持有 service_role 密钥的函数，密钥不能出现在浏览器）、GitHub Actions schedule（最短 5 分钟且常延迟，
+  只适合作为兜底告警，不满足 2 分钟承诺）。
+- 观察：`select * from public.workflow_tick_runs order by id desc limit 20;`、`select public.az_workflow_health();`
+  （后台版主也能读这两项）。孤儿排程（目标已删）记在 `content_workflow.orphaned_at` 与审计 `content.workflow.orphaned`。
+- 停用：`select cron.unschedule('az-workflow-tick'); select cron.unschedule('az-workflow-health');`
 
 ## 5. 更换密钥
 
