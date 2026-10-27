@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BIN, ensureAuthenticator, freePort, jwt, startPostgrest, tok } from './postgrest';
 import { T, U } from './fixtures';
 import { freshDb } from './setup';
-// @ts-expect-error -- 纯 JS 运维脚本，无类型声明
 import { runTick } from '../../scripts/ops/workflow-tick.mjs';
 
 const enabled = !!BIN;
@@ -49,7 +48,9 @@ describe.skipIf(!enabled)('A03 / T034 外部调度器（真实 PostgREST + servi
       [T.bobHidden],
     );
     expect(n).toBe(1);
-    const runs = await q(`select source, published from workflow_tick_runs where source = 'test-external' order by id`);
+    const runs = await q(
+      `select source, published from workflow_tick_runs where source = 'test-external' order by id`,
+    );
     expect(runs.map((x) => x.published)).toEqual([1, 0]);
   });
   it('调度停摆 → 积压超过 2 分钟：健康检查不通过、告警；恢复后补发', async () => {
@@ -71,6 +72,8 @@ describe.skipIf(!enabled)('A03 / T034 外部调度器（真实 PostgREST + servi
   });
   it('只有 service_role 能调调度入口：版主令牌 / 匿名被拒', async () => {
     await expect(runTick({ url, restPath: '', key: tok(U.mia) })).rejects.toThrow(/HTTP (401|403)/);
-    await expect(runTick({ url, restPath: '', key: jwt({ role: 'anon' }) })).rejects.toThrow(/HTTP (401|403)/);
+    await expect(runTick({ url, restPath: '', key: jwt({ role: 'anon' }) })).rejects.toThrow(
+      /HTTP (401|403)/,
+    );
   });
 });

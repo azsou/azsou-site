@@ -18,7 +18,11 @@ export async function runTick({ url, key, source = 'external', fetchImpl = fetch
     accept: 'application/json',
   };
   const call = async (fn, body) => {
-    const r = await fetchImpl(`${base}/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
+    const r = await fetchImpl(`${base}/rpc/${fn}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body ?? {}),
+    });
     const text = await r.text();
     if (!r.ok) throw new Error(`${fn} HTTP ${r.status}: ${text.slice(0, 200)}`);
     return text ? JSON.parse(text) : null;

@@ -1,24 +1,24 @@
 {
- "existing_tables_changed": {},
- "new_tables": {
-  "admin_idempotency": "0",
-  "admin_notes": "0",
-  "admin_user_tags": "0",
-  "app_download_counts": "0",
-  "app_reviews": "0",
-  "audit_log": "0",
-  "bookmarks": "0",
-  "content_versions": "0",
-  "content_workflow": "0",
-  "forum_seed_threads": "7",
-  "friend_links": "0",
-  "guestbook_entries": "0",
-  "likes": "0",
-  "notifications": "0",
-  "rate_limit_events": "0",
-  "reports": "0",
-  "subscribers": "0",
-  "user_bans": "1",
-  "workflow_tick_runs": "0"
- }
+  "existing_tables_changed": {},
+  "new_tables": {
+    "admin_idempotency": "0",
+    "admin_notes": "0",
+    "admin_user_tags": "0",
+    "app_download_counts": "0",
+    "app_reviews": "0",
+    "audit_log": "0",
+    "bookmarks": "0",
+    "content_versions": "0",
+    "content_workflow": "0",
+    "forum_seed_threads": "7",
+    "friend_links": "0",
+    "guestbook_entries": "0",
+    "likes": "0",
+    "notifications": "0",
+    "rate_limit_events": "0",
+    "reports": "0",
+    "subscribers": "0",
+    "user_bans": "1",
+    "workflow_tick_runs": "0"
+  }
 }
