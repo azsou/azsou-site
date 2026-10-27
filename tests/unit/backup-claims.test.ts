@@ -42,7 +42,12 @@ describe('备份工作流配置', () => {
   });
   // 站长 2026-10-27 方案 C：比「缺口令时不备份 auth.users」更严——缺口令时整份备份都不做，明文产物永不上传
   it('缺加密口令时整份备份都不做（明文产物永不进 artifact）', () => {
-    expect(wf).toMatch(/\[ -n "\$BACKUP_PASSPHRASE" \] \|\| missing=/);
+    // 站长第三轮：检查集中在第一个业务步骤 scripts/ops/backup-guard.sh（缺口令 → 失败，不连库）
+    const guard = read('scripts/ops/backup-guard.sh');
+    expect(guard).toMatch(/for v in [^;]*\bBACKUP_PASSPHRASE\b[^;]*; do/);
+    expect(wf.indexOf('bash scripts/ops/backup-guard.sh')).toBeLessThan(
+      wf.indexOf('bash scripts/db-backup.sh'),
+    );
     expect(wf).not.toMatch(/BACKUP_ALLOW_PLAINTEXT/);
   });
 });

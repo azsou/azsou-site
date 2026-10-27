@@ -132,7 +132,7 @@ CI 任务 `storage-roundtrip` 每次运行。真实验收需要隔离的 Supabas
 ### 2C. 独立监控（默认不启用，另行启用）
 
 `ops/disabled-workflows/backup-monitor.yml`（逻辑 `scripts/ops/backup-monitor.mjs`，夹具测试 `tests/unit/backup-monitor.test.ts`）：
-每 6 小时检查**每日备份模板**最近成功运行里未过期、非空的加密产物；找不到或超过阈值 → 打开 / 更新 `backup-alert` issue 并让本次运行失败。
+每 6 小时检查**每日备份模板**（默认不启用）最近成功运行里未过期、非空的加密产物；找不到或超过阈值 → 打开 / 更新 `backup-alert` issue 并让本次运行失败。
 它只有在每日备份也启用时才有意义（只启用手动备份时必然告警），所以与每日备份一起**另行启用**；阈值仓库变量 `BACKUP_MAX_AGE_HOURS`，模板默认 26 小时。
 局限：监控本身也跑在 GitHub Actions 上——需要完全独立于 GitHub 的心跳时，另接外部 uptime 服务（待站长决定）。
 
