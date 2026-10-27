@@ -99,7 +99,9 @@ jobs:
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
       - name: 备份 / 恢复脚本负面用例（每种故障都必须非 0 退出，另有正向对照）
         run: bash tests/ops/drill-negative.sh
-      - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
+      - name: 统一快照一致性（备份期间并发跨范围写入；对照组：逐个 pg_dump 必须被检测出不一致）
+        run: bash tests/ops/backup-consistency.sh
+      - name: 备份恢复演练（统一快照加密备份 → 精确恢复 → 旧版本备份显式确认 + 显式升级 → 核对 → RLS 测试）
         run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
