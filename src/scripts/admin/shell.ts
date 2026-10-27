@@ -119,7 +119,15 @@ export function renderPagination(
   prev.addEventListener('click', () => opts.onChange(Math.max(0, offset - limit)));
   next.addEventListener('click', () => opts.onChange(offset + limit));
   el.replaceChildren(
-    h('span', { 'aria-live': 'polite', text: total ? `第 ${from}–${to} 条，共 ${total} 条` : '没有记录' }),
+    h('span', {
+      'aria-live': 'polite',
+      // A09：越界页（offset ≥ total）不显示「第 51–30 条」这类倒挂区间
+      text: !total
+        ? '没有记录'
+        : from > to
+          ? `本页超出范围，共 ${total} 条`
+          : `第 ${from}–${to} 条，共 ${total} 条`,
+    }),
     h('span', { class: 'btn-row' }, prev, next),
   );
 }
