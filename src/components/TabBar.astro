@@ -1,4 +1,10 @@
 ---
+/**
+ * 手机底部导航（< 900，D01）：4 个高频栏目 + 「更多」。
+ * 「更多」面板与 Tab 用同一份 NAV 数据生成（NAV 里有 tab 的进底栏，其余进面板），任何栏目最多 2 次操作可达。
+ * 面板是原生 popover（零 JS、不需要内联脚本，严格 CSP）：Esc / 点外部关闭，关闭后焦点回到「更多」按钮；
+ * 当前栏目在面板里时，「更多」按钮显示选中态并在可访问名称里带上当前栏目名。
+ */
 import { NAV } from '@/lib/site';
 import { EN_NAV } from '@/lib/i18n-labels';
 import type { Lang } from '@/lib/i18n';
@@ -7,13 +13,17 @@ interface Props {
   lang?: Lang;
 }
 const { lang = 'zh' } = Astro.props;
+const en = lang === 'en';
 const path = Astro.url.pathname;
-const home = lang === 'en' ? '/en/' : '/';
-const tabs = (lang === 'en' ? EN_NAV : NAV).filter((n) => n.tab);
+const home = en ? '/en/' : '/';
+const nav = en ? EN_NAV : NAV;
+const tabs = nav.filter((n) => n.tab);
+const more = nav.filter((n) => !n.tab);
 const isCurrent = (href: string) => (href === home ? path === home : path.startsWith(href));
+const moreCurrent = more.find((n) => isCurrent(n.href));
 ---
 
-<nav class="tabbar glass" aria-label={lang === 'en' ? 'Bottom navigation' : '底部导航'}>
+<nav class="tabbar glass" aria-label={en ? 'Bottom navigation' : '底部导航'}>
   <ul>
     {tabs.map((n) => (
       <li>
@@ -23,5 +33,59 @@ const isCurrent = (href: string) => (href === home ? path === home : path.starts
         </a>
       </li>
     ))}
+    {more.length > 0 && (
+      <li>
+        <button
+          type="button"
+          class:list={['tabbar__more', moreCurrent && 'is-current']}
+          popovertarget="tabbar-more"
+          aria-controls="tabbar-more"
+          data-tabbar-more
+        >
+          <Icon name="more" />
+          <span>{en ? 'More' : '更多'}</span>
+          {moreCurrent && (
+            <span class="visually-hidden">
+              {en ? `(current: ${moreCurrent.label})` : `（当前：${moreCurrent.label}）`}
+            </span>
+          )}
+        </button>
+      </li>
+    )}
   </ul>
+  {more.length > 0 && (
+    <div
+      id="tabbar-more"
+      class="tabbar-more"
+      popover
+      role="dialog"
+      data-tabbar-panel
+      aria-labelledby="tabbar-more-title"
+    >
+      <div class="tabbar-more__head">
+        <h2 id="tabbar-more-title" class="tabbar-more__title">
+          {en ? 'More sections' : '更多栏目'}
+        </h2>
+        <button
+          type="button"
+          class="icon-btn tabbar-more__close"
+          popovertarget="tabbar-more"
+          popovertargetaction="hide"
+          aria-label={en ? 'Close' : '关闭'}
+        >
+          <Icon name="x" size={20} />
+        </button>
+      </div>
+      <ul class="tabbar-more__list" role="list">
+        {more.map((n) => (
+          <li>
+            <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>
+              <Icon name={(n.icon ?? 'more') as 'home'} />
+              <span>{n.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
 </nav>
