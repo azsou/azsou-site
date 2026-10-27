@@ -199,7 +199,8 @@ function threadActions(s: State, t: Thread, likes: { likes: number; liked: boole
   const mod = isMod(s.me);
   bar.append(likeButton('thread', t.id, likes, s.me));
   bar.append(bookmarkButton(t.id, s.me));
-  if (s.me && !s.me.banned && (mine || mod) && (!t.locked || mod)) {
+  // A04（0018，默认策略待站长确认）：标题 / 正文只能作者本人编辑；版主改他人内容需管理员带理由的 mod_edit_content
+  if (s.me && !s.me.banned && mine && (!t.locked || mod)) {
     const edit = h('button', { type: 'button', class: 'act', 'data-act': 'edit-thread', text: '编辑' });
     edit.addEventListener('click', () => void editThread(s, t).catch((e) => toastError(e)));
     bar.append(edit);
