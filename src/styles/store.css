@@ -167,8 +167,11 @@
     margin-top: var(--space-1);
   }
   /* 元数据按「事实」整段换行：不在「2026年7月 / 18日」中间断开，分隔点留在行尾、不出现在行首 */
+  /* D06：每个事实是一个整体（inline-block，行内不在中间断开）；只有单个事实比整行还长（超长版本号、200% 文字下的日期）
+     时才在内部换行，不再撑出卡片 */
   .entry__fact {
-    white-space: nowrap;
+    display: inline-block;
+    max-width: 100%;
   }
   /* row：列表行 */
   .entry--row,
