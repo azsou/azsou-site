@@ -49,7 +49,9 @@
 ## 4. 备份
 
 - **自动备份**：GitHub Actions 工作流 `DB backup`（`.github/workflows/db-backup.yml`），每周一 03:30（北京时间）运行，
-  产物保留 30 天（仓库 → Actions → DB backup → 某次运行 → Artifacts）。
+  产物保留 30 天（仓库 → Actions → DB backup → 某次运行 → Artifacts）。**注意：这是每周一次，不是每日；而且合并到 `main`
+  并配置 Secret 之前一次都不会跑。** 站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时目前没有达到，差距与待批方案见
+  [BACKUP.md §2A](BACKUP.md#2a-rpo--rto站长目标现状与差距2026-10-27)。
   - **站长需要添加仓库 Secret**（Settings → Secrets and variables → Actions → New repository secret）：
     - `SUPABASE_DB_URL`：Supabase → Project Settings → Database → Connection string → Session pooler（5432），把 `[YOUR-PASSWORD]` 换成数据库密码。
     - `BACKUP_PASSPHRASE`（强烈建议）：任意长口令，**另外妥善保存**；设置后产物加密，并额外备份 `auth.users`。
@@ -61,7 +63,8 @@
 - **恢复**：见 [BACKUP.md](BACKUP.md)。`scripts/restore-drill.sh` 在每次 CI 中演练「备份 → 恢复到新库 → 核对行数 / 策略 / 授权 → 跑 RLS 测试」。
 - **不在数据库备份里的东西**：Storage 里的图片文件（只有元数据在库里）、Auth 设置、邮件模板、Vercel 环境变量。
   图片可定期用 Supabase Storage 的 S3 兼容接口同步到别处（`rclone sync`，见 PORTABILITY.md）；设置项以 CONFIG.md 为准。
-- Supabase 免费版不提供可下载的每日备份；升级 Pro 后另有每日备份与 PITR，可与本工作流并存。
+- Supabase 免费档没有平台备份；Pro 及以上有平台每日备份（Pro 可取最近 7 天），PITR 是 Pro 之上**另付费的附加项**
+  （约 $100/月起，需 Small 以上计算规格），都可与本工作流并存（来源：supabase.com/docs/guides/platform/backups）。
 
 ## 4A. 定时发布调度（A03，迁移 0018，**待站长批准启用**）
 

@@ -82,6 +82,8 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 | 6.2 | 恢复演练：备份 → 整库恢复 / 换库恢复 → 行数、策略、函数、授权核对 → 在恢复库上跑 RLS 测试   | CI db：`scripts/restore-drill.sh`（每次 CI 都跑）                    | ✅   |
 | 6.3 | 添加仓库 Secret `SUPABASE_DB_URL`、`BACKUP_PASSPHRASE`，手动运行一次「DB backup」并下载产物 | OPERATIONS.md §4                                                     | 🟡   |
 | 6.4 | 生产迁移前完成一次备份并确认拿到文件                                                        | MIGRATION.md §1                                                      | 🟡   |
+| 6.5 | 站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时（现为每周备份且尚未生效，未达到）                      | BACKUP.md §2A 差距与待批方案                                         | 🔴   |
+| 6.6 | 备份 / 恢复脚本不吞错误（负面用例：校验和、解密、损坏、行数不符、psql / pg_restore 失败）   | `tests/ops/drill-negative.sh`（CI db 任务）                          | ✅   |
 
 ## 7. 生产切换顺序（站长执行）
 

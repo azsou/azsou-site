@@ -1,5 +1,5 @@
 name: DB backup
-# 每周一 03:30（北京时间）+ 手动触发：pg_dump 生产库 → 压缩的自定义格式备份 + 结构 SQL + 行数清单 + 校验和，
+# 每周一 03:30（北京时间，**每周一次，不是每日**）+ 手动触发：pg_dump 生产库 → 压缩的自定义格式备份 + 结构 SQL + 行数清单 + 校验和，
 # 上传为保留 30 天的 workflow artifact。
 #
 # 站长需要在 GitHub → Settings → Secrets and variables → Actions 里添加（本工作流不会替你设置）：
@@ -8,14 +8,22 @@ name: DB backup
 # 没有 SUPABASE_DB_URL 时工作流失败并给出提示（Q06：缺密钥不能显示为「备份成功」）；
 # 备份后 scripts/db-verify-backup.sh 校验和 / 解密 / pg_restore 目录 / 行数清单，任何一步不通过都标红。
 # 注意：定时触发只在默认分支（main）上生效；合并前可在 Actions 页面对 v2/astro 手动运行。
+# 站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时：每周一次达不到，差距与待批方案见 docs/BACKUP.md §2A（未改任何生产设置）。
 # 详见 docs/OPERATIONS.md「备份」与 docs/BACKUP.md。
 on:
   schedule:
     - cron: '30 19 * * 0' # UTC 周日 19:30 = 北京时间周一 03:30
+    # 待站长批准（BACKUP.md §2A 方案 B）才启用每小时备份：把下一行取消注释
+    # - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# bash -eo pipefail：管道里任何一段失败都让步骤失败（默认 shell 只有 -e）
+defaults:
+  run:
+    shell: bash
 
 concurrency:
   group: db-backup
