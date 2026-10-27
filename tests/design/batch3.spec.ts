@@ -9,6 +9,7 @@ import { mockAdmin } from './admin-mock';
  *   D05/T010 主题与 theme-color 同步、强制色下拉箭头；D07/T012 菜单键盘与快捷键不吞输入法；
  *   D06/T011 长标题与中英混排不溢出不截断；
  *   F02/T019 目录 / 列表状态以地址为准；
+ *   D09/T014 焦点不被固定栏遮挡；D10/T015 320 重排与字体栈；
  *   F01/T018 AI 列表手机首屏；F09/T026 论坛首屏主题；F10/T027 搜索类型写进 URL；A18/T094 手机权限矩阵与缺参态。
  * 视口是模拟（不是真机）；真机 / 读屏结论另行签字。
  */
@@ -347,7 +348,9 @@ test('T019 应用目录：地址恢复筛选与排序，未知参数丢弃，越
     expect(new URL(page.url()).searchParams.get('page')).toBe(m[1]);
   } else expect(new URL(page.url()).searchParams.get('page')).toBeNull();
   // 改筛选：页码回到 1（地址里不再有 page）
-  await form.locator('select[name=price]').selectOption('free');
+  await page.locator('[data-more-filters] > summary').click();
+  await form.locator('select[name=price]').selectOption({ index: 1 });
+  await expect(page).toHaveURL(/price=/);
   await expect(page).not.toHaveURL(/page=/);
 });
 
@@ -363,6 +366,62 @@ test('T019 列表外壳：无效排序从地址去掉；?view= 本次生效但�
   await page.locator('[data-view-set="grid"]').click();
   await expect(page).not.toHaveURL(/view=/);
   expect(await page.evaluate(() => localStorage.getItem('az-list-view'))).toBe('grid');
+});
+
+// ------------------------------------------------------------------ D10 / T015
+const REFLOW = [
+  '/',
+  '/apps/',
+  '/ai/',
+  '/apps/fablemotion/',
+  '/articles/pinyin-initial-search/',
+  '/forum/',
+  '/search/?q=Claude',
+];
+test('T015 320 CSS px 重排（≈ 1280 宽 400% 缩放）：主路径无整页横向滚动；字体栈覆盖 Windows / Android 中文', async ({
+  page,
+}) => {
+  const bad: string[] = [];
+  for (const path of REFLOW) {
+    await open(page, path, { width: 320, height: 640 });
+    const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    if (over > 0) bad.push(`${path} +${over}px`);
+  }
+  expect(bad).toEqual([]);
+  const stack = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  for (const f of ['PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'sans-serif'])
+    expect(stack).toContain(f);
+});
+
+// ------------------------------------------------------------------ D09 / T014
+test('T014 手机 390：键盘 Tab 走过的焦点不被底栏 / 顶栏遮住（WCAG 2.4.11）', async ({ page }) => {
+  for (const path of ['/apps/', '/articles/']) {
+    await open(page, path, { width: 390, height: 844 });
+    const covered: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Tab');
+      const r = await page.evaluate(() => {
+        const a = document.activeElement as HTMLElement | null;
+        if (!a || a === document.body || a.closest('.tabbar, .nav, header, [popover]')) return null;
+        const b = a.getBoundingClientRect();
+        if (!b.height) return null;
+        const bar = document.querySelector('.tabbar')?.getBoundingClientRect();
+        const top = document.querySelector('header, .nav')?.getBoundingClientRect();
+        const hidBottom = bar && bar.height > 0 && b.top >= bar.top - 1 && b.bottom > bar.top;
+        const hidTop =
+          top &&
+          top.height > 0 &&
+          b.bottom <= top.bottom + 1 &&
+          b.top < top.bottom &&
+          getComputedStyle(document.querySelector('header, .nav')!).position !== 'static';
+        return hidBottom || hidTop
+          ? `${a.tagName}.${a.className}「${(a.textContent ?? '').trim().slice(0, 12)}」`
+          : null;
+      });
+      if (r) covered.push(`${path} ${r}`);
+    }
+    expect(covered).toEqual([]);
+  }
 });
 
 // ------------------------------------------------------------------ F01 / T018
