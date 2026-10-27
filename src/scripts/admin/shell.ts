@@ -4,9 +4,9 @@
  */
 import { getRepository, type AdminRepo, type Profile } from '@/lib/data';
 import { friendlyError } from '@/lib/community-errors';
-import { adminErrorLine } from '@/lib/admin-errors';
+import { adminErrorLine, describeAdminError } from '@/lib/admin-errors';
 import { url } from '@/lib/routes';
-import { h, viewer } from '../community/ui';
+import { h, viewer, viewerStrict } from '../community/ui';
 import { initAdminEnv } from './env';
 import { initWorkbench } from './workbench';
 
@@ -34,7 +34,7 @@ export async function initAdmin(): Promise<Profile | null> {
   const need = el.dataset.require === 'admin' ? 'admin' : 'moderator';
   const gate = el.querySelector<HTMLElement>('[data-admin-gate]')!;
   const status = gate.querySelector<HTMLElement>('[data-gate-status]')!;
-  const me = await viewer();
+  const me = (await viewer()) ?? (await gateProfile(gate, status));
   if (!me) {
     status.hidden = true;
     gate.querySelector<HTMLAnchorElement>('[data-gate-login]')!.href = url.login(
@@ -58,6 +58,36 @@ export async function initAdmin(): Promise<Profile | null> {
   el.querySelector<HTMLElement>('[data-admin-body]')!.hidden = false;
   void refreshOpenCount();
   return me;
+}
+
+/**
+ * viewer() 为 null 时区分「真没登录 / 没有资料」与「读取资料失败」（A15 故障注入发现：数据服务故障时门禁误显示登录引导）。
+ * 读取失败 → 门禁显示分类错误与「重试」，点了在原页重新读取，直到成功或确认未登录。
+ */
+async function gateProfile(gate: HTMLElement, status: HTMLElement): Promise<Profile | null> {
+  const card = gate.querySelector<HTMLElement>('[data-gate-error]')!;
+  for (;;) {
+    try {
+      const p = await viewerStrict();
+      card.hidden = true;
+      status.hidden = false;
+      return p;
+    } catch (e) {
+      const info = describeAdminError(e);
+      if (info.kind === 'auth') return null; // 登录失效：按未登录处理，显示登录引导
+      status.hidden = true;
+      card.dataset.errorKind = info.kind;
+      card.querySelector<HTMLElement>('[data-gate-error-title]')!.textContent =
+        `暂时无法验证账号：${info.title}`;
+      card.querySelector<HTMLElement>('[data-gate-error-text]')!.textContent = info.text;
+      const btn = card.querySelector<HTMLButtonElement>('[data-gate-retry]')!;
+      btn.textContent = info.retryLabel;
+      btn.disabled = false;
+      card.hidden = false;
+      await new Promise<void>((resolve) => btn.addEventListener('click', () => resolve(), { once: true }));
+      btn.disabled = true;
+    }
+  }
 }
 
 /** 侧栏「举报队列」的待处理数 */

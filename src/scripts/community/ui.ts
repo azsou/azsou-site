@@ -42,6 +42,19 @@ export function viewer(): Promise<Profile | null> {
 }
 
 /**
+ * 后台门禁用：有登录态时读取资料，失败就抛出（不当成「未登录」）；成功后同步 viewer() 的缓存。
+ * viewer() 为了页面其他地方的体验把失败吞成 null，门禁不能这样——数据服务故障时会误显示登录引导。
+ */
+export async function viewerStrict(): Promise<Profile | null> {
+  const repo = getRepository();
+  if (!repo.auth.getSession()) return null;
+  const p = await repo.profiles.me();
+  syncProfileCache(p);
+  viewerPromise = Promise.resolve(p);
+  return p;
+}
+
+/**
  * 顶栏菜单只读本地缓存的角色（不发请求）；拿到最新资料时顺手更新缓存，
  * 这样被提升 / 撤销版主的用户不用重新登录，「管理后台」入口就会跟着变。
  */
