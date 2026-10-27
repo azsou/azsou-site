@@ -116,11 +116,17 @@ test.beforeAll(async ({}, info) => {
 });
 
 test.afterAll(async () => {
+  // 同一 worker 可能对多个项目各跑一次 afterAll：每样资源只释放一次
   proxy?.close();
+  proxy = null;
   pgA?.kill();
   pgB?.kill();
-  await pool?.end();
+  pgA = pgB = null;
+  const p = pool;
+  pool = null;
+  await p?.end();
   if (process.env.DATABASE_URL && BIN && portA) await dropDatabase(DB).catch(() => {});
+  portA = 0;
 });
 
 test.beforeEach(async ({ page }, info) => {
