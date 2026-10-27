@@ -167,7 +167,8 @@ const W: WriteCase[] = [
   {
     table: 'forum_threads',
     name: '编辑别人的主题',
-    expect: MODS,
+    // A04（0018，站长 2026-10-27 已定）：他人的标题 / 正文只能由管理员经 mod_edit_content()（带理由）修改，任何人直接 PATCH 都拒绝
+    expect: NOBODY,
     sql: () => [`update forum_threads set title = 'edited' where id = $1`, [T.bob]],
   },
   {
@@ -203,7 +204,8 @@ const W: WriteCase[] = [
   {
     table: 'forum_threads',
     name: '编辑已锁定的主题（作者 bob 视角见回归测试）',
-    expect: MODS,
+    // A04（0018，站长 2026-10-27 已定）：他人的标题 / 正文只能由管理员经 mod_edit_content()（带理由）修改，任何人直接 PATCH 都拒绝
+    expect: NOBODY,
     sql: () => [`update forum_threads set title = 'x' where id = $1`, [T.bobLocked]],
   },
   {
@@ -276,7 +278,8 @@ const W: WriteCase[] = [
   {
     table: 'forum_replies',
     name: '编辑别人的回复',
-    expect: MODS,
+    // A04（0018，站长 2026-10-27 已定）：他人的标题 / 正文只能由管理员经 mod_edit_content()（带理由）修改，任何人直接 PATCH 都拒绝
+    expect: NOBODY,
     sql: () => [`update forum_replies set body = 'e' where id = $1`, [R.bob]],
   },
   {
@@ -334,7 +337,8 @@ const W: WriteCase[] = [
   {
     table: 'comments',
     name: '编辑别人的评论',
-    expect: MODS,
+    // A04（0018，站长 2026-10-27 已定）：他人的标题 / 正文只能由管理员经 mod_edit_content()（带理由）修改，任何人直接 PATCH 都拒绝
+    expect: NOBODY,
     sql: () => [`update comments set body = 'e' where id = $1`, [C.bob]],
   },
   {

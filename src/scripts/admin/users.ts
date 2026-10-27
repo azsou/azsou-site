@@ -145,7 +145,7 @@ async function load() {
   setStatusText(status, '正在加载…');
   try {
     const offset = Number(state.offset) || 0;
-    const { items, total, degraded } = await adminRepo().listUsers({
+    const { items, total, degraded, outOfRange, lastOffset } = await adminRepo().listUsers({
       q: state.q,
       role: (state.role || undefined) as Role | undefined,
       banned: state.banned === '' ? undefined : state.banned === '1',
@@ -158,6 +158,20 @@ async function load() {
     current = items;
     const filtered = !!(state.q || state.role || state.banned);
     if (items.length) rows.replaceChildren(...items.map(row));
+    else if (outOfRange)
+      // A09：越界页 ≠ 没有用户
+      showEmpty(rows, COLS, {
+        filtered: true,
+        title: '这一页已超出末页',
+        text: `共 ${total} 位用户，可能刚有用户被删除或筛选条件已变化。`,
+        action: {
+          label: '回到最后一页',
+          run: () => {
+            state.offset = String(lastOffset ?? 0);
+            void load();
+          },
+        },
+      });
     else
       showEmpty(rows, COLS, {
         filtered,

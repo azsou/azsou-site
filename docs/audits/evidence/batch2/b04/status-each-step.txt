@@ -1,0 +1,17 @@
+0002_roles_columns.sql 47ms pending=23
+0003_social_tables.sql 58ms pending=22
+0004_functions_triggers.sql 29ms pending=20
+0005_privileges.sql 22ms pending=18
+0006_rls.sql 31ms pending=16
+0007_signup_guard.sql 26ms pending=15
+0008_forum_search.sql 28ms pending=14
+0009_admin.sql 44ms pending=12
+0010_ugc_images.sql 26ms pending=10
+0011_forum_category_guard.sql 21ms pending=9
+0012_app_store.sql 37ms pending=7
+0013_tool_comments.sql 28ms pending=6
+0014_video_comments.sql 40ms pending=5
+0015_guestbook.sql 53ms pending=3
+0016_subscribers.sql 27ms pending=2
+0017_admin_crm.sql 42ms pending=1
+0018_state_consistency.sql 33ms pending=0

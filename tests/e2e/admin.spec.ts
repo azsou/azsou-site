@@ -252,9 +252,12 @@ test.describe('内容管理', () => {
       0,
     );
     const audit = await db.query(`select action from audit_log where target_id = $1 order by id`, [tid]);
+    // 0018：隐藏 / 恢复走统一状态接口 mod_set_visibility，除行级 thread.update 外再记一条 content.visibility（含工作流状态与是否取消排程）
     expect(audit.rows.map((x) => x.action)).toEqual([
       'thread.update',
+      'content.visibility',
       'thread.update',
+      'content.visibility',
       'thread.update',
       'thread.delete',
     ]);
@@ -273,7 +276,9 @@ test.describe('内容管理', () => {
     await expect(page.locator('tbody[data-rows] tr[data-id]')).toHaveCount(2);
     await page.getByRole('checkbox', { name: '全选本页' }).check();
     await page.locator('[data-bulkbar]').getByRole('button', { name: '隐藏' }).click();
-    await expect(page.getByText('已处理 2 条。')).toBeVisible();
+    // 0018：批量隐藏返回逐项结果——结果面板摘要与提示都改为「已隐藏 N 条。」（旧库无逐项结果时仍是「已处理 N 条。」）
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已隐藏 2 条。');
+    await expect(page.locator('.toast', { hasText: '已隐藏 2 条。' })).toBeVisible();
     const r = await db.query(`select bool_or(published) p from forum_replies where id = any($1)`, [[r1, r2]]);
     expect(r.rows[0].p).toBe(false);
   });

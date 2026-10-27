@@ -19,6 +19,8 @@ import {
   writeParams,
 } from './shell';
 import { actionsCell, plainText, rowMenu, showEmpty, showError, showLoading } from './table';
+import { assertSingle, batchSummary, renderBatchResult } from './batch-result';
+import { newIdemKey, type BatchResult } from '@/lib/data/admin';
 
 const DEFAULTS = { type: 'thread', q: '', cat: '', hidden: '', reported: '', author: '', offset: '0' };
 const state = readParams(DEFAULTS);
@@ -33,6 +35,7 @@ const bar = document.querySelector<HTMLElement>('[data-bulkbar]')!;
 const filters = document.querySelector<HTMLFormElement>('[data-filters]')!;
 const typeBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-type-filter] button')];
 const chip = document.querySelector<HTMLElement>('[data-author-chip]')!;
+const bulkResult = document.querySelector<HTMLElement>('[data-bulk-result]')!;
 const sel = createSelection(body, bar);
 const table = document.querySelector<HTMLTableElement>('table[data-table2]')!;
 let sort: ServerSort | null = null;
@@ -125,7 +128,7 @@ function row(r: ContentRow) {
     sub ? h('span', { class: 'cell-sub', text: sub }) : null,
   );
   const quick = btn(r.published ? '隐藏' : '恢复', async () => {
-    await repo.setPublished(t, [r.id], !r.published);
+    assertSingle(await repo.setPublished(t, [r.id], !r.published, newIdemKey()));
     toast(r.published ? '已隐藏。' : '已恢复。');
     await load();
   });
@@ -214,18 +217,49 @@ function row(r: ContentRow) {
   );
 }
 
-async function bulk(kind: string) {
-  const ids = sel.ids();
+const BULK_VERB: Record<string, string> = { hide: '隐藏', restore: '恢复', draft: '转草稿', review: '送审' };
+
+/** 网络中断 / 超时：同一幂等键再试一次（服务端已执行过则直接返回第一次的结果，不会重复执行） */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const kind = (e as { kind?: string }).kind;
+    if (e instanceof TypeError || kind === 'network' || kind === 'timeout') return fn();
+    throw e;
+  }
+}
+
+async function bulk(kind: string, only?: string[]) {
+  const ids = only ?? sel.ids();
   if (!ids.length) return;
   const repo = adminRepo();
   const t = state.type as ContentType;
   try {
     let n = 0;
-    if (kind === 'hide') n = await repo.setPublished(t, ids, false);
-    else if (kind === 'restore') n = await repo.setPublished(t, ids, true);
-    else if (kind === 'draft') n = await (await crmApi()).setWorkflow(t, ids, 'draft');
-    else if (kind === 'review') n = await (await crmApi()).setWorkflow(t, ids, 'review');
-    else if (kind === 'lock') n = await repo.setThreadFlags(ids, { locked: true });
+    if (kind in BULK_VERB) {
+      const key = newIdemKey();
+      let r: BatchResult;
+      if (kind === 'hide' || kind === 'restore')
+        r = await withRetry(() => repo.setPublished(t, ids, kind === 'restore', key));
+      else {
+        const crm = await crmApi();
+        r = await withRetry(() =>
+          crm.setWorkflow(t, ids, kind as 'draft' | 'review', null, { idemKey: key }),
+        );
+      }
+      // 逐项结果（0018）：有失败项时保留面板，可只重试失败项；旧库（无逐项结果）只给总数
+      if (r.results.length)
+        renderBatchResult(bulkResult, r, BULK_VERB[kind], (failed) => void bulk(kind, failed));
+      toast(
+        r.results.length ? batchSummary(r, BULK_VERB[kind]) : `已处理 ${r.ok} 条。`,
+        r.failed ? 'error' : undefined,
+      );
+      sel.clear();
+      await load();
+      return;
+    }
+    if (kind === 'lock') n = await repo.setThreadFlags(ids, { locked: true });
     else if (kind === 'pin') n = await repo.setThreadFlags(ids, { pinned: true });
     else if (kind === 'delete') {
       if (!(await confirmDialog(`永久删除选中的 ${ids.length} 条${TYPE_LABEL[t]}？此操作不可撤销。`, '删除')))
@@ -302,7 +336,7 @@ async function load() {
   setStatusText(status, '正在加载…');
   try {
     const offset = Number(state.offset) || 0;
-    const { items, total, degraded } = await adminRepo().listContent({
+    const { items, total, degraded, outOfRange, lastOffset } = await adminRepo().listContent({
       type: state.type as ContentType,
       q: state.q,
       category: state.cat || undefined,
@@ -317,6 +351,20 @@ async function load() {
     if (my !== seq) return;
     const filtered = !!(state.q || state.cat || state.hidden || state.reported || state.author);
     if (items.length) rows.replaceChildren(...items.map(row));
+    else if (outOfRange)
+      // A09：越界页 ≠ 空库——给出真实总数与「回到最后一页」
+      showEmpty(rows, COLS, {
+        filtered: true,
+        title: `第 ${Math.floor(offset / LIMIT) + 1} 页已超出末页`,
+        text: `共 ${total} 条，可能刚被删除或筛选条件已变化。`,
+        action: {
+          label: '回到最后一页',
+          run: () => {
+            state.offset = String(lastOffset ?? 0);
+            void load();
+          },
+        },
+      });
     else
       showEmpty(rows, COLS, {
         filtered,

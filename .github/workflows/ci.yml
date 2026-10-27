@@ -1,7 +1,7 @@
 name: CI
 # 全部任务阻断（无 continue-on-error）。每个 PR 与非 main 分支推送：lint（含 stylelint error）→ 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
 # 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ 设计门禁 + 视觉回归 → 设备矩阵 → Lighthouse（移动 + 桌面，四项 ≥ 95）
-# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
+# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练（含负面用例）
 on:
   pull_request:
   push:
@@ -12,6 +12,15 @@ on:
         description: '重新生成视觉回归基线（产物 visual-baseline-*，审阅后提交）'
         type: boolean
         default: false
+      backup_run_id:
+        description: '（批次 2 跟进 8）DB backup 工作流的 run id：下载该次备份产物、恢复到 CI 的临时 Postgres 并报告行数（对生产只读）'
+        type: string
+        default: ''
+
+# bash -eo pipefail：管道里任何一段失败都让步骤失败（默认 shell 只有 -e）
+defaults:
+  run:
+    shell: bash
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -88,6 +97,8 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -qq postgresql-client-17
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 备份 / 恢复脚本负面用例（每种故障都必须非 0 退出，另有正向对照）
+        run: bash tests/ops/drill-negative.sh
       - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
         run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
@@ -244,3 +255,63 @@ jobs:
             .lighthouseci-desktop
           retention-days: 7
           include-hidden-files: true
+
+  # 批次 2 跟进 8：真实备份恢复验收（只在手动触发且给了 backup_run_id 时运行）。
+  # 下载 DB backup 产物 → 解密 → scripts/db-verify-backup.sh --restore 恢复到本任务的 Postgres 服务容器 → 行数与清单核对。
+  # 对生产只读（不连接生产库）；摘要里只写表名与行数，不输出任何数据或密钥。
+  backup-restore:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_run_id != '' }}
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL 17 客户端
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 下载备份产物
+        uses: actions/download-artifact@v4
+        with:
+          name: db-backup-${{ inputs.backup_run_id }}
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ github.token }}
+          path: backup
+      - name: 恢复到临时库并核对
+        run: |
+          psql "$DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -c "create database azsou_backup_check"
+          T=postgres://postgres:postgres@localhost:5432/azsou_backup_check
+          psql "$DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -c "do \$\$ begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin noinherit bypassrls; end if;
+            end \$\$"
+          psql "$T" -Xq -v ON_ERROR_STOP=1 -f db/shim/plain.sql >/dev/null
+          start=$(date +%s)
+          bash scripts/db-verify-backup.sh backup --restore "$T" | tee verify.txt
+          echo "恢复耗时：$(( $(date +%s) - start )) 秒" | tee -a verify.txt
+          {
+            echo "### 真实备份恢复验收（run ${{ inputs.backup_run_id }}）"
+            cat verify.txt
+            echo
+            echo '| 表 | 行数 |'
+            echo '| --- | --- |'
+            psql "$T" -XAt -F ' | ' -v ON_ERROR_STOP=1 -c "select c.relname, (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', c.relname), false, true, '')))[1]::text from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' order by 1" | sed 's/^/| /; s/$/ |/'
+            psql "$T" -XAt -v ON_ERROR_STOP=1 -f db/verify/status.sql | awk -F'|' '{print $1, $3}' | sort | uniq -c | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,12 @@
+admin_set_user(uuid,text,boolean) | anon | t | search_path=public
+admin_set_user(uuid,text,boolean) | authenticated | t | search_path=public
+admin_set_user(uuid,text,boolean) | service_role | t | search_path=public
+can_write() | anon | t | search_path=public
+can_write() | authenticated | t | search_path=public
+can_write() | service_role | t | search_path=public
+handle_new_user() | anon | t | search_path=public
+handle_new_user() | authenticated | t | search_path=public
+handle_new_user() | service_role | t | search_path=public
+is_admin() | anon | t | search_path=public
+is_admin() | authenticated | t | search_path=public
+is_admin() | service_role | t | search_path=public

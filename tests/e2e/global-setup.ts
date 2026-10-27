@@ -53,7 +53,8 @@ export default async function globalSetup() {
   const all = migrationFiles();
   const legacy = [
     { db: E2E_DB_V72, files: all.filter((f) => /\/0001_/.test(f)), env: 'V72' },
-    { db: E2E_DB_PRE17, files: all.filter((f) => !/\/0017_/.test(f)), env: 'PRE17' },
+    // 0018 依赖 0017：pre17 = 0016 及以前的全部迁移
+    { db: E2E_DB_PRE17, files: all.filter((f) => Number(/\/(\d{4})_/.exec(f)?.[1]) < 17), env: 'PRE17' },
   ];
   const children = [child];
   for (const [i, l] of legacy.entries()) {

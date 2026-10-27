@@ -3,7 +3,7 @@
 --
 -- 每一行是一项检查：step = 对应的迁移文件，ok = 是否已生效。
 -- 生产切换时每执行完一个迁移文件就跑一次：该步及之前的所有行都应为 true，之后的行为 false。
--- 全部为 true = 0002…0017 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
+-- 全部为 true = 0002…0018 都已执行完。tests/db/verify.test.ts 在 CI 里验证本文件。
 -- =============================================================================
 with c(step, item, ok) as (
   values
@@ -89,6 +89,22 @@ with c(step, item, ok) as (
      and to_regprocedure('public.mod_list_content(text,text,text,boolean,boolean,uuid,integer,integer,text,text)') is not null
      and to_regprocedure('public.mod_list_users(text,text,boolean,integer,integer,uuid,text,text)') is not null
      and to_regprocedure('public.mod_user_profile(uuid)') is not null
-     and to_regprocedure('public.mod_set_workflow(text,uuid[],text,timestamptz)') is not null)
+     and to_regprocedure('public.mod_set_workflow(text,uuid[],text,timestamptz)') is not null),
+  ('0018', '状态一致性：统一状态接口 / 调度运行记录 / 分页 envelope / 正文编辑 RPC / 同步与孤儿触发器存在',
+     to_regclass('public.workflow_tick_runs') is not null
+     and to_regclass('public.admin_idempotency') is not null
+     and exists (select 1 from information_schema.columns where table_schema = 'public'
+                 and table_name = 'content_workflow' and column_name = 'orphaned_at')
+     and to_regprocedure('public.mod_set_visibility(text,uuid[],boolean,text)') is not null
+     and to_regprocedure('public.mod_workflow_apply(text,uuid[],text,timestamptz,jsonb,text)') is not null
+     and to_regprocedure('public.mod_workflow_tick_job(text,integer)') is not null
+     and to_regclass('public.workflow_scheduler_heartbeat') is not null
+     and to_regprocedure('public.az_prune_content_versions(integer)') is not null
+     and to_regprocedure('public.az_workflow_health()') is not null
+     and to_regprocedure('public.mod_edit_content(text,uuid,text,text,text,text,timestamptz)') is not null
+     and to_regprocedure('public.mod_list_content_page(text,text,text,boolean,boolean,uuid,integer,integer,text,text)') is not null
+     and to_regprocedure('public.mod_list_users_page(text,text,boolean,integer,integer,uuid,text,text)') is not null
+     and exists (select 1 from pg_trigger where tgname = 'az_workflow_sync')
+     and exists (select 1 from pg_trigger where tgname = 'az_content_edit_guard'))
 )
 select step, item, ok from c order by step, item;
