@@ -4,6 +4,7 @@
  */
 import { getRepository, type AdminRepo, type Profile } from '@/lib/data';
 import { friendlyError } from '@/lib/community-errors';
+import { adminErrorLine } from '@/lib/admin-errors';
 import { url } from '@/lib/routes';
 import { h, viewer } from '../community/ui';
 import { initAdminEnv } from './env';
@@ -79,7 +80,11 @@ export function setStatusText(el: HTMLElement | null, text: string, kind: 'info'
   el.classList.toggle('notice', kind === 'error');
   el.classList.toggle('notice--error', kind === 'error');
 }
-export const errorText = (e: unknown, fallback = '加载失败，请稍后再试。') => friendlyError(e, fallback);
+/** 能力降级提示（A15：旧库缺 0017 时列表仍可读，只是某项功能不可用） */
+export const degradedText = (d?: { feature: string; migration: string }) =>
+  d ? `${d.feature}需要数据库迁移 ${d.migration}：当前按默认顺序（最新在前）显示。` : '';
+/** 一行错误文字（A15：缺迁移 / 网络 / 超时 / 5xx / 权限 分开说明） */
+export const errorText = (e: unknown, fallback = '加载失败，请稍后再试。') => adminErrorLine(e, fallback);
 
 // ------------------------------------------------------------ URL 状态 ------
 export function readParams<T extends Record<string, string>>(defaults: T): T {

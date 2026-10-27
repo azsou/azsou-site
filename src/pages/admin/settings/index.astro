@@ -9,6 +9,9 @@ import { LIMITS, PER_LABEL, RATE_LIMITS, SIGNUP_LIMITS } from '@/lib/settings';
   lede="保存在数据库 site_content（kind = setting），保存后立即生效；只有管理员可以修改。"
   require="admin"
 >
+  <div class="notice settings-load" role="status" data-settings-load data-state="loading">
+    正在从数据库读取当前设置…（读取完成前不能编辑或保存）
+  </div>
   <div class="settings-grid">
     <form class="panel form" data-setting="announcement" aria-labelledby="h-ann">
       <h2 id="h-ann">站点公告</h2>
@@ -66,7 +69,7 @@ import { LIMITS, PER_LABEL, RATE_LIMITS, SIGNUP_LIMITS } from '@/lib/settings';
       </div>
       <p class="form-status" role="status" data-form-status></p>
       <div class="btn-row">
-        <button class="btn btn--primary" type="submit">
+        <button class="btn btn--primary" type="submit" disabled>
           保存公告
         </button>
       </div>
@@ -88,7 +91,7 @@ import { LIMITS, PER_LABEL, RATE_LIMITS, SIGNUP_LIMITS } from '@/lib/settings';
       </p>
       <p class="form-status" role="status" data-form-status></p>
       <div class="btn-row">
-        <button class="btn btn--primary" type="submit">
+        <button class="btn btn--primary" type="submit" disabled>
           保存注册设置
         </button>
       </div>
@@ -102,7 +105,7 @@ import { LIMITS, PER_LABEL, RATE_LIMITS, SIGNUP_LIMITS } from '@/lib/settings';
       <ol class="order-list" data-cat-list></ol>
       <p class="form-status" role="status" data-form-status></p>
       <div class="btn-row">
-        <button class="btn btn--primary" type="submit">
+        <button class="btn btn--primary" type="submit" disabled>
           保存分类设置
         </button>
       </div>

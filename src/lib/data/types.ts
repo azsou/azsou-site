@@ -318,11 +318,44 @@ export interface DataRepository {
 
 // ------------------------------------------------------------------ 错误 ----
 
+/**
+ * 读取失败的原因分类（A15）：网络断开、请求超时、服务端 5xx、响应格式异常、数据库缺少对象（未迁移）。
+ * 后台按 kind 给出不同提示，不再把「库没迁移」说成「网络不可用」。
+ */
+export type UnavailableKind = 'network' | 'timeout' | 'server' | 'bad-response' | 'schema';
+
 /** 后端不可达时抛出，UI 进入只读/离线提示 */
 export class DataUnavailableError extends Error {
-  constructor(message = '数据服务暂时不可达') {
+  readonly kind: UnavailableKind;
+  readonly status: number | null;
+  constructor(message = '数据服务暂时不可达', opts: { kind?: UnavailableKind; status?: number | null } = {}) {
     super(message);
     this.name = 'DataUnavailableError';
+    this.kind = opts.kind ?? 'network';
+    this.status = opts.status ?? null;
+  }
+}
+
+/**
+ * 数据库缺少接口需要的 RPC / 表 / 列（PostgREST PGRST202 / PGRST205 / 42703，HTTP 404 / 400）：
+ * 说明迁移没有执行，重试不会恢复。object = 缺少的对象名，migration = 创建它的迁移编号（未知时 null）。
+ * 继承 DataUnavailableError：只认父类的旧代码照样把它当「暂不可用」处理。
+ */
+export class SchemaMissingError extends DataUnavailableError {
+  readonly object: string;
+  readonly code: string;
+  readonly migration: string | null;
+  constructor(object: string, code: string, migration: string | null) {
+    super(
+      migration
+        ? `数据库缺少「${object}」（迁移 ${migration} 未执行）`
+        : `数据库缺少「${object}」（相关迁移未执行）`,
+      { kind: 'schema', status: 404 },
+    );
+    this.name = 'SchemaMissingError';
+    this.object = object;
+    this.code = code;
+    this.migration = migration;
   }
 }
 
