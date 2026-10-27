@@ -1,0 +1,83 @@
+name: DB backup
+# 每周一 03:30（北京时间，**每周一次，不是每日**）+ 手动触发：pg_dump 生产库 → **强制加密**的独立备份
+# （public / private / auth 账户与第三方绑定 / storage 元数据 / globals 清单 / 结构 SQL / 行数清单 / 校验和），
+# 上传为保留 30 天的 workflow artifact。站长 2026-10-27 选定方案 C = Supabase PITR（付费附加项，待批）+ 本独立加密 dump。
+#
+# 站长需要在 GitHub → Settings → Secrets and variables → Actions 里添加（本工作流不会替你设置）：
+#   SUPABASE_DB_URL     必需。Supabase → Project Settings → Database → Connection string → Session pooler（端口 5432）
+#   BACKUP_PASSPHRASE   必需。产物用 gpg AES256 对称加密；口令另行离线保管（丢了就无法恢复）
+# 缺任何一个 Secret → 工作流失败、不导出任何数据（Q06：缺密钥不能显示为「备份成功」；绝不产生明文产物）。
+# 上传前 scripts/ops/assert-encrypted.sh 逐个确认是 gpg 对称加密包，且只上传 *.gpg；
+# scripts/db-verify-backup.sh 校验和 / 解密 / pg_restore 目录 / 清单，任何一步不通过都标红。
+# 独立监控：.github/workflows/backup-monitor.yml（最新成功产物过期 / 缺失 → 打开 issue）。
+# 注意：定时触发只在默认分支（main）上生效；合并前可在 Actions 页面对 v2/astro 手动运行。
+# 站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时：每周一次达不到，差距与待批方案见 docs/BACKUP.md §2A（未改任何生产设置）。
+# 详见 docs/OPERATIONS.md「备份」与 docs/BACKUP.md。
+on:
+  schedule:
+    - cron: '30 19 * * 0' # UTC 周日 19:30 = 北京时间周一 03:30
+    # 待站长批准（BACKUP.md §2A 方案 B）才启用每小时备份：把下一行取消注释
+    # - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# bash -eo pipefail：管道里任何一段失败都让步骤失败（默认 shell 只有 -e）
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: 检查 Secret
+        id: check
+        run: |
+          missing=""
+          [ -n "$SUPABASE_DB_URL" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          if [ -n "$missing" ]; then
+            echo "::error title=未备份::仓库还没有配置 Secret:$missing（见 docs/BACKUP.md §2B）——备份必须加密，本次没有导出任何数据"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.skip == 'false'
+        uses: actions/checkout@v4
+      - name: 安装 PostgreSQL 17 客户端（pg_dump 版本需 ≥ 服务器）
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: pg_dump
+        if: steps.check.outputs.skip == 'false'
+        # db-backup.sh 自己也拒绝无口令的远程备份（明文开关只对本机隔离库有效，这里从不打开）
+        run: bash scripts/db-backup.sh "$SUPABASE_DB_URL" backup
+      - name: 校验备份（校验和 / 解密 / pg_restore 目录 / 行数清单）
+        if: steps.check.outputs.skip == 'false'
+        run: bash scripts/db-verify-backup.sh backup
+      - name: 上传前闸门：目录里只能有 gpg 对称加密产物
+        if: steps.check.outputs.skip == 'false'
+        run: bash scripts/ops/assert-encrypted.sh backup
+      - name: 上传加密备份（只有 *.gpg，保留 30 天）
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup/*.gpg
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0 # 产物已压缩 / 加密
