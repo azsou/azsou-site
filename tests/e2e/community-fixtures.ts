@@ -83,7 +83,7 @@ export async function forwardRest(page: Page, target?: string) {
 
 /** 本页面读真实的站点设置（后注册的路由优先） */
 export async function useRealSettings(page: Page) {
-  await page.route(PUBLIC_SETTINGS, forward);
+  await page.route(PUBLIC_SETTINGS, (route) => forward(route));
 }
 
 export const uniq = (p = '') => `${p}${randomUUID().slice(0, 8)}`;

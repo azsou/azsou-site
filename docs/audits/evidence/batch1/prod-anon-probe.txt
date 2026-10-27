@@ -1,0 +1,15 @@
+POST rpc/admin_stats -> 404 {"code":"PGRST202","message":"Could not find the function public.admin_stats without parameters in the schema cache"}
+POST rpc/mod_list_content -> 404 {"code":"PGRST202","message":"Could not find the function public.mod_list_content without parameters in the schema cache"}
+POST rpc/mod_list_users -> 404 {"code":"PGRST202","message":"Could not find the function public.mod_list_users without parameters in the schema cache"}
+POST rpc/admin_list_friend_links -> 404 {"code":"PGRST202","message":"Could not find the function public.admin_list_friend_links without parameters in the schema cache"}
+POST rpc/admin_subscriber_counts -> 404 {"code":"PGRST202","message":"Could not find the function public.admin_subscriber_counts without parameters in the schema cache"}
+POST rpc/mod_user_profile -> 404 {"code":"PGRST202","message":"Could not find the function public.mod_user_profile without parameters in the schema cache"}
+POST rpc/mod_tick_scheduled -> 404 {"code":"PGRST202","message":"Could not find the function public.mod_tick_scheduled without parameters in the schema cache"}
+GET reports?select=id&limit=1 -> 404 {"code":"PGRST205","message":"Could not find the table 'public.reports' in the schema cache"}
+GET audit_log?select=id&limit=1 -> 404 {"code":"PGRST205","message":"Could not find the table 'public.audit_log' in the schema cache"}
+GET guestbook_entries?select=id&limit=1 -> 404 {"code":"PGRST205","message":"Could not find the table 'public.guestbook_entries' in the schema cache"}
+GET friend_links?select=id&limit=1 -> 404 {"code":"PGRST205","message":"Could not find the table 'public.friend_links' in the schema cache"}
+GET subscribers?select=id&limit=1 -> 404 {"code":"PGRST205","message":"Could not find the table 'public.subscribers' in the schema cache"}
+GET site_content?kind=eq.setting&select=slug&limit=1 -> 200 "rows=0"
+GET profiles?select=id&limit=1 -> 200 "rows=1"
+GET content_workflow?select=id&limit=1 -> 404 {"code":"PGRST205","message":"Could not find the table 'public.content_workflow' in the schema cache"}
