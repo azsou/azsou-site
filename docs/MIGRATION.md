@@ -320,16 +320,24 @@ run db/migrations/0017_admin_crm.sql;            status   # admin_notes / admin_
 
 ## 5G. 状态一致性 / 调度 / 权限（0018，交接批次 2）——**站长尚未批准，生产未执行**
 
+> 生产执行走放行申请 ①：[docs/release/2026-10-27-prod-migrations-0002-0018-release-request.md](release/2026-10-27-prod-migrations-0002-0018-release-request.md)；
+> 开启调度走放行申请 ②（独立审批）：[docs/release/2026-10-27-scheduler-cron-release-request.md](release/2026-10-27-scheduler-cron-release-request.md)。
+
 ```bash
 run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 / 调度运行记录 / 分页 envelope / 正文编辑 RPC / 同步与孤儿触发器
 ```
 
-- 纯增量、可重复执行：新增 `workflow_tick_runs`、`admin_idempotency` 两张表（RLS 开启）、`content_workflow.orphaned_at` 一列，
+- 纯增量、可重复执行：新增 `workflow_tick_runs`、`workflow_scheduler_heartbeat`、`admin_idempotency` 三张表（RLS 开启）、`content_workflow.orphaned_at` 一列，
   新增函数与触发器；替换 0017 的 `mod_set_workflow` / `mod_workflow_tick` 函数体（签名不变，旧前端照常）。不删列、不改已有数据。
 - **行为变化（需站长知悉）**：
   - 版主（以及管理员）不能再直接 PATCH 他人内容的 `title` / `body` / `cat`；版主只调整审核标志（隐藏 / 置顶 / 锁定 / 精华）。
-    管理员改他人内容走 `mod_edit_content()`（理由必填，写版本、审计、通知作者）。前台「编辑」按钮只对作者本人显示。（A04，默认策略待站长确认）
-  - 手工隐藏「待审 + 定时」内容会**取消**定时发布（开关 `az_hide_cancels_schedule()`，默认 true，待站长确认）。
+    管理员改他人内容走 `mod_edit_content()`（理由必填，写版本、审计、通知作者）。前台「编辑」按钮只对作者本人显示。（A04，站长 2026-10-27 已定）
+  - 手工隐藏「待审 + 定时」内容会**取消**定时发布（开关 `az_hide_cancels_schedule()`，默认 true，站长 2026-10-27 已定）；
+    **恢复不复活旧排程**：恢复 = 立即公开、`scheduled_at` 清空，被取消的时间只记在审计（`cancelled_scheduled_at`）。
+  - 锁顺序统一为「先内容行、后排程行」：tick 对内容行 `FOR UPDATE SKIP LOCKED` 并在锁内复核，隐藏与 tick 交错不再死锁、
+    也不会把正在隐藏的内容公开（`tests/db/b2-tick-lock.test.ts`）。
+  - 调度心跳：`mod_workflow_tick_job(source, interval)` 每次写 `workflow_scheduler_heartbeat`，超过 2× 间隔 → `az_workflow_health().heartbeat_stale`、告警。
+  - 内容版本保留 90 天：`az_prune_content_versions(90)`（只建函数，不排任务）。
   - 任何路径改 `published`（旧版后台、前台版主按钮、举报处理）都会同步 `content_workflow`，不再出现「后台显示待审、前台已公开」。
 - 依赖 0017；0016 及以前的库请先补 0017。前端对缺 0018 的库自动退回旧接口（逐项结果与状态同步不可用，后台显示降级提示）。
 - 调度：0018 **不创建任何 cron 任务**。启用无人值守调度见 `db/ops/workflow-cron.sql` 与 OPERATIONS.md「4A」，同样需站长批准。
@@ -377,8 +385,8 @@ run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 /
      → 0015_guestbook（留言板 + 友链申请；写入 community_ticket_secret）
      → 0016_subscribers（邮件订阅，双重确认；依赖 0015 的密钥）
      → 0017_admin_crm（后台：服务端排序、备注、用户标签 / 画像、内容流程 + 定时发布、版本历史）
-     → 0018_state_consistency（统一状态接口、调度运行记录 / 告警、他人正文只经管理员 RPC、批量逐项结果；待站长批准）
-     → （可选，另需批准）db/ops/workflow-cron.sql 启用 pg_cron 调度
+     → 0018_state_consistency（统一状态接口、调度运行记录 / 心跳 / 告警、他人正文只经管理员 RPC、批量逐项结果；待站长批准，放行申请 ①）
+     → （另需批准，放行申请 ②）db/ops/workflow-cron.sql 启用 pg_cron 调度
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

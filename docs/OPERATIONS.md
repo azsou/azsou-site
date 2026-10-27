@@ -69,8 +69,16 @@
 ## 4A. 定时发布调度（A03，迁移 0018，**待站长批准启用**）
 
 - 现状：定时发布只在有人打开后台内容页时补偿执行（`mod_workflow_tick()`），不是无人值守。
-- 推荐方案：Supabase pg_cron，SQL 见 `db/ops/workflow-cron.sql`——每分钟 `mod_workflow_tick_job('pg_cron')`，
-  每 5 分钟 `az_workflow_alert()`（积压超过 2 分钟或最近一次运行失败 → 给所有管理员发站内通知，1 小时内不重复）。
+- 推荐方案：Supabase pg_cron，SQL 见 `db/ops/workflow-cron.sql`——每分钟 `mod_workflow_tick_job('pg_cron', 60)`，
+  每 5 分钟 `az_workflow_alert()`（积压超过 2 分钟、最近一次运行失败、或调度心跳超过 2× 期望间隔 → 给所有管理员发站内通知，1 小时内不重复）。
+  启用需走放行申请 ② `docs/release/2026-10-27-scheduler-cron-release-request.md`（与生产迁移申请 ① 分开审批）。
+- 心跳：每次无人值守 tick 写 `public.workflow_scheduler_heartbeat`（来源、时间、期望间隔）；`az_workflow_health()` 返回
+  `scheduler_configured` / `heartbeat_age_seconds` / `heartbeat_stale`。调度器整体停摆时没人调告警，所以版主打开后台时的补偿 tick
+  发现心跳过期也会触发告警。从未有过心跳（尚未启用调度）不算过期。
+- 锁顺序：所有改公开状态的路径都「先锁内容行、后锁排程行」；tick 对内容行 `SKIP LOCKED`、锁内复核排程仍有效才发布，
+  返回值里 `skipped` = 本轮因内容正被隐藏 / 编辑而跳过的条数（下一分钟再处理）。
+- 站长决定（2026-10-27）：隐藏已排期内容默认取消排期；恢复不自动复活旧排期（恢复 = 立即公开）。
+- 内容版本保留 90 天：`select public.az_prune_content_versions(90);`（表所有者 / service_role；未排定时任务，见放行申请 ② §7）。
   承诺：到期 2 分钟内公开；双 worker 不重复发布（`FOR UPDATE SKIP LOCKED`，`tests/db/batch2.test.ts` T062）。
 - 无 pg_cron 的替代：任意外部调度器以 service_role 调 `node scripts/ops/workflow-tick.mjs <来源名>`
   （环境变量 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`；退出码 1 = 不健康，调度器据此告警）。
