@@ -269,6 +269,7 @@ test('T012 输入法组字中按 Ctrl+K 不打开搜索面板；Apple 平台提�
 // 边界样本：长中文 + 英文 URL + 超长版本号写进真实模板（卡片 / 列表行 / 详情标题），检查不横向溢出、不截断、全文可读
 const LONG_TITLE =
   '超长中文名称测试用例一二三四五六七八九十https://example.com/a/very/long/path/without/spaces';
+const CARD_TITLE = '超长中文名称测试用例一二三四';
 const LONG_VERSION = 'v2026.10.27-rc.1+build.0123456789abcdef0123456789';
 for (const zoom of [1, 2]) {
   for (const width of [320, 390, 768, 1440]) {
@@ -279,7 +280,7 @@ for (const zoom of [1, 2]) {
         await open(page, path, { width, height: 900 });
         if (zoom === 2) await page.addStyleTag({ content: 'html{font-size:200%}' });
         const res = await page.evaluate(
-          ({ title, version }) => {
+          ({ title, version, cardTitle }) => {
             const set = (sel: string, text: string) => {
               const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.offsetParent);
               const leaf = el?.querySelector<HTMLElement>('a, span') ?? el;
@@ -287,7 +288,8 @@ for (const zoom of [1, 2]) {
               return el ?? null;
             };
             const els = [
-              set('.entry__title', title),
+              // 卡片名称 schema 限 14 字：用 14 个汉字的上限样本；URL 等超长串只出现在列表行 / 详情标题
+              set('.entry__title', cardTitle),
               set('.entry__facts', version),
               set('.list-row__title', title),
               set('.app-hero__title', title),
@@ -309,12 +311,12 @@ for (const zoom of [1, 2]) {
                       );
                     })
                     .map((e) => e.className),
-                  full: els.every((e) => e.textContent!.includes(title) || e.textContent!.includes(version)),
+                  full: els.every((e) => [title, version, cardTitle].some((t) => e.textContent!.includes(t))),
                 }),
               ),
             );
           },
-          { title: LONG_TITLE, version: LONG_VERSION },
+          { title: LONG_TITLE, version: LONG_VERSION, cardTitle: CARD_TITLE },
         );
         expect(res.n, path).toBeGreaterThan(0);
         expect(res.overflow, `${path} 横向溢出`).toBeLessThanOrEqual(0);
@@ -484,6 +486,10 @@ test('T027 搜索类型写进 URL：刷新、后退、前进都还原；摘要�
   const subs = await page.locator('[data-results] li[data-type="tool"] .list-row__sub').allTextContents();
   expect(subs.length).toBeGreaterThan(0);
   expect(subs.filter((s) => /价格|第三方开发者|平台\s/.test(s))).toEqual([]);
+  // 视频：详情页的「频道 / 时长 / 发布 / 语言 / 来源」字段条不进摘要
+  const vsubs = await page.locator('[data-results] li[data-type="video"] .list-row__sub').allTextContents();
+  expect(vsubs.length).toBeGreaterThan(0);
+  expect(vsubs.filter((s) => /频道\s|时长\s|发布\s\d/.test(s))).toEqual([]);
 });
 
 test('T027 未知 type 参数安全回退到「全部」', async ({ page }) => {
