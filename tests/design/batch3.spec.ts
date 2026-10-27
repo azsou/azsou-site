@@ -514,6 +514,61 @@ test('T019 列表外壳：无效排序从地址去掉；?view= 本次生效但�
   expect(await page.evaluate(() => localStorage.getItem('az-list-view'))).toBe('grid');
 });
 
+// ------------------------------------------------------------------ CLS（桌面 /apps/ 偶发跳动）
+// 根因（批次 3 跟进）：HTML 约 130KB，Chromium 在解析到一半时就会先画一帧（readyState=loading，列表里只有 0–1 个条目）。
+// ≥ 900 时 .list-main 是网格、≥ 1200 时与左侧分类栏同一行：主栏内容比分类栏矮时被拉到分类栏高度，
+// 网格的 auto 行被 align-content: normal（= stretch）拉高，第一行（更多筛选 + 工具条）又 align-items: center，
+// 于是首帧「更多筛选」在 y≈340，条目解析完后回到 y≈257（约 83px 的跳动）。这里直接模拟「只解析到前 N 个条目」，
+// 要求工具区和列表顶部的位置与完整页面一致（与内容多少无关）。
+for (const path of ['/apps/', '/ai/']) {
+  for (const width of [1350, 1440, 1024]) {
+    test(`CLS ${path} @${width}：列表只解析出部分条目时，工具区与列表顶部不移位`, async ({ page }) => {
+      await open(page, path, { width, height: 940 });
+      const pos = () =>
+        page.evaluate(() => {
+          const y = (sel: string) => {
+            const e = document.querySelector(sel);
+            return e ? Math.round(e.getBoundingClientRect().top + scrollY) : null;
+          };
+          return {
+            more: y('[data-more-filters] > summary'),
+            toolbar: y('.list-toolbar'),
+            items: y('[data-list-items]'),
+          };
+        });
+      const full = await pos();
+      expect(full.more).not.toBeNull();
+      // 模拟渐进解析：先只剩工具区（条目和工具条之后的内容还没到），再逐步加回 1 个、全部条目
+      const states: Record<string, typeof full> = {};
+      await page.evaluate(() => {
+        const list = document.querySelector('[data-list-items]')!;
+        (window as unknown as { __kept: Element[] }).__kept = [...list.children];
+        list.replaceChildren();
+      });
+      states['0 条'] = await pos();
+      await page.evaluate(() => {
+        const list = document.querySelector('[data-list-items]')!;
+        list.append((window as unknown as { __kept: Element[] }).__kept[0]);
+      });
+      states['1 条'] = await pos();
+      // 工具条本身也还没解析到时，「更多筛选」不能落到分类栏中线
+      await page.evaluate(() => {
+        const tb = document.querySelector('.list-toolbar')!;
+        (window as unknown as { __tb: Element }).__tb = tb;
+        tb.remove();
+        document.querySelector('[data-list-items]')!.replaceChildren();
+      });
+      const onlyMore = await pos();
+      for (const [k, v] of Object.entries(states)) {
+        expect(v.more, `${k}：更多筛选`).toBe(full.more);
+        expect(v.toolbar, `${k}：工具条`).toBe(full.toolbar);
+        expect(v.items, `${k}：列表顶部`).toBe(full.items);
+      }
+      expect(onlyMore.more, '只有「更多筛选」时').toBe(full.more);
+    });
+  }
+}
+
 // ------------------------------------------------------------------ D10 / T015
 const REFLOW = [
   '/',

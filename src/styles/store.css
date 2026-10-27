@@ -929,12 +929,23 @@
       grid-template-columns: auto minmax(0, 1fr);
       column-gap: var(--space-4);
       align-items: center;
+      /* CLS（批次 3 跟进）：≥ 1200 主栏与分类栏同一行，HTML 解析到一半先画的那一帧里主栏比分类栏矮、被拉高；
+         默认 align-content（stretch）会把 auto 行一起拉高，第一行居中的「更多筛选」/ 工具条随之下移，条目到齐后再弹回
+         （桌面 /apps/ 偶发约 83px 跳动）。行高只由内容决定，多余高度留在网格底部。 */
+      align-content: start;
     }
     .list-main > * {
       grid-column: 1 / -1;
     }
     .list-main > .filter-bar {
       grid-column: 1;
+      /* 与工具条同样的上下外边距：工具条还没解析出来的那一帧，「更多筛选」也已在最终位置 */
+      margin-block: var(--space-3);
+    }
+    /* 分段控件全局自带 24px 下外边距（独立成行时用）；在同一行的工具条里它会把整行撑高 24px，
+       且只在视图切换解析出来之后才撑高 → 首帧之后整行下移 12px。这里归零，行高只由 44 的控件决定 */
+    .list-main:has(> .filter-bar) > .list-toolbar .segmented,
+    .list-main:has(> .filter-bar) > .list-toolbar .list-sort {
       margin-bottom: 0;
     }
     .list-main > .filter-bar + .list-toolbar {
