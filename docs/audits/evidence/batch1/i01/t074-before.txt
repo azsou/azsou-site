@@ -1,0 +1,47 @@
+[1/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "//evil.example/x" → 登录成功后留在本站首页
+[2/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\\evil.example" → 登录成功后留在本站首页
+[3/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "https://evil.example/" → 登录成功后留在本站首页
+[4/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\t/evil.example" → 登录成功后留在本站首页
+  1) [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\t/evil.example" → 登录成功后留在本站首页 
+    waiting for navigation until "load"
+      367 |       expect(page.url()).not.toContain('evil.example');
+    Error Context: test-results/auth-T074-回调重放与错误-redirect-6343a--evil-example-→-登录成功后留在本站首页-chromium-desktop/error-context.md
+    test-results/auth-T074-回调重放与错误-redirect-6343a--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+        npx playwright show-trace test-results/auth-T074-回调重放与错误-redirect-6343a--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+[5/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\n/evil.example" → 登录成功后留在本站首页
+  2) [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\n/evil.example" → 登录成功后留在本站首页 
+    waiting for navigation until "load"
+      367 |       expect(page.url()).not.toContain('evil.example');
+    Error Context: test-results/auth-T074-回调重放与错误-redirect-ed74c--evil-example-→-登录成功后留在本站首页-chromium-desktop/error-context.md
+    test-results/auth-T074-回调重放与错误-redirect-ed74c--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+        npx playwright show-trace test-results/auth-T074-回调重放与错误-redirect-ed74c--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+[6/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\r\n/evil.example" → 登录成功后留在本站首页
+  3) [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\r\n/evil.example" → 登录成功后留在本站首页 
+    waiting for navigation until "load"
+      367 |       expect(page.url()).not.toContain('evil.example');
+    Error Context: test-results/auth-T074-回调重放与错误-redirect-b3a83--evil-example-→-登录成功后留在本站首页-chromium-desktop/error-context.md
+    test-results/auth-T074-回调重放与错误-redirect-b3a83--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+        npx playwright show-trace test-results/auth-T074-回调重放与错误-redirect-b3a83--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+[7/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\t\\evil.example" → 登录成功后留在本站首页
+  4) [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\t\\evil.example" → 登录成功后留在本站首页 
+    waiting for navigation until "load"
+      367 |       expect(page.url()).not.toContain('evil.example');
+    Error Context: test-results/auth-T074-回调重放与错误-redirect-6343a--evil-example-→-登录成功后留在本站首页-chromium-desktop/error-context.md
+    test-results/auth-T074-回调重放与错误-redirect-6343a--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+        npx playwright show-trace test-results/auth-T074-回调重放与错误-redirect-6343a--evil-example-→-登录成功后留在本站首页-chromium-desktop/trace.zip
+[8/12] [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next " //evil.example" → 登录成功后留在本站首页
+[9/12] [chromium-desktop] › tests/e2e/auth.spec.ts:371:3 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 注册确认：外域 next → 回到欢迎页（不是外域）
+  5) [chromium-desktop] › tests/e2e/auth.spec.ts:371:3 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 注册确认：外域 next → 回到欢迎页（不是外域） 
+    waiting for navigation to "**/settings/?welcome=1" until "load"
+      navigated to "http://evil.example/"
+      374 |       `/auth/callback/?next=${encodeURIComponent('/\t/evil.example')}#access_token=jwt-access&refresh_token=jwt-refresh&expires_in=3600&type=signup`,
+[10/12] [chromium-desktop] › tests/e2e/auth.spec.ts:380:3 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › PKCE 授权码重放：同一个 ?code 第二次打开被拒，不再请求换取会话
+[11/12] [chromium-desktop] › tests/e2e/auth.spec.ts:395:3 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 没有在本浏览器发起过的登录（错 state / 缺 code_verifier）：拒绝，不请求换取会话
+[12/12] [chromium-desktop] › tests/e2e/auth.spec.ts:405:3 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 伪造 / 过期的 access_token：服务端拒绝 → 错误页，地址栏与本地都不留 token
+  5 failed
+    [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\t/evil.example" → 登录成功后留在本站首页 
+    [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\n/evil.example" → 登录成功后留在本站首页 
+    [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\r\n/evil.example" → 登录成功后留在本站首页 
+    [chromium-desktop] › tests/e2e/auth.spec.ts:355:5 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 外域 next "/\t\\evil.example" → 登录成功后留在本站首页 
+    [chromium-desktop] › tests/e2e/auth.spec.ts:371:3 › T074 回调重放与错误 redirect（本地回归层，GoTrue 为假实现） › 注册确认：外域 next → 回到欢迎页（不是外域） 
+  7 passed (59.0s)
