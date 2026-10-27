@@ -9,14 +9,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = 'dist/client';
-function walk(dir: string, exts: string[]): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+/** 不扫描的目录：/cms/ 是第三方 Decap 外壳；/pagefind/ 是检索索引分片；/og/ 只有图片（目录多，遍历慢） */
+const SKIP = new Set(['cms', 'pagefind', 'og']);
+/** 一次遍历按扩展名分组（原先 css / html / js 各遍历一遍，慢盘上 3 次目录遍历就占了大半耗时） */
+function walk(dir: string, out: Record<string, string[]> = { '.css': [], '.html': [], '.js': [] }) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    // /cms/ 是第三方 Decap 外壳，不属于站点样式
-    if (e.isDirectory() && path.relative(ROOT, p) === 'cms') return [];
-    if (e.isDirectory()) return walk(p, exts);
-    return exts.some((x) => e.name.endsWith(x)) ? [p] : [];
-  });
+    if (e.isDirectory()) {
+      if (!SKIP.has(path.relative(ROOT, p))) walk(p, out);
+      continue;
+    }
+    out[path.extname(e.name)]?.push(p);
+  }
+  return out;
 }
 
 /** 运行时由脚本或浏览器注入、构建期看不到定义的变量（白名单需写明来源） */
@@ -33,13 +38,14 @@ function collect() {
     for (const m of css.matchAll(/(--[\w-]+)\s*:/g)) defined.add(m[1]);
     for (const m of css.matchAll(/var\(\s*(--[\w-]+)\s*([,)])/g)) if (m[2] === ')') addUse(m[1], file);
   };
-  for (const f of walk(ROOT, ['.css'])) scanCss(fs.readFileSync(f, 'utf8'), f);
-  for (const f of walk(ROOT, ['.html'])) {
+  const files = walk(ROOT);
+  for (const f of files['.css']) scanCss(fs.readFileSync(f, 'utf8'), f);
+  for (const f of files['.html']) {
     const html = fs.readFileSync(f, 'utf8');
     for (const m of html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) scanCss(m[1], f);
     for (const m of html.matchAll(/style="([^"]*)"/g)) scanCss(m[1].replace(/&#39;|&quot;/g, "'"), f);
   }
-  for (const f of walk(ROOT, ['.js'])) {
+  for (const f of files['.js']) {
     const js = fs.readFileSync(f, 'utf8');
     for (const m of js.matchAll(/setProperty\(\s*["'`](--[\w-]+)/g)) defined.add(m[1]);
     for (const m of js.matchAll(/["'`;{ ](--[\w-]+):/g)) defined.add(m[1]);
