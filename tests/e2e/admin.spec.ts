@@ -276,8 +276,9 @@ test.describe('内容管理', () => {
     await expect(page.locator('tbody[data-rows] tr[data-id]')).toHaveCount(2);
     await page.getByRole('checkbox', { name: '全选本页' }).check();
     await page.locator('[data-bulkbar]').getByRole('button', { name: '隐藏' }).click();
-    // 0018：批量隐藏返回逐项结果，提示改为「已隐藏 N 条。」（旧库无逐项结果时仍是「已处理 N 条。」）
-    await expect(page.getByText('已隐藏 2 条。')).toBeVisible();
+    // 0018：批量隐藏返回逐项结果——结果面板摘要与提示都改为「已隐藏 N 条。」（旧库无逐项结果时仍是「已处理 N 条。」）
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已隐藏 2 条。');
+    await expect(page.locator('.toast', { hasText: '已隐藏 2 条。' })).toBeVisible();
     const r = await db.query(`select bool_or(published) p from forum_replies where id = any($1)`, [[r1, r2]]);
     expect(r.rows[0].p).toBe(false);
   });
