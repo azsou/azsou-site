@@ -515,7 +515,8 @@ describe('A07 / T038 / T066 编辑与工作流并发冲突', () => {
     expect(r[0].r.results[0].result).toBe('conflict');
     expect((await state('reply', id)).wf.status).toBe('review');
   });
-  it('T066 连续编辑 55 次：保留最近 50 个版本，倒序、编辑者正确', async () => {
+  // 站长第二轮（2026-10-27 21:06）：90 天内的版本不得被 50 条上限删除（0019）——55 次编辑全部保留
+  it('T066 连续编辑 55 次：90 天内 55 个版本全部保留（0019），倒序、编辑者正确', async () => {
     const id = await mk('comment');
     for (let i = 0; i < 55; i++) {
       const [{ edited_at }] = await q(`select edited_at from comments where id = $1`, [id]);
@@ -531,8 +532,9 @@ describe('A07 / T038 / T066 编辑与工作流并发冲突', () => {
       `select body, editor from content_versions where target_id = $1 order by created_at desc, id desc`,
       [id],
     );
-    expect(v.length).toBe(50);
+    expect(v.length).toBe(55);
     expect(v[0].body).toBe('v53');
+    expect(v[54].body).not.toMatch(/^v/); // 最早一个版本 = 第一次编辑前的原文
     expect(v.every((x) => x.editor === U.ada)).toBe(true);
   });
 });
