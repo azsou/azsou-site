@@ -22,8 +22,11 @@ W=$(mktemp -d)
 SRC=azsou_neg_src
 NOAUTH=azsou_neg_noauth
 TGT=azsou_neg_tgt
+OLD=azsou_neg_old
+FRESH=azsou_neg_fresh
+PROD_URL="postgresql://postgres.abryflgoljltyakthtql:not-a-password@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres" # 只测拒绝，从不连接
 cleanup() {
-  for d in $SRC $NOAUTH $TGT; do "$REAL_PSQL" "$DATABASE_URL" -Xqc "drop database if exists $d with (force)" >/dev/null 2>&1 || true; done
+  for d in $SRC $NOAUTH $TGT $OLD $FRESH; do "$REAL_PSQL" "$DATABASE_URL" -Xqc "drop database if exists $d with (force)" >/dev/null 2>&1 || true; done
   rm -rf "$W"
 }
 trap cleanup EXIT
@@ -41,6 +44,15 @@ expect_fail() {
   else
     failn=$((failn + 1)); results+=("✗ $name：退出码 $rc，输出：$(tail -3 "$W/out.txt" | tr '\n' ' ')")
   fi
+}
+# expect_code <名称> <退出码> -- 命令…：退出码必须正好等于给定值
+expect_code() {
+  local name=$1 want=$2
+  shift 3
+  local rc=0
+  "$@" >"$W/out.txt" 2>&1 || rc=$?
+  if [ "$rc" -eq "$want" ]; then pass=$((pass + 1)); results+=("✓ $name（退出码 $rc）"); else
+    failn=$((failn + 1)); results+=("✗ $name：期望退出码 $want，实际 $rc：$(tail -2 "$W/out.txt" | tr '\n' ' ')"); fi
 }
 expect_ok() {
   local name=$1
@@ -79,10 +91,20 @@ for f in db/shim/plain.sql db/migrations/*.sql db/restore/drill-seed.sql; do
   "$REAL_PSQL" "$(url $SRC)" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f "$f" >/dev/null
 done
 # 明文只允许本机隔离库 + 显式 BACKUP_ALLOW_PLAINTEXT=1（这里要篡改文件内容做负面用例）
-BACKUP_ALLOW_PLAINTEXT=1 BACKUP_PASSPHRASE= bash scripts/db-backup.sh "$(url $SRC)" "$W/good" >/dev/null
+# 本机没有 storage-api：显式只备份 Storage 元数据（文件本体往返见 tests/ops/storage-roundtrip.sh）
+export BACKUP_STORAGE_FILES=skip
+BACKUP_ALLOW_PLAINTEXT=1 BACKUP_PASSPHRASE='' bash scripts/db-backup.sh "$(url $SRC)" "$W/good" >/dev/null
 BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$(url $SRC)" "$W/enc" >/dev/null
-copy() { rm -rf "$W/$1"; cp -r "$W/good" "$W/$1"; }
+# 旧 schema 版本（只到 0017）的备份：精确恢复的版本确认用例
+"$REAL_PSQL" "$DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 -c "drop database if exists $OLD with (force)" -c "create database $OLD" >/dev/null
+for f in db/shim/plain.sql db/migrations/*.sql db/restore/drill-seed.sql; do
+  case "$(basename "$f")" in 0018_* | 0019_*) continue ;; esac
+  "$REAL_PSQL" "$(url $OLD)" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f "$f" >/dev/null
+done
+BACKUP_ALLOW_PLAINTEXT=1 BACKUP_PASSPHRASE='' bash scripts/db-backup.sh "$(url $OLD)" "$W/old" >/dev/null
+copy() { rm -rf "${W:?}/$1"; cp -r "$W/good" "$W/$1"; }
 resum() { (cd "$W/$1" && rm -f azsou-SHA256SUMS-*.txt && ts=$(ls azsou-public-*.dump | sed -E 's/.*-([0-9TZ]+)\.dump/\1/') && "$REAL_SHA" azsou-*"$ts"* >"azsou-SHA256SUMS-$ts.txt"); }
+tgt_tables() { "$REAL_PSQL" "$(url $TGT)" -XAt -c "select count(*) from pg_class where relnamespace = 'public'::regnamespace"; }
 fresh_tgt() { "$REAL_PSQL" "$DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 -c "drop database if exists $TGT with (force)" -c "create database $TGT" >/dev/null
   "$REAL_PSQL" "$(url $TGT)" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f db/shim/plain.sql >/dev/null; }
 
@@ -115,6 +137,15 @@ expect_fail "V12 恢复后 auth.identities 行数不一致（auth 范围也逐�
 copy t13; f=$(ls "$W"/t13/azsou-rowcounts-*.tsv); awk -F'\t' 'BEGIN{OFS="\t"} $1=="storage.objects"{$2=$2+1}1' "$f" >"$f.n" && mv "$f.n" "$f"; resum t13; fresh_tgt
 expect_fail "V13 恢复后 storage.objects 行数不一致（storage 元数据也逐表核对）" "恢复演练通过" -- bash scripts/db-verify-backup.sh "$W/t13" --restore "$(url $TGT)"
 
+copy t14; rm "$W"/t14/azsou-manifest-*.json; resum t14
+expect_fail "V14 缺 manifest（统一快照 / schema 版本）" "校验通过" -- bash scripts/db-verify-backup.sh "$W/t14"
+copy t15; f=$(ls "$W"/t15/azsou-manifest-*.json); python3 - "$f" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1])); m['storage_listing_time'] = '1999-01-01T00:00:00Z'; json.dump(m, open(sys.argv[1], 'w'))
+PY
+resum t15
+expect_fail "V15 Storage 清单时间 ≠ 快照时间" "校验通过" -- bash scripts/db-verify-backup.sh "$W/t15"
+
 echo "== 强制加密"
 expect_fail "E1 非本机库没有口令：拒绝且不导出任何文件" "备份完成" -- bash scripts/db-backup.sh "postgres://u:p@db.example.com:5432/x" "$W/e1"
 [ ! -e "$W/e1" ] && { pass=$((pass + 1)); results+=("✓ E1b 拒绝时没有建输出目录"); } || { failn=$((failn + 1)); results+=("✗ E1b 拒绝时仍产生了 $W/e1"); }
@@ -128,13 +159,39 @@ echo "== db-backup.sh"
 expect_fail "B1 源库连不上" "备份完成" -- env BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "postgres://postgres:postgres@127.0.0.1:1/none" "$W/b1"
 "$REAL_PSQL" "$DATABASE_URL" -XqAt -v ON_ERROR_STOP=1 -c "drop database if exists $NOAUTH with (force)" -c "create database $NOAUTH" >/dev/null
 expect_fail "B2 账户范围导出失败（库里没有 auth.users）" "备份完成" -- env BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$(url $NOAUTH)" "$W/b2"
+[ -z "$(ls -A "$W/b2" 2>/dev/null)" ] && { pass=$((pass + 1)); results+=("✓ B2b 失败的备份不留半份产物"); } || { failn=$((failn + 1)); results+=("✗ B2b 失败后输出目录里留下了文件"); }
+expect_code "B3 生产项目不在受保护环境里：拒绝（不连接）" 2 -- env BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$PROD_URL" "$W/b3"
+expect_code "B4 有 Storage 对象却没有 Storage API 凭据、也没声明 skip：拒绝" 3 -- env -u BACKUP_STORAGE_FILES BACKUP_PASSPHRASE=neg-test-pass bash scripts/db-backup.sh "$(url $SRC)" "$W/b4"
+[ -z "$(ls -A "$W/b4" 2>/dev/null)" ] && { pass=$((pass + 1)); results+=("✓ B4b 拒绝后不留任何（明文）产物"); } || { failn=$((failn + 1)); results+=("✗ B4b 拒绝后输出目录里留下了文件"); }
 
-echo "== db-restore.sh"
-PUB=$(ls "$W"/good/azsou-public-*.dump)
-expect_fail "R1 目标库不是新库（已有 forum_threads）" "恢复完成" -- bash scripts/db-restore.sh "$(url $SRC)" "$PUB"
-expect_fail "R2 目标库连不上" "恢复完成" -- bash scripts/db-restore.sh "postgres://postgres:postgres@127.0.0.1:1/none" "$PUB"
-fresh_tgt; head -c 4096 /dev/urandom >"$W/bad.dump"
-expect_fail "R3 备份文件损坏" "恢复完成" -- bash scripts/db-restore.sh "$(url $TGT)" "$W/bad.dump"
+echo "== db-restore.sh（精确恢复）"
+expect_code "R1 目标库不是空库（已有数据）：拒绝" 3 -- bash scripts/db-restore.sh "$(url $SRC)" "$W/good" --storage-metadata-only
+expect_fail "R2 目标库连不上" "恢复完成" -- bash scripts/db-restore.sh "postgres://postgres:postgres@127.0.0.1:1/none" "$W/good" --storage-metadata-only
+copy r3; head -c 4096 /dev/urandom >"$(ls "$W"/r3/azsou-public-*.dump)"; resum r3; fresh_tgt
+expect_fail "R3 备份文件损坏（校验和已重算）" "恢复完成" -- bash scripts/db-restore.sh "$(url $TGT)" "$W/r3" --storage-metadata-only
+fresh_tgt
+expect_code "R4 备份 schema 0017 ≠ 代码最新，没有显式确认：拒绝" 4 -- bash scripts/db-restore.sh "$(url $TGT)" "$W/old" --storage-metadata-only
+expect_code "R5 --accept-backup-version 写错（0019 ≠ 备份 0017）：拒绝" 4 -- bash scripts/db-restore.sh "$(url $TGT)" "$W/old" --storage-metadata-only --accept-backup-version 0019
+[ "$(tgt_tables)" = 0 ] && { pass=$((pass + 1)); results+=("✓ R4b 版本被拒时目标未写入"); } || { failn=$((failn + 1)); results+=("✗ R4b 版本被拒后目标里出现了表"); }
+expect_code "R6 备份没有 Storage 文件本体，却没选 --storage-metadata-only：拒绝" 2 -- bash scripts/db-restore.sh "$(url $TGT)" "$W/good"
+copy r7; f=$(ls "$W"/r7/azsou-checksums-*.tsv); awk -F'\t' 'BEGIN{OFS="\t"} $1=="public.forum_threads"{$3="00000000000000000000000000000000"}1' "$f" >"$f.n" && mv "$f.n" "$f"; resum r7; fresh_tgt
+expect_fail "R7 内容校验和不一致：事务回滚" "恢复完成" -- bash scripts/db-restore.sh "$(url $TGT)" "$W/r7" --storage-metadata-only
+[ "$(tgt_tables)" = 0 ] && { pass=$((pass + 1)); results+=("✓ R7b 回滚后目标仍为空（public 0 个对象）"); } || { failn=$((failn + 1)); results+=("✗ R7b 核对失败后目标里留下了表"); }
+expect_fail "R8 --fresh-db 核对失败：删除新建的目标库" "恢复完成" -- bash scripts/db-restore.sh "$DATABASE_URL" "$W/r7" --storage-metadata-only --fresh-db $FRESH
+[ "$("$REAL_PSQL" "$DATABASE_URL" -XAt -c "select count(*) from pg_database where datname = '$FRESH'")" = 0 ] \
+  && { pass=$((pass + 1)); results+=("✓ R8b 中止后新目标库已删除"); } || { failn=$((failn + 1)); results+=("✗ R8b 中止后新目标库仍在"); }
+expect_code "R9 目标是生产项目：拒绝（不连接）" 2 -- bash scripts/db-restore.sh "$PROD_URL" "$W/good" --storage-metadata-only
+copy r10; rm "$W"/r10/azsou-manifest-*.json; resum r10; fresh_tgt
+expect_fail "R10 旧格式备份（没有 manifest）：拒绝" "恢复完成" -- bash scripts/db-restore.sh "$(url $TGT)" "$W/r10" --storage-metadata-only
+fresh_tgt
+expect_ok "R0 正向对照：0017 备份 + 显式确认 → 精确恢复" -- bash scripts/db-restore.sh "$(url $TGT)" "$W/old" --storage-metadata-only --accept-backup-version 0017
+
+echo "== db-upgrade.sh（显式升级）"
+expect_code "U1 没有 --apply-migrations：拒绝" 4 -- bash scripts/db-upgrade.sh "$(url $TGT)" --from 0017 --to 0019
+expect_code "U2 --from 与目标实际版本不符：拒绝" 1 -- bash scripts/db-upgrade.sh "$(url $TGT)" --from 0018 --to 0019 --apply-migrations
+expect_code "U3 目标是生产项目：拒绝（不连接）" 2 -- bash scripts/db-upgrade.sh "$PROD_URL" --from 0017 --to 0019 --apply-migrations
+expect_code "U4 远程目标没有 --confirm-remote-host：拒绝（不连接）" 4 -- bash scripts/db-upgrade.sh "postgres://u:p@db.example.com:5432/x" --from 0017 --to 0019 --apply-migrations
+expect_ok "U0 正向对照：0017 → 0019" -- bash scripts/db-upgrade.sh "$(url $TGT)" --from 0017 --to 0019 --apply-migrations
 
 echo "== restore-drill.sh（PATH 前置假命令注入故障）"
 mkdir -p "$W/fake-sha" "$W/fake-psql" "$W/fake-restore"
@@ -154,9 +211,9 @@ exec "$REAL_PSQL" "\$@"
 EOF
 cat >"$W/fake-restore/pg_restore" <<EOF
 #!/usr/bin/env bash
-# rehearse 第 6 步（--clean）：照常恢复，但像「errors ignored on restore」一样以 1 退出
+# rehearse 第 6 步（--single-transaction 恢复进新库）：照常恢复，但像「errors ignored on restore」一样以 1 退出
 "$REAL_PG_RESTORE" "\$@"; rc=\$?
-for a in "\$@"; do [ "\$a" = --clean ] && { echo "pg_restore: warning: errors ignored on restore: 1（注入）" >&2; exit 1; }; done
+for a in "\$@"; do [ "\$a" = --single-transaction ] && { echo "pg_restore: warning: errors ignored on restore: 1（注入）" >&2; exit 1; }; done
 exit \$rc
 EOF
 chmod +x "$W"/fake-*/*

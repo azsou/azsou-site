@@ -5,7 +5,10 @@
 #   BACKUP_PASSPHRASE=…  产物是 .gpg 时用来解密（不会写进日志）
 # 检查：① 有 SHA256SUMS 且每个文件校验和一致 ② .gpg 能解密 ③ .dump 能被 pg_restore --list 读出目录
 #       ④ 行数清单、globals 清单存在且非空，public 与 auth 两个范围必须都在
-#       ⑤（可选 --restore）用 db-restore.sh 恢复全部范围（public / auth / private / storage）到隔离库，
+#       ④b manifest（格式 2）存在：统一快照 id / LSN / 时间、schema 版本；Storage 文件已包含时，
+#          归档里每个对象的 sha256 / 大小与逐对象清单一致、数量与快照对象清单一致
+#       ⑤（可选 --restore）用 db-restore.sh 精确恢复全部范围（public / auth / private / storage 行）到**空的**隔离库
+#          （按备份自己的 schema 版本，不升级；Storage 文件本体不经 API 上传——那是 tests/ops/storage-roundtrip.sh / 正式恢复的事），
 #          逐表核对行数（含 auth.users / auth.identities / storage.*），按范围汇总；globals 里的扩展 / 角色在目标库都存在
 # 任何一步失败 → 非 0 退出（工作流标红），绝不打印「备份成功」。
 # =============================================================================
@@ -50,8 +53,34 @@ globals=(*-globals-*.tsv)
 [ ${#globals[@]} -eq 1 ] && [ -s "${globals[0]}" ] || fail "globals 清单（扩展 / 角色 / 策略数）缺失或为空"
 authd=(*-auth-*.dump)
 [ ${#authd[@]} -eq 1 ] || fail "找不到 auth 范围备份（auth.users / auth.identities）"
-privd=(*-private-*.dump)
-stord=(*-storage-*.dump)
+mans=(*-manifest-*.json)
+[ ${#mans[@]} -eq 1 ] || fail "没有 manifest（统一快照 / schema 版本）——第三轮之前的旧格式备份，请重新备份"
+VER=$(python3 - "${mans[0]}" <<'PY'
+import json, re, sys
+m = json.load(open(sys.argv[1]))
+assert m.get('format') == 2, 'manifest 格式不是 2'
+s = m['snapshot']
+assert re.fullmatch(r'[0-9A-F]+-[0-9A-F]+-[0-9]+', s['id']), '快照 id 不合法'
+assert re.fullmatch(r'[0-9A-F]+/[0-9A-F]+', s['lsn']), 'LSN 不合法'
+assert s['time'] and m['storage_listing_time'] == s['time'], 'Storage 清单时间必须等于快照时间'
+print(m['schema_version'])
+PY
+) || fail "manifest 不完整（快照 id / LSN / 时间 / schema 版本）"
+FST=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["storage_files"]["status"])' "${mans[0]}")
+if [ "$FST" = included ]; then
+  tars=(*-storage-files-*.tar)
+  lists=(*-storage-files-*.tsv)
+  snaplist=(*-storage-listing-*.tsv)
+  [ ${#tars[@]} -eq 1 ] && [ ${#lists[@]} -eq 1 ] && [ ${#snaplist[@]} -eq 1 ] || fail "manifest 说包含 Storage 文件，但缺归档 / 逐对象清单 / 快照对象清单"
+  mkdir -p "$work/.files"
+  tar -xf "${tars[0]}" -C "$work/.files" || fail "Storage 文件归档损坏"
+  [ "$(($(wc -l <"${lists[0]}") - 1))" = "$(($(wc -l <"${snaplist[0]}") - 1))" ] || fail "Storage 文件数与快照对象清单不一致"
+  awk -F'\t' 'NR > 1 {print $4 "  " $1 "/" $2}' "${lists[0]}" | (cd "$work/.files" && sha256sum --quiet -c -) || fail "Storage 文件 sha256 与逐对象清单不一致"
+  n=$(find "$work/.files" -type f | wc -l)
+  [ "$n" = "$(($(wc -l <"${lists[0]}") - 1))" ] || fail "Storage 归档里有清单之外的文件"
+  rm -rf "$work/.files"
+  echo "Storage 文件：$n 个对象，sha256 与清单一致"
+fi
 listing=$(pg_restore --list "${dumps[0]}") || fail "pg_restore 读不出目录：${dumps[0]}"
 tables=$(grep -c ' TABLE DATA public ' <<<"$listing" || true) # grep 无匹配返回 1，只对它放行
 [ "$tables" -gt 0 ] || fail "备份里没有任何 public 表数据：${dumps[0]}"
@@ -60,10 +89,11 @@ echo "校验通过：$(basename "${dumps[0]}")（${size} 字节，表数据 $tab
 if [ -n "$RESTORE_URL" ]; then
   host=$(python3 -c 'import sys,urllib.parse as u;print(u.urlparse(sys.argv[1]).hostname or "")' "$RESTORE_URL")
   case "$host" in 127.0.0.1 | localhost | ::1) ;; *) fail "--restore 只允许本机隔离库" ;; esac
-  # 用正式恢复脚本（与灾难恢复同一路径：pre-restore → 账户 → public → post-restore → ACL → private → storage → 重跑迁移）
-  bash "$HERE/db-restore.sh" "$RESTORE_URL" "$work/${dumps[0]}" "$work/${authd[0]}" \
-    ${privd:+--private "$work/${privd[0]}"} ${stord:+--storage "$work/${stord[0]}"} >/dev/null 2>"$work/restore.err" \
-    || { tail -5 "$work/restore.err" >&2; fail "恢复到隔离库失败"; }
+  # 用正式的精确恢复脚本（单事务、事务内核对；按备份自己的 schema 版本，不执行迁移）
+  errf=$(mktemp)
+  bash "$HERE/db-restore.sh" "$RESTORE_URL" "$work" --accept-backup-version "$VER" --storage-metadata-only >/dev/null 2>"$errf" \
+    || { tail -5 "$errf" >&2; rm -f "$errf"; fail "恢复到隔离库失败"; }
+  rm -f "$errf"
   bad=0
   declare -A scope_t=() scope_r=()
   while IFS=$'\t' read -r t n; do

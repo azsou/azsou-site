@@ -84,12 +84,13 @@ describe('命令行（--fixture，不访问 GitHub）', () => {
   });
 });
 
-describe('监控工作流配置（.github/workflows/backup-monitor.yml）', () => {
-  const wf = readFileSync(resolve(ROOT, '.github/workflows/backup-monitor.yml'), 'utf8');
+describe('监控工作流配置（ops/disabled-workflows/backup-monitor.yml，站长第三轮：另行启用、默认不运行）', () => {
+  const wf = readFileSync(resolve(ROOT, 'ops/disabled-workflows/backup-monitor.yml'), 'utf8');
   it('独立的定时 + 手动触发，与备份工作流时间表不同', () => {
     const crons = [...wf.matchAll(/^\s*-\s*cron:\s*'([^']+)'/gm)].map((m) => m[1]);
     expect(crons.length).toBe(1);
     expect(crons[0]).not.toBe('30 19 * * 0');
+    expect(crons[0]).not.toBe('30 19 * * *'); // 与每日备份模板错开
     expect(wf).toMatch(/workflow_dispatch:/);
     expect(wf).not.toMatch(/workflow_run:/); // 不依赖备份工作流触发——它不跑时监控照样跑
   });

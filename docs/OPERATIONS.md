@@ -48,23 +48,24 @@
 
 ## 4. 备份
 
-- **自动备份**：GitHub Actions 工作流 `DB backup`（`.github/workflows/db-backup.yml`），每周一 03:30（北京时间）运行，
-  产物保留 30 天（仓库 → Actions → DB backup → 某次运行 → Artifacts）。**注意：这是每周一次，不是每日；而且合并到 `main`
-  并配置 Secret 之前一次都不会跑。** 站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时目前没有达到，差距与待批方案见
+- **备份（仅手动触发）**：GitHub Actions 工作流 `DB backup`（`.github/workflows/db-backup.yml`），站长第三轮（2026-10-28）起
+  **没有任何定时触发**，只能在 Actions 页面手动运行，并且：输入框里亲手输入项目 ref（必须与 Secret 指向的项目一致）、
+  job 运行在受保护环境 `backup-production`（必需审批人 = 站长）。产物保留 30 天（Actions → DB backup → 某次运行 → Artifacts）。
+  合并到 `main` 并创建环境之前一次都不会跑。站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时目前没有达到，差距与待批方案见
   [BACKUP.md §2A](BACKUP.md#2a-rpo--rto站长目标现状与差距2026-10-27)。
-  - **站长需要添加仓库 Secret**（Settings → Secrets and variables → Actions → New repository secret）：
-    - `SUPABASE_DB_URL`：Supabase → Project Settings → Database → Connection string → Session pooler（5432），把 `[YOUR-PASSWORD]` 换成数据库密码。
-    - `BACKUP_PASSPHRASE`（强烈建议）：任意长口令，**另外妥善保存**；设置后产物加密，并额外备份 `auth.users`。
-  - 未配置 `SUPABASE_DB_URL` 时工作流**失败**并提示「未备份」（不会显示为成功）；备份后自动跑
-    `scripts/db-verify-backup.sh`（校验和 / 解密 / `pg_restore --list` / 行数清单），任何一步不通过都标红。
-  - 恢复演练：`BACKUP_PASSPHRASE=… bash scripts/db-verify-backup.sh <下载的备份目录> --restore <本机隔离库>`。
-  - 定时触发只在默认分支 `main` 上生效；合并前可在 Actions 页面手动运行（Run workflow → 分支 `v2/astro`）。
+  - **站长需要创建环境**（Settings → Environments → New environment `backup-production`），配置见 [BACKUP.md §2E](BACKUP.md)：
+    必需审批人、只允许 `main`、环境变量 `BACKUP_ENVIRONMENT_GUARD=backup-production`、
+    环境 Secret `SUPABASE_DB_URL`（Session pooler 5432）、`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`BACKUP_PASSPHRASE`（另外离线保存）。
+  - 缺任何一项工作流**失败**、不导出任何数据；备份后自动跑 `scripts/db-verify-backup.sh`（校验和 / 解密 / `pg_restore --list` /
+    行数清单 / manifest / Storage 归档 sha256），任何一步不通过都标红。
+  - 每日定时、外部存储上传、独立监控：`ops/disabled-workflows/`，**默认不启用，另行启用**（各需站长单独批准）。
+  - 恢复演练：`BACKUP_PASSPHRASE=… bash scripts/db-verify-backup.sh <下载的备份目录> --restore <本机隔离空库>`。
   - 每次手动大改数据前（批量删除、导入、迁移）先手动运行一次。
-- **恢复**：见 [BACKUP.md](BACKUP.md)。`scripts/restore-drill.sh` 在每次 CI 中演练「备份 → 恢复到新库 → 核对行数 / 策略 / 授权 → 跑 RLS 测试」。
-- **不在数据库备份里的东西**：Storage 里的图片文件（只有元数据在库里）、Auth 设置、邮件模板、Vercel 环境变量。
-  图片可定期用 Supabase Storage 的 S3 兼容接口同步到别处（`rclone sync`，见 PORTABILITY.md）；设置项以 CONFIG.md 为准。
+- **恢复**：见 [BACKUP.md §3](BACKUP.md)。分两步、互不隐含：**精确恢复**（`scripts/db-restore.sh`，只进空目标，恢复成备份时的 schema 版本，不执行迁移）→ 需要时再**显式升级**（`scripts/db-upgrade.sh --apply-migrations`）。`scripts/restore-drill.sh` 在每次 CI 中演练。
+- **Storage 文件**（站长第三轮起在恢复范围内）：备份经 Storage API 下载每个对象进加密归档（逐对象 sha256），精确恢复时经 API 上传并核对。
+- **不在备份里的东西**：Auth 设置、邮件模板、Vercel 环境变量、Supabase 项目设置——以 CONFIG.md 为准。
 - Supabase 免费档没有平台备份；Pro 及以上有平台每日备份（Pro 可取最近 7 天），PITR 是 Pro 之上**另付费的附加项**
-  （约 $100/月起，需 Small 以上计算规格），都可与本工作流并存（来源：supabase.com/docs/guides/platform/backups）。
+  （约 $100/月起，需 Small 以上计算规格），都可与本手动工作流并存（来源：supabase.com/docs/guides/platform/backups）。
 
 ## 4A. 定时发布调度（A03，迁移 0018，**待站长批准启用**）
 
