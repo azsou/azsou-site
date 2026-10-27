@@ -1,0 +1,25 @@
+0a1,7
+> admin_idempotency,0
+> admin_notes,0
+> admin_user_tags,0
+> app_download_counts,0
+> app_reviews,0
+> audit_log,0
+> bookmarks,0
+1a9,10
+> content_versions,0
+> content_workflow,0
+2a12
+> forum_seed_threads,7
+3a14,17
+> friend_links,0
+> guestbook_entries,0
+> likes,0
+> notifications,0
+4a19,20
+> rate_limit_events,0
+> reports,0
+5a22,24
+> subscribers,0
+> user_bans,1
+> workflow_tick_runs,0

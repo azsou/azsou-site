@@ -318,6 +318,52 @@ run db/migrations/0017_admin_crm.sql;            status   # admin_notes / admin_
 - 定时发布：`mod_workflow_tick()` 由后台页面加载时调用；也可在 Supabase 开 pg_cron 后每 5 分钟执行 `select public.mod_workflow_tick();`。
 - 用户画像的「登录记录」读 `auth.sessions`（存在时）；IP 只对管理员返回。批量邮件只有草稿与预览，**数据库与前端都没有发信接口**。
 
+## 5G. 状态一致性 / 调度 / 权限（0018，交接批次 2）——**站长尚未批准，生产未执行**
+
+```bash
+run db/migrations/0018_state_consistency.sql;    status   # 统一状态接口 / 调度运行记录 / 分页 envelope / 正文编辑 RPC / 同步与孤儿触发器
+```
+
+- 纯增量、可重复执行：新增 `workflow_tick_runs`、`admin_idempotency` 两张表（RLS 开启）、`content_workflow.orphaned_at` 一列，
+  新增函数与触发器；替换 0017 的 `mod_set_workflow` / `mod_workflow_tick` 函数体（签名不变，旧前端照常）。不删列、不改已有数据。
+- **行为变化（需站长知悉）**：
+  - 版主（以及管理员）不能再直接 PATCH 他人内容的 `title` / `body` / `cat`；版主只调整审核标志（隐藏 / 置顶 / 锁定 / 精华）。
+    管理员改他人内容走 `mod_edit_content()`（理由必填，写版本、审计、通知作者）。前台「编辑」按钮只对作者本人显示。（A04，默认策略待站长确认）
+  - 手工隐藏「待审 + 定时」内容会**取消**定时发布（开关 `az_hide_cancels_schedule()`，默认 true，待站长确认）。
+  - 任何路径改 `published`（旧版后台、前台版主按钮、举报处理）都会同步 `content_workflow`，不再出现「后台显示待审、前台已公开」。
+- 依赖 0017；0016 及以前的库请先补 0017。前端对缺 0018 的库自动退回旧接口（逐项结果与状态同步不可用，后台显示降级提示）。
+- 调度：0018 **不创建任何 cron 任务**。启用无人值守调度见 `db/ops/workflow-cron.sql` 与 OPERATIONS.md「4A」，同样需站长批准。
+
+## 5H. B04 迁移演练与回滚 / 恢复预案（0017 / 0018）
+
+**演练（隔离库，已执行）**：`DATABASE_URL=<本机 Postgres> bash scripts/db/rehearse-migrations.sh <输出目录>`。
+脚本拒绝非本机地址。步骤：类生产库（plain shim + 0001 + 合成数据）→ 迁移前快照（status / 行数 / 策略 / 表与列授权 / 函数授权）与
+`pg_dump` → 0002 → 0018（每步 status）→ 迁移后快照与 diff（原有表行数必须不变）→ 重跑 0017、0018 与整套 0002 → 0018
+（快照必须完全一致）→ 用迁移前备份恢复到新库（行数与 status 回到迁移前）。2026-10-27 的结果在
+`docs/audits/evidence/batch2/b04/`：原有 5 张表与 auth.users 行数无变化；status 未通过项 23 → 0；重跑一致；恢复一致。
+
+**生产执行清单（站长批准后，按顺序；任何一步不符合预期就停）**：
+
+1. 冻结后台写操作（通知版主暂停审核约 10 分钟）；记录当前 Vercel 生产部署 ID。
+2. 备份：Actions → DB backup → Run workflow（需要 `SUPABASE_DB_URL` + `BACKUP_PASSPHRASE`），确认工作流绿色——
+   它已包含 `scripts/db-verify-backup.sh` 的校验和 / 解密 / `pg_restore --list` / 行数清单检查；下载 artifact 留本地一份。
+3. 迁移前快照（只读，SQL 编辑器）：`db/verify/status.sql`、第 1 节的行数 SQL、
+   `select tablename, policyname, cmd, roles from pg_policies where schemaname = 'public' order by 1, 2;`，结果另存。
+4. 按「附：最终执行顺序」只执行缺失的迁移（status 为 false 的那些），每个文件后跑 `status`。
+5. 迁移后快照，与第 3 步对比：原有表行数必须一致；策略差异应与演练的 `diff-policies.txt` 同类（新表 / 收紧的写策略）。
+6. 真实角色 canary（用测试账号，不动真实用户数据）：匿名读首页论坛 → 普通用户发 / 删自己的一条测试回复 → 版主隐藏 / 恢复该回复
+   → 管理员打开后台 8 个模块无错误（A15）。完成后删除测试回复。
+7. 解除冻结；观察 30 分钟审计日志与错误。
+
+**回滚 / 恢复**：
+
+| 情况                                              | 做法                                                                                                                                                                                         |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 某个迁移文件报错                                  | 文件在事务里，已整体回滚；修正后重跑同一文件。库停在上一步                                                                                                                                   |
+| 0018 的行为变化不被接受（例如要让版主改他人正文） | 不回退迁移；按站长决定改策略：版主改正文 = 调整 `az_content_edit_guard()` 判断并放开 `mod_edit_content()` 给版主；隐藏不取消排程 = 把 `az_hide_cancels_schedule()` 改为 `select false`       |
+| 只想停用 0018 的触发器                            | `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on <表>`（三张表各一）——前端照常工作，回到 0017 行为                                                             |
+| 数据损坏 / 需要精确回到迁移前                     | 用第 2 步的备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-users-*.dump`，再切换 Vercel 环境变量（见第 9 节最后一行）。不要在生产库上手工删对象 |
+
 ## 附：最终执行顺序
 
 ```
@@ -331,6 +377,8 @@ run db/migrations/0017_admin_crm.sql;            status   # admin_notes / admin_
      → 0015_guestbook（留言板 + 友链申请；写入 community_ticket_secret）
      → 0016_subscribers（邮件订阅，双重确认；依赖 0015 的密钥）
      → 0017_admin_crm（后台：服务端排序、备注、用户标签 / 画像、内容流程 + 定时发布、版本历史）
+     → 0018_state_consistency（统一状态接口、调度运行记录 / 告警、他人正文只经管理员 RPC、批量逐项结果；待站长批准）
+     → （可选，另需批准）db/ops/workflow-cron.sql 启用 pg_cron 调度
      → 每步后 db/verify/status.sql
      → 合并 PR #2（或切 Production Branch）→ check-csp --url
      → 写入 signup_ticket_secret + 启用 Before User Created 钩子 → 开启邮箱确认

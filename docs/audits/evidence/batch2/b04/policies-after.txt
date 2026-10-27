@@ -1,0 +1,53 @@
+admin_notes | admin_notes_delete | DELETE | {authenticated} | (( SELECT is_moderator() AS is_moderator) AND ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin))) | 
+admin_notes | admin_notes_insert | INSERT | {authenticated} |  | (( SELECT is_moderator() AS is_moderator) AND (author = ( SELECT auth.uid() AS uid)))
+admin_notes | admin_notes_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 
+admin_user_tags | admin_user_tags_delete | DELETE | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 
+admin_user_tags | admin_user_tags_insert | INSERT | {authenticated} |  | ( SELECT is_moderator() AS is_moderator)
+admin_user_tags | admin_user_tags_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 
+app_download_counts | app_download_counts_read | SELECT | {anon,authenticated} | true | 
+app_reviews | app_reviews_delete | DELETE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+app_reviews | app_reviews_insert | INSERT | {authenticated} |  | ((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write))
+app_reviews | app_reviews_read | SELECT | {anon,authenticated} | (published OR (author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+app_reviews | app_reviews_update | UPDATE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | (((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write)) OR ( SELECT is_moderator() AS is_moderator))
+audit_log | audit_admin_read | SELECT | {authenticated} | ( SELECT is_admin() AS is_admin) | 
+bookmarks | bookmarks_delete | DELETE | {authenticated} | (user_id = ( SELECT auth.uid() AS uid)) | 
+bookmarks | bookmarks_insert | INSERT | {authenticated} |  | (user_id = ( SELECT auth.uid() AS uid))
+bookmarks | bookmarks_read_own | SELECT | {authenticated} | (user_id = ( SELECT auth.uid() AS uid)) | 
+comments | comments_delete | DELETE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+comments | comments_insert | INSERT | {authenticated} |  | ((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write))
+comments | comments_read | SELECT | {anon,authenticated} | (published OR (author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+comments | comments_update | UPDATE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | (((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write)) OR ( SELECT is_moderator() AS is_moderator))
+content_versions | content_versions_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 
+content_workflow | content_workflow_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 
+forum_replies | replies_delete | DELETE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+forum_replies | replies_insert | INSERT | {authenticated} |  | ((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write))
+forum_replies | replies_read | SELECT | {anon,authenticated} | (published OR (author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+forum_replies | replies_update | UPDATE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | (((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write)) OR ( SELECT is_moderator() AS is_moderator))
+forum_seed_threads | seed_mod_update | UPDATE | {authenticated} | ( SELECT is_moderator() AS is_moderator) | ( SELECT is_moderator() AS is_moderator)
+forum_seed_threads | seed_read | SELECT | {anon,authenticated} | true | 
+forum_threads | threads_delete | DELETE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+forum_threads | threads_insert | INSERT | {authenticated} |  | ((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write) AND ((cat <> '公告'::text) OR ( SELECT is_admin() AS is_admin)))
+forum_threads | threads_read | SELECT | {anon,authenticated} | (published OR (author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+forum_threads | threads_update | UPDATE | {authenticated} | ((author = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | (((author = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write)) OR ( SELECT is_moderator() AS is_moderator))
+friend_links | friend_links_read | SELECT | {anon,authenticated} | ((status = 'approved'::text) OR ( SELECT is_admin() AS is_admin)) | 
+guestbook_entries | guestbook_read | SELECT | {anon,authenticated} | ((status = 'approved'::text) OR ( SELECT is_moderator() AS is_moderator)) | 
+likes | likes_delete | DELETE | {authenticated} | (user_id = ( SELECT auth.uid() AS uid)) | 
+likes | likes_insert | INSERT | {authenticated} |  | ((user_id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write))
+likes | likes_read | SELECT | {anon,authenticated} | true | 
+notifications | notifications_delete_own | DELETE | {authenticated} | (user_id = ( SELECT auth.uid() AS uid)) | 
+notifications | notifications_read_own | SELECT | {authenticated} | (user_id = ( SELECT auth.uid() AS uid)) | 
+notifications | notifications_update_own | UPDATE | {authenticated} | (user_id = ( SELECT auth.uid() AS uid)) | (user_id = ( SELECT auth.uid() AS uid))
+objects | az_ugc_images_delete | DELETE | {authenticated} | ((bucket_id = 'ugc-images'::text) AND ((split_part(name, '/'::text, 1) = (( SELECT auth.uid() AS uid))::text) OR ( SELECT is_moderator() AS is_moderator))) | 
+objects | az_ugc_images_insert | INSERT | {authenticated} |  | ((bucket_id = 'ugc-images'::text) AND az_ugc_image_upload_ok(name, metadata))
+objects | az_ugc_images_select | SELECT | {authenticated} | ((bucket_id = 'ugc-images'::text) AND ((split_part(name, '/'::text, 1) = (( SELECT auth.uid() AS uid))::text) OR ( SELECT is_moderator() AS is_moderator))) | 
+profiles | profiles_read | SELECT | {anon,authenticated} | true | 
+profiles | profiles_update_own | UPDATE | {authenticated} | (id = ( SELECT auth.uid() AS uid)) | ((id = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write))
+reports | reports_insert | INSERT | {authenticated} |  | ((reporter = ( SELECT auth.uid() AS uid)) AND ( SELECT can_write() AS can_write))
+reports | reports_mod_update | UPDATE | {authenticated} | ( SELECT is_moderator() AS is_moderator) | ( SELECT is_moderator() AS is_moderator)
+reports | reports_read | SELECT | {authenticated} | ((reporter = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+site_content | content_admin_delete | DELETE | {authenticated} | ( SELECT is_admin() AS is_admin) | 
+site_content | content_admin_insert | INSERT | {authenticated} |  | ( SELECT is_admin() AS is_admin)
+site_content | content_admin_update | UPDATE | {authenticated} | ( SELECT is_admin() AS is_admin) | ( SELECT is_admin() AS is_admin)
+site_content | content_read | SELECT | {anon,authenticated} | (published OR ( SELECT is_admin() AS is_admin)) | 
+user_bans | user_bans_read | SELECT | {authenticated} | ((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_moderator() AS is_moderator)) | 
+workflow_tick_runs | workflow_tick_runs_read | SELECT | {authenticated} | ( SELECT is_moderator() AS is_moderator) | 

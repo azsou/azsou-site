@@ -1,0 +1,27 @@
+[03:52:31Z] 1. 类生产库：plain shim + 0001_baseline
+[03:52:31Z]    合成数据（V72 形状，全部为虚构账号 / 内容）
+[03:52:31Z] 2. 迁移前快照 + 备份（pg_dump -Fc，含 auth.users）
+[03:52:31Z] 3. 执行 0002 → 0018（每步后 status）
+[03:52:32Z]    0002_roles_columns.sql 完成（47 ms），status 未通过项 23
+[03:52:32Z]    0003_social_tables.sql 完成（58 ms），status 未通过项 22
+[03:52:32Z]    0004_functions_triggers.sql 完成（29 ms），status 未通过项 20
+[03:52:32Z]    0005_privileges.sql 完成（22 ms），status 未通过项 18
+[03:52:32Z]    0006_rls.sql 完成（31 ms），status 未通过项 16
+[03:52:32Z]    0007_signup_guard.sql 完成（26 ms），status 未通过项 15
+[03:52:32Z]    0008_forum_search.sql 完成（28 ms），status 未通过项 14
+[03:52:32Z]    0009_admin.sql 完成（44 ms），status 未通过项 12
+[03:52:32Z]    0010_ugc_images.sql 完成（26 ms），status 未通过项 10
+[03:52:32Z]    0011_forum_category_guard.sql 完成（21 ms），status 未通过项 9
+[03:52:32Z]    0012_app_store.sql 完成（37 ms），status 未通过项 7
+[03:52:32Z]    0013_tool_comments.sql 完成（28 ms），status 未通过项 6
+[03:52:33Z]    0014_video_comments.sql 完成（40 ms），status 未通过项 5
+[03:52:33Z]    0015_guestbook.sql 完成（53 ms），status 未通过项 3
+[03:52:33Z]    0016_subscribers.sql 完成（27 ms），status 未通过项 2
+[03:52:33Z]    0017_admin_crm.sql 完成（42 ms），status 未通过项 1
+[03:52:33Z]    0018_state_consistency.sql 完成（33 ms），status 未通过项 0
+[03:52:33Z] 4. 迁移前后差异
+[03:52:33Z] 5. 幂等：重跑 0017、0018，再重跑整套 0002 → 0018
+[03:52:34Z]    重跑后快照与首次迁移后一致：ok
+[03:52:34Z] 6. 回滚演练：迁移前备份恢复到新库
+[03:52:35Z]    恢复后行数与 status 与迁移前一致：ok
+[03:52:35Z] 完成。生产库未连接、未改动。
