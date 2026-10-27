@@ -11,6 +11,16 @@ import { mockAdmin } from './admin-mock';
  * 视口是模拟（不是真机）；真机 / 读屏结论另行签字。
  */
 
+// 与 a11y.spec 一致：用例不连第三方（Supabase 站点设置、Turnstile、广告）。
+// 注意：本地沙箱里真实的 supabase.co 请求连不上，挂起期间 Chromium 不再向页面派发 CDP 合成的鼠标事件
+// （按钮命中检测正常、无遮罩；route 拦截后点击恢复，2794ccb 的构建同样复现）→ 这是环境问题，不是页面 bug。
+// 在 beforeEach 里先注册：mockAdmin 之后注册的 route 优先级更高，后台夹具不受影响。
+test.beforeEach(async ({ page }) => {
+  await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
+    r.abort(),
+  );
+});
+
 async function open(page: Page, path: string, vp: { width: number; height: number }) {
   await page.setViewportSize(vp);
   await page.clock.setFixedTime(new Date(FIXED_TIME));
@@ -38,12 +48,11 @@ for (const width of [320, 390]) {
           steps[href] = 99;
           continue;
         }
-        // 键盘激活（Enter 触发同一 click）：本地沙箱 Chromium 对部分页面的合成鼠标点击不派发事件，键盘路径稳定
-        await more.focus();
-        await page.keyboard.press('Enter');
+        await more.click();
         const link = page.locator(`[data-tabbar-panel] a[href="${href}"]`);
         steps[href] = (await link.isVisible()) ? 2 : 99;
         await page.keyboard.press('Escape');
+        await expect(page.locator('[data-tabbar-panel]')).toBeHidden();
       }
       expect(Object.entries(steps).filter(([, n]) => n > 2)).toEqual([]);
     });
@@ -54,8 +63,7 @@ test('T006「更多」面板：当前栏目有 aria-current，Esc 关闭并把�
   await open(page, '/videos/', { width: 390, height: 844 });
   const more = page.locator('[data-tabbar-more]');
   await expect(more).toHaveAccessibleName(/更多.*当前：视频/);
-  await more.focus();
-  await page.keyboard.press('Enter');
+  await more.click();
   const panel = page.locator('[data-tabbar-panel]');
   await expect(panel).toBeVisible();
   await expect(panel.locator('a[href="/videos/"]')).toHaveAttribute('aria-current', 'page');
@@ -294,9 +302,7 @@ test('T027 搜索类型写进 URL：刷新、后退、前进都还原；摘要�
   await open(page, '/search/?q=Claude', { width: 1440, height: 900 });
   const tabs = page.locator('[data-type-tabs]');
   await expect(tabs.getByRole('tab').first()).toBeVisible();
-  // 键盘激活 = 同一 click 处理器（见 T006 注释）
-  await tabs.getByRole('tab', { name: /^视频/ }).focus();
-  await page.keyboard.press('Enter');
+  await tabs.getByRole('tab', { name: /^视频/ }).click();
   await expect(page).toHaveURL(/[?&]type=video/);
   await expect(page).toHaveURL(/[?&]q=Claude/);
   const visibleTypes = () =>
@@ -312,8 +318,7 @@ test('T027 搜索类型写进 URL：刷新、后退、前进都还原；摘要�
   await page.goForward();
   await expect(tabs.getByRole('tab', { name: /^视频/ })).toHaveAttribute('aria-selected', 'true');
   // 摘要：不应出现详情页指标条 / 开发者行的字段名（价格、平台、第三方开发者）
-  await tabs.getByRole('tab', { name: /^全部/ }).focus();
-  await page.keyboard.press('Enter');
+  await tabs.getByRole('tab', { name: /^全部/ }).click();
   const subs = await page.locator('[data-results] li[data-type="tool"] .list-row__sub').allTextContents();
   expect(subs.length).toBeGreaterThan(0);
   expect(subs.filter((s) => /价格|第三方开发者|平台\s/.test(s))).toEqual([]);
