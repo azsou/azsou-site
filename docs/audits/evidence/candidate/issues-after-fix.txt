@@ -1,4 +1,0 @@
-  ✓  17 [chromium-desktop] › tests/e2e/admin-read.spec.ts:265:3 › A15 故障注入发现的两个问题（整合候选 admin-faults） › 内容：定时发布结算（mod_workflow_tick）卡住时不挡列表——列表先读出真实数据 (2.5s)
-  ✓  19 [chromium-desktop] › tests/e2e/admin-read.spec.ts:286:3 › A15 故障注入发现的两个问题（整合候选 admin-faults） › 门禁：已登录但读取资料失败（断网 / 503）→ 显示分类错误与「重试」，不显示登录引导；恢复后重试进入后台 (3.9s)
-  ✓  55 [chromium-iphone] › tests/e2e/admin-read.spec.ts:265:3 › A15 故障注入发现的两个问题（整合候选 admin-faults） › 内容：定时发布结算（mod_workflow_tick）卡住时不挡列表——列表先读出真实数据 (2.8s)
-  ✓  57 [chromium-iphone] › tests/e2e/admin-read.spec.ts:286:3 › A15 故障注入发现的两个问题（整合候选 admin-faults） › 门禁：已登录但读取资料失败（断网 / 503）→ 显示分类错误与「重试」，不显示登录引导；恢复后重试进入后台 (3.8s)
