@@ -3,6 +3,7 @@ import pg from 'pg';
 import type { Page, TestInfo } from '@playwright/test';
 import { test as base, expect } from './fixtures';
 import { forwardRest, seedThread, uniq } from './community-fixtures';
+import { ADMIN_READ_MODULES } from './admin-modules';
 import { tok } from '../db/postgrest';
 
 /**
@@ -69,17 +70,8 @@ async function shot(page: Page, info: TestInfo, name: string) {
   await page.screenshot({ path: `${dir}/${name}-${w}.png`, fullPage: false });
 }
 
-/** 8 个模块：路径、错误所在区域、生产库缺的对象所属迁移 */
-const MODULES = [
-  { id: 'overview', path: '/admin/', migration: '0009' },
-  { id: 'content', path: '/admin/content/', migration: '0009' },
-  { id: 'users', path: '/admin/users/', migration: '0009' },
-  { id: 'reports', path: '/admin/reports/', migration: '0003' },
-  { id: 'guestbook', path: '/admin/guestbook/', migration: '0015' },
-  { id: 'links', path: '/admin/links/', migration: '0015' },
-  { id: 'subscribers', path: '/admin/subscribers/', migration: '0016' },
-  { id: 'audit', path: '/admin/audit/', migration: '0003' },
-] as const;
+/** 8 个模块：唯一清单在 admin-modules.ts（与交接文档、真实后台侧栏逐项核对） */
+const MODULES = ADMIN_READ_MODULES;
 
 test.describe('A15 / T091 生产等价库（shim + 0001，0002–0017 未执行）', () => {
   for (const m of MODULES)
@@ -167,19 +159,9 @@ test.describe('A15 全量库（0001…0017）：8 个模块读出真实数据', 
       [a.id, tid],
     );
     await signIn(page, a);
-    const ready: Record<string, string> = {
-      overview: '[data-stats] .stat',
-      content: 'tbody[data-rows] tr[data-row]',
-      users: 'tbody[data-rows] tr[data-row]',
-      reports: '[data-report], .report, [data-table-empty]',
-      guestbook: '[data-table-empty], .mod-item',
-      links: '[data-table-empty], .mod-item',
-      subscribers: '[data-status-row]',
-      audit: 'tbody[data-rows] tr, [data-table-empty]',
-    };
     for (const m of MODULES) {
       await page.goto(m.id === 'content' ? `${m.path}?q=${encodeURIComponent(title)}` : m.path);
-      await expect(page.locator(ready[m.id]).first()).toBeVisible();
+      await expect(page.locator(m.ready).first()).toBeVisible();
       await expect(page.locator('[data-table-error]')).toHaveCount(0);
       await shot(page, info, `full-${m.id}`);
     }
@@ -255,7 +237,10 @@ test.describe('A15 全量库：错误分类与重试', () => {
 });
 
 test.afterAll(async () => {
-  await Promise.all(Object.values(pools).map((p) => p.end()));
+  // 同一 worker 可能多次执行 afterAll（fullyParallel 分组 / 同一 worker 跑多个项目）：先从表里摘掉再 end，每个连接池只关一次
+  const all = Object.values(pools);
+  for (const k of Object.keys(pools)) delete pools[k];
+  await Promise.all(all.map((p) => p.end()));
 });
 
 test.describe('A15 故障注入发现的两个问题（整合候选 admin-faults）', () => {

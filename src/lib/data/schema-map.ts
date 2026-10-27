@@ -55,10 +55,6 @@ export const OBJECT_MIGRATION: Record<string, string> = {
 /** 0017 才有的「排序参数」版本（旧函数存在但签名不同） */
 export const SORT_MIGRATION = '0017';
 
-/** PostgREST 路径（`rpc/name?…` / `table?…`）→ 对象名 */
-export function objectFromPath(path: string): string {
-  const p = path.split('?')[0].replace(/^\/+/, '');
-  return p.startsWith('rpc/') ? p.slice(4) : p;
-}
+export { objectFromPath } from './types';
 
 export const migrationOf = (object: string): string | null => OBJECT_MIGRATION[object] ?? null;

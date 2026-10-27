@@ -48,6 +48,33 @@
 证据边界：真实预览的已登录 Network 面板仍**阻塞**（没有管理员凭据，预览受 Vercel 部署保护）；
 「预览连的就是生产库」来自代码默认值与生产库结构的一致，属推断。若预览改连了其他项目，请站长提供该项目的只读访问以复核。
 
+## A15 八模块清单（2026-10-27 21:06 站长要求按真实后台纠正）
+
+唯一清单：`tests/e2e/admin-modules.ts`（admin-read / admin-faults 两个 E2E 与 `tests/unit/admin-modules.test.ts` 共用）。
+依据交接文档原文「概览、内容、用户、举报、留言、友链、订阅、审计」与真实后台侧栏 `src/lib/admin-nav.ts` 逐项对账（单测断言）；
+「数据端点」= 健康库上该模块实际发出的请求（admin-faults 基线用例在真实 PostgREST 上记录并断言与清单**完全相等**），
+另有每个后台页面都会发的外壳请求 `reports`（举报角标，0003）与 `rpc/unread_notification_count`（0004）。
+
+| 交接文档 | 侧栏     | 路径                  | 数据端点（主对象在前）                                                             | 生产现状库错误条里的迁移 |
+| -------- | -------- | --------------------- | ---------------------------------------------------------------------------------- | ------------------------ |
+| 概览     | 概览     | `/admin/`             | `rpc/admin_stats`、`rpc/mod_lift_expired_bans`                                     | 0009                     |
+| 内容     | 内容管理 | `/admin/content/`     | `rpc/mod_list_content`（排序参数 0017，缺时降级）、`rpc/mod_workflow_tick`（0017） | 0009                     |
+| 用户     | 用户     | `/admin/users/`       | `rpc/mod_list_users`（排序参数 0017）                                              | 0009                     |
+| 举报     | 举报队列 | `/admin/reports/`     | `reports`、`forum_threads`（被举报目标预览）                                       | 0003                     |
+| 留言     | 留言审核 | `/admin/guestbook/`   | `guestbook_entries`                                                                | 0015                     |
+| 友链     | 友链审核 | `/admin/links/`       | `rpc/admin_list_friend_links`                                                      | 0015                     |
+| 订阅     | 邮件订阅 | `/admin/subscribers/` | `rpc/admin_subscriber_counts`                                                      | 0016                     |
+| 审计     | 审计日志 | `/admin/audit/`       | `audit_log`                                                                        | 0003                     |
+
+**不在** 8 模块里：站点设置（`site_content`，V72 已有；A16 另测）、导入导出（按需导出）、权限矩阵（静态）、官方内容（构建期 Git 清单）、用户详情（从用户列表进入）。
+
+纠正记录：本 PR 的测试清单本来就与上表一致（只是分散在两个文件里，已合并为一份并加了对账测试）；
+写错的是批次 2（PR #5）的放行申请 `docs/release/2026-10-27-prod-migrations-0002-0018-release-request.md` 验证清单那一行——
+写成了「仪表盘、举报、内容、用户、审计、设置、数据、权限矩阵」（多了设置 / 数据 / 权限矩阵，漏了留言 / 友链 / 订阅）。
+该文件只在 #5 分支上，已把正确写法交给 #5 负责人改（本 PR 不改 #5 的文件）。
+
+**A15 仍然打开**：上表 8 个模块要在隔离的 Supabase 测试项目上用真实管理员会话逐个读出真实数据 / 真实空态才能关闭（另有负责人推进）；本地真实 PostgREST 结果不算真实预览验收。
+
 ## 修复（不需要执行生产迁移）
 
 - `SchemaMissingError`：缺对象时带对象名、PostgREST 错误码和创建它的迁移编号（`src/lib/data/schema-map.ts`，单测逐项对账迁移文件）。

@@ -1,5 +1,5 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
-// 端口：PW_PORT → E2E_PORT → 4321（与自建 context 的用例共用，tests/e2e/port.ts）
+// 端口：PW_PORT → E2E_PORT → 4321（与自建 context 的用例共用；本地多个工作区并行时错开，CI 不设）
 import { BASE_URL, PORT } from './tests/e2e/port';
 
 /**
@@ -57,7 +57,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : process.env.CI ? 2 : undefined,
-  // CI 也加 list：日志里逐条列出跑了哪些用例（确认用例实际执行而非跳过）
+  // CI 也加 list：日志里逐条列出跑了哪些用例（例如确认 admin-faults 真的执行而非跳过）
   reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : [['list']],
   timeout: 30_000,
   expect: { timeout: 7_000 },

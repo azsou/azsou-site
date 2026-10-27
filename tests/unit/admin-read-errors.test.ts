@@ -8,6 +8,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseRepository, memoryStore, type Session } from '@/lib/data';
+import { adminApiFor } from '@/lib/data/admin-repo';
 import { DataUnavailableError, ForbiddenError, SchemaMissingError } from '@/lib/data/types';
 import { OBJECT_MIGRATION, objectFromPath } from '@/lib/data/schema-map';
 import { describeAdminError, adminErrorLine } from '@/lib/admin-errors';
@@ -50,7 +51,7 @@ const repoWith = (routes: Parameters<typeof fakeFetch>[0], timeoutMs?: number) =
     store: memoryStore(session),
     timeoutMs,
   });
-  return { admin: repo.admin!, calls: ff.calls };
+  return { admin: adminApiFor(repo)!, calls: ff.calls };
 };
 /** 生产库实测的错误体（docs/audits/evidence/batch1/prod-anon-probe.txt） */
 const PGRST202 = (fn: string) => ({

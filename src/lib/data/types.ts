@@ -312,8 +312,12 @@ export interface DataRepository {
   bookmarks: BookmarkRepo;
   /** 用户图片（P5，Supabase Storage `ugc-images` 桶）；没有对象存储的适配器不提供 */
   media?: MediaRepo;
-  /** 管理后台（P4）；内存适配器不提供 */
-  admin?: import('./admin').AdminRepo;
+  /**
+   * 管理后台（P4）用的原始 REST 通道（缺 RPC / 表时抛 SchemaMissingError）；内存适配器不提供。
+   * 后台接口本身由 `adminApiFor(repo)`（src/lib/data/admin-repo.ts）按需创建——
+   * 不放在仓储对象上，是为了让公开页面共用的数据层 chunk 不带后台代码（JS 预算）。
+   */
+  adminRest?: import('./admin').AdminRest;
 }
 
 // ------------------------------------------------------------------ 错误 ----
@@ -345,7 +349,7 @@ export class SchemaMissingError extends DataUnavailableError {
   readonly object: string;
   readonly code: string;
   readonly migration: string | null;
-  constructor(object: string, code: string, migration: string | null) {
+  constructor(object: string, code: string, migration: string | null = null) {
     super(
       migration
         ? `数据库缺少「${object}」（迁移 ${migration} 未执行）`
@@ -357,6 +361,12 @@ export class SchemaMissingError extends DataUnavailableError {
     this.code = code;
     this.migration = migration;
   }
+}
+
+/** PostgREST 路径（`rpc/name?…` / `table?…`）→ 对象名 */
+export function objectFromPath(path: string): string {
+  const p = path.split('?')[0].replace(/^\/+/, '');
+  return p.startsWith('rpc/') ? p.slice(4) : p;
 }
 
 /** 需要登录 */
