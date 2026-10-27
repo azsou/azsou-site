@@ -562,6 +562,21 @@
     .nav-links {
       display: none;
     }
+    /* D10 补：顶栏 flex-wrap 后，换行判断按站点名的整行宽度，320 宽默认字号也会换成两行（+36px）。
+       站点名以 min-content 为基准、可伸展：放得下时仍是一行（站点名自身可折行，同改动前），只有 320 + 200% 文字等真放不下时才换行 */
+    .brand {
+      flex: 1 1 min-content;
+    }
+  }
+  /* 320 默认字号：站点名（可折行）+ 4 个 44 命中区按钮按原间距差约 10px 放不下，会被换成两行（+36px）。
+     只在接近 320 时按视口宽度收紧间距（命中区仍 44；≥ 344 即恢复原间距，不新增断点），默认字号保持一行；200% 文字仍会换行（D10） */
+  @media (max-width: 599.98px) {
+    .site-nav__inner {
+      column-gap: clamp(var(--space-2), calc((100vw - 296px) / 2), var(--space-4));
+    }
+    .nav-actions {
+      gap: clamp(var(--space-1), calc((100vw - 296px) / 6), var(--space-2));
+    }
   }
   /* 手机横屏等矮视口：固定栏精简（DESIGN-SYSTEM §21） */
   @media (max-height: 480px) and (orientation: landscape) {
