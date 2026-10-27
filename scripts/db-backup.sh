@@ -130,7 +130,11 @@ fi
 # ⑥ 结构 SQL（人工对比用）
 dump --schema=public --schema-only --no-owner | gzip -9 >"$PREFIX-schema-$TS.sql.gz"
 # schema 版本（status.sql 在同一快照里）
-SCHEMA_VERSION=$(in_snap -F '|' -f "$ROOT/db/verify/status.sql" | schema_version_from_status)
+# 不是本站结构的库（status.sql 引用的表不存在）记为 unknown：备份照做，精确恢复时必须显式 --accept-backup-version unknown
+if ! SCHEMA_VERSION=$(in_snap -F '|' -f "$ROOT/db/verify/status.sql" 2>"$STMP/status.err" | schema_version_from_status); then
+  SCHEMA_VERSION=unknown
+  echo "注意：db/verify/status.sql 在这个库上执行失败（$(grep -m1 ERROR "$STMP/status.err" || true)），schema 版本记为 unknown"
+fi
 echo "schema 版本：$SCHEMA_VERSION"
 # ⑤ globals 清单（种类 \t 名称 \t 值）
 in_snap >"$PREFIX-globals-$TS.tsv" -f - <<'SQL'

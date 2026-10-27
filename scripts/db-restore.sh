@@ -199,7 +199,8 @@ S="$W/restore.sql"
   [ -n "$PRIV" ] && pg_restore --no-owner -f - "$B/$PRIV"
   [ -n "$STOR" ] && [ -s "$W/stor-sel.list" ] && pg_restore --no-owner -L "$W/stor-sel.list" -f - "$B/$STOR"
   echo "select pg_catalog.set_config('search_path', 'public', true);"
-  echo "set local azsou.expected_version = '$VER';"
+  # Storage 经 API 恢复时，0010 的 status 检查依赖桶行（提交后才由 API 建），版本核对放到 Storage 恢复之后
+  if [ "$STORAGE_MODE" = api ]; then echo "set local azsou.expected_version = 'defer';"; else echo "set local azsou.expected_version = '$VER';"; fi
   echo 'create temp table _exp (tbl text, n bigint, md5 text, cols text) on commit drop;'
   echo "\\copy _exp from '$B/$CHK'"
   echo 'create temp table _rc (tbl text, n bigint) on commit drop;'
@@ -236,7 +237,7 @@ begin
            when fb is not null and bool_or(ok and step > fb) then 'mixed:' || string_agg(step, ',' order by step) filter (where ok)
            else max(step) filter (where ok) end
     into ver from s;
-  if ver is distinct from current_setting('azsou.expected_version') then
+  if current_setting('azsou.expected_version') <> 'defer' and ver is distinct from current_setting('azsou.expected_version') then
     raise exception '恢复后的 schema 版本 % 与备份 % 不一致，事务回滚', ver, current_setting('azsou.expected_version');
   end if;
 end $$;
@@ -271,7 +272,7 @@ commit;
 SQL
   node scripts/ops/storage-files.mjs verify "$B/$FLIST" "$B/$SBUCKETS" || fail "Storage 核对失败"
   # 身份列（桶设置 / 对象名 / owner）与备份快照逐行一致
-  bad=$(psql "$TARGET" -XAt -v ON_ERROR_STOP=1 <<SQL
+  bad=$(psql "$TARGET" -XAtq -v ON_ERROR_STOP=1 <<SQL
 create temp table _exp (tbl text, n bigint, md5 text, cols text);
 \copy _exp from '$B/$CHK'
 delete from _exp where tbl not like 'storage.%#identity';
@@ -284,5 +285,7 @@ SQL
 ) || fail "Storage 身份列核对失败"
   [ -z "$bad" ] || fail "Storage 身份列与备份不一致：$bad"
   echo "  范围 storage（API）：桶设置 / 对象名 / owner 与备份快照一致，文件 sha256 一致"
+  now=$(psql "$TARGET" -XAt -F '|' -v ON_ERROR_STOP=1 -f db/verify/status.sql | schema_version_from_status) || fail "读不出恢复后的 schema 版本"
+  [ "$now" = "$VER" ] || fail "恢复后的 schema 版本 $now 与备份 $VER 不一致"
 fi
 echo "✓ 精确恢复完成：schema 版本 $VER（未执行任何迁移），快照 $SNAP。需要升级到 $HEAD 时另行显式运行 scripts/db-upgrade.sh。"

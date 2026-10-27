@@ -33,6 +33,22 @@ case "${1:-}" in
     [ -f "$STORAGE_API_DIR/dist/start/server.js" ] || { echo "storage-api 未构建：$STORAGE_API_DIR/dist/start/server.js" >&2; exit 2; }
     mkdir -p "$DIR"
     log="$DIR.log"
+    # API 角色是整个集群共享的：先按 db/shim/plain.sql 的方式建好（已存在则跳过），storage-api 不再自己建
+    # （它的 DB_INSTALL_ROLES=true 在角色已存在时会迁移失败）
+    psql "$URL" -Xq -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
+do $$
+declare r record;
+begin
+  for r in select * from (values
+    ('anon', 'create role anon nologin noinherit'),
+    ('authenticated', 'create role authenticated nologin noinherit'),
+    ('service_role', 'create role service_role nologin noinherit bypassrls')) as t(name, ddl) loop
+    if not exists (select 1 from pg_roles where rolname = r.name) then
+      begin execute r.ddl; exception when duplicate_object or unique_violation then null; end;
+    end if;
+  end loop;
+end $$;
+SQL
     (
       cd "$STORAGE_API_DIR"
       exec env -i PATH="$PATH" HOME="${HOME:-/tmp}" NODE_ENV=production \
@@ -40,7 +56,7 @@ case "${1:-}" in
         AUTH_JWT_SECRET="$LOCAL_JWT_SECRET" AUTH_JWT_ALGORITHM=HS256 \
         ANON_KEY="$(jwt anon)" SERVICE_KEY="$(jwt service_role)" \
         TENANT_ID=azsou-local DATABASE_URL="$URL" DATABASE_POOL_URL= DATABASE_CONNECTION_TIMEOUT=5000 \
-        DB_INSTALL_ROLES=true DB_ANON_ROLE=anon DB_SERVICE_ROLE=service_role DB_AUTHENTICATED_ROLE=authenticated \
+        DB_INSTALL_ROLES=false DB_ANON_ROLE=anon DB_SERVICE_ROLE=service_role DB_AUTHENTICATED_ROLE=authenticated \
         DB_SUPER_USER=postgres DB_ALLOW_MIGRATION_REFRESH=true DB_MIGRATIONS_FREEZE_AT= \
         STORAGE_BACKEND=file STORAGE_FILE_BACKEND_PATH="$DIR" STORAGE_FILE_ETAG_ALGORITHM=md5 \
         GLOBAL_S3_BUCKET=azsou-local FILE_SIZE_LIMIT=52428800 UPLOAD_FILE_SIZE_LIMIT=52428800 \

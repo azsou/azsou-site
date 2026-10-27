@@ -71,22 +71,20 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
     </section>
 
     <section class="panel" aria-labelledby="h-backup">
-      <h2 id="h-backup">数据库备份（pg_dump）</h2>
+      <h2 id="h-backup">数据库备份（统一快照 + 加密）</h2>
       <p>
-        上面的导出只覆盖用户内容；完整备份（含审计日志、举报、通知、封禁记录与函数 / 策略）请用{' '}
-        <code>pg_dump</code>：
+        上面的导出只覆盖用户内容；完整备份（含账户、审计日志、举报、通知、封禁记录、函数 / 策略与 Storage
+        文件）用仓库里的脚本，各范围取自同一个数据库快照，产物强制加密：
       </p>
       <pre class="code-block">{`# 连接串在 Supabase Dashboard → Project Settings → Database（用 Session pooler 或直连）
-pg_dump "$DATABASE_URL" --schema=public --no-owner --no-privileges \\
-  --format=custom --file=azsou-$(date +%F).dump
+BACKUP_PASSPHRASE=… STORAGE_URL=https://<ref>.supabase.co/storage/v1 STORAGE_SERVICE_KEY=… \\
+  bash scripts/db-backup.sh "$DATABASE_URL" ./backup
 
-# 只要数据（结构由 db/migrations 重建）
-pg_dump "$DATABASE_URL" --schema=public --data-only --format=custom --file=azsou-data-$(date +%F).dump
-
-# 恢复到新库：先 db/shim/plain.sql + 迁移，再导入数据
-pg_restore --data-only --disable-triggers --no-owner -d "$NEW_DATABASE_URL" azsou-data-YYYY-MM-DD.dump`}</pre>
+# 精确恢复到一个空的新项目（不执行迁移）；需要升级时另行显式运行 scripts/db-upgrade.sh
+bash scripts/db-restore.sh "$NEW_DATABASE_URL" ./backup --storage-api`}</pre>
       <p class="field__hint mt-4">
-        完整步骤、定时备份（GitHub Actions）与换库方法见仓库 <code>docs/BACKUP.md</code>。
+        GitHub Actions 的备份工作流仅手动触发，并需在受保护环境 backup-production 中审批；完整步骤见仓库
+        <code>docs/BACKUP.md</code>。
       </p>
     </section>
   </div>

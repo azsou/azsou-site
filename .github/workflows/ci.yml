@@ -107,6 +107,52 @@ jobs:
         uses: actions/upload-artifact@v4
         with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
 
+  # 站长第三轮 ④：Storage 文件本体备份 → 精确恢复往返。**本地集成测试**：真实 supabase/storage（v1.19.0 源码构建，file 后端）
+  # 挂在 CI 的临时 Postgres 上；不是 Supabase 托管项目上的真实验收（那需要隔离测试项目，见 docs/BACKUP.md §2B）。
+  storage-roundtrip:
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      STORAGE_API_DIR: ${{ github.workspace }}/.storage-api
+      STORAGE_API_REF: v1.19.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: PostgreSQL 17 客户端
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: .storage-api
+          key: storage-api-${{ env.STORAGE_API_REF }}-node22-${{ runner.os }}-${{ runner.arch }}
+      - name: 构建 supabase/storage ${{ env.STORAGE_API_REF }}（官方源码，未改动）
+        run: |
+          if [ ! -f .storage-api/dist/start/server.js ]; then
+            rm -rf .storage-api
+            git clone -q --depth 1 --branch "$STORAGE_API_REF" https://github.com/supabase/storage.git .storage-api
+            cd .storage-api
+            npm ci --no-audit --no-fund --ignore-scripts
+            npm rebuild fs-xattr
+            node build.js
+            npx resolve-tspaths
+          fi
+      - name: Storage 往返（备份经 API 下载 → 加密归档 → 精确恢复经 API 上传 → sha256 / 清单 / owner / 策略核对 + 负面用例）
+        run: bash tests/ops/storage-roundtrip.sh
+
   e2e:
     timeout-minutes: 50
     needs: build
