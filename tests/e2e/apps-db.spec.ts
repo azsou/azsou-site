@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { test, expect, forwardRest, uniq } from './community-fixtures';
 import { ANON } from '../db/postgrest';
+import { BASE_URL } from './port';
 
 /**
  * P6 应用商店连真实 Postgres + PostgREST（0012 的 RLS / 触发器 / 计数 RPC 全是真的）：
@@ -10,7 +11,7 @@ import { ANON } from '../db/postgrest';
  */
 
 const CTX = {
-  baseURL: 'http://127.0.0.1:4321',
+  baseURL: BASE_URL,
   locale: 'zh-CN',
   timezoneId: 'Asia/Shanghai',
   serviceWorkers: 'block' as const,

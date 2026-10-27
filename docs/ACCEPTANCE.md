@@ -76,12 +76,14 @@ CI：`.github/workflows/ci.yml`，每次推送到 `v2/astro` 与 PR #2 都会跑
 
 ## 6. 备份与恢复
 
-| #   | 检查项                                                                                      | 证据                                                                 | 状态 |
-| --- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---- |
-| 6.1 | 每周一 03:30（北京时间）自动备份，产物保留 30 天，可选 gpg 加密                             | `.github/workflows/db-backup.yml`、`scripts/db-backup.sh`；BACKUP.md | ✅   |
-| 6.2 | 恢复演练：备份 → 整库恢复 / 换库恢复 → 行数、策略、函数、授权核对 → 在恢复库上跑 RLS 测试   | CI db：`scripts/restore-drill.sh`（每次 CI 都跑）                    | ✅   |
-| 6.3 | 添加仓库 Secret `SUPABASE_DB_URL`、`BACKUP_PASSPHRASE`，手动运行一次「DB backup」并下载产物 | OPERATIONS.md §4                                                     | 🟡   |
-| 6.4 | 生产迁移前完成一次备份并确认拿到文件                                                        | MIGRATION.md §1                                                      | 🟡   |
+| #   | 检查项                                                                                                                                                                                         | 证据                                                                                                                         | 状态                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 6.1 | 备份工作流仅手动触发、受保护环境 backup-production 审批；统一快照；数据库各范围 + Storage 文件；强制 gpg 加密；产物保留 30 天                                                                  | `.github/workflows/db-backup.yml`、`scripts/db-backup.sh`、`tests/ops/test_workflows.py`；BACKUP.md §2E                      | ✅（仓库侧；环境待站长创建） |
+| 6.2 | 恢复演练：备份 → 精确恢复（单事务、事务内逐表行数 + 校验和）/ 旧版本备份显式确认 + 显式升级 → 策略、函数、授权核对 → 在恢复库上跑 RLS 测试；Storage 文件往返（本地集成测试，真实 storage-api） | CI db：`scripts/restore-drill.sh`、`tests/ops/backup-consistency.sh`；CI storage-roundtrip：`tests/ops/storage-roundtrip.sh` | ✅                           |
+| 6.3 | 创建环境 backup-production（必需审批人 + 环境变量 / Secret），手动运行一次「DB backup」并下载产物                                                                                              | OPERATIONS.md §4、BACKUP.md §2E                                                                                              | 🟡                           |
+| 6.4 | 生产迁移前完成一次备份并确认拿到文件                                                                                                                                                           | MIGRATION.md §1                                                                                                              | 🟡                           |
+| 6.5 | 站长目标 RPO ≤ 1 小时 / RTO ≤ 4 小时（现为仅手动触发的备份，未达到）                                                                                                                           | BACKUP.md §2A 差距与待批方案                                                                                                 | 🔴                           |
+| 6.6 | 备份 / 恢复脚本不吞错误（负面用例：校验和、解密、损坏、行数不符、psql / pg_restore 失败）                                                                                                      | `tests/ops/drill-negative.sh`（CI db 任务）                                                                                  | ✅                           |
 
 ## 7. 生产切换顺序（站长执行）
 

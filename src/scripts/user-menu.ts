@@ -116,8 +116,19 @@ export function initUserMenu(root: ParentNode = document) {
     if (e.key === 'Escape') close(true);
     else if (e.key === 'ArrowDown') list[(i + 1) % list.length]?.focus();
     else if (e.key === 'ArrowUp') list[(i - 1 + list.length) % list.length]?.focus();
-    else return;
+    else if (e.key === 'Home') list[0]?.focus();
+    else if (e.key === 'End') list[list.length - 1]?.focus();
+    else if (e.key === 'Tab') {
+      // D07 / T012：Tab / Shift+Tab 离开菜单即关闭（menu 语义的完整键盘行为），焦点按默认顺序继续走
+      close(false);
+      return;
+    } else return;
     e.preventDefault();
+  });
+  // 焦点被其它方式移出（点击别处、读屏跳转）时也关闭，不留悬空菜单
+  box.addEventListener('focusout', (e) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && !box.contains(next)) close(false);
   });
   document.addEventListener('click', (e) => {
     if (!box.contains(e.target as Node)) close();

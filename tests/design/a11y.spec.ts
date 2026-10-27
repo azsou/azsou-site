@@ -169,7 +169,9 @@ test.describe('键盘流程', () => {
     await expect(btn).toBeFocused();
   });
 
-  test('列表筛选：分类胶囊可 Tab 到达，「更多筛选」用键盘展开并切换排序', async ({ page }) => {
+  test('列表筛选：分类胶囊可 Tab 到达，「更多筛选」用键盘展开，工具条「排序」用键盘切换（F02 单一控件）', async ({
+    page,
+  }) => {
     await page.goto('/apps/');
     const chip = page.locator('.chip[aria-current="page"]').first();
     await chip.focus();
@@ -178,11 +180,15 @@ test.describe('键盘流程', () => {
     await more.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-more-filters]')).toHaveAttribute('open', '');
-    const sort = page.locator('[data-sort]').nth(1);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-more-filters]')).not.toHaveAttribute('open', '');
+    const sort = page.getByRole('combobox', { name: '排序' });
+    await expect(sort).toBeEnabled();
     await sort.focus();
-    await page.keyboard.press('Space');
-    await expect(sort).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('ArrowDown');
+    await expect(sort).toHaveValue('name');
     await expect(page.locator('[data-catalog-status]')).toBeVisible();
+    await expect(page.locator('[data-catalog-status]')).toContainText('按名称排序');
   });
 
   test('登录表单：Tab 顺序 邮箱 → 密码 → 登录按钮，字段有可见标签', async ({ page }) => {

@@ -8,6 +8,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 process.env.NO_PROXY = [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(',');
 process.env.no_proxy = process.env.NO_PROXY;
+// 本地并行多套工作区时可换端口（默认 4322，CI 不设）
+const PORT = process.env.PW_DESIGN_PORT ?? '4322';
 
 const chromium = {
   ...devices['Desktop Chrome'],
@@ -30,7 +32,7 @@ export default defineConfig({
   },
   snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
   use: {
-    baseURL: 'http://127.0.0.1:4322',
+    baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
     serviceWorkers: 'block',
@@ -41,8 +43,8 @@ export default defineConfig({
     { name: 'visual', testDir: 'tests/visual', use: chromium },
   ],
   webServer: {
-    command: 'node scripts/serve.mjs 4322 dist/client',
-    url: 'http://127.0.0.1:4322/',
+    command: `node scripts/serve.mjs ${PORT} dist/client`,
+    url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

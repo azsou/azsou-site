@@ -158,6 +158,34 @@
   .url {
     overflow-wrap: anywhere;
   }
+  /*
+   * D06：长标题与中英文混排（tests/design/batch3.spec.ts T011 + layout.spec「拉丁单词内断行」共同约束）
+   *  1. 不截断、不加省略号（设计门禁 Q5）：卡片 / 列表 / 详情标题都完整显示、完整可读；窄格子自然换行。
+   *  2. 卡片标题（应用 / AI 工具名称 schema 限 14 字）保持整词：只用 break-word，不让「FableMotion」被拆开；
+   *     详情标题、列表行（论坛主题 / 搜索结果等可能有 URL）、版本号等事实：超长拉丁串放不下时任意处断开
+   *     （anywhere 同时把它们的 min-content 降下来，网格 / flex 不会被撑宽）；中文照常按字断行。
+   *  3. 中文标点禁则用 strict（行首不出现「，。）」等）；标题用 balance、正文与说明用 pretty，避免单字孤行。
+   */
+  .entry__title,
+  .card__title,
+  .video-card__title {
+    overflow-wrap: break-word;
+    line-break: strict;
+    text-wrap: balance;
+  }
+  .entry__by,
+  .entry__facts,
+  .list-row__title,
+  .list-row__sub,
+  .app-hero__title,
+  .app-hero__subtitle,
+  .article-head h1 {
+    overflow-wrap: anywhere;
+    line-break: strict;
+  }
+  .list-row__title {
+    text-wrap: balance;
+  }
   code,
   pre {
     font-family: var(--font-mono);
@@ -294,10 +322,12 @@
     border-bottom: 1px solid var(--c-separator);
   }
   .site-nav__inner {
-    height: var(--nav-h);
+    /* D10：放得下时就是一行 --nav-h；320 宽 + 200% 文字等放不下时允许换到第二行（自然增高），不再撑出整页横向滚动 */
+    min-height: var(--nav-h);
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
+    gap: 0 var(--space-4);
   }
   .brand {
     display: inline-flex;
@@ -473,7 +503,9 @@
       inset-block: calc((var(--touch) - var(--control-sm)) / 2);
       z-index: -1;
       border-radius: inherit;
-      background: var(--c-fill);
+      /* D08：顶栏是半透明材质，搜索框的灰底若也半透明，下面滚过深色块时提示文字掉到 3.2:1；
+         在实色底上叠同样的灰（视觉不变），提示文字对任何内容都 ≥ 4.5 */
+      background: linear-gradient(var(--c-fill), var(--c-fill)), var(--c-glass-solid);
     }
     .nav-search .icon {
       flex: none;
@@ -532,6 +564,21 @@
     .nav-links {
       display: none;
     }
+    /* D10 补：顶栏 flex-wrap 后，换行判断按站点名的整行宽度，320 宽默认字号也会换成两行（+36px）。
+       站点名以 min-content 为基准、可伸展：放得下时仍是一行（站点名自身可折行，同改动前），只有 320 + 200% 文字等真放不下时才换行 */
+    .brand {
+      flex: 1 1 min-content;
+    }
+  }
+  /* 320 默认字号：站点名（可折行）+ 4 个 44 命中区按钮按原间距差约 10px 放不下，会被换成两行（+36px）。
+     只在接近 320 时按视口宽度收紧间距（命中区仍 44；≥ 344 即恢复原间距，不新增断点），默认字号保持一行；200% 文字仍会换行（D10） */
+  @media (max-width: 599.98px) {
+    .site-nav__inner {
+      column-gap: clamp(var(--space-2), calc((100vw - 296px) / 2), var(--space-4));
+    }
+    .nav-actions {
+      gap: clamp(var(--space-1), calc((100vw - 296px) / 6), var(--space-2));
+    }
   }
   /* 手机横屏等矮视口：固定栏精简（DESIGN-SYSTEM §21） */
   @media (max-height: 480px) and (orientation: landscape) {
@@ -562,28 +609,106 @@
     padding: 0;
     list-style: none;
   }
-  .tabbar a {
+  .tabbar a,
+  .tabbar__more {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 2px;
+    width: 100%;
     min-height: var(--tabbar-h);
     font-size: var(--fs-caption);
     color: var(--c-label-2);
   }
-  /* 底部 Tab 的文字很小（caption）：毛玻璃只留 8% 透明度，下面滚过深色 / 彩色块时对比度仍 ≥ 4.5（WebKit axe 曾在 /guestbook/ 报 color-contrast） */
-  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    .tabbar.glass {
-      background: color-mix(in srgb, var(--c-glass-solid) 92%, transparent);
-    }
+  /* D01「更多」：与 Tab 链接同一外观；面板是原生 popover（顶层），贴在底栏上方并让出安全区 */
+  .tabbar__more {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--fs-caption);
+    cursor: pointer;
+  }
+  .tabbar__more.is-current,
+  .tabbar__more:has(+ .tabbar-more:popover-open) {
+    color: var(--c-accent);
+    font-weight: var(--fw-semibold);
+  }
+  .tabbar-more {
+    position: fixed;
+    inset: auto calc(var(--space-3) + var(--safe-right))
+      calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-2)) calc(var(--space-3) + var(--safe-left));
+    width: auto;
+    max-height: calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - var(--nav-h) - var(--space-4));
+    margin: 0;
+    padding: var(--space-3) var(--space-3) var(--space-2);
+    overflow: auto;
+    border: 1px solid var(--c-separator);
+    border-radius: var(--radius-lg);
+    background: var(--c-bg-elevated);
+    color: var(--c-label);
+    box-shadow: var(--elev-2);
+  }
+  .tabbar-more__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding-inline-start: var(--space-2);
+  }
+  .tabbar-more__title {
+    margin: 0;
+    font-size: var(--fs-headline);
+    font-weight: var(--fw-semibold);
+  }
+  .tabbar-more__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: var(--space-1);
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tabbar-more__list a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    min-height: 64px;
+    border-radius: var(--radius-md);
+    font-size: var(--fs-meta);
+    color: var(--c-label);
+  }
+  .tabbar-more__list a:hover {
+    background: var(--c-fill);
+    text-decoration: none;
+  }
+  .tabbar-more__list a[aria-current='page'] {
+    color: var(--c-accent);
+    font-weight: var(--fw-semibold);
+    background: color-mix(in srgb, var(--c-accent) var(--tint-rest), transparent);
+  }
+  .tabbar-more__list svg {
+    width: 24px;
+    height: 24px;
+  }
+  /* 底部 Tab 的文字很小（caption）：D08（批次 3 跟进）改为实色、不做模糊——原来 92% 毛玻璃下滚过纯黑块时，
+     选中项的强调色只有 4.0:1；实色在任何内容上都 ≥ 4.5，也省掉手机上每帧的背景模糊开销 */
+  .tabbar.glass {
+    background: var(--c-glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   @media (hover: hover) and (pointer: fine) {
     .tabbar a:hover {
       text-decoration: none;
     }
   }
-  .tabbar a[aria-current='page'] {
+  .tabbar a[aria-current='page'],
+  .tabbar__more[aria-current='page'] {
     color: var(--c-accent);
     font-weight: var(--fw-semibold);
   }

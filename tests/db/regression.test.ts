@@ -454,7 +454,9 @@ describe('(5)(6)(7) 结构约定', () => {
       'admin_subscriber_counts:authenticated',
       'app_count_download:anon',
       'app_count_download:authenticated',
+      'az_hide_cancels_schedule:authenticated', // 0018 策略开关（只读）
       'az_ugc_image_upload_ok:authenticated',
+      'az_workflow_health:authenticated', // 0018 调度健康（函数内要求版主）
       'can_write:anon',
       'can_write:authenticated',
       'current_app_role:anon',
@@ -471,16 +473,22 @@ describe('(5)(6)(7) 结构约定', () => {
       'like_summary:authenticated',
       'mark_notifications_read:authenticated',
       'mod_ban_user:authenticated',
+      'mod_edit_content:authenticated', // 0018 A04 / A07
       'mod_guestbook_delete:authenticated',
       'mod_guestbook_set_status:authenticated',
       'mod_handle_reports:authenticated',
       'mod_lift_expired_bans:authenticated',
       'mod_list_content:authenticated',
+      'mod_list_content_page:authenticated', // 0018 A09
       'mod_list_users:authenticated',
+      'mod_list_users_page:authenticated', // 0018 A09
+      'mod_publish_content:authenticated', // 0019 站长第二轮：显式发布
+      'mod_set_visibility:authenticated', // 0018 A01 / A08
       'mod_set_workflow:authenticated',
       'mod_unban_user:authenticated',
       'mod_user_profile:authenticated',
       'mod_warn_user:authenticated',
+      'mod_workflow_apply:authenticated', // 0018 A01 / A07 / A08
       'mod_workflow_tick:authenticated',
       'search_threads:anon',
       'search_threads:authenticated',

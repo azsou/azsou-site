@@ -11,6 +11,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { slashRedirect } from './lib/slash-redirect.mjs';
 
 const port = Number(process.argv[2] || process.env.PORT || 4321);
 const root = path.resolve(process.argv[3] || 'dist/client');
@@ -54,9 +55,11 @@ const server = http.createServer((req, res) => {
   const p = decodeURIComponent(u.pathname);
   applyHeaders(res, p);
   for (const r of redirects) if (r.re.test(p)) return res.writeHead(r.code, { Location: r.to }).end();
-  if (!path.extname(p) && !p.endsWith('/')) return res.writeHead(308, { Location: p + '/' + u.search }).end();
+  // Location 用未解码的路径拼（见 scripts/lib/slash-redirect.mjs）：解码后的 //evil 会变成协议相对地址跳外域
+  if (!path.extname(p) && !p.endsWith('/'))
+    return res.writeHead(308, { Location: slashRedirect(u.pathname, u.search, 'add') }).end();
   if (path.extname(p.replace(/\/$/, '')) && p.endsWith('/') && p !== '/')
-    return res.writeHead(308, { Location: p.slice(0, -1) }).end();
+    return res.writeHead(308, { Location: slashRedirect(u.pathname, u.search, 'strip') }).end();
   let file = path.join(root, p);
   if (!file.startsWith(root)) return res.writeHead(403).end();
   if (p.endsWith('/')) file = path.join(file, 'index.html');

@@ -4,7 +4,9 @@ import type { DataRepository } from './types';
 import { DEFAULT_SUPABASE } from '../supabase-config';
 
 export * from './types';
-export * from './admin';
+// 后台接口只导出类型：实现（createAdminApi、迁移编号表、错误分类）在 admin-repo.ts，只有后台页面的包里带它。
+// 公开页面共用的数据层 chunk 因此不含后台代码（/apps/ 等页面的 JS 预算 49,152 B，tests/built/js-budget.test.ts 与 tests/e2e/js-budget.spec.ts）。
+export type * from './admin';
 export { createMemoryRepository, createSupabaseRepository };
 export { createSupabaseAuth } from './supabase-auth';
 export { localStore, memoryStore, SESSION_KEY } from './session';

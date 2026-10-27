@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { emulateColorScheme } from './fixtures';
+import { BASE_URL } from './port';
 import {
   test,
   expect,
@@ -203,7 +204,13 @@ test.describe('举报队列', () => {
 });
 
 test.describe('内容管理', () => {
-  test('搜索 → 隐藏 → 恢复 → 置顶 → 删除（确认框）', async ({ page, db, makeUser, signIn, errors }) => {
+  test('搜索 → 隐藏 → 恢复（回到待审）→ 发布 → 置顶 → 删除（确认框）', async ({
+    page,
+    db,
+    makeUser,
+    signIn,
+    errors,
+  }) => {
     const author = await makeUser(uniq('作者'));
     const m = await makeUser(uniq('版主'), { role: 'moderator' });
     const title = uniq('后台内容 ');
@@ -228,8 +235,18 @@ test.describe('内容管理', () => {
     // 「已隐藏」筛选
     await page.getByLabel('状态').selectOption('1');
     await expect(row).toBeVisible();
+    // 站长 2026-10-27 21:06：恢复 = 回到「待审」，仍不公开（行留在「已隐藏」筛选里），主按钮变成显式「发布」
     await row.getByRole('button', { name: '恢复' }).click();
+    await expect(row.getByText('待审', { exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: '发布' })).toBeVisible();
+    expect(
+      (await db.query(`select published from forum_threads where id = $1`, [tid])).rows[0].published,
+    ).toBe(false);
+    await row.getByRole('button', { name: '发布' }).click();
     await expect(row).toHaveCount(0);
+    expect(
+      (await db.query(`select published from forum_threads where id = $1`, [tid])).rows[0].published,
+    ).toBe(true);
     await page.getByLabel('状态').selectOption('');
     await expect(row.getByText('已发布')).toBeVisible();
     // 次要操作在「⋯」菜单里（T9.16）：键盘可达，Esc 关闭并把焦点还给按钮
@@ -252,9 +269,15 @@ test.describe('内容管理', () => {
       0,
     );
     const audit = await db.query(`select action from audit_log where target_id = $1 order by id`, [tid]);
+    // 0018：隐藏 / 恢复走统一状态接口 mod_set_visibility，除行级 thread.update 外再记一条 content.visibility（含工作流状态与是否取消排程）
+    // 0019：恢复只回到待审（公开标志不变 → 没有 thread.update，只有 content.visibility）；
+    //       发布走 mod_publish_content → thread.update + content.published
     expect(audit.rows.map((x) => x.action)).toEqual([
       'thread.update',
+      'content.visibility',
+      'content.visibility',
       'thread.update',
+      'content.published',
       'thread.update',
       'thread.delete',
     ]);
@@ -273,9 +296,28 @@ test.describe('内容管理', () => {
     await expect(page.locator('tbody[data-rows] tr[data-id]')).toHaveCount(2);
     await page.getByRole('checkbox', { name: '全选本页' }).check();
     await page.locator('[data-bulkbar]').getByRole('button', { name: '隐藏' }).click();
-    await expect(page.getByText('已处理 2 条。')).toBeVisible();
+    // 0018：批量隐藏返回逐项结果——结果面板摘要与提示都改为「已隐藏 N 条。」（旧库无逐项结果时仍是「已处理 N 条。」）
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已隐藏 2 条。');
+    await expect(page.locator('.toast', { hasText: '已隐藏 2 条。' })).toBeVisible();
     const r = await db.query(`select bool_or(published) p from forum_replies where id = any($1)`, [[r1, r2]]);
     expect(r.rows[0].p).toBe(false);
+    // 0019：批量「恢复」只回到待审（仍不公开）；批量「发布」才公开
+    await page.getByRole('checkbox', { name: '全选本页' }).check();
+    await page.locator('[data-bulkbar]').getByRole('button', { name: '恢复' }).click();
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已恢复 2 条。');
+    const restored = await db.query(
+      `select bool_or(t.published) p, array_agg(distinct w.status) s from forum_replies t
+         join content_workflow w on w.target_type = 'reply' and w.target_id = t.id where t.id = any($1)`,
+      [[r1, r2]],
+    );
+    expect(restored.rows[0]).toEqual({ p: false, s: ['review'] });
+    await page.getByRole('checkbox', { name: '全选本页' }).check();
+    await page.locator('[data-bulkbar]').getByRole('button', { name: '发布' }).click();
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已发布 2 条。');
+    const pub = await db.query(`select bool_and(published) p from forum_replies where id = any($1)`, [
+      [r1, r2],
+    ]);
+    expect(pub.rows[0].p).toBe(true);
   });
 });
 
@@ -672,7 +714,7 @@ test.describe('@提及', () => {
     expect(n.rows).toEqual([{ kind: 'mention', thread_key: tid }]);
 
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
