@@ -1,5 +1,7 @@
 /**
- * 应用目录 island：筛选（平台 / 分类 / 价格）、排序（最新 / 热门 / 评分）、结果分页，状态写进 URL 查询串（可分享、可后退）。
+ * 应用目录 island：筛选（平台 / 分类 / 价格）、排序、结果分页，状态写进 URL 查询串（可分享、可后退）。
+ * F02（站长 2026-10-27）：排序只有工具条上的一个下拉（ListShell sortOptions → [data-list-sort-select]），
+ * 一个状态源 ?sort=：最新（默认）/ 名称 / 编辑推荐 / 热门 / 评分，排的是整个目录（不只是本页 24 条），无效值回到最新。
  * 静态页是「最新」排序的第 N 页；只有用户改了筛选 / 排序（或打开带查询串的地址）时才接管列表。
  * 卡片上的评分 / 下载数一行：读真实统计（app_download_counts / app_review_stats），读不到就保持「暂无」。
  */
@@ -8,6 +10,7 @@ import { initMoreFilters, setMoreFiltersCount } from '@/scripts/more-filters';
 import {
   PAGE_SIZE,
   SORT_LABEL,
+  STATS_SORTS,
   filterApps,
   paginate,
   parseQuery,
@@ -26,6 +29,7 @@ const form = document.querySelector<HTMLElement>('[data-catalog-filter]');
 const grid = document.querySelector<HTMLElement>('[data-catalog-grid]');
 const statusEl = document.querySelector<HTMLElement>('[data-catalog-status]');
 const pager = document.querySelector<HTMLElement>('[data-catalog-pages]');
+const sortSel = document.querySelector<HTMLSelectElement>('[data-list-sort-select]');
 
 let catalog: CatalogItem[] | null = null;
 let stats: Record<string, AppStats> | null = null;
@@ -57,14 +61,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
-if (form && grid && statusEl && pager) {
+if (form && grid && statusEl && pager && sortSel) {
   const fixedCategory = (form.dataset.fixedCategory || '') as Category | '';
   const fixedPlatform = (form.dataset.fixedPlatform || '') as PlatformOs | '';
   const sel = (name: string) => form.querySelector<HTMLSelectElement>(`select[name=${name}]`)!;
   /** 分类只由胶囊（分类页）决定；分享链接里的 ?category= 仍然恢复（T9.12 去掉了重复的分类下拉） */
   let urlCategory = '' as Category | '';
   const moreRoot = form.closest<HTMLElement>('[data-more-filters]');
-  const sortBtns = [...form.querySelectorAll<HTMLButtonElement>('[data-sort]')];
   const staticGrid = [...grid.children];
   const staticPager = [...pager.children];
   const staticStatus = statusEl.textContent;
@@ -74,10 +77,11 @@ if (form && grid && statusEl && pager) {
     platform: fixedPlatform || (sel('platform').value as PlatformOs | ''),
     category: fixedCategory || urlCategory,
     price: sel('price').value as CatalogQuery['price'],
-    sort: (sortBtns.find((b) => b.getAttribute('aria-pressed') === 'true')?.dataset.sort ?? 'new') as Sort,
+    sort: (sortSel.value || 'new') as Sort,
   });
-  const setSort = (s: Sort) =>
-    sortBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sort === s)));
+  const setSort = (s: Sort) => {
+    sortSel.value = s;
+  };
 
   /** 地址里的查询串只记录用户自己选的（分类页 / 平台页固定的那一项不写） */
   const urlQuery = (q: CatalogQuery, page: number) =>
@@ -104,24 +108,9 @@ if (form && grid && statusEl && pager) {
 
   async function apply(page = 1, push = true) {
     const q = state();
-    if (moreRoot)
-      setMoreFiltersCount(
-        moreRoot,
-        Number(!fixedPlatform && !!q.platform) + Number(!!q.price) + Number((q.sort ?? 'new') !== 'new'),
-      );
+    if (moreRoot) setMoreFiltersCount(moreRoot, Number(!fixedPlatform && !!q.platform) + Number(!!q.price));
     // F02：地址是唯一的状态来源。只写规范化后的查询串（未知参数、无效取值丢弃）；越界页码在下面按实际页数纠正
-    // 应用目录页同时有 ListShell 的客户端排序（最新 / 名称 / 编辑推荐，同样写 ?sort=）：那一组的取值原样保留，不当未知参数丢弃
-    const shellSort = new URLSearchParams(location.search).get('sort');
-    const keepShell =
-      q.sort === 'new' &&
-      !!shellSort &&
-      !!document.querySelector(`[data-entry-sort="${CSS.escape(shellSort)}"]`);
-    const canon = (p: number) => {
-      const qs = new URLSearchParams(urlQuery(q, p));
-      if (keepShell) qs.set('sort', shellSort!);
-      const str = qs.toString();
-      return location.pathname + (str ? `?${str}` : '') + location.hash;
-    };
+    const canon = (p: number) => location.pathname + urlQuery(q, p) + location.hash;
     const setUrl = (p: number) => {
       if (location.pathname + location.search + location.hash !== canon(p))
         history.replaceState(null, '', canon(p));
@@ -135,7 +124,7 @@ if (form && grid && statusEl && pager) {
     grid!.setAttribute('aria-busy', 'true');
     try {
       const items = filterApps(await loadCatalog(), q);
-      const needStats = q.sort !== 'new';
+      const needStats = STATS_SORTS.includes(q.sort ?? 'new');
       const s = needStats ? await loadStats() : stats;
       const sorted = sortApps(items, q.sort ?? 'new', needStats ? s : null);
       const p = paginate(sorted, page);
@@ -183,22 +172,26 @@ if (form && grid && statusEl && pager) {
   }
 
   form.addEventListener('change', () => void apply(1));
-  sortBtns.forEach((b) =>
-    b.addEventListener('click', () => {
-      setSort(b.dataset.sort as Sort);
-      void apply(1);
-    }),
-  );
+  sortSel.addEventListener('change', () => void apply(1));
 
-  // 带查询串打开（分享的筛选链接 / 后退）：恢复状态
+  // 控件一律从地址同步（带查询串打开 / 刷新 / 后退）：不信任浏览器自动恢复的表单值
   const initial = parseQuery(location.search);
-  if (location.search) {
-    if (!fixedPlatform && initial.platform) sel('platform').value = initial.platform;
-    if (!fixedCategory && initial.category) urlCategory = initial.category;
-    if (initial.price) sel('price').value = initial.price;
-    setSort(initial.sort);
-    void apply(initial.page, false);
-  }
+  if (!fixedPlatform) sel('platform').value = initial.platform;
+  if (!fixedCategory && initial.category) urlCategory = initial.category;
+  sel('price').value = initial.price;
+  setSort(initial.sort);
+  sortSel.disabled = false;
+  if (location.search) void apply(initial.page, false);
+  // 往返缓存（bfcache）恢复的页面：DOM 原样，但以防万一按地址再同步一次
+  addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    const q = parseQuery(location.search);
+    if ((sortSel.value as Sort) !== q.sort || sel('price').value !== q.price) {
+      setSort(q.sort);
+      sel('price').value = q.price;
+      void apply(q.page, false);
+    }
+  });
 
   initMoreFilters();
   form.dataset.ready = 'yes';

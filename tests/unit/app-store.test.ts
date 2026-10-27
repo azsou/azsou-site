@@ -13,6 +13,8 @@ import {
   parseQuery,
   pickPlatform,
   sortApps,
+  SORTS,
+  SORT_LABEL,
   toQueryString,
   type CatalogItem,
   AI_CATEGORIES,
@@ -161,6 +163,40 @@ describe('query string', () => {
   it('往返一致', () => {
     const q = { platform: 'cli', category: 'dev-tools', price: 'tbd', sort: 'hot', page: 3 } as const;
     expect(parseQuery(toQueryString(q))).toEqual(q);
+  });
+});
+
+describe('F02 单一排序（应用目录：最新 / 名称 / 编辑推荐 / 热门 / 评分，一个 ?sort=）', () => {
+  const xs = [
+    { slug: 'b', title: '贝塔', pinyin: 'beita', updated: '2026-07-01', order: 2 },
+    { slug: 'a', title: 'Alpha', updated: '2026-08-01', order: 3 },
+    { slug: 'c', title: '查理', pinyin: 'chali', updated: '', order: 1 },
+  ];
+  it('SORTS 是两组的并集，默认最新', () => {
+    expect([...SORTS]).toEqual(['new', 'name', 'editor', 'hot', 'rating']);
+    expect(SORT_LABEL).toEqual({
+      new: '最新',
+      name: '名称',
+      editor: '编辑推荐',
+      hot: '热门',
+      rating: '评分',
+    });
+  });
+  it('name / editor 是有效取值并能往返；无效值回到最新', () => {
+    expect(parseQuery('?sort=name').sort).toBe('name');
+    expect(parseQuery('?sort=editor').sort).toBe('editor');
+    expect(parseQuery('?sort=Name').sort).toBe('new');
+    expect(parseQuery('?sort=').sort).toBe('new');
+    expect(toQueryString({ sort: 'editor' })).toBe('?sort=editor');
+    expect(parseQuery(toQueryString({ sort: 'name', price: 'free' }))).toMatchObject({
+      sort: 'name',
+      price: 'free',
+    });
+  });
+  it('名称按拼音（无拼音用标题）排序、编辑推荐按 order，二者不需要统计数据', () => {
+    expect(sortApps(xs, 'name').map((x) => x.slug)).toEqual(['a', 'b', 'c']);
+    expect(sortApps(xs, 'editor').map((x) => x.slug)).toEqual(['c', 'b', 'a']);
+    expect(sortApps(xs, 'new').map((x) => x.slug)).toEqual(['a', 'b', 'c']);
   });
 });
 

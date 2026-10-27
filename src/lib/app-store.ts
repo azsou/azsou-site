@@ -179,9 +179,21 @@ export const PRICE_LABEL: Record<PriceModel, string> = {
   tbd: '价格待定',
 };
 
-export const SORTS = ['new', 'hot', 'rating'] as const;
+/**
+ * 应用目录排序（F02，站长 2026-10-27 定稿）：一个控件、一个状态源 ?sort=，默认「最新」。
+ * 取值 = 原列表外壳（最新 / 名称 / 编辑推荐）与原「更多筛选」（最新 / 热门 / 评分）两组的并集；其它值一律回到最新。
+ */
+export const SORTS = ['new', 'name', 'editor', 'hot', 'rating'] as const;
 export type Sort = (typeof SORTS)[number];
-export const SORT_LABEL: Record<Sort, string> = { new: '最新', hot: '热门', rating: '评分' };
+export const SORT_LABEL: Record<Sort, string> = {
+  new: '最新',
+  name: '名称',
+  editor: '编辑推荐',
+  hot: '热门',
+  rating: '评分',
+};
+/** 只有这两种排序要读真实统计（下载数 / 评价）；读不到时退回最新并提示 */
+export const STATS_SORTS: readonly Sort[] = ['hot', 'rating'];
 
 /** 目录每页条数（静态分页 /apps/page/N/ 与客户端筛选结果共用） */
 /** 每页 24（T9.12：列表页统一每页 24，与 --cols 断点表 2 / 3 / 4 / 6 列都能整除） */
@@ -335,12 +347,16 @@ export function byNewest(
  * 排序。热门 = 真实下载次数；评分 = 平均分（同分评价多的在前），没有评分的排在后面。
  * 没有统计数据（数据库不可达）时 hot / rating 退回「最新」，调用方负责提示。
  */
-export function sortApps<T extends Pick<CatalogItem, 'slug' | 'updated' | 'order'>>(
-  items: T[],
-  sort: Sort,
-  stats?: Record<string, AppStats> | null,
-): T[] {
+export function sortApps<
+  T extends Pick<CatalogItem, 'slug' | 'updated' | 'order'> & { title?: string; pinyin?: string },
+>(items: T[], sort: Sort, stats?: Record<string, AppStats> | null): T[] {
   const list = [...items].sort(byNewest);
+  // 名称：拼音（没有就用标题）字母序，同名按编辑顺序；编辑推荐：编辑顺序。二者不需要统计数据
+  if (sort === 'name') {
+    const k = (x: T) => (x.pinyin || x.title || x.slug).toLowerCase();
+    return list.sort((a, b) => k(a).localeCompare(k(b), 'zh-CN') || a.order - b.order);
+  }
+  if (sort === 'editor') return list.sort((a, b) => a.order - b.order);
   if (sort === 'new' || !stats) return list;
   const s = (slug: string): AppStats => stats[slug] ?? { downloads: 0, reviews: 0, average: null };
   if (sort === 'hot') return list.sort((a, b) => s(b.slug).downloads - s(a.slug).downloads || byNewest(a, b));

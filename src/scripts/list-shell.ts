@@ -7,13 +7,15 @@
  *  - 外壳自己有排序按钮时，?sort= 无效 / 等于默认值就从地址里去掉（未知参数不残留，分享出去的链接是规范的）；
  *  - 显示方式是「全站共用」的个人偏好（各栏目同一个 az-list-view）；分享链接带 ?view=grid|list 时本次按地址显示，
  *    但不覆盖访客自己存的偏好；访客在页面上点了切换才写偏好，并同步去掉地址里的 view。
+ *  - data-sort-owner="page"（/apps/ 目录，F02 单一排序控件）：排序整个归页面脚本，外壳既不排也不改地址里的 sort。
  */
 const VIEW_KEY = 'az-list-view';
 
 for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) {
   const list = root.querySelector<HTMLElement>('[data-list-items]');
   if (!list) continue;
-  const sortBtns = [...root.querySelectorAll<HTMLButtonElement>('[data-entry-sort]')];
+  const ownsSort = root.dataset.sortOwner !== 'page';
+  const sortBtns = ownsSort ? [...root.querySelectorAll<HTMLButtonElement>('[data-entry-sort]')] : [];
   const viewBtns = [...root.querySelectorAll<HTMLButtonElement>('[data-view-set]')];
   const pageSize = Number(root.dataset.pageSize ?? 24);
   const defaultSort = root.dataset.defaultSort ?? 'new';
@@ -132,11 +134,11 @@ for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) 
     if (urlView !== null) setParam('view', null);
   }
   const s = params.get('sort');
-  if (s && sortBtns.some((b) => b.dataset.entrySort === s) && s !== defaultSort) applySort(s, false);
+  if (ownsSort && s && sortBtns.some((b) => b.dataset.entrySort === s) && s !== defaultSort)
+    applySort(s, false);
   else {
-    // 只清理自己负责的 sort：应用目录页上 catalog.ts 的「更多筛选」排序（热门 / 评分）也写 ?sort=，交给它处理
-    if (s !== null && sortBtns.length && !document.querySelector('[data-catalog-filter]'))
-      setParam('sort', null);
+    // 只清理自己负责的 sort（外壳有排序按钮时）；页面自管排序时完全不碰
+    if (ownsSort && s !== null && sortBtns.length) setParam('sort', null);
     paginate();
   }
   root.dataset.ready = 'yes';

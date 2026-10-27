@@ -1023,3 +1023,25 @@
     }
   }
 }
+
+/* F02 跟进（站长 2026-10-27）：/apps/ 目录的单一排序控件——带可见标签的原生下拉，放在工具条原排序分段的位置。
+   五个选项用分段控件在 390 宽放不下（会把视图切换挤到第三行），下拉一行即可；高 44 = 命中区。 */
+@layer components {
+  .list-sort {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    /* 与同排的分段控件（全局 margin-bottom: --space-6）对齐；≥ 900 同一行工具条里两者都归零 */
+    margin-bottom: var(--space-6);
+  }
+  .list-sort__label {
+    font-size: var(--fs-meta);
+    color: var(--c-label-2);
+  }
+  .list-toolbar .list-sort__select {
+    width: auto;
+    min-width: 7.5em;
+    min-height: var(--touch);
+  }
+}

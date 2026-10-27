@@ -2,8 +2,9 @@
 /**
  * 应用目录（/apps/、/apps/page/N/、分类页、平台页共用）。
  * 静态 HTML：按「最新」排序的分页结果 + 分类 / 平台入口链接（零 JS 可浏览、可收录）。
- * 有 JS 时：筛选（平台 / 分类 / 价格）与排序（最新 / 热门 / 评分）在浏览器里完成（src/scripts/apps/catalog.ts），
- * 热门 = 真实下载次数，评分 = 真实用户评价的平均分；数据库不可达时退回「最新」并提示。
+ * 有 JS 时：筛选（平台 / 分类 / 价格）与排序在浏览器里完成（src/scripts/apps/catalog.ts）。
+ * F02（站长 2026-10-27）：排序只有工具条上的一个「排序」下拉、一个 ?sort=，默认最新；
+ * 选项 = 最新 / 名称 / 编辑推荐 / 热门 / 评分（热门 = 真实下载次数，评分 = 真实评价平均分；数据库不可达时退回「最新」并提示）。
  */
 import MoreFilters from '@/components/ui/MoreFilters.astro';
 import Base from '@/layouts/Base.astro';
@@ -98,8 +99,9 @@ const entryBySlug = new Map<string, StoreEntry>((await getApps()).map((a) => [a.
     status={`共 ${paged.total} 个应用${paged.pages > 1 ? ` · 第 ${paged.page} / ${paged.pages} 页` : ''} · 按最新排序`}
     statusAttrs={{ 'data-catalog-status': '' }}
     pageSize={0}
+    sortOptions={SORTS.map((s) => ({ value: s, label: SORT_LABEL[s] }))}
   >
-    {/* T9.12 单套筛选：分类在分类栏（链接到可索引的分类页）；平台 / 价格 / 按真实数据排序收进「更多筛选」 */}
+    {/* T9.12 单套筛选：分类在分类栏（链接到可索引的分类页）；平台 / 价格收进「更多筛选」；排序在工具条（F02 单一控件） */}
     <div class="filter-bar" slot="before">
       <MoreFilters>
         <div
@@ -113,7 +115,7 @@ const entryBySlug = new Map<string, StoreEntry>((await getApps()).map((a) => [a.
         >
           <div class="field">
             <label for="cf-platform">平台</label>
-            <select id="cf-platform" name="platform" disabled={!!fixedPlatform}>
+            <select id="cf-platform" name="platform" autocomplete="off" disabled={!!fixedPlatform}>
               <option value="">全部平台</option>
               {plats.map((p) => (
                 <option value={p} selected={fixedPlatform === p}>
@@ -124,24 +126,12 @@ const entryBySlug = new Map<string, StoreEntry>((await getApps()).map((a) => [a.
           </div>
           <div class="field">
             <label for="cf-price">价格</label>
-            <select id="cf-price" name="price">
+            <select id="cf-price" name="price" autocomplete="off">
               <option value="">全部</option>
               {prices.map((p) => (
                 <option value={p}>{PRICE_LABEL[p]}</option>
               ))}
             </select>
-          </div>
-          <div class="field">
-            <span class="field__label" id="cf-sort-label">
-              按真实数据排序
-            </span>
-            <div class="segmented segmented--inline" role="group" aria-labelledby="cf-sort-label">
-              {SORTS.map((s) => (
-                <button type="button" data-sort={s} aria-pressed={s === 'new' ? 'true' : 'false'}>
-                  {SORT_LABEL[s]}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </MoreFilters>

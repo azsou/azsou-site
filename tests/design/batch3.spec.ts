@@ -167,7 +167,18 @@ const HIT_TARGETS: { path: string; sels: string[] }[] = [
       '.list-toolbar .segmented button',
     ],
   },
-  { path: '/apps/', sels: ['.list-rail .chip', '.list-toolbar .segmented button'] },
+  // F02：/apps/ 的排序是单个下拉（.list-sort__select），视图切换仍是分段按钮
+  {
+    path: '/apps/',
+    sels: [
+      '.tabbar a',
+      '.nav-actions .icon-btn',
+      '.list-rail .chip',
+      '.more-filters__btn',
+      '.list-toolbar .list-sort__select',
+      '.list-toolbar .segmented button',
+    ],
+  },
 ];
 for (const t of HIT_TARGETS) {
   test(`T008 ${t.path} @390 触控主目标命中区 ≥ 44 且互不重叠`, async ({ page }) => {
@@ -333,12 +344,12 @@ test('T019 应用目录：地址恢复筛选与排序，未知参数丢弃，越
   const form = page.locator('[data-catalog-filter]');
   await expect(form).toHaveAttribute('data-ready', 'yes');
   await expect(form.locator('select[name=price]')).toHaveValue('free');
-  await expect(form.locator('[data-sort="rating"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('combobox', { name: '排序' })).toHaveValue('rating');
   await expect(page).not.toHaveURL(/bogus/);
   await expect(page).toHaveURL(/price=free/);
   await page.reload({ waitUntil: 'networkidle' });
   await expect(form.locator('select[name=price]')).toHaveValue('free');
-  await expect(form.locator('[data-sort="rating"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('combobox', { name: '排序' })).toHaveValue('rating');
   // 越界页码：纠正到实际存在的页，结果区不为空
   await open(page, '/apps/?page=999', { width: 1440, height: 900 });
   await expect(page.locator('[data-catalog-grid] > *').first()).toBeVisible();
@@ -354,6 +365,139 @@ test('T019 应用目录：地址恢复筛选与排序，未知参数丢弃，越
   await form.locator('select[name=price]').selectOption({ index: 1 });
   await expect(page).toHaveURL(/price=/);
   await expect(page).not.toHaveURL(/page=/);
+});
+
+// F02 跟进（站长 2026-10-27 定稿）：/apps/ 只有一个排序控件、一个状态源 ?sort=，默认最新；
+// 取值 = 原两组并集（最新 / 名称 / 编辑推荐 / 热门 / 评分），无效值 → 最新。
+const SORT_OPTIONS = ['最新', '名称', '编辑推荐', '热门', '评分'];
+type Cat = { title: string; pinyin?: string; order: number; updated: string };
+async function catalogOrder(page: Page, sort: 'name' | 'editor' | 'new') {
+  const xs = (await (await page.request.get('/apps/catalog.json')).json()) as Cat[];
+  const key = (x: Cat) => (x.pinyin || x.title).toLowerCase();
+  const sorted = [...xs].sort((a, b) =>
+    sort === 'editor'
+      ? a.order - b.order
+      : sort === 'name'
+        ? key(a).localeCompare(key(b), 'zh-CN') || a.order - b.order
+        : b.updated.localeCompare(a.updated) || a.order - b.order,
+  );
+  return sorted.slice(0, 24).map((x) => x.title);
+}
+const gridTitles = (page: Page) =>
+  page.locator('[data-catalog-grid] h2').evaluateAll((els) => els.map((e) => e.textContent!.trim()));
+async function catalogIdle(page: Page) {
+  await expect(page.locator('[data-catalog-filter]')).toHaveAttribute('data-ready', 'yes');
+  await expect(page.locator('[data-catalog-grid]')).not.toHaveAttribute('aria-busy', 'true');
+}
+
+for (const width of [1440, 390]) {
+  test(`F02 /apps/ ${width}：只有一个排序控件，选项为两组并集，「更多筛选」里不再有排序`, async ({
+    page,
+  }) => {
+    await open(page, '/apps/', { width, height: 900 });
+    await catalogIdle(page);
+    const sort = page.getByRole('combobox', { name: '排序' });
+    await expect(sort).toHaveCount(1);
+    await expect(sort).toBeVisible();
+    await expect(sort).toBeEnabled();
+    expect((await sort.locator('option').allTextContents()).map((t) => t.trim())).toEqual(SORT_OPTIONS);
+    // 不再有任何按钮组式的排序（原外壳 data-entry-sort、原弹层 data-sort）
+    await expect(page.getByRole('group', { name: /排序/ })).toHaveCount(0);
+    await expect(page.locator('[data-entry-sort], [data-sort]')).toHaveCount(0);
+    await page.locator('[data-more-filters] > summary').click();
+    await expect(page.locator('[data-more-filters] select, [data-more-filters] button')).toHaveCount(2);
+    await expect(page.locator('[data-more-filters]')).not.toContainText('排序');
+  });
+}
+
+test('F02 默认最新：地址不写 sort，状态写「按最新排序」，顺序 = 目录最新序', async ({ page }) => {
+  await open(page, '/apps/', { width: 1440, height: 900 });
+  await catalogIdle(page);
+  await expect(page.getByRole('combobox', { name: '排序' })).toHaveValue('new');
+  expect(new URL(page.url()).search).toBe('');
+  await expect(page.locator('[data-catalog-status]')).toContainText('按最新排序');
+  expect(await gridTitles(page)).toEqual(await catalogOrder(page, 'new'));
+});
+
+test('F02 地址往返 + 刷新：选「名称」写 ?sort=name 并按名称排，刷新保留；回到最新去掉参数', async ({
+  page,
+}) => {
+  await open(page, '/apps/', { width: 1440, height: 900 });
+  await catalogIdle(page);
+  const sort = page.getByRole('combobox', { name: '排序' });
+  await sort.selectOption('name');
+  await expect(page).toHaveURL(/\/apps\/\?sort=name$/);
+  await catalogIdle(page);
+  await expect(page.locator('[data-catalog-status]')).toContainText('按名称排序');
+  const byName = await catalogOrder(page, 'name');
+  expect(await gridTitles(page)).toEqual(byName);
+  await page.reload({ waitUntil: 'networkidle' });
+  await catalogIdle(page);
+  await expect(sort).toHaveValue('name');
+  expect(await gridTitles(page)).toEqual(byName);
+  // 与筛选并存：两个参数都在，一个 sort
+  await page.locator('[data-more-filters] > summary').click();
+  await page.locator('[data-catalog-filter] select[name=price]').selectOption({ index: 1 });
+  await expect(page).toHaveURL(/price=/);
+  expect(new URL(page.url()).searchParams.getAll('sort')).toEqual(['name']);
+  await page.keyboard.press('Escape');
+  await sort.selectOption('new');
+  await expect(page).not.toHaveURL(/sort=/);
+  await expect(page.locator('[data-catalog-status]')).toContainText('按最新排序');
+});
+
+test('F02 后退 / 前进：进详情再后退，排序从地址恢复', async ({ page }) => {
+  await open(page, '/apps/?sort=editor', { width: 1440, height: 900 });
+  await catalogIdle(page);
+  const sort = page.getByRole('combobox', { name: '排序' });
+  await expect(sort).toHaveValue('editor');
+  const byEditor = await catalogOrder(page, 'editor');
+  expect(await gridTitles(page)).toEqual(byEditor);
+  await page.locator('[data-catalog-grid] h2 a, [data-catalog-grid] a').first().click();
+  await page.waitForURL((u) => !u.pathname.endsWith('/apps/'));
+  await page.goBack({ waitUntil: 'networkidle' });
+  await expect(page).toHaveURL(/\/apps\/\?sort=editor$/);
+  await catalogIdle(page);
+  await expect(sort).toHaveValue('editor');
+  expect(await gridTitles(page)).toEqual(byEditor);
+  await page.goForward({ waitUntil: 'networkidle' });
+  await page.goBack({ waitUntil: 'networkidle' });
+  await catalogIdle(page);
+  await expect(sort).toHaveValue('editor');
+  await expect(page.locator('[data-catalog-status]')).toContainText('按编辑推荐排序');
+});
+
+for (const bad of ['bogus', 'NAME', '', 'hot%20'])
+  test(`F02 无效排序 ?sort=${bad} → 最新，并从地址去掉`, async ({ page }) => {
+    await open(page, `/apps/?sort=${bad}&price=free`, { width: 1440, height: 900 });
+    await catalogIdle(page);
+    await expect(page.getByRole('combobox', { name: '排序' })).toHaveValue('new');
+    await expect(page).not.toHaveURL(/sort=/);
+    await expect(page).toHaveURL(/price=free/);
+  });
+
+test('F02 键盘与无障碍：Tab 可达、有可见标签、方向键换排序写进地址、状态区播报', async ({ page }) => {
+  await open(page, '/apps/', { width: 1440, height: 900 });
+  await catalogIdle(page);
+  const sort = page.getByRole('combobox', { name: '排序' });
+  // 可见标签（不是只有 aria-label）
+  const label = page.locator('label[for="list-sort"]', { hasText: /^\s*排序\s*$/ });
+  await expect(label).toBeVisible();
+  await page.locator('[data-more-filters] > summary').focus();
+  let guard = 0;
+  while (guard++ < 12 && !(await sort.evaluate((e) => e === document.activeElement)))
+    await page.keyboard.press('Tab');
+  await expect(sort).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(sort).toHaveValue('name');
+  await expect(page).toHaveURL(/sort=name/);
+  await expect(page.locator('[data-catalog-status]')).toHaveAttribute('role', 'status');
+  await expect(page.locator('[data-catalog-status]')).toContainText('按名称排序');
+  // 分类页同一个控件；固定分类不写进地址
+  await open(page, '/apps/category/ai/?sort=editor', { width: 390, height: 844 });
+  await catalogIdle(page);
+  await expect(page.getByRole('combobox', { name: '排序' })).toHaveValue('editor');
+  await expect(page).toHaveURL(/\/apps\/category\/ai\/\?sort=editor$/);
 });
 
 test('T019 列表外壳：无效排序从地址去掉；?view= 本次生效但不覆盖本地偏好', async ({ page }) => {
