@@ -260,3 +260,64 @@ test.afterAll(async () => {
   for (const k of Object.keys(pools)) delete pools[k];
   await Promise.all(all.map((p) => p.end()));
 });
+
+test.describe('A15 故障注入发现的两个问题（整合候选 admin-faults）', () => {
+  test('内容：定时发布结算（mod_workflow_tick）卡住时不挡列表——列表先读出真实数据', async ({ page }) => {
+    await forwardRest(page);
+    const db = poolFor(process.env.E2E_DB_URL!);
+    const a = await adminOn(process.env.E2E_DB_URL!);
+    const title = uniq('结算不挡列表 ');
+    await seedThread(db, a.id, { title });
+    await signIn(page, a);
+    // 结算请求一直挂着（模拟数据服务对这一个 RPC 很慢 / 超时），直到用例放行
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    await page.route('**/rest/v1/rpc/mod_workflow_tick', async (route) => {
+      await held;
+      await route.fallback().catch(() => {});
+    });
+    await page.goto(`/admin/content/?q=${encodeURIComponent(title)}`);
+    // 修复前：列表要等结算返回（或 8s 超时）才发请求；这里只给 5s
+    await expect(page.locator('tbody[data-rows] tr[data-row]')).toContainText(title, { timeout: 5_000 });
+    await expect(page.locator('[data-table-error]')).toHaveCount(0);
+    release();
+  });
+
+  test('门禁：已登录但读取资料失败（断网 / 503）→ 显示分类错误与「重试」，不显示登录引导；恢复后重试进入后台', async ({
+    page,
+  }) => {
+    await forwardRest(page);
+    const db = poolFor(process.env.E2E_DB_URL!);
+    const a = await adminOn(process.env.E2E_DB_URL!);
+    const title = uniq('门禁重试 ');
+    await seedThread(db, a.id, { title });
+    await signIn(page, a);
+    let mode: 'down' | '503' | 'ok' = 'down';
+    await page.route(/\/rest\/v1\/profiles\?/, async (route) => {
+      if (mode === 'down') return route.abort('internetdisconnected');
+      if (mode === '503')
+        return route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"x"}' });
+      return route.fallback();
+    });
+    await page.goto(`/admin/content/?q=${encodeURIComponent(title)}`);
+    const gateErr = page.locator('[data-gate-error]');
+    await expect(gateErr).toBeVisible();
+    await expect(page.locator('[data-gate-signed-out]')).toBeHidden();
+    await expect(gateErr).toHaveAttribute('role', 'alert');
+    await expect(gateErr).toHaveAttribute('data-error-kind', 'network');
+    await expect(gateErr).toContainText('无法连接数据服务');
+    await expect(page.locator('[data-admin-body]')).toBeHidden();
+    mode = '503';
+    await gateErr.getByRole('button', { name: '重试' }).click();
+    await expect(gateErr).toHaveAttribute('data-error-kind', 'server');
+    await expect(gateErr).toContainText('HTTP 503');
+    await expect(page.locator('[data-gate-signed-out]')).toBeHidden();
+    mode = 'ok';
+    await page.evaluate(() => ((window as unknown as { __noReload: boolean }).__noReload = true));
+    await gateErr.getByRole('button', { name: '重试' }).click();
+    await expect(page.locator('[data-admin-body]')).toBeVisible();
+    await expect(page.locator('tbody[data-rows] tr[data-row]')).toContainText(title);
+    await expect(page.locator('[data-admin-gate]')).toBeHidden();
+    expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true);
+  });
+});
