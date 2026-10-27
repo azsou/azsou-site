@@ -7,6 +7,8 @@ import { mockAdmin } from './admin-mock';
  * 批次 3（设计系统与交互）验收用例，Chromium。任务 / 用例编号见 docs/audits/2026-10-27-test-plan.md：
  *   D01/T006 手机主栏目 ≤ 2 次操作可达；D02/T007 动效令牌生效；D03/T008 触控命中区 44 且不重叠；
  *   D05/T010 主题与 theme-color 同步、强制色下拉箭头；D07/T012 菜单键盘与快捷键不吞输入法；
+ *   D06/T011 长标题与中英混排不溢出不截断；
+ *   F02/T019 目录 / 列表状态以地址为准；
  *   F01/T018 AI 列表手机首屏；F09/T026 论坛首屏主题；F10/T027 搜索类型写进 URL；A18/T094 手机权限矩阵与缺参态。
  * 视口是模拟（不是真机）；真机 / 读屏结论另行签字。
  */
@@ -260,6 +262,107 @@ test('T012 输入法组字中按 Ctrl+K 不打开搜索面板；Apple 平台提�
   );
   await page.waitForTimeout(300);
   await expect(page.locator('dialog[open]')).toHaveCount(0);
+});
+
+// ------------------------------------------------------------------ D06 / T011
+// 边界样本：长中文 + 英文 URL + 超长版本号写进真实模板（卡片 / 列表行 / 详情标题），检查不横向溢出、不截断、全文可读
+const LONG_TITLE =
+  '超长中文名称测试用例一二三四五六七八九十https://example.com/a/very/long/path/without/spaces';
+const LONG_VERSION = 'v2026.10.27-rc.1+build.0123456789abcdef0123456789';
+for (const zoom of [1, 2]) {
+  for (const width of [320, 390, 768, 1440]) {
+    test(`T011 长标题 / 中英混排 @${width}${zoom === 2 ? ' 文字 200%' : ''}：不横向溢出、不截断`, async ({
+      page,
+    }) => {
+      for (const path of ['/apps/', '/', '/apps/fablemotion/']) {
+        await open(page, path, { width, height: 900 });
+        if (zoom === 2) await page.addStyleTag({ content: 'html{font-size:200%}' });
+        const res = await page.evaluate(
+          ({ title, version }) => {
+            const set = (sel: string, text: string) => {
+              const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.offsetParent);
+              const leaf = el?.querySelector<HTMLElement>('a, span') ?? el;
+              if (leaf) leaf.textContent = text;
+              return el ?? null;
+            };
+            const els = [
+              set('.entry__title', title),
+              set('.entry__facts', version),
+              set('.list-row__title', title),
+              set('.app-hero__title', title),
+            ].filter((e): e is HTMLElement => !!e);
+            return new Promise<{ overflow: number; clipped: string[]; full: boolean; n: number }>((r) =>
+              requestAnimationFrame(() =>
+                r({
+                  n: els.length,
+                  overflow: document.documentElement.scrollWidth - innerWidth,
+                  // 元素自身内容没被裁掉（无省略号 / 无隐藏溢出）且没伸出它所在的卡片
+                  clipped: els
+                    .filter((e) => {
+                      const box =
+                        e.closest<HTMLElement>('article, li, .app-hero, section') ?? e.parentElement!;
+                      const a = e.getBoundingClientRect();
+                      const b = box.getBoundingClientRect();
+                      return (
+                        e.scrollWidth > e.clientWidth + 1 || a.right > b.right + 1 || a.left < b.left - 1
+                      );
+                    })
+                    .map((e) => e.className),
+                  full: els.every((e) => e.textContent!.includes(title) || e.textContent!.includes(version)),
+                }),
+              ),
+            );
+          },
+          { title: LONG_TITLE, version: LONG_VERSION },
+        );
+        expect(res.n, path).toBeGreaterThan(0);
+        expect(res.overflow, `${path} 横向溢出`).toBeLessThanOrEqual(0);
+        expect(res.clipped, `${path} 被裁 / 伸出卡片`).toEqual([]);
+        expect(res.full, `${path} 全文可读`).toBe(true);
+      }
+    });
+  }
+}
+
+// ------------------------------------------------------------------ F02 / T019
+test('T019 应用目录：地址恢复筛选与排序，未知参数丢弃，越界页码纠正，改筛选回到第 1 页', async ({ page }) => {
+  await open(page, '/apps/?price=free&sort=rating&bogus=1', { width: 1440, height: 900 });
+  const form = page.locator('[data-catalog-filter]');
+  await expect(form).toHaveAttribute('data-ready', 'yes');
+  await expect(form.locator('select[name=price]')).toHaveValue('free');
+  await expect(form.locator('[data-sort="rating"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page).not.toHaveURL(/bogus/);
+  await expect(page).toHaveURL(/price=free/);
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(form.locator('select[name=price]')).toHaveValue('free');
+  await expect(form.locator('[data-sort="rating"]')).toHaveAttribute('aria-pressed', 'true');
+  // 越界页码：纠正到实际存在的页，结果区不为空
+  await open(page, '/apps/?page=999', { width: 1440, height: 900 });
+  await expect(page.locator('[data-catalog-grid] > *').first()).toBeVisible();
+  await expect(page).not.toHaveURL(/page=999/);
+  const status = await page.locator('[data-catalog-status]').textContent();
+  const m = /第 (\d+) \/ (\d+) 页/.exec(status ?? '');
+  if (m) {
+    expect(m[1]).toBe(m[2]);
+    expect(new URL(page.url()).searchParams.get('page')).toBe(m[1]);
+  } else expect(new URL(page.url()).searchParams.get('page')).toBeNull();
+  // 改筛选：页码回到 1（地址里不再有 page）
+  await form.locator('select[name=price]').selectOption('free');
+  await expect(page).not.toHaveURL(/page=/);
+});
+
+test('T019 列表外壳：无效排序从地址去掉；?view= 本次生效但不覆盖本地偏好', async ({ page }) => {
+  await open(page, '/games/?sort=bogus', { width: 1440, height: 900 });
+  await expect(page.locator('[data-list-shell]')).toHaveAttribute('data-ready', 'yes');
+  await expect(page).not.toHaveURL(/sort=/);
+  await page.evaluate(() => localStorage.setItem('az-list-view', 'grid'));
+  await open(page, '/games/?view=list', { width: 1440, height: 900 });
+  await expect(page.locator('[data-list-items]')).toHaveAttribute('data-view', 'list');
+  expect(await page.evaluate(() => localStorage.getItem('az-list-view'))).toBe('grid');
+  // 访客自己切换：写偏好，地址里的 view 去掉
+  await page.locator('[data-view-set="grid"]').click();
+  await expect(page).not.toHaveURL(/view=/);
+  expect(await page.evaluate(() => localStorage.getItem('az-list-view'))).toBe('grid');
 });
 
 // ------------------------------------------------------------------ F01 / T018
