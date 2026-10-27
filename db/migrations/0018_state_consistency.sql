@@ -63,6 +63,18 @@ create table if not exists public.workflow_tick_runs (
 create index if not exists workflow_tick_runs_started_idx on public.workflow_tick_runs (started_at desc);
 revoke all on public.workflow_tick_runs from public;
 
+-- 批次 2 跟进 5：调度心跳。每次无人值守 tick（mod_workflow_tick_job）按来源 upsert 一行；
+-- az_workflow_health() 在最近心跳超过 2× 期望间隔时判定过期。后台补偿 tick 不写心跳。
+create table if not exists public.workflow_scheduler_heartbeat (
+  source text primary key,
+  beat_at timestamptz not null default clock_timestamp(),
+  interval_seconds integer not null default 60,
+  beats bigint not null default 1,
+  last_run_id bigint,
+  constraint workflow_scheduler_heartbeat_interval_check check (interval_seconds between 10 and 86400)
+);
+revoke all on public.workflow_scheduler_heartbeat from public;
+
 create table if not exists public.admin_idempotency (
   actor uuid not null,
   key text not null,
@@ -76,13 +88,17 @@ revoke all on public.admin_idempotency from public;
 
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
-    execute 'revoke all on public.workflow_tick_runs, public.admin_idempotency from anon, authenticated';
-    execute 'grant select on public.workflow_tick_runs to authenticated';
+    execute 'revoke all on public.workflow_tick_runs, public.admin_idempotency, public.workflow_scheduler_heartbeat from anon, authenticated';
+    execute 'grant select on public.workflow_tick_runs, public.workflow_scheduler_heartbeat to authenticated';
   end if;
 end $$;
 alter table public.workflow_tick_runs enable row level security;
 drop policy if exists workflow_tick_runs_read on public.workflow_tick_runs;
 create policy workflow_tick_runs_read on public.workflow_tick_runs for select to authenticated
+  using ((select public.is_moderator()));
+alter table public.workflow_scheduler_heartbeat enable row level security;
+drop policy if exists workflow_scheduler_heartbeat_read on public.workflow_scheduler_heartbeat;
+create policy workflow_scheduler_heartbeat_read on public.workflow_scheduler_heartbeat for select to authenticated
   using ((select public.is_moderator()));
 alter table public.admin_idempotency enable row level security; -- 无策略：只经 SECURITY DEFINER 函数读写
 
@@ -684,23 +700,44 @@ create or replace function public.mod_workflow_tick()
  volatile security definer
  set search_path to 'public'
 as $$
+declare
+  n integer;
 begin
   if auth.uid() is not null then
     perform public.az_require_moderator();
   end if;
-  return (public.az_workflow_tick_run(case when auth.uid() is null then 'owner' else 'admin-page' end) ->> 'published')::integer;
+  n := (public.az_workflow_tick_run(case when auth.uid() is null then 'owner' else 'admin-page' end) ->> 'published')::integer;
+  -- 调度器自己停了就不会再调告警：版主打开后台时若发现心跳过期，由这里触发（1 小时去重）
+  if auth.uid() is not null and coalesce((public.az_workflow_health() ->> 'heartbeat_stale')::boolean, false) then
+    perform public.az_workflow_alert();
+  end if;
+  return n;
 end
 $$;
 
--- 无人值守调度入口：pg_cron（表所有者）或外部调度器（service_role）调用
-create or replace function public.mod_workflow_tick_job(p_source text default 'cron')
+-- 无人值守调度入口：pg_cron（表所有者）或外部调度器（service_role）调用。
+-- p_interval_seconds = 调度器的期望运行间隔（pg_cron 每分钟 = 60），写进心跳，健康检查按 2× 判定过期。
+drop function if exists public.mod_workflow_tick_job(text);
+create or replace function public.mod_workflow_tick_job(p_source text default 'cron', p_interval_seconds integer default 60)
  returns jsonb
  language plpgsql
  volatile security definer
  set search_path to 'public'
 as $$
+declare
+  src text := left(coalesce(p_source, 'cron'), 40);
+  r jsonb;
 begin
-  return public.az_workflow_tick_run(coalesce(p_source, 'cron'));
+  if p_interval_seconds is null or p_interval_seconds not between 10 and 86400 then
+    raise exception '期望间隔需在 10 秒到 1 天之间' using errcode = '22023';
+  end if;
+  r := public.az_workflow_tick_run(src);
+  insert into public.workflow_scheduler_heartbeat as h (source, beat_at, interval_seconds, beats, last_run_id)
+  values (src, clock_timestamp(), p_interval_seconds, 1, (r ->> 'run_id')::bigint)
+  on conflict (source) do update
+    set beat_at = excluded.beat_at, interval_seconds = excluded.interval_seconds,
+        beats = h.beats + 1, last_run_id = excluded.last_run_id;
+  return r;
 end
 $$;
 
@@ -716,9 +753,17 @@ declare
   oldest timestamptz;
   last_run record;
   fails integer;
+  hb record;
+  hb_age numeric;
+  stale boolean := false;
 begin
   if auth.uid() is not null then
     perform public.az_require_moderator();
+  end if;
+  select * into hb from public.workflow_scheduler_heartbeat order by beat_at desc limit 1;
+  if hb.source is not null then
+    hb_age := round(extract(epoch from clock_timestamp() - hb.beat_at));
+    stale := hb_age > 2 * hb.interval_seconds;
   end if;
   select count(*), min(scheduled_at) into overdue, oldest from public.content_workflow
    where status = 'review' and scheduled_at is not null and scheduled_at <= now() and orphaned_at is null;
@@ -733,8 +778,14 @@ begin
     'last_run_age_seconds', case when last_run.started_at is null then null
                                  else round(extract(epoch from now() - last_run.started_at)) end,
     'failed_runs_1h', fails,
+    'scheduler_configured', hb.source is not null,
+    'heartbeat_source', hb.source,
+    'heartbeat_at', hb.beat_at,
+    'heartbeat_age_seconds', hb_age,
+    'heartbeat_interval_seconds', hb.interval_seconds,
+    'heartbeat_stale', stale,
     'ok', (oldest is null or now() - oldest <= interval '2 minutes')
-          and coalesce(last_run.failed, 0) = 0);
+          and coalesce(last_run.failed, 0) = 0 and not stale);
 end
 $$;
 
@@ -757,8 +808,12 @@ begin
                and created_at > now() - interval '1 hour') then
     return h || jsonb_build_object('alerted', false, 'suppressed', true);
   end if;
-  msg := format('定时发布异常：积压 %s 条，最久超时 %s 秒，最近 1 小时失败运行 %s 次。请检查调度任务。',
-                h ->> 'overdue', h ->> 'oldest_overdue_seconds', h ->> 'failed_runs_1h');
+  msg := format('定时发布异常：积压 %s 条，最久超时 %s 秒，最近 1 小时失败运行 %s 次%s。请检查调度任务。',
+                h ->> 'overdue', h ->> 'oldest_overdue_seconds', h ->> 'failed_runs_1h',
+                case when (h ->> 'heartbeat_stale')::boolean
+                     then format('；调度心跳已 %s 秒未更新（期望每 %s 秒）', h ->> 'heartbeat_age_seconds',
+                                 h ->> 'heartbeat_interval_seconds')
+                     else '' end);
   insert into public.notifications (user_id, actor, kind, target_type, target_id, excerpt)
   select p.id, null, 'system', 'workflow', 'scheduler', left(msg, 200)
     from public.profiles p where p.role = 'admin' and not p.banned;
@@ -842,7 +897,7 @@ revoke execute on function
   public.mod_edit_content(text, uuid, text, text, text, text, timestamptz),
   public.mod_workflow_apply(text, uuid[], text, timestamptz, jsonb, text),
   public.mod_set_visibility(text, uuid[], boolean, text),
-  public.mod_workflow_tick_job(text), public.az_workflow_health(), public.az_workflow_alert(),
+  public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert(),
   public.mod_list_content_page(text, text, text, boolean, boolean, uuid, integer, integer, text, text),
   public.mod_list_users_page(text, text, boolean, integer, integer, uuid, text, text)
   from public;
@@ -855,7 +910,7 @@ do $$ begin
       public.mod_edit_content(text, uuid, text, text, text, text, timestamptz),
       public.mod_workflow_apply(text, uuid[], text, timestamptz, jsonb, text),
       public.mod_set_visibility(text, uuid[], boolean, text),
-      public.mod_workflow_tick_job(text), public.az_workflow_health(), public.az_workflow_alert(),
+      public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert(),
       public.mod_list_content_page(text, text, text, boolean, boolean, uuid, integer, integer, text, text),
       public.mod_list_users_page(text, text, boolean, integer, integer, uuid, text, text)
       from anon, authenticated';
@@ -870,7 +925,7 @@ do $$ begin
       to authenticated';
   end if;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant execute on function public.mod_workflow_tick_job(text), public.az_workflow_health(), public.az_workflow_alert() to service_role';
+    execute 'grant execute on function public.mod_workflow_tick_job(text, integer), public.az_workflow_health(), public.az_workflow_alert() to service_role';
   end if;
 end $$;
 

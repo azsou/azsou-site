@@ -7,6 +7,8 @@
 -- 承诺：每分钟调度一次 → 到期内容 2 分钟内公开；双 worker 由 FOR UPDATE SKIP LOCKED 保证不重复发布（T062）。
 -- 告警：每 5 分钟 az_workflow_alert()——积压超过 2 分钟或最近一次运行有失败 → 给所有管理员发站内通知
 --       （1 小时内同类只发一次），并写 audit_log「content.workflow.alert」。站外告警见下方可选的 pg_net 段。
+-- 心跳：每次 tick_job 写 public.workflow_scheduler_heartbeat（来源 pg_cron、期望间隔 60 秒）；超过 2× 间隔未更新 →
+--       az_workflow_health().heartbeat_stale = true → 告警（版主打开后台时的补偿 tick 也会触发，防止调度器整体停摆无人报警）。
 -- 回滚：select cron.unschedule('az-workflow-tick'); select cron.unschedule('az-workflow-health');
 --       （停调度后后台页面打开时的补偿 tick 仍然有效，但不再是无人值守。）
 -- =============================================================================
@@ -15,7 +17,7 @@
 create extension if not exists pg_cron;
 
 -- 2) 每分钟发布到期内容（运行记录写 public.workflow_tick_runs）
-select cron.schedule('az-workflow-tick', '* * * * *', $$select public.mod_workflow_tick_job('pg_cron')$$);
+select cron.schedule('az-workflow-tick', '* * * * *', $$select public.mod_workflow_tick_job('pg_cron', 60)$$);
 
 -- 3) 每 5 分钟健康检查 + 站内告警
 select cron.schedule('az-workflow-health', '*/5 * * * *', $$select public.az_workflow_alert()$$);
