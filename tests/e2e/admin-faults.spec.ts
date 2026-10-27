@@ -5,6 +5,7 @@ import pg from 'pg';
 import type { Page, TestInfo } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { forwardRest, seedThread, uniq } from './community-fixtures';
+import { ADMIN_READ_MODULES, SHELL_ENDPOINTS, type AdminReadModuleId } from './admin-modules';
 import { SHIM, createDatabase, dbUrl, dropDatabase, migrationFiles } from '../db/helpers';
 import { BIN, ensureAuthenticator, freePort, startPostgrest, tok } from '../db/postgrest';
 
@@ -39,17 +40,9 @@ let proxy: http.Server | null = null;
 let pool: pg.Pool | null = null;
 const db = () => (pool ??= new pg.Pool({ connectionString: dbUrl(DB), max: 3 }));
 
-const MODULES = [
-  { id: 'overview', path: '/admin/', ready: '[data-stats] .stat' },
-  { id: 'content', path: '/admin/content/', ready: 'tbody[data-rows] tr[data-row]' },
-  { id: 'users', path: '/admin/users/', ready: 'tbody[data-rows] tr[data-row]' },
-  { id: 'reports', path: '/admin/reports/', ready: '[data-report], .report, [data-table-empty]' },
-  { id: 'guestbook', path: '/admin/guestbook/', ready: '[data-table-empty], .mod-item' },
-  { id: 'links', path: '/admin/links/', ready: '[data-table-empty], .mod-item' },
-  { id: 'subscribers', path: '/admin/subscribers/', ready: '[data-status-row]' },
-  { id: 'audit', path: '/admin/audit/', ready: 'tbody[data-rows] tr, [data-table-empty]' },
-] as const;
-type ModuleId = (typeof MODULES)[number]['id'];
+/** 8 个模块：唯一清单在 admin-modules.ts（与交接文档、真实后台侧栏逐项核对） */
+const MODULES = ADMIN_READ_MODULES;
+type ModuleId = AdminReadModuleId;
 /** 健康状态下每个模块实际请求的数据端点（不含 /profiles 与公开设置），由第一条用例记录 */
 const endpoints = new Map<ModuleId, Set<string>>();
 
@@ -215,6 +208,10 @@ test('基线：8 个模块在真实 PostgREST 上读出真实数据，并记录�
     await page.waitForLoadState('networkidle');
     page.off('request', on);
     expect(seen.size, `${m.id} 没有任何数据请求`).toBeGreaterThan(0);
+    // A15 清单核对：模块实际请求的数据端点 = 清单写的端点 + 后台外壳请求（清单写错或代码改了读取对象都会在这里失败）
+    expect([...seen].sort(), `${m.id} 的数据端点与 admin-modules.ts 不一致`).toEqual(
+      [...new Set([...m.endpoints, ...SHELL_ENDPOINTS])].sort(),
+    );
     endpoints.set(m.id, seen);
   }
   console.log(
