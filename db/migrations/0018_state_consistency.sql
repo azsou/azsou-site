@@ -584,6 +584,12 @@ end
 $$;
 
 -- ---------------------------------------------- A02 / A03 tick --------------
+-- 锁顺序（批次 2 跟进 4）：全库统一「先内容行、后 content_workflow 行」——与 mod_set_visibility /
+-- mod_workflow_apply / 触发器 az_workflow_sync / az_workflow_orphan 相同。tick 先不加锁地取候选，再逐条：
+--   ① 内容行 FOR UPDATE SKIP LOCKED（正被隐藏 / 编辑 → 跳过，下一轮再看；不等锁、不死锁）
+--   ② 排程行 FOR UPDATE SKIP LOCKED（另一个 tick 正在处理 → 跳过）
+--   ③ 锁内重新核对：仍是 review + 已到期 + 未孤儿 + 内容仍未公开，才发布；否则跳过（已被隐藏 / 取消 / 恢复）
+-- 旧实现先锁排程行再改内容行，和「先锁内容行」的隐藏交错时会死锁，隐藏事务被杀、内容反被公开。
 create or replace function public.az_workflow_tick_run(p_source text)
  returns jsonb
  language plpgsql
@@ -591,46 +597,72 @@ create or replace function public.az_workflow_tick_run(p_source text)
  set search_path to 'public'
 as $$
 declare
+  c record;
   w record;
-  rc integer;
+  tbl text;
+  locked uuid;
+  pub boolean;
   run_id bigint;
   n_due integer := 0;
   n_pub integer := 0;
   n_orph integer := 0;
   n_fail integer := 0;
+  n_skip integer := 0;
   last_err text;
 begin
   insert into public.workflow_tick_runs (source) values (left(coalesce(p_source, 'unknown'), 40))
     returning id into run_id;
   perform set_config('az.wf_internal', 'on', true);
-  for w in select * from public.content_workflow
+  for c in select target_type, target_id from public.content_workflow
             where status = 'review' and scheduled_at is not null and scheduled_at <= now()
               and orphaned_at is null
             order by scheduled_at, target_id
-            for update skip locked loop
+            limit 500 loop
     n_due := n_due + 1;
     begin
-      execute format('update public.%I set published = true where id = $1', public.az_content_table(w.target_type))
-        using w.target_id;
-      get diagnostics rc = row_count;
-      if rc = 0 then
+      tbl := public.az_content_table(c.target_type);
+      -- ① 内容行
+      locked := null;
+      execute format('select id, published from public.%I where id = $1 for update skip locked', tbl)
+        into locked, pub using c.target_id;
+      if locked is null then
+        execute format('select exists (select 1 from public.%I where id = $1)', tbl) into pub using c.target_id;
+        if pub then
+          n_skip := n_skip + 1; -- 内容行正被别的事务持有（隐藏 / 编辑 / 另一个 tick）：本轮跳过
+          continue;
+        end if;
+      end if;
+      -- ② 排程行 + ③ 锁内复核
+      select * into w from public.content_workflow
+       where target_type = c.target_type and target_id = c.target_id for update skip locked;
+      if not found then
+        n_skip := n_skip + 1;
+        continue;
+      end if;
+      if w.status <> 'review' or w.scheduled_at is null or w.scheduled_at > now() or w.orphaned_at is not null then
+        n_skip := n_skip + 1; -- 锁内复核：已被隐藏 / 取消 / 改期 / 发布
+        continue;
+      end if;
+      if locked is null then
+        -- 目标已删除（删除触发器通常已标孤儿；这里兜底）
         update public.content_workflow set scheduled_at = null, orphaned_at = now(), updated_at = now()
          where target_type = w.target_type and target_id = w.target_id;
         perform public.az_audit('content.workflow.orphaned', w.target_type, w.target_id::text,
           jsonb_build_object('result', 'target_missing', 'run_id', run_id, 'scheduled_at', w.scheduled_at));
         n_orph := n_orph + 1;
-      else
-        update public.content_workflow set status = 'published', scheduled_at = null, updated_at = now()
-         where target_type = w.target_type and target_id = w.target_id;
-        perform public.az_audit('content.workflow.scheduled', w.target_type, w.target_id::text,
-          jsonb_build_object('status', 'published', 'run_id', run_id,
-                             'delay_seconds', round(extract(epoch from now() - w.scheduled_at))));
-        n_pub := n_pub + 1;
+        continue;
       end if;
+      execute format('update public.%I set published = true where id = $1', tbl) using w.target_id;
+      update public.content_workflow set status = 'published', scheduled_at = null, updated_at = now()
+       where target_type = w.target_type and target_id = w.target_id;
+      perform public.az_audit('content.workflow.scheduled', w.target_type, w.target_id::text,
+        jsonb_build_object('status', 'published', 'run_id', run_id,
+                           'delay_seconds', round(extract(epoch from now() - w.scheduled_at))));
+      n_pub := n_pub + 1;
     exception when others then
       n_fail := n_fail + 1;
       last_err := left(sqlerrm, 300);
-      perform public.az_audit('content.workflow.failed', w.target_type, w.target_id::text,
+      perform public.az_audit('content.workflow.failed', c.target_type, c.target_id::text,
         jsonb_build_object('result', 'failed', 'run_id', run_id, 'error', last_err));
     end;
   end loop;
@@ -641,7 +673,7 @@ begin
    where id = run_id;
   delete from public.workflow_tick_runs where started_at < now() - interval '30 days';
   return jsonb_build_object('run_id', run_id, 'due', n_due, 'published', n_pub, 'orphaned', n_orph,
-                            'failed', n_fail);
+                            'failed', n_fail, 'skipped', n_skip);
 end
 $$;
 
