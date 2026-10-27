@@ -6,6 +6,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import * as prettier from 'prettier';
 
 const manifest = JSON.parse(fs.readFileSync('src/data/icon-manifest.json', 'utf8'));
 const front = (dir, slug) => {
@@ -30,7 +31,7 @@ const rows = Object.entries(manifest)
     const src = fm.website || fm.developer?.url || '待补';
     return `| \`${slug}\` | 第三方 AI 工具 | ${v.dir}/${slug} | ${src} | 商标归 ${fm.developer?.name ?? '各自所有者'} 所有，仅用于识别 |`;
   });
-const doc = `# 图标与品牌资产登记（D04）
+const raw = `# 图标与品牌资产登记（D04）
 
 > 由 \`node scripts/design/icon-licenses.mjs\` 生成，勿手改；新增图标后重新生成。
 
@@ -53,6 +54,8 @@ ${rows.join('\n')}
 来源为「待补」或只给出官网首页的条目，具体取图页面未逐个记录：**待站长确认**是否需要逐个补记取图链接与日期。
 `;
 const out = 'docs/ICON-LICENSES.md';
+// 按仓库 Prettier 配置排版后再写 / 比对（否则 prettier --write 对齐表格后 --check 永远不一致）
+const doc = await prettier.format(raw, { ...(await prettier.resolveConfig(out)), filepath: out });
 if (process.argv.includes('--check')) {
   if (!fs.existsSync(out) || fs.readFileSync(out, 'utf8') !== doc) {
     console.error(`${out} 与生成结果不一致：运行 node scripts/design/icon-licenses.mjs`);

@@ -38,7 +38,8 @@ describe('D04 图标', () => {
       unknown
     >;
     const doc = fs.readFileSync('docs/ICON-LICENSES.md', 'utf8');
-    expect(Object.keys(manifest).filter((k) => !doc.includes(`| \`${k}\` |`))).toEqual([]);
+    // Prettier 会对齐表格列宽，所以按「| `slug` <空格若干> |」匹配
+    expect(Object.keys(manifest).filter((k) => !new RegExp(`\\|\\s*\`${k}\`\\s*\\|`).test(doc))).toEqual([]);
     expect(doc).toMatch(/Lucide[\s\S]*ISC/);
     expect(() =>
       execFileSync('node', ['scripts/design/icon-licenses.mjs', '--check'], { stdio: 'pipe' }),
