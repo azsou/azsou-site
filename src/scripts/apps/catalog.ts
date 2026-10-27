@@ -110,7 +110,18 @@ if (form && grid && statusEl && pager) {
         Number(!fixedPlatform && !!q.platform) + Number(!!q.price) + Number((q.sort ?? 'new') !== 'new'),
       );
     // F02：地址是唯一的状态来源。只写规范化后的查询串（未知参数、无效取值丢弃）；越界页码在下面按实际页数纠正
-    const canon = (p: number) => location.pathname + urlQuery(q, p) + location.hash;
+    // 应用目录页同时有 ListShell 的客户端排序（最新 / 名称 / 编辑推荐，同样写 ?sort=）：那一组的取值原样保留，不当未知参数丢弃
+    const shellSort = new URLSearchParams(location.search).get('sort');
+    const keepShell =
+      q.sort === 'new' &&
+      !!shellSort &&
+      !!document.querySelector(`[data-entry-sort="${CSS.escape(shellSort)}"]`);
+    const canon = (p: number) => {
+      const qs = new URLSearchParams(urlQuery(q, p));
+      if (keepShell) qs.set('sort', shellSort!);
+      const str = qs.toString();
+      return location.pathname + (str ? `?${str}` : '') + location.hash;
+    };
     const setUrl = (p: number) => {
       if (location.pathname + location.search + location.hash !== canon(p))
         history.replaceState(null, '', canon(p));

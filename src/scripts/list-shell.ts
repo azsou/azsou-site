@@ -4,7 +4,7 @@
  * data-sort-new / data-sort-name / data-sort-editor（src/lib/store.ts sortAttrs）。
  * 排序写进查询串 ?sort=（可分享），显示方式记在 localStorage（个人偏好，不进地址）。
  * F02 状态约定：地址优先于本地偏好。
- *  - ?sort= 无效 / 等于默认值时从地址里去掉（未知参数不残留，分享出去的链接是规范的）；
+ *  - 外壳自己有排序按钮时，?sort= 无效 / 等于默认值就从地址里去掉（未知参数不残留，分享出去的链接是规范的）；
  *  - 显示方式是「全站共用」的个人偏好（各栏目同一个 az-list-view）；分享链接带 ?view=grid|list 时本次按地址显示，
  *    但不覆盖访客自己存的偏好；访客在页面上点了切换才写偏好，并同步去掉地址里的 view。
  */
@@ -134,7 +134,9 @@ for (const root of document.querySelectorAll<HTMLElement>('[data-list-shell]')) 
   const s = params.get('sort');
   if (s && sortBtns.some((b) => b.dataset.entrySort === s) && s !== defaultSort) applySort(s, false);
   else {
-    if (s !== null) setParam('sort', null);
+    // 只清理自己负责的 sort：应用目录页上 catalog.ts 的「更多筛选」排序（热门 / 评分）也写 ?sort=，交给它处理
+    if (s !== null && sortBtns.length && !document.querySelector('[data-catalog-filter]'))
+      setParam('sort', null);
     paginate();
   }
   root.dataset.ready = 'yes';
