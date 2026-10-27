@@ -50,7 +50,7 @@ pg_dump "$DATABASE_URL" --schema=auth --table=auth.users --data-only \
 | 保留 | 产物上传为 workflow artifact `db-backup-<run id>`，**保留 30 天**，过期由 GitHub 自动删除                                     |
 | 内容 | `azsou-public-*.dump`（public 全部结构 + 数据 + 策略 + 授权）、结构 SQL、行数清单、SHA256 校验和；配置口令时另含 `auth.users` |
 | 加密 | 配置 Secret `BACKUP_PASSPHRASE` 后全部产物用 gpg AES256 加密；解密：`gpg -d 文件.gpg > 文件`                                  |
-| 需要 | 仓库 Secret `SUPABASE_DB_URL`（Session pooler，端口 5432）；未配置时工作流成功结束并提示「跳过备份」                          |
+| 需要 | 仓库 Secret `SUPABASE_DB_URL`（Session pooler，端口 5432）；未配置时工作流**失败**并提示「未备份」（Q06：缺密钥不显示为成功） |
 
 - 定时触发只在默认分支 `main` 上生效；合并前可在 Actions → DB backup → Run workflow 选 `v2/astro` 手动运行。
 - 30 天 ≈ 最近 4–5 份周备份。需要更久的留档：每月下载一份放到自己的加密存储里。

@@ -5,7 +5,8 @@ name: DB backup
 # 站长需要在 GitHub → Settings → Secrets and variables → Actions 里添加（本工作流不会替你设置）：
 #   SUPABASE_DB_URL     必需。Supabase → Project Settings → Database → Connection string → Session pooler（端口 5432）
 #   BACKUP_PASSPHRASE   强烈建议。设置后产物用 gpg AES256 加密，并额外备份 auth.users（邮箱 + 密码哈希）
-# 没有 SUPABASE_DB_URL 时工作流成功结束并给出提示（不会失败）。
+# 没有 SUPABASE_DB_URL 时工作流失败并给出提示（Q06：缺密钥不能显示为「备份成功」）；
+# 备份后 scripts/db-verify-backup.sh 校验和 / 解密 / pg_restore 目录 / 行数清单，任何一步不通过都标红。
 # 注意：定时触发只在默认分支（main）上生效；合并前可在 Actions 页面对 v2/astro 手动运行。
 # 详见 docs/OPERATIONS.md「备份」与 docs/BACKUP.md。
 on:
@@ -32,8 +33,9 @@ jobs:
         id: check
         run: |
           if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "::notice title=跳过备份::仓库还没有配置 Secret SUPABASE_DB_URL（见 docs/OPERATIONS.md「备份」）"
+            echo "::error title=未备份::仓库还没有配置 Secret SUPABASE_DB_URL（见 docs/OPERATIONS.md「备份」）——本次没有产生任何备份"
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 1
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
             [ -n "$BACKUP_PASSPHRASE" ] || echo "::warning title=备份未加密::建议添加 Secret BACKUP_PASSPHRASE（加密产物并备份 auth.users）"
@@ -53,6 +55,9 @@ jobs:
         run: |
           export BACKUP_INCLUDE_AUTH=$([ -n "$BACKUP_PASSPHRASE" ] && echo 1 || echo 0)
           bash scripts/db-backup.sh "$SUPABASE_DB_URL" backup
+      - name: 校验备份（校验和 / 解密 / pg_restore 目录 / 行数清单）
+        if: steps.check.outputs.skip == 'false'
+        run: bash scripts/db-verify-backup.sh backup
       - name: 上传备份（保留 30 天）
         if: steps.check.outputs.skip == 'false'
         uses: actions/upload-artifact@v4
