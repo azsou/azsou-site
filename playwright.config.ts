@@ -1,5 +1,5 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
-// 端口：PW_PORT → E2E_PORT → 4321（与自建 context 的用例共用）
+// 端口：PW_PORT → E2E_PORT → 4321（与自建 context 的用例共用；本地多个工作区并行时错开，CI 不设）
 import { BASE_URL, PORT } from './tests/e2e/port';
 
 /**

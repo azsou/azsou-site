@@ -1,5 +1,5 @@
 /** /admin/data/：导出 UGC（JSON / CSV，不含邮箱）、导出 / 导入站点设置。 */
-import { EXPORT_COLUMNS, type ExportTable } from '@/lib/data';
+import { EXPORT_COLUMNS, type ExportTable } from '@/lib/data/admin';
 import { toCsv } from '@/lib/csv';
 import { parseSettingsImport, settingsExport, type ImportResult } from '@/lib/settings';
 import { clearSiteSettingsCache } from '../site-settings';
