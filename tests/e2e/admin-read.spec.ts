@@ -255,5 +255,8 @@ test.describe('A15 全量库：错误分类与重试', () => {
 });
 
 test.afterAll(async () => {
-  await Promise.all(Object.values(pools).map((p) => p.end()));
+  // 同一 worker 可能对多个项目（desktop / iphone）各跑一次 afterAll：先从表里摘掉再 end，每个连接池只关一次
+  const all = Object.values(pools);
+  for (const k of Object.keys(pools)) delete pools[k];
+  await Promise.all(all.map((p) => p.end()));
 });
