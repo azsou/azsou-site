@@ -220,5 +220,11 @@ test('T095 重试成功 → 编辑 → 迟到的重新加载响应不覆盖编�
 });
 
 test.afterAll(async () => {
-  await pool?.end();
+  // fullyParallel 下同一 worker 可能分几组跑本文件的用例（中间夹着别的文件），afterAll 因此会执行多次。
+  // 以前只 end 不清空：下一组 T095 的 lock 夹具拿到已关闭的连接池 →「Cannot use a pool after calling end on the pool」，
+  // 本组 afterAll 再 end 一次 →「Called end on pool more than once」（CI 40495192025 / 40495181420 chromium-desktop 首次失败、重试通过）。
+  // 现在先摘掉引用再关闭，下一组按需新建连接池。用例与断言不变。
+  const p = pool;
+  pool = null;
+  await p?.end();
 });
