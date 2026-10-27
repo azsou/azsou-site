@@ -20,13 +20,35 @@ const sh = (args: string[], env: Record<string, string | undefined> = {}) =>
     encoding: 'utf8',
   });
 
-describe('db-backup.yml：强制加密', () => {
-  it('检查步骤：缺 SUPABASE_DB_URL 或 BACKUP_PASSPHRASE 任一个都 exit 1，不导出', () => {
-    const check = wf.slice(wf.indexOf('name: 检查 Secret'), wf.indexOf('uses: actions/checkout'));
-    expect(check).toMatch(/\[ -n "\$SUPABASE_DB_URL" \] \|\| missing=/);
-    expect(check).toMatch(/\[ -n "\$BACKUP_PASSPHRASE" \] \|\| missing=/);
-    expect(check).toMatch(/exit 1/);
-    expect(check).not.toMatch(/::warning/); // 以前缺口令只是警告
+describe('db-backup.yml：强制加密（站长第三轮：受保护、仅手动；检查移到 scripts/ops/backup-guard.sh）', () => {
+  const guard = readFileSync(resolve(ROOT, 'scripts/ops/backup-guard.sh'), 'utf8');
+  it('闸门脚本是第一个业务步骤：缺 SUPABASE_DB_URL / SUPABASE_URL / service key / BACKUP_PASSPHRASE 任一个都失败，不导出', () => {
+    const g = wf.indexOf('bash scripts/ops/backup-guard.sh');
+    expect(g).toBeGreaterThan(0);
+    expect(g).toBeLessThan(wf.indexOf('bash scripts/db-backup.sh'));
+    expect(guard).toMatch(
+      /for v in SUPABASE_DB_URL SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY BACKUP_PASSPHRASE; do/,
+    );
+    expect(guard).toMatch(/\[ -z "\$missing" \] \|\| fail/);
+    expect(guard).not.toMatch(/::warning/); // 以前缺口令只是警告
+  });
+  it('闸门真的拒绝缺口令的运行（执行脚本，不连库）', () => {
+    const r = spawnSync('bash', ['scripts/ops/backup-guard.sh'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        GITHUB_EVENT_NAME: 'workflow_dispatch',
+        BACKUP_ENVIRONMENT_GUARD: 'backup-production',
+        SUPABASE_DB_URL:
+          'postgresql://postgres.abcdefghijklmnopqrst:x@aws-0-x.pooler.supabase.com:5432/postgres',
+        SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'k',
+        CONFIRM_PROJECT_REF: 'abcdefghijklmnopqrst',
+      },
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/BACKUP_PASSPHRASE/);
   });
   it('上传前有 assert-encrypted 闸门，上传路径只匹配 *.gpg，从不允许明文', () => {
     const gate = wf.indexOf('bash scripts/ops/assert-encrypted.sh backup');

@@ -1,0 +1,74 @@
+name: Ops tests
+# 站长第三轮 ⑤：运维 PR #8（受保护、仅手动的备份工作流）自己的测试；PR #5 带同一份文件，两边结果可比。
+# 不连接任何生产资源、不读任何 Secret：actionlint + shellcheck + 工作流结构断言 + 闸门用例 + 本机 Postgres 上的备份端到端。
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ops-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: actionlint（备份 / 运维工作流，含默认不启用的模板）
+        run: |
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz | tar -xz actionlint
+          ./actionlint -color .github/workflows/db-backup.yml .github/workflows/ops-tests.yml ops/disabled-workflows/*.yml
+      - name: shellcheck（备份 / 校验 / 闸门脚本与测试）
+        run: |
+          shellcheck --version | head -2
+          shellcheck -S warning -x scripts/db-backup.sh scripts/db-verify-backup.sh scripts/ops/assert-encrypted.sh \
+            scripts/ops/backup-guard.sh scripts/ops/backup-lib.sh tests/ops/backup-guard.test.sh tests/ops/backup-ops-e2e.sh
+      - name: 工作流结构断言（无定时触发、环境闸门、并发、最小权限、确认输入、只上传 .gpg）
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
+          python3 -m unittest -v tests/ops/test_workflows.py
+      - name: 闸门用例（不联网、不连库）
+        run: bash tests/ops/backup-guard.test.sh
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Storage 客户端语法检查
+        run: node --check scripts/ops/storage-files.mjs
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PostgreSQL 17 客户端
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 备份脚本端到端（统一快照 manifest / 校验和 / 强制加密 / 拒绝路径）
+        run: bash tests/ops/backup-ops-e2e.sh

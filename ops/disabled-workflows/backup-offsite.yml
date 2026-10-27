@@ -1,0 +1,62 @@
+name: Backup offsite copy
+# ⚠ 默认不启用（站长第三轮 2026-10-28：外部存储上传另行启用）。本文件放在 ops/disabled-workflows/，GitHub 不会运行它；
+#   站长批准并选定外部存储后，复制到 .github/workflows/ 才生效（单独一个 PR）。
+#
+# 做什么：把某次 DB backup（手动或每日）产物里的 **已加密** .gpg 文件原样复制到站长自己的 S3 兼容存储（异地第二份），
+# 不解密、不接触 BACKUP_PASSPHRASE；复制前再过一次 assert-encrypted 闸门。保留期由外部存储的生命周期规则决定（建议 ≥ 30 天）。
+# 需要站长在环境 backup-offsite（建议也设必需审批人）里配置：
+#   Secrets：OFFSITE_ACCESS_KEY_ID、OFFSITE_SECRET_ACCESS_KEY；Variables：OFFSITE_ENDPOINT（如 https://<account>.r2.cloudflarestorage.com）、
+#   OFFSITE_BUCKET、OFFSITE_REGION（R2 填 auto）
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: 'DB backup 运行的 run id（复制它的加密产物）'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: backup-offsite
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: backup-offsite
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 下载加密产物
+        uses: actions/download-artifact@v4
+        with:
+          name: db-backup-${{ inputs.backup_run_id }}
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ github.token }}
+          path: backup
+      - name: 闸门：只能是 gpg 对称加密产物
+        run: bash scripts/ops/assert-encrypted.sh backup
+      - name: 复制到外部存储（原样、已加密）
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.OFFSITE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.OFFSITE_REGION }}
+          OFFSITE_ENDPOINT: ${{ vars.OFFSITE_ENDPOINT }}
+          OFFSITE_BUCKET: ${{ vars.OFFSITE_BUCKET }}
+          RUN_ID: ${{ inputs.backup_run_id }}
+        run: |
+          for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY OFFSITE_ENDPOINT OFFSITE_BUCKET; do
+            [ -n "${!v}" ] || { echo "::error::环境 backup-offsite 缺少 $v"; exit 1; }
+          done
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::run id 不合法"; exit 1; }
+          aws s3 cp backup/ "s3://$OFFSITE_BUCKET/azsou-db-backup/$RUN_ID/" --recursive --endpoint-url "$OFFSITE_ENDPOINT" --only-show-errors
+          aws s3 ls "s3://$OFFSITE_BUCKET/azsou-db-backup/$RUN_ID/" --endpoint-url "$OFFSITE_ENDPOINT"
