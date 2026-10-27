@@ -503,7 +503,9 @@
       inset-block: calc((var(--touch) - var(--control-sm)) / 2);
       z-index: -1;
       border-radius: inherit;
-      background: var(--c-fill);
+      /* D08：顶栏是半透明材质，搜索框的灰底若也半透明，下面滚过深色块时提示文字掉到 3.2:1；
+         在实色底上叠同样的灰（视觉不变），提示文字对任何内容都 ≥ 4.5 */
+      background: linear-gradient(var(--c-fill), var(--c-fill)), var(--c-glass-solid);
     }
     .nav-search .icon {
       flex: none;
@@ -693,11 +695,12 @@
     width: 24px;
     height: 24px;
   }
-  /* 底部 Tab 的文字很小（caption）：毛玻璃只留 8% 透明度，下面滚过深色 / 彩色块时对比度仍 ≥ 4.5（WebKit axe 曾在 /guestbook/ 报 color-contrast） */
-  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    .tabbar.glass {
-      background: color-mix(in srgb, var(--c-glass-solid) 92%, transparent);
-    }
+  /* 底部 Tab 的文字很小（caption）：D08（批次 3 跟进）改为实色、不做模糊——原来 92% 毛玻璃下滚过纯黑块时，
+     选中项的强调色只有 4.0:1；实色在任何内容上都 ≥ 4.5，也省掉手机上每帧的背景模糊开销 */
+  .tabbar.glass {
+    background: var(--c-glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   @media (hover: hover) and (pointer: fine) {
     .tabbar a:hover {
