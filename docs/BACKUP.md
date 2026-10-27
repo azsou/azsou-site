@@ -131,5 +131,10 @@ DATABASE_URL=postgres://postgres@127.0.0.1:54329/postgres npm run db:drill
 DATABASE_URL=… POSTGREST_BIN=… npm run test:db                   # 迁移 + RLS 矩阵 + 后台 RPC + 存储 RLS
 ```
 
+**云端真实恢复验收（不下载到个人电脑）**：Actions → CI → Run workflow，分支选当前分支，填 `backup_run_id` = 某次
+DB backup 的 run id → 任务 `backup-restore` 下载该产物、用仓库 Secret `BACKUP_PASSPHRASE` 解密、恢复到 CI 的临时 Postgres，
+跑 `scripts/db-verify-backup.sh --restore` 并把表名 / 行数 / 恢复耗时 / status 汇总写进运行摘要（对生产只读，不输出数据或密钥）。
+截至 2026-10-27 仓库里还没有任何 DB backup 产物，所以这项**阻塞**在「先配置 Secret 并成功运行一次 DB backup」。
+
 **站长每季度做一次真实演练**：从 Actions 下载最近一份备份 → 解密 → 恢复到一个临时 Supabase 项目或本地 Postgres → 跑 `db/verify/status.sql`
 并对比行数清单（`azsou-rowcounts-*.tsv`）→ 删除临时项目。
