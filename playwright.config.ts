@@ -47,6 +47,9 @@ for (const [b, base] of Object.entries(BROWSERS)) {
   }
 }
 
+/** 本地多个工作区并行跑 E2E 时用 E2E_PORT 错开端口（默认 4321，CI 不设） */
+const PORT = Number(process.env.E2E_PORT) || 4321;
+
 export default defineConfig({
   testDir: 'tests/e2e',
   // 社区（P3）用例的真实后端：本地 Postgres + PostgREST（未配置时这些用例跳过）
@@ -59,7 +62,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 7_000 },
   use: {
-    baseURL: 'http://127.0.0.1:4321',
+    baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
     trace: 'retain-on-failure',
@@ -68,8 +71,8 @@ export default defineConfig({
   },
   projects,
   webServer: {
-    command: 'node scripts/serve.mjs 4321 dist/client',
-    url: 'http://127.0.0.1:4321/',
+    command: `node scripts/serve.mjs ${PORT} dist/client`,
+    url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
