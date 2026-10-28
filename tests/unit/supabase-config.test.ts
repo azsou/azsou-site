@@ -11,6 +11,7 @@ import {
   LOCAL_HOSTS,
   SupabaseConfigError,
   TEST_PROJECT_REFS,
+  checkSupabaseConfig,
   classifySupabaseUrl,
   localSupabaseOrigin,
   resolveSupabaseConfig,
@@ -287,5 +288,36 @@ describe('源码里没有别处硬编码生产 Supabase', () => {
       if (text.includes(PRODUCTION_REF) || text.includes(PRODUCTION_PUBLISHABLE_KEY)) hits.push(f);
     }
     expect(hits).toEqual([]);
+  });
+});
+
+describe('checkSupabaseConfig（浏览器端用的判定本体）与 resolveSupabaseConfig 同一规则', () => {
+  const SECRET = 'sb_secret_abc';
+  const cases: Array<[string, Record<string, string>, typeof PI | undefined]> = [];
+  for (const [name, extra] of [...NONPROD, ['Vercel production', PRODENV] as const]) {
+    for (const c of [TEST, LOCAL, PROD, { url: TEST.url, key: PROD.key }, { url: TEST.url, key: SECRET }]) {
+      for (const pi of [PI, undefined])
+        cases.push([`${name} ${c.url} ${c.key}`, { ...extra, ...env(c) }, pi]);
+    }
+    cases.push([`${name} 缺 URL`, { ...extra, PUBLIC_SUPABASE_KEY: TEST.key }, PI]);
+    cases.push([`${name} 缺 KEY`, { ...extra, PUBLIC_SUPABASE_URL: TEST.url }, PI]);
+    cases.push([
+      `${name} 不在清单`,
+      { ...extra, ...env({ url: 'https://aaaaaaaaaaaaaaaaaaaa.supabase.co', key: TEST.key }) },
+      PI,
+    ]);
+  }
+  it.each(cases)('%s', (_n, e, pi) => {
+    const r = checkSupabaseConfig(e, pi);
+    let resolved: unknown = null;
+    let threw = false;
+    try {
+      resolved = resolveSupabaseConfig(e, pi);
+    } catch (err) {
+      expect(err).toBeInstanceOf(SupabaseConfigError);
+      threw = true;
+    }
+    expect(r.ok).toBe(!threw);
+    if (r.ok) expect(resolved).toEqual({ url: r.url, key: r.key, source: 'env', target: r.target });
   });
 });
