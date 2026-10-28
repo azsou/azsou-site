@@ -8,6 +8,7 @@
 
 - 只在隔离测试项目 **azsou-test（`ovvfwkmqlejcpatmfqcd`）** 和指向它的测试预览站上做；生产项目、生产站点、本机栈一律被脚本拒绝（退出码 2）。
 - 预览站必须是**锁定候选 SHA** 的构建（完整 40 位 SHA 写进 `manifest.json` 的 `candidate_sha`），部署前后按 `docs/DEPLOY.md`「Supabase 连接配置」核对前后端都指向 azsou-test。
+- **部署绑定（第六轮 ⑤）**：执行器在发出任何验收请求之前，用只读 GitHub Deployments API 核对 `I01_GITHUB_DEPLOYMENT_ID`：sha = `I01_CANDIDATE_SHA`、environment = Preview、创建者 vercel[bot]、当前状态 success、environment_url 的源 = `I01_SITE_URL`（必须是该部署的**唯一地址**，分支别名 `*-git-*` 会随新推送漂移 → 拒绝）；给了 `I01_VERCEL_DEPLOYMENT_ID`（`dpl_…`）时它必须出现在该部署的状态里。任何一项不符 → 退出码 2。`manifest.json` 的 `candidate_sha` 必须等于 `I01_CANDIDATE_SHA`，否则证据不合格（1）。
 - 测试账号全部用 `@example.com` 以外、能人工收信的专用收件箱；GitHub 用专用、无权限的测试账号。
 
 ## 目录结构
@@ -52,21 +53,22 @@
 
 ## 每个用例必须提供的产物与观测值
 
-| 用例   | 产物（kind）                                                                                                                                      | 观测值 → 通过条件                                                                                                                       |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| T046-1 | `inbox-confirmation` 确认邮件截图（token 打码）；`callback-signed-in` 落在 `/auth/callback/` 再到已登录（地址栏可见）；`replay-rejected` 重放被拒 | `verify_redirect_origin` = 预览站源；`verify_redirect_path` = `/auth/callback/`；`session_established` = true；`replay_rejected` = true |
-| T046-2 | `inbox-recovery`；`recovery-landing`；`replay-rejected`                                                                                           | `verify_redirect_origin` = 预览站源；`new_password_login_ok` = true；`replay_rejected` = true                                           |
-| T046-3 | `inbox-redirect-vectors` 三封恶意 `redirect_to` 的邮件；`landing-origins` 三个落点                                                                | `landing_origins` = 3 个且都等于预览站源                                                                                                |
-| T046-4 | `forged-token-responses`（截图或 HAR；也可由脚本自动跑）                                                                                          | `user_status` ∈ {401, 403}；`verify_session_issued` = false                                                                             |
-| T046-5 | `turnstile-widget-passed` 真实挑战通过；`register-success`「查收确认邮件」；`inbox-confirmation`；`fake-token-rejected`；`rate-limited`           | `turnstile_real_key` = true；`register_api_status` = 200；`fake_token_status` = 400；`rate_limit_status` = 429                          |
-| T046-6 | `github-consent`（azsou-test 的 OAuth 应用）；`final-signed-in`（回到 `/forum/` 已登录）；`code-replay-rejected`；`bad-state-rejected`            | `final_origin` = 预览站源；`final_path` = `/forum/`；`code_replay_rejected` = true；`bad_state_rejected` = true                         |
-| T074   | `callback-replay-table`（`tests/redirect-vectors.ts` 全表执行记录）                                                                               | `vectors_total` > 0；`vectors_rejected_or_idempotent` = `vectors_total`；`offsite_navigations` = 0                                      |
+| 用例   | 产物（kind）                                                                                                                                      | 观测值 → 通过条件                                                                                                                                                                                                 |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T046-1 | `inbox-confirmation` 确认邮件截图（token 打码）；`callback-signed-in` 落在 `/auth/callback/` 再到已登录（地址栏可见）；`replay-rejected` 重放被拒 | `verify_redirect_origin` = 预览站源；`verify_redirect_path` = `/auth/callback/`；`session_established` = true；`replay_rejected` = true                                                                           |
+| T046-2 | `inbox-recovery`；`recovery-landing`；`replay-rejected`                                                                                           | `verify_redirect_origin` = 预览站源；`new_password_login_ok` = true；`replay_rejected` = true                                                                                                                     |
+| T046-3 | `inbox-redirect-vectors` 三封恶意 `redirect_to` 的邮件；`landing-origins` 三个落点                                                                | `landing_origins` = 3 个且都等于预览站源                                                                                                                                                                          |
+| T046-4 | `forged-token-responses`（截图或 HAR；也可由脚本自动跑）                                                                                          | `user_status` ∈ {401, 403}；`verify_session_issued` = false                                                                                                                                                       |
+| T046-5 | `turnstile-widget-passed` 真实挑战通过；`register-success`「查收确认邮件」；`inbox-confirmation`；`fake-token-rejected`；`rate-limited`           | `turnstile_real_key` = true；`register_api_status` = 200；`fake_token_status` = 400；`rate_limit_status` = 429                                                                                                    |
+| T046-6 | `github-consent`（azsou-test 的 OAuth 应用）；`final-signed-in`（回到 `/forum/` 已登录）；`code-replay-rejected`；`bad-state-rejected`            | `final_origin` = 预览站源；`final_path` = `/forum/`；`code_replay_rejected` = true；`bad_state_rejected` = true                                                                                                   |
+| T074   | `callback-replay-table`（`tests/redirect-vectors.ts` 全表执行记录）                                                                               | `vectors_total` = 全表条数（`scripts/i01/redirect-vectors.mjs` 的 `allVectors()`，当前 42）；`vectors_executed` = 全表每条恰好一次；`vectors_rejected_or_idempotent` = `vectors_total`；`offsite_navigations` = 0 |
 
 ## 执行
 
 ```bash
 I01_CONFIRM_ISOLATED=1 I01_SUPABASE_URL=https://ovvfwkmqlejcpatmfqcd.supabase.co I01_SUPABASE_ANON_KEY=<publishable> \
-I01_SITE_URL=https://<预览站> node scripts/i01/real-acceptance.mjs --manual-evidence=<证据目录>
+I01_SITE_URL=https://<该部署的唯一地址> I01_CANDIDATE_SHA=<40 位> I01_GITHUB_DEPLOYMENT_ID=<id> [I01_VERCEL_DEPLOYMENT_ID=dpl_…] \
+  NODE_USE_ENV_PROXY=1 node scripts/i01/real-acceptance.mjs --manual-evidence=<证据目录>   # GitHub 凭据：I01_GITHUB_TOKEN 或线路注入
 echo $?   # 只有 0 才算 I01 真实链路验收通过
 ```
 

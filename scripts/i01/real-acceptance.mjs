@@ -14,9 +14,17 @@
  *
  * 用法：
  *   I01_CONFIRM_ISOLATED=1 I01_SUPABASE_URL=https://ovvfwkmqlejcpatmfqcd.supabase.co I01_SUPABASE_ANON_KEY=… \
- *   I01_SITE_URL=https://<预览站> [I01_INBOX_API=… I01_INBOX_TOKEN=… I01_INBOX_DOMAIN=…] \
+ *   I01_SITE_URL=https://<预览站的唯一部署地址> I01_CANDIDATE_SHA=<40 位> I01_GITHUB_DEPLOYMENT_ID=<GitHub deployment id> \
+ *   [I01_VERCEL_DEPLOYMENT_ID=dpl_…] [I01_INBOX_API=… I01_INBOX_TOKEN=… I01_INBOX_DOMAIN=…] \
  *   node scripts/i01/real-acceptance.mjs [--manual-evidence=<目录>] [--only=T046-4,…]
  * 输出：test-results/i01-real/report.json（只记状态码 / 错误码 / 跳转目标的源与路径；不记密码、cookie、token、密钥、邮件正文）。
+ *
+ * 部署绑定（第六轮 ⑤，任何 Supabase / 站点请求之前）：只读 GitHub Deployments API 核对
+ *   GitHub deployment I01_GITHUB_DEPLOYMENT_ID 的 sha = I01_CANDIDATE_SHA、environment = Preview、创建者 vercel[bot]、
+ *   当前状态 success、状态里的 environment_url 的源 = I01_SITE_URL 的源（唯一部署地址；分支别名 *-git-* 会随新推送漂移 → 拒绝）；
+ *   给了 I01_VERCEL_DEPLOYMENT_ID 时它必须出现在该部署的状态里。不符 → 退出码 2，一个验收请求都不发。
+ *   人工证据的 candidate_sha 必须等于 I01_CANDIDATE_SHA；T074 必须覆盖 scripts/i01/redirect-vectors.mjs 的全表。
+ *   GitHub 凭据：I01_GITHUB_TOKEN（CI）或线路注入（不带 Authorization 头）。
  *
  * 退出码（只有 0 表示验收通过）：
  *   0 = 每个预期用例都执行了且全部通过（执行数 = 预期数，无 fail / blocked / 未执行）；
@@ -29,6 +37,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { classifySupabaseUrl } from '../supabase-env.mjs';
+import { allVectors } from './redirect-vectors.mjs';
 
 export const EXIT = Object.freeze({ PASS: 0, FAIL: 1, PRECONDITION: 2, INCOMPLETE: 3 });
 
@@ -145,7 +154,13 @@ export const MANUAL_CHECKLIST = Object.freeze({
       'callback-replay-table': '回调参数重放全表（tests/redirect-vectors.ts）的执行记录截图或 HAR',
     },
     observations: {
-      vectors_total: (v) => Number.isInteger(v) && v > 0,
+      // 第六轮 ⑤：必须是全表（scripts/i01/redirect-vectors.mjs），不能只挑几条
+      vectors_total: (v) => v === allVectors().length,
+      vectors_executed: (v) =>
+        Array.isArray(v) &&
+        v.length === allVectors().length &&
+        new Set(v).size === v.length &&
+        allVectors().every((x) => v.includes(x)),
       vectors_rejected_or_idempotent: (v, _c, o) => v === o.vectors_total,
       offsite_navigations: (v) => v === 0,
     },
@@ -189,7 +204,7 @@ const isImage = (buf) =>
  * 校验人工证据目录；返回 { ok, errors, steps: Map<id, {status, notes}> }。
  * 顶层：project_ref = azsou-test、site_origin = I01_SITE_URL 的源、candidate_sha 为 40 位、operator 非空。
  */
-export function loadManualEvidence(dir, { siteOrigin, now = new Date() }) {
+export function loadManualEvidence(dir, { siteOrigin, candidateSha, now = new Date() }) {
   const errors = [];
   const steps = new Map();
   const mf = path.join(dir, 'manifest.json');
@@ -204,6 +219,8 @@ export function loadManualEvidence(dir, { siteOrigin, now = new Date() }) {
   if (m.site_origin !== siteOrigin)
     errors.push(`site_origin（${m.site_origin}）与 I01_SITE_URL 的源（${siteOrigin}）不一致`);
   if (!/^[0-9a-f]{40}$/.test(m.candidate_sha ?? '')) errors.push('candidate_sha 必须是完整 40 位提交 SHA');
+  else if (candidateSha && m.candidate_sha !== candidateSha)
+    errors.push(`candidate_sha（${m.candidate_sha}）不是实际部署的候选 I01_CANDIDATE_SHA（${candidateSha}）`);
   if (!String(m.operator ?? '').trim()) errors.push('operator（执行人）不能为空');
   const top = errors.length;
   const ctx = { siteOrigin };
@@ -263,7 +280,9 @@ export function checkPreconditions(env) {
     I01_SUPABASE_URL: `azsou-test 的 URL（https://${TEST_PROJECT_REF}.supabase.co）`,
     I01_SUPABASE_ANON_KEY: 'azsou-test 的 anon / publishable key',
     I01_SITE_URL:
-      '指向 azsou-test 的测试预览站（Auth 的 Site URL / Redirect URLs 已配成它的 /auth/callback/**）',
+      '指向 azsou-test 的测试预览站的唯一部署地址（Auth 的 Site URL / Redirect URLs 已配成它的 /auth/callback/**）',
+    I01_CANDIDATE_SHA: '实际部署的候选提交（完整 40 位）',
+    I01_GITHUB_DEPLOYMENT_ID: 'Vercel 为该候选创建的 GitHub deployment id（GitHub Deployments API）',
   };
   for (const [k, why] of Object.entries(need))
     if (!env[k] || (k === 'I01_CONFIRM_ISOLATED' && env[k] !== '1')) errors.push(`缺 ${k}：${why}`);
@@ -280,6 +299,13 @@ export function checkPreconditions(env) {
     errors.push('I01_SITE_URL 不是 URL');
   }
   if (/^https:\/\/(www\.)?azsou\.com$/.test(siteOrigin)) errors.push('拒绝：I01_SITE_URL 是生产站点');
+  if (/^https:\/\/[^/]*-git-[^/]*\.vercel\.app$/.test(siteOrigin))
+    errors.push('拒绝：I01_SITE_URL 是分支别名（*-git-*），会随新推送指向别的部署——用该部署的唯一地址');
+  if (!/^[0-9a-f]{40}$/.test(env.I01_CANDIDATE_SHA))
+    errors.push('I01_CANDIDATE_SHA 必须是完整 40 位提交 SHA');
+  if (!/^\d+$/.test(env.I01_GITHUB_DEPLOYMENT_ID)) errors.push('I01_GITHUB_DEPLOYMENT_ID 必须是数字');
+  if (env.I01_VERCEL_DEPLOYMENT_ID && !/^dpl_[A-Za-z0-9]+$/.test(env.I01_VERCEL_DEPLOYMENT_ID))
+    errors.push('I01_VERCEL_DEPLOYMENT_ID 必须形如 dpl_…');
   if (/^(sb_secret_)/.test(env.I01_SUPABASE_ANON_KEY))
     errors.push('拒绝：I01_SUPABASE_ANON_KEY 是 secret key');
   const inbox = Boolean(env.I01_INBOX_API && env.I01_INBOX_TOKEN && env.I01_INBOX_DOMAIN);
@@ -291,6 +317,82 @@ export function checkPreconditions(env) {
       SITE: env.I01_SITE_URL.replace(/\/$/, ''),
       siteOrigin,
       inbox,
+      candidateSha: env.I01_CANDIDATE_SHA,
+      ghDeploymentId: env.I01_GITHUB_DEPLOYMENT_ID,
+      vercelDeploymentId: env.I01_VERCEL_DEPLOYMENT_ID || '',
+    },
+  };
+}
+
+export const REPO = 'azsou/azsou-site';
+/**
+ * 部署绑定（只读 GitHub Deployments API）：返回 { ok, errors, binding }。
+ * binding 只含公开信息（deployment id、sha、environment、状态、environment_url、创建时间）。
+ */
+export async function verifyDeployment(
+  { candidateSha, ghDeploymentId, vercelDeploymentId, siteOrigin },
+  { fetchImpl = fetch, token = '', apiBase = 'https://api.github.com', repo = REPO } = {},
+) {
+  const errors = [];
+  const headers = {
+    accept: 'application/vnd.github+json',
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+  };
+  const get = async (p) => {
+    const r = await fetchImpl(`${apiBase}/repos/${repo}${p}`, { headers });
+    if (r.status === 401 || r.status === 403 || r.status === 404)
+      throw new Error(`GitHub ${p} → HTTP ${r.status}（凭据未注入 / 无权限 / 不存在）`);
+    if (!r.ok) throw new Error(`GitHub ${p} → HTTP ${r.status}`);
+    return r.json();
+  };
+  let d, statuses;
+  try {
+    d = await get(`/deployments/${ghDeploymentId}`);
+    statuses = await get(`/deployments/${ghDeploymentId}/statuses`);
+  } catch (e) {
+    return { ok: false, errors: [String(e?.message ?? e)], binding: null };
+  }
+  if (d.sha !== candidateSha)
+    errors.push(`deployment ${ghDeploymentId} 的 sha ${d.sha} ≠ I01_CANDIDATE_SHA ${candidateSha}`);
+  if (String(d.environment).toLowerCase() !== 'preview')
+    errors.push(`deployment environment = ${d.environment}（必须是 Preview）`);
+  if (d.creator?.login !== 'vercel[bot]')
+    errors.push(`deployment 创建者 ${d.creator?.login}（必须是 vercel[bot]）`);
+  const cur = Array.isArray(statuses) ? statuses[0] : null;
+  if (!cur) errors.push('deployment 没有任何状态');
+  else {
+    if (cur.state !== 'success') errors.push(`deployment 当前状态 ${cur.state}（必须是 success）`);
+    let envOrigin = '';
+    try {
+      envOrigin = new URL(cur.environment_url).origin;
+    } catch {
+      /* 留空 */
+    }
+    if (envOrigin !== siteOrigin)
+      errors.push(
+        `deployment 的 environment_url 源 ${envOrigin || '（无）'} ≠ I01_SITE_URL 源 ${siteOrigin}`,
+      );
+  }
+  if (vercelDeploymentId) {
+    const bare = vercelDeploymentId.replace(/^dpl_/, '');
+    const seen = (statuses ?? []).some((x) =>
+      [x.description, x.target_url, x.log_url].some((t) => String(t ?? '').includes(bare)),
+    );
+    if (!seen)
+      errors.push(`I01_VERCEL_DEPLOYMENT_ID ${vercelDeploymentId} 没有出现在该 GitHub deployment 的状态里`);
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    binding: {
+      github_deployment_id: Number(ghDeploymentId),
+      sha: d.sha,
+      environment: d.environment,
+      created_at: d.created_at,
+      state: cur?.state ?? null,
+      environment_url: cur?.environment_url ?? null,
+      vercel_deployment_id: vercelDeploymentId || null,
+      vectors_total: allVectors().length,
     },
   };
 }
@@ -445,10 +547,23 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
     return EXIT.PRECONDITION;
   }
   const { cfg } = pre;
+  const bind = await verifyDeployment(cfg, { token: env.I01_GITHUB_TOKEN || '' });
+  if (!bind.ok) {
+    console.error('I01 真实链路验收：部署绑定不成立（未发出任何验收请求）：');
+    for (const e of bind.errors) console.error(`  - ${e}`);
+    console.error('VERDICT INCOMPLETE（退出码 2）');
+    return EXIT.PRECONDITION;
+  }
+  console.log(
+    `部署绑定：GitHub deployment ${bind.binding.github_deployment_id} = ${bind.binding.sha}（${bind.binding.environment}，${bind.binding.state}）→ ${bind.binding.environment_url}；T074 全表 ${bind.binding.vectors_total} 条`,
+  );
   let manual = { ok: true, errors: [], steps: new Map() };
   const evDir = arg('manual-evidence');
   if (evDir) {
-    manual = loadManualEvidence(path.resolve(evDir), { siteOrigin: cfg.siteOrigin });
+    manual = loadManualEvidence(path.resolve(evDir), {
+      siteOrigin: cfg.siteOrigin,
+      candidateSha: cfg.candidateSha,
+    });
     for (const e of manual.errors) console.error(`人工证据：${e}`);
   }
   const auto = automatedSteps(env, cfg);
@@ -482,6 +597,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
       {
         when: new Date().toISOString(),
         site: cfg.siteOrigin,
+        binding: bind.binding,
         summary: s,
         manualErrors: manual.errors,
         results,
