@@ -99,3 +99,17 @@ source /workspace/work/flk-env.sh     # 沙箱：本地 PG 54329、PostgREST 14.
 PGRST_TEST_LOG=/tmp/flk/pg npx playwright test tests/e2e/admin-faults.spec.ts --project=chromium-desktop \
   -g "基线|故障 3" --repeat-each=8 --workers=2
 ```
+
+## 追记：故障 5 首跑失败（run 40630747358，e2e chromium 1，`2065934`）——根因未定，已加诊断
+
+- 现象：`故障 5（代理延迟 12s，前端超时 8s）` 第 3 个模块（用户）期望错误条 `data-error-kind="timeout"`，实际 `network`；重试通过。
+  同一次运行里故障 3 正常（上一轮修复生效）。flaky 产物 `flaky-e2e-chromium-1`（artifact 12792277176）。
+- trace（playwright-report-chromium-1 → `1-trace.trace` / `1-trace.network`）时间线（单位 s，trace 时钟）：
+  362.6 进入内容页（慢模式，请求在代理里压 12s）→ 371.0 切回正常、点「重试」→ 371.7 进入用户页（慢模式）→
+  **371.8 `rpc/mod_list_users` 的 `route.abort('connectionrefused')`**（浏览器侧 36ms 即 `ERR_CONNECTION_REFUSED`）→
+  374.8 内容页那批被压 12s 的旧请求才完成。
+- 也就是说：用户页这个请求的 `route.fetch`（转发到本地故障代理）在 8s 超时之前就直接抛错，被 `forwardRest` 的 catch 改成连接被拒，
+  前端于是正确地显示「网络」。真实错误被 catch 吞掉了，trace 里没有。
+- 推测（未证实）：上一页留下的延迟请求还占着代理连接时，Playwright 请求上下文复用了一条已被代理关闭的 keep-alive 连接（ECONNRESET / socket hang up）。
+- 本轮只加诊断，不改断言、不加等待：`tests/e2e/community-fixtures.ts` 的 `forward()` 在 catch 里打印 `route.fetch` 的真实错误（方法、路径、错误文本）。
+  下次首跑失败直接看日志定根因再修。
