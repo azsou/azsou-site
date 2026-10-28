@@ -12,7 +12,8 @@
 //       与数据库各范围同一个导出快照、同一个清单时间。逐个下载到 <输出目录>/<bucket>/<name>，
 //       写 files.tsv（bucket name size sha256 content_type cache_control）。
 //       任何对象下载失败 / 大小不符 / **同尺寸改写**（响应 ETag 与快照 eTag 不同、内容 md5 与快照 md5 eTag 不同、
-//       Last-Modified 晚于快照）→ 非 0 退出，备份失败，不会产出「部分成功」的备份。快照里没有 eTag 的对象无法证明内容一致 → 同样失败。
+//       Last-Modified 晚于快照）→ 非 0 退出，备份失败，不会产出「部分成功」的备份。缺可靠核验信息（快照无 eTag；或分段 eTag
+//       而响应无 ETag 且无可比版本）的对象无法证明内容一致 → 同样失败（第六轮 ⑤）。
 //   upload <buckets.tsv> <文件目录> <files.tsv>
 //       目标项目里按 buckets.tsv 建桶（id name public file_size_limit allowed_mime_types）——桶已存在 → 失败（精确恢复只进空目标）；
 //       再按 files.tsv 逐个上传（x-upsert: false，已存在就失败），上传前先核对本地文件 sha256。
@@ -27,6 +28,7 @@
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
+import { overwriteReason } from './storage-verify.mjs';
 
 const die = (code, msg) => {
   process.stderr.write(`✗ ${msg}\n`);
@@ -38,13 +40,6 @@ if (!BASE || !KEY) die(2, '需要 STORAGE_URL 与 STORAGE_SERVICE_KEY（service_
 const headers = (extra = {}) => ({ authorization: `Bearer ${KEY}`, apikey: KEY, ...extra });
 const enc = (name) => name.split('/').map(encodeURIComponent).join('/');
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
-const md5 = (buf) => createHash('md5').update(buf).digest('hex');
-const normEtag = (e) =>
-  String(e ?? '')
-    .trim()
-    .replace(/^W\//, '')
-    .replace(/^"+|"+$/g, '')
-    .toLowerCase();
 
 function readTsv(path) {
   const lines = readFileSync(path, 'utf8')
@@ -84,25 +79,6 @@ async function req(method, path, init = {}) {
     await new Promise((s) => setTimeout(s, 500 * (i + 1)));
   }
   throw last;
-}
-
-/**
- * 同尺寸改写检测（第五轮 ②）：对象在快照之后被换成**大小相同、内容不同**的文件时，只比大小发现不了。
- * 与快照里的 eTag（md5 形式时直接比内容）、响应 ETag、Last-Modified 比对；任何一项对不上 = 快照之后被改写。
- * 返回 null = 一致；否则返回原因。
- */
-export function overwriteReason(snap, resHeaders, buf) {
-  if (!snap) return '快照里没有这个对象的 eTag 记录，无法证明下载内容与快照一致';
-  const se = normEtag(snap.etag);
-  if (!se) return '快照里这个对象没有 eTag，无法证明下载内容与快照一致';
-  const he = normEtag(resHeaders.get('etag'));
-  if (he && he !== se) return `响应 ETag ${he} ≠ 快照 eTag ${se}`;
-  if (/^[0-9a-f]{32}$/.test(se) && md5(buf) !== se) return `内容 md5 ${md5(buf)} ≠ 快照 eTag ${se}`;
-  const lm = Date.parse(resHeaders.get('last-modified') ?? '');
-  const sm = Date.parse(snap.last_modified || snap.updated_at || '');
-  if (Number.isFinite(lm) && Number.isFinite(sm) && lm - sm > 1000)
-    return `Last-Modified ${new Date(lm).toISOString()} 晚于快照记录 ${new Date(sm).toISOString()}`;
-  return null;
 }
 
 async function download(listing, outDir, filesTsv, etagsTsv) {
