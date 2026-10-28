@@ -166,6 +166,10 @@ if [ "$HAS_STORAGE" = true ]; then
   { printf 'bucket_id\tname\tsize\tmimetype\tcache_control\towner_id\n'
     in_snap -c "select bucket_id, name, coalesce(metadata->>'size', ''), coalesce(metadata->>'mimetype', ''), coalesce(metadata->>'cacheControl', ''), coalesce(owner_id, owner::text, '') from storage.objects order by bucket_id collate \"C\", name collate \"C\""
   } >"$PREFIX-storage-listing-$TS.tsv"
+  # 第五轮 ②：同一快照里每个对象的 eTag / lastModified / updated_at / version——下载时据此发现快照之后的**同尺寸改写**
+  { printf 'bucket_id\tname\tsize\tetag\tlast_modified\tupdated_at\tversion\n'
+    in_snap -c "select bucket_id, name, coalesce(metadata->>'size', ''), coalesce(metadata->>'eTag', ''), coalesce(metadata->>'lastModified', ''), coalesce(to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ''), coalesce(to_jsonb(o)->>'version', '') from storage.objects o order by bucket_id collate \"C\", name collate \"C\""
+  } >"$PREFIX-storage-etags-$TS.tsv"
   OBJECTS=$(($(wc -l <"$PREFIX-storage-listing-$TS.tsv") - 1))
 fi
 # 数据库部分全部读完：释放快照
@@ -175,12 +179,12 @@ eval "exec ${snap_fd}>&-"
 wait "$SNAP_PID" || { echo "::error::快照会话异常结束" >&2; exit 1; }
 SNAP_PID=""
 
-# ⑨ Storage 文件本体（按快照清单下载；快照之后被删 / 改 → 失败）
+# ⑨ Storage 文件本体（按快照清单下载；快照之后被删 / 改——包括大小不变的同尺寸改写（eTag / md5 / Last-Modified 对不上）→ 失败）
 FILES_STATUS=none
 FILES_BYTES=0
 if [ "$OBJECTS" -gt 0 ]; then
   if [ -n "${STORAGE_URL:-}" ] && [ -n "${STORAGE_SERVICE_KEY:-}" ]; then
-    node "$HERE/ops/storage-files.mjs" download "$PREFIX-storage-listing-$TS.tsv" "$STMP/files" "$PREFIX-storage-files-$TS.tsv"
+    node "$HERE/ops/storage-files.mjs" download "$PREFIX-storage-listing-$TS.tsv" "$STMP/files" "$PREFIX-storage-files-$TS.tsv" "$PREFIX-storage-etags-$TS.tsv"
     tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf "$PREFIX-storage-files-$TS.tar" -C "$STMP/files" .
     rm -rf "$STMP/files"
     FILES_STATUS=included
@@ -208,6 +212,7 @@ if e['M_STOR'] == 'true':
     scopes['storage'] = f('storage') + '.dump'
     scopes['storage_buckets'] = f('storage-buckets') + '.tsv'
     scopes['storage_listing'] = f('storage-listing') + '.tsv'
+    scopes['storage_etags'] = f('storage-etags') + '.tsv'
 files = {'status': e['M_FST'], 'objects': int(e['M_OBJ']), 'bytes': int(e['M_FB'])}
 if e['M_FST'] == 'included':
     files['archive'] = f('storage-files') + '.tar'
@@ -217,7 +222,7 @@ print(json.dumps({
     'prefix': p, 'stamp': ts,
     'started_at': e['M_STARTED'],
     'snapshot': {'id': e['M_SNAP'], 'lsn': e['M_LSN'], 'time': e['M_SNAPTIME'], 'isolation': 'repeatable read read only',
-                 'shared_by': ['public', 'private', 'auth', 'storage', 'checksums', 'rowcounts', 'globals', 'schema_version', 'storage_listing']},
+                 'shared_by': ['public', 'private', 'auth', 'storage', 'checksums', 'rowcounts', 'globals', 'schema_version', 'storage_listing', 'storage_etags']},
     'storage_listing_time': e['M_SNAPTIME'],
     'server_version': e['M_SVER'],
     'schema_version': e['M_VER'],

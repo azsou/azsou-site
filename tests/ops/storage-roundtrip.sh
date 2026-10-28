@@ -99,7 +99,7 @@ p=$(psql "$(url $DST)" -XAt -c "select count(*) from pg_policies where schemanam
 cc=$(curl -sS --noproxy '*' -D - -o /dev/null "http://127.0.0.1:$PB/object/public/ugc-images/$(psql "$(url $DST)" -XAt -c "select name from storage.objects where name like '%aaaaaa%'")" | tr -d '\r' | sed -n 's/^cache-control: //Ip')
 [ "$cc" = "max-age=3600" ] && ok "cache-control 保留（$cc）" || bad "cache-control 变成了「$cc」"
 
-echo "== 4. 负面：目标桶已存在 / 归档被改 / 快照之后对象被删"
+echo "== 4. 负面：目标桶已存在 / 归档被改 / 快照之后对象被删 / 快照之后同尺寸改写"
 rc=0
 STORAGE_URL="http://127.0.0.1:$PB" STORAGE_SERVICE_KEY=$KEY BACKUP_PASSPHRASE=$PASS \
   bash scripts/db-restore.sh "$(url $DST)" "$W/bk" --storage-api >"$W/neg1.txt" 2>&1 || rc=$?
@@ -134,5 +134,28 @@ BACKUP_TEST_HOLD_DIR="$W/hold" STORAGE_URL="http://127.0.0.1:$PA" STORAGE_SERVIC
 wait || true
 [ $rc != 0 ] && [ -z "$(ls -A "$W/bk-gone" 2>/dev/null)" ] && grep -q '快照之后被删除' "$W/neg3.txt" \
   && ok "S3 快照之后对象被删：备份失败、不留产物（不会产出缺文件的备份）" || bad "S3 退出码 $rc：$(tail -2 "$W/neg3.txt")"
+
+# S4（站长 2026-10-28 第五轮 ②）：快照之后对象被**同尺寸**改写（大小不变、内容不同）→ 备份必须失败。
+# 只比大小发现不了；要与快照清单里的 eTag / 内容 md5 / updated_at 比对。
+mkdir -p "$W/hold4"
+victim4=$(psql "$(url $SRC)" -XAt -c "select name from storage.objects where bucket_id = 'ugc-images' and name like '%aaaaaa%'")
+python3 - "$W/in/a.png" "$W/in/a-same-size.png" <<'PY'
+import sys
+b = bytearray(open(sys.argv[1], 'rb').read())
+b[-20] ^= 0xff  # 改 IDAT 里的一个字节：大小完全相同，内容不同
+open(sys.argv[2], 'wb').write(bytes(b))
+PY
+[ "$(stat -c %s "$W/in/a.png")" = "$(stat -c %s "$W/in/a-same-size.png")" ] || { echo "S4 夹具大小不同" >&2; exit 1; }
+( for _ in $(seq 1 120); do [ -e "$W/hold4/ready" ] && break; sleep 0.25; done
+  api -X PUT -H 'content-type: image/png' -H 'x-upsert: true' --data-binary "@$W/in/a-same-size.png" "http://127.0.0.1:$PA/object/ugc-images/$victim4" >"$W/s4-put.txt"
+  touch "$W/hold4/go" ) &
+rc=0
+BACKUP_TEST_HOLD_DIR="$W/hold4" STORAGE_URL="http://127.0.0.1:$PA" STORAGE_SERVICE_KEY=$KEY BACKUP_PASSPHRASE=$PASS \
+  bash scripts/db-backup.sh "$(url $SRC)" "$W/bk-same-size" >"$W/neg4.txt" 2>&1 || rc=$?
+wait || true
+grep -q '"Key"' "$W/s4-put.txt" || bad "S4 夹具：同尺寸改写没有成功：$(cat "$W/s4-put.txt")"
+[ $rc != 0 ] && [ -z "$(ls -A "$W/bk-same-size" 2>/dev/null)" ] && grep -q '快照之后被改写' "$W/neg4.txt" \
+  && ok "S4 快照之后对象被同尺寸改写：备份失败、不留产物（$(grep -o '快照之后被改写[^—]*' "$W/neg4.txt" | head -1)）" \
+  || bad "S4 同尺寸改写没有被发现：退出码 $rc：$(tail -2 "$W/neg4.txt" | tr '\n' ' ')"
 
 [ $fail = 0 ] && echo "✓ Storage 往返本地集成测试通过（真实 storage-api 本地实例；不是 Supabase 托管项目上的真实验收）" || { echo "✗ Storage 往返测试失败"; exit 1; }

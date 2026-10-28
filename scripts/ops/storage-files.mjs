@@ -6,11 +6,13 @@
 //   STORAGE_SERVICE_KEY  service_role key（只从 Secret / 环境变量读，绝不打印、绝不写进任何文件）
 //
 // 子命令（TSV 均为 UTF-8、制表符分隔、第一行是表头）：
-//   download <listing.tsv> <输出目录> <files.tsv>
+//   download <listing.tsv> <输出目录> <files.tsv> [<etags.tsv>]
 //       listing.tsv = 备份快照里 storage.objects 的清单（bucket_id name size mimetype cache_control），
+//       etags.tsv  = 同一快照里每个对象的 eTag / lastModified / updated_at / version（db-backup.sh 第五轮起必给）。
 //       与数据库各范围同一个导出快照、同一个清单时间。逐个下载到 <输出目录>/<bucket>/<name>，
 //       写 files.tsv（bucket name size sha256 content_type cache_control）。
-//       任何对象下载失败 / 大小与快照元数据不符（快照之后被删 / 被改）→ 非 0 退出，备份失败，不会产出「部分成功」的备份。
+//       任何对象下载失败 / 大小不符 / **同尺寸改写**（响应 ETag 与快照 eTag 不同、内容 md5 与快照 md5 eTag 不同、
+//       Last-Modified 晚于快照）→ 非 0 退出，备份失败，不会产出「部分成功」的备份。快照里没有 eTag 的对象无法证明内容一致 → 同样失败。
 //   upload <buckets.tsv> <文件目录> <files.tsv>
 //       目标项目里按 buckets.tsv 建桶（id name public file_size_limit allowed_mime_types）——桶已存在 → 失败（精确恢复只进空目标）；
 //       再按 files.tsv 逐个上传（x-upsert: false，已存在就失败），上传前先核对本地文件 sha256。
@@ -36,6 +38,13 @@ if (!BASE || !KEY) die(2, '需要 STORAGE_URL 与 STORAGE_SERVICE_KEY（service_
 const headers = (extra = {}) => ({ authorization: `Bearer ${KEY}`, apikey: KEY, ...extra });
 const enc = (name) => name.split('/').map(encodeURIComponent).join('/');
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+const md5 = (buf) => createHash('md5').update(buf).digest('hex');
+const normEtag = (e) =>
+  String(e ?? '')
+    .trim()
+    .replace(/^W\//, '')
+    .replace(/^"+|"+$/g, '')
+    .toLowerCase();
 
 function readTsv(path) {
   const lines = readFileSync(path, 'utf8')
@@ -77,8 +86,30 @@ async function req(method, path, init = {}) {
   throw last;
 }
 
-async function download(listing, outDir, filesTsv) {
+/**
+ * 同尺寸改写检测（第五轮 ②）：对象在快照之后被换成**大小相同、内容不同**的文件时，只比大小发现不了。
+ * 与快照里的 eTag（md5 形式时直接比内容）、响应 ETag、Last-Modified 比对；任何一项对不上 = 快照之后被改写。
+ * 返回 null = 一致；否则返回原因。
+ */
+export function overwriteReason(snap, resHeaders, buf) {
+  if (!snap) return '快照里没有这个对象的 eTag 记录，无法证明下载内容与快照一致';
+  const se = normEtag(snap.etag);
+  if (!se) return '快照里这个对象没有 eTag，无法证明下载内容与快照一致';
+  const he = normEtag(resHeaders.get('etag'));
+  if (he && he !== se) return `响应 ETag ${he} ≠ 快照 eTag ${se}`;
+  if (/^[0-9a-f]{32}$/.test(se) && md5(buf) !== se) return `内容 md5 ${md5(buf)} ≠ 快照 eTag ${se}`;
+  const lm = Date.parse(resHeaders.get('last-modified') ?? '');
+  const sm = Date.parse(snap.last_modified || snap.updated_at || '');
+  if (Number.isFinite(lm) && Number.isFinite(sm) && lm - sm > 1000)
+    return `Last-Modified ${new Date(lm).toISOString()} 晚于快照记录 ${new Date(sm).toISOString()}`;
+  return null;
+}
+
+async function download(listing, outDir, filesTsv, etagsTsv) {
   const rows = readTsv(listing);
+  const snaps = new Map();
+  if (etagsTsv) for (const e of readTsv(etagsTsv)) snaps.set(`${e.bucket_id}\u0000${e.name}`, e);
+  else die(2, 'download 需要快照 eTag 清单（第 4 个参数）：没有它无法发现快照之后的同尺寸改写');
   const out = [];
   let bytes = 0;
   for (const o of rows) {
@@ -93,6 +124,8 @@ async function download(listing, outDir, filesTsv) {
         1,
         `大小与快照元数据不符 ${o.bucket_id}/${o.name}：快照 ${o.size}，下载 ${buf.length}（快照之后被改写）——备份中止`,
       );
+    const why = overwriteReason(snaps.get(`${o.bucket_id}\u0000${o.name}`), r.headers, buf);
+    if (why) die(1, `内容与快照不一致 ${o.bucket_id}/${o.name}：${why}（快照之后被改写）——备份中止`);
     const p = safePath(outDir, o.bucket_id, o.name);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, buf);
@@ -107,7 +140,7 @@ async function download(listing, outDir, filesTsv) {
     });
   }
   writeTsv(filesTsv, ['bucket', 'name', 'size', 'sha256', 'content_type', 'cache_control'], out);
-  console.log(`storage 文件已下载：${out.length} 个对象 / ${bytes} 字节`);
+  console.log(`storage 文件已下载：${out.length} 个对象 / ${bytes} 字节（逐个与快照 eTag 核对）`);
 }
 
 const LEDGER = process.env.STORAGE_CREATED_LEDGER || '';
@@ -260,10 +293,10 @@ const [cmd, ...args] = process.argv.slice(2);
 const usage = () =>
   die(
     2,
-    '用法：storage-files.mjs download <listing.tsv> <目录> <files.tsv> | upload <buckets.tsv> <目录> <files.tsv> | verify <files.tsv> [buckets.tsv] | cleanup <created.tsv>',
+    '用法：storage-files.mjs download <listing.tsv> <目录> <files.tsv> <etags.tsv> | upload <buckets.tsv> <目录> <files.tsv> | verify <files.tsv> [buckets.tsv] | cleanup <created.tsv>',
   );
 try {
-  if (cmd === 'download' && args.length === 3) await download(...args);
+  if (cmd === 'download' && (args.length === 3 || args.length === 4)) await download(...args);
   else if (cmd === 'cleanup' && args.length === 1) await cleanup(args[0]);
   else if (cmd === 'upload' && args.length === 3) await upload(...args);
   else if (cmd === 'verify' && (args.length === 1 || args.length === 2)) await verify(args[0], args[1]);
