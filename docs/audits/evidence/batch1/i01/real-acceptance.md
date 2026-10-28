@@ -1,8 +1,9 @@
 # I01（b）真实链路验收清单——状态：**阻塞（未执行）**
 
 > 这一层才是 I01 / T046 / T074 的验收。（a）官方测试密钥回归（`tests/db/i01-official-keys.test.ts`）**不能**当作真实验收。
-> 脚本：`scripts/i01/real-acceptance.mjs`（缺前提时退出码 2、不发任何请求；当前输出见 [real-acceptance-blocked.txt](real-acceptance-blocked.txt)）。
-> 绝不连生产项目 `abryflgoljltyakthtql`（脚本硬拒）。证据只记状态码 / 错误码 / 跳转目标的源与路径，不记密码、cookie、token、密钥、邮件正文。
+> 脚本：`scripts/i01/real-acceptance.mjs`。**退出码（2026-10-28 第五轮）：只有 7 个预期用例全部执行且通过才是 0**；1 = 失败 / 人工证据不合格；2 = 前提缺失或目标不在允许清单（不发任何请求）；3 = 有用例阻塞（BLOCKED）或部分运行。旧版在只有阻塞时也退出 0，已修（`tests/unit/i01-runner.test.ts`）。当前输出见 [real-acceptance-blocked.txt](real-acceptance-blocked.txt)。
+> 收件箱只能人工收信 → 真实邮件确认、真实 Turnstile 成功路径、GitHub OAuth、T074 用**人工证据**完成，产物与通过条件见 [manual-evidence.md](manual-evidence.md)。
+> 目标只能是 azsou-test（`ovvfwkmqlejcpatmfqcd`，`scripts/supabase-env.mjs` 测试项目允许清单）；生产、清单外项目、本机栈一律拒绝。证据只记状态码 / 错误码 / 跳转目标的源与路径，不记密码、cookie、token、密钥、邮件正文。
 
 ## 前提（全部缺失）
 
