@@ -7,7 +7,7 @@ import { test, expect } from './fixtures';
 import { forwardRest, seedThread, uniq } from './community-fixtures';
 import { ADMIN_READ_MODULES, SHELL_ENDPOINTS, type AdminReadModuleId } from './admin-modules';
 import { SHIM, createDatabase, dbUrl, dropDatabase, migrationFiles } from '../db/helpers';
-import { BIN, ensureAuthenticator, freePort, startPostgrest, tok } from '../db/postgrest';
+import { BIN, ensureAuthenticator, freePort, schemaCacheLoads, startPostgrest, tok } from '../db/postgrest';
 
 /**
  * A15 真实服务故障注入（站长 2026-10-27 要求；只在本机隔离环境，绝不连生产）。
@@ -35,6 +35,8 @@ let pgA: ChildProcess | null = null;
 let pgB: ChildProcess | null = null;
 let portA = 0;
 let portB = 0;
+/** PostgREST B 的管理端口（/metrics 上的结构缓存加载计数 = 重载完成信号，故障 3 用） */
+let adminB = 0;
 let proxyPort = 0;
 let proxy: http.Server | null = null;
 let pool: pg.Pool | null = null;
@@ -45,6 +47,9 @@ const MODULES = ADMIN_READ_MODULES;
 type ModuleId = AdminReadModuleId;
 /** 健康状态下每个模块实际请求的数据端点（不含 /profiles 与公开设置），由第一条用例记录 */
 const endpoints = new Map<ModuleId, Set<string>>();
+/** 每个端点在基线里的第一次真实请求（方法 + 路径查询 + 请求体），故障 3 原样重放来判断 PostgREST B 的结构缓存状态 */
+type Call = { method: string; path: string; body: string | null };
+const calls = new Map<ModuleId, Map<string, Call>>();
 
 let admin: { id: string; email: string; name: string; token: string };
 let threadTitle = '';
@@ -57,10 +62,11 @@ test.beforeAll(async ({}, info) => {
   info.setTimeout(120_000);
   await createDatabase(DB, [SHIM, ...migrationFiles()]);
   await ensureAuthenticator();
-  portA = freePort();
-  portB = freePort();
+  portA = await freePort();
+  portB = await freePort();
+  adminB = await freePort();
   pgA = await startPostgrest(DB, portA);
-  pgB = await startPostgrest(DB, portB);
+  pgB = await startPostgrest(DB, portB, { adminPort: adminB });
   proxy = http.createServer((req, res) => {
     const toA = /^\/profiles(\?|$)/.test(req.url ?? '');
     if (!toA && mode === '503') {
@@ -178,17 +184,58 @@ async function expectKind(page: Page, kind: string, text: RegExp, within = 15_00
   await expect(err).not.toContainText('网络或服务暂时不可用');
 }
 
-async function waitB(expectStatus: (s: number) => boolean, path: string, body?: string) {
-  for (let i = 0; i < 100; i++) {
-    const r = await fetch(`http://127.0.0.1:${portB}/${path}`, {
-      method: body ? 'POST' : 'GET',
-      headers: { Authorization: `Bearer ${admin.token}`, 'content-type': 'application/json' },
-      body,
-    }).catch(() => null);
-    if (r && expectStatus(r.status)) return;
-    await new Promise((res) => setTimeout(res, 100));
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+/** 把基线里记下的真实请求原样发给 PostgREST B（管理员身份） */
+async function replay(c: Call) {
+  const r = await fetch(`http://127.0.0.1:${portB}/${c.path}`, {
+    method: c.method,
+    headers: { Authorization: `Bearer ${admin.token}`, 'content-type': 'application/json' },
+    body: c.body ?? undefined,
+  });
+  const text = await r.text();
+  let code = '';
+  try {
+    code = (JSON.parse(text) as { code?: string }).code ?? '';
+  } catch {
+    /* 非 JSON（正常数据）*/
   }
-  throw new Error(`PostgREST B 在 ${path} 上没有达到预期状态`);
+  return { status: r.status, code, text };
+}
+
+/**
+ * 等 PostgREST B 完成「NOTIFY 之后」的结构重载，并确认模块的每个端点都处于期望状态。
+ * 根因（docs/audits/evidence/ci/admin-faults-flake-2026-10-28.md）：旧版只拿第一个端点、空请求体 `{}` 探测，
+ * 而 mod_list_content 的 p_type 没有默认值——空体调用在健康状态下也是 404 PGRST202，
+ * 所以「等 404」永远立即通过（没等重载），「等非 404」永远等不到；第一个端点是谁取决于基线里请求的先后（竞态）→ 偶发。
+ * 现在：
+ *   1. 重载信号 = 管理端口 /metrics 的 pgrst_schema_cache_loads_total{status="SUCCESS"} 超过 NOTIFY 前读数；
+ *   2. 状态 = 重放基线里每个端点的真实请求：
+ *      missing → 404 且 PGRST202（函数）/ PGRST205（表）——这两个码只来自结构缓存查找，DB 层的 42883 / 42P01 不算；
+ *      present → 2xx（真实数据回来）。
+ */
+async function waitSchema(id: ModuleId, loadsBefore: number, want: 'missing' | 'present') {
+  const cs = [...(calls.get(id) ?? new Map<string, Call>())];
+  expect(cs.length, `${id}: 基线没有记录到真实请求`).toBeGreaterThan(0);
+  let last = '';
+  for (let i = 0; i < 100; i++) {
+    const loads = await schemaCacheLoads(adminB).catch(() => loadsBefore);
+    if (loads > loadsBefore) {
+      const bad: string[] = [];
+      for (const [ep, c] of cs) {
+        const r = await replay(c).catch((e: Error) => ({ status: 0, code: '', text: e.message }));
+        const ok =
+          want === 'missing'
+            ? r.status === 404 && r.code === (ep.startsWith('rpc/') ? 'PGRST202' : 'PGRST205')
+            : r.status >= 200 && r.status < 300;
+        if (!ok) bad.push(`${c.method} ${ep} → ${r.status} ${r.text.slice(0, 160)}`);
+      }
+      if (!bad.length) return;
+      last = `已重载（加载计数 ${loadsBefore} → ${loads}），但 ${bad.join('；')}`;
+    } else last = `结构缓存加载计数仍为 ${loads}（NOTIFY 前 ${loadsBefore}），重载未完成`;
+    await sleep(100);
+  }
+  throw new Error(`PostgREST B 在 ${id} 上没有达到「${want}」状态：${last}`);
 }
 
 // ---------------------------------------------------------------- 0. 基线
@@ -196,11 +243,14 @@ test('基线：8 个模块在真实 PostgREST 上读出真实数据，并记录�
   test.setTimeout(90_000);
   for (const m of MODULES) {
     const seen = new Set<string>();
-    const on = (r: { url(): string }) => {
+    const first = new Map<string, Call>();
+    const on = (r: import('@playwright/test').Request) => {
       const u = new URL(r.url());
       const p = u.pathname.replace(/^\/rest\/v1\//, '');
-      if (u.pathname.startsWith('/rest/v1/') && !/^profiles$/.test(p) && !/^site_content$/.test(p))
+      if (u.pathname.startsWith('/rest/v1/') && !/^profiles$/.test(p) && !/^site_content$/.test(p)) {
         seen.add(p);
+        if (!first.has(p)) first.set(p, { method: r.method(), path: `${p}${u.search}`, body: r.postData() });
+      }
     };
     page.on('request', on);
     await page.goto(pathOf(m));
@@ -213,6 +263,7 @@ test('基线：8 个模块在真实 PostgREST 上读出真实数据，并记录�
       [...new Set([...m.endpoints, ...SHELL_ENDPOINTS])].sort(),
     );
     endpoints.set(m.id, seen);
+    calls.set(m.id, first);
   }
   console.log(
     '[faults] endpoints',
@@ -231,7 +282,7 @@ test('故障 1：停掉 PostgREST 进程 → 8 个模块都显示「无法连接
     await page.goto(pathOf(m));
     await expectKind(page, 'network', /无法连接数据服务/);
     if (m.id === 'content') await shot(page, info, 'fault-content-network');
-    pgB = await startPostgrest(DB, portB);
+    pgB = await startPostgrest(DB, portB, { adminPort: adminB });
     await retryAll(page, /^重试$/);
     await expectHealthy(page, m);
   }
@@ -281,32 +332,48 @@ test('故障 3：删除模块用到的函数 / 表（重命名 + 重载结构）
   expect(endpoints.size).toBe(MODULES.length);
   for (const m of MODULES) {
     const objs = objectsOf(m.id);
-    const probe = objs[0];
+    const before = await schemaCacheLoads(adminB);
     await renameAll(
       objs,
       (n) => n,
       (n) => `${n}__fault`,
     );
-    const probePath = probe.kind === 'function' ? `rpc/${probe.name}` : `${probe.name}?limit=1`;
-    await waitB((s) => s === 404, probePath, probe.kind === 'function' ? '{}' : undefined);
-    const codes: string[] = [];
-    const on = async (r: import('@playwright/test').Response) => {
-      if (/\/rest\/v1\//.test(r.url()) && r.status() === 404)
-        codes.push(((await r.json().catch(() => ({}))) as { code?: string }).code ?? '');
+    await waitSchema(m.id, before, 'missing');
+    // 响应体是异步读的：先收集 Promise，错误条出现后等网络静止、再等全部读完才断言
+    // （否则「错误条已出现、RPC 的 404 还没读完」时会漏记 PGRST202——2026-10-28 并行压测见过一次）
+    const pending: Promise<{ ep: string; code: string }>[] = [];
+    const on = (r: import('@playwright/test').Response) => {
+      const u = new URL(r.url());
+      if (u.pathname.startsWith('/rest/v1/') && r.status() === 404)
+        pending.push(
+          r
+            .json()
+            .catch(() => ({}))
+            .then((b) => ({
+              ep: u.pathname.replace(/^\/rest\/v1\//, ''),
+              code: (b as { code?: string }).code ?? '',
+            })),
+        );
     };
     page.on('response', on);
     await page.goto(pathOf(m));
     await expectKind(page, 'schema', /数据库未就绪/);
+    await page.waitForLoadState('networkidle');
     page.off('response', on);
+    const seen = await Promise.all(pending);
+    const codes = seen.map((x) => x.code);
     expect(codes.length, `${m.id}: 没有看到 404`).toBeGreaterThan(0);
-    for (const c of codes) expect(c).toMatch(/^PGRST20[25]$/);
-    if (probe.kind === 'function') expect(codes).toContain('PGRST202');
+    // 每个 404 都必须来自结构缓存，且与端点类型对应：函数 → PGRST202，表 / 视图 → PGRST205
+    for (const x of seen)
+      expect(x.code, `${m.id}: ${x.ep}`).toBe(x.ep.startsWith('rpc/') ? 'PGRST202' : 'PGRST205');
+    if (objs.some((o) => o.kind === 'function')) expect(codes, `${m.id}`).toContain('PGRST202');
+    const beforeRestore = await schemaCacheLoads(adminB);
     await renameAll(
       objs,
       (n) => `${n}__fault`,
       (n) => n,
     );
-    await waitB((s) => s !== 404, probePath, probe.kind === 'function' ? '{}' : undefined);
+    await waitSchema(m.id, beforeRestore, 'present');
     await retryAll(page, /^重新检测$/);
     await expectHealthy(page, m);
   }
