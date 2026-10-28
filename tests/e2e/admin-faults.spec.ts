@@ -40,6 +40,17 @@ let adminB = 0;
 let proxyPort = 0;
 let proxy: http.Server | null = null;
 let pool: pg.Pool | null = null;
+/**
+ * 故障 5 首跑失败诊断（第五轮）：代理侧事件环形记录——每个请求到达时的模式、何时转发、上游错误、客户端在响应前断开、响应完成。
+ * 用例失败时（afterEach）打印最后 80 条，与 forwardRest 打印的 route.fetch 真实错误对照（CI 日志里两侧都有）。不改任何断言与等待。
+ */
+type ProxyEvent = { t: number; id: number; ev: string; url: string; mode: Mode; detail?: string };
+const proxyLog: ProxyEvent[] = [];
+let proxySeq = 0;
+const plog = (e: Omit<ProxyEvent, 't'>) => {
+  proxyLog.push({ t: Date.now(), ...e });
+  if (proxyLog.length > 400) proxyLog.splice(0, proxyLog.length - 400);
+};
 const db = () => (pool ??= new pg.Pool({ connectionString: dbUrl(DB), max: 3 }));
 
 /** 8 个模块：唯一清单在 admin-modules.ts（与交接文档、真实后台侧栏逐项核对） */
@@ -69,6 +80,14 @@ test.beforeAll(async ({}, info) => {
   pgB = await startPostgrest(DB, portB, { adminPort: adminB });
   proxy = http.createServer((req, res) => {
     const toA = /^\/profiles(\?|$)/.test(req.url ?? '');
+    const id = ++proxySeq;
+    const url = `${req.method} ${(req.url ?? '').split('?')[0]}`;
+    const sock = req.socket as typeof req.socket & { __azReq?: number };
+    plog({ id, ev: `recv(sock#${(sock.__azReq = (sock.__azReq ?? 0) + 1)} ${sock.remotePort})`, url, mode });
+    res.on('close', () => {
+      if (!res.writableFinished) plog({ id, ev: 'client-closed-before-response', url, mode });
+    });
+    res.on('finish', () => plog({ id, ev: `finish ${res.statusCode}`, url, mode }));
     if (!toA && mode === '503') {
       req.resume();
       res.writeHead(503, { 'content-type': 'application/json' });
@@ -90,7 +109,11 @@ test.beforeAll(async ({}, info) => {
         },
       );
       // 上游进程不在：把连接直接断掉（不编造响应），Playwright 转发失败 → 浏览器得到连接被拒
-      up.on('error', () => req.socket.destroy());
+      up.on('error', (e) => {
+        plog({ id, ev: 'upstream-error→destroy-client-socket', url, mode, detail: e.message });
+        req.socket.destroy();
+      });
+      plog({ id, ev: `forward→${toA ? 'A' : 'B'}`, url, mode });
       req.pipe(up);
     };
     if (!toA && mode === 'slow') setTimeout(go, SLOW_MS);
@@ -126,6 +149,20 @@ test.afterAll(async () => {
   await p?.end();
   if (process.env.DATABASE_URL && BIN && portA) await dropDatabase(DB).catch(() => {});
   portA = 0;
+});
+
+// eslint-disable-next-line no-empty-pattern -- 不依赖其他夹具
+test.afterEach(async ({}, info) => {
+  if (info.status !== info.expectedStatus && proxyLog.length) {
+    const t0 = proxyLog[0].t;
+    console.log(
+      `[faults] 代理事件（最后 80 条，ms 相对 ${new Date(t0).toISOString()}）：\n` +
+        proxyLog
+          .slice(-80)
+          .map((e) => `  +${e.t - t0} #${e.id} ${e.mode} ${e.url} ${e.ev}${e.detail ? ` (${e.detail})` : ''}`)
+          .join('\n'),
+    );
+  }
 });
 
 test.beforeEach(async ({ page }, info) => {

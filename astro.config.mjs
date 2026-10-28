@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadEnv } from 'vite';
 import { resolveSupabaseConfig } from './scripts/supabase-env.mjs';
+import { PRODUCTION_IDENTITY, PRODUCTION_REF } from './scripts/supabase-prod.mjs';
 
 export const SITE = 'https://azsou.com';
 
@@ -105,9 +106,10 @@ function clientChunkManifest() {
 }
 
 /**
- * 构建期 fail-closed 检查（站长 2026-10-28）：Vercel 非生产环境（Preview / Development）没配 PUBLIC_SUPABASE_URL / KEY 时
- * 直接让构建失败，绝不把生产 Supabase 打进预览产物；只配了一个也失败。规则见 scripts/supabase-env.mjs、docs/DEPLOY.md。
- * 读 process.env（Vercel 注入）并合并 .env 文件里的 PUBLIC_*（本机开发），与 Vite 构建期替换进客户端包的值一致。
+ * 构建期检查（站长 2026-10-28 第五轮）：任何环境（本机、CI、Vercel Preview / Development / Production）都必须显式配置
+ * PUBLIC_SUPABASE_URL / KEY，且目标在允许清单里——非生产只能是测试项目 azsou-test 或本机栈，VERCEL_ENV=production 只能是生产项目。
+ * 不满足直接让构建失败（没有默认值、不回退生产）。规则见 scripts/supabase-env.mjs、docs/DEPLOY.md。
+ * 读 process.env（Vercel / CI 注入）并合并 .env 文件里的 PUBLIC_*（本机开发），与 Vite 构建期替换进客户端包的值一致。
  */
 const SUPABASE_BUILD = (() => {
   const fileEnv = loadEnv(
@@ -115,14 +117,8 @@ const SUPABASE_BUILD = (() => {
     process.cwd(),
     'PUBLIC_SUPABASE_',
   );
-  const r = resolveSupabaseConfig({ ...fileEnv, ...process.env });
-  if (r.source === 'production-default')
-    console.warn(
-      '[supabase-config] Vercel 生产构建未设置 PUBLIC_SUPABASE_URL / KEY，使用受保护的生产默认值（应在 Vercel Production 环境显式配置）',
-    );
-  return r;
+  return resolveSupabaseConfig({ ...fileEnv, ...process.env }, PRODUCTION_IDENTITY);
 })();
-void SUPABASE_BUILD;
 
 export default defineConfig({
   site: SITE,
@@ -148,5 +144,14 @@ export default defineConfig({
       changefreq: 'weekly',
     }),
   ],
-  vite: { build: { assetsInlineLimit: 2048 } },
+  vite: {
+    build: { assetsInlineLimit: 2048 },
+    // 生产身份只进生产构建：浏览器端 / 服务端运行时据此按同一允许清单再校验（src/lib/supabase-config.ts）。
+    // 非生产构建注入空串 → 产物里没有生产 ref，运行时也不可能被放行连生产（tests/built/supabase-target.test.ts 扫描产物）
+    define: {
+      'import.meta.env.PUBLIC_SUPABASE_PROD_REF': JSON.stringify(
+        SUPABASE_BUILD.target === 'production' ? PRODUCTION_REF : '',
+      ),
+    },
+  },
 });
