@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { isSupabaseOrThirdParty } from '../supabase-route';
 
 /**
  * 回归：桌面列表页「解析到一半先画的那一帧」不能让工具区 / 列表顶部移位（桌面 Lighthouse /apps/ CLS 偶发 0.047–0.049）。
@@ -18,9 +19,7 @@ import { expect, test, type Page } from '@playwright/test';
 test.use({ javaScriptEnabled: false });
 
 test.beforeEach(async ({ page }) => {
-  await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
-    r.abort(),
-  );
+  await page.route(isSupabaseOrThirdParty, (r) => r.abort());
 });
 
 type Pos = { more: number | null; toolbar: number | null; items: number | null };
