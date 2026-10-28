@@ -53,7 +53,12 @@ async function forward(route: Route, target = process.env.E2E_PGRST!) {
         'access-control-expose-headers': 'Content-Range, Content-Location',
       },
     });
-  } catch {
+  } catch (err) {
+    // 诊断（2026-10-28 故障 5 首跑失败：mod_list_users 在 36ms 内被 abort，trace 里看不到真实原因）：
+    // 把 route.fetch 的真实错误打进日志，下次首跑失败能直接看到是连接复用 / 上游断开 / 页面已离开中的哪一种。
+    console.warn(
+      `[forwardRest] route.fetch 失败 ${req.method()} ${u.pathname}: ${String(err).slice(0, 300)}`,
+    );
     await route.abort('connectionrefused').catch(() => {});
   }
 }
