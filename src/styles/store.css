@@ -926,6 +926,10 @@
       grid-template-columns: auto minmax(0, 1fr);
       column-gap: var(--space-4);
       align-items: center;
+      /* CLS（批次 3 跟进）：≥ 1200 主栏与分类栏同一行，HTML 解析到一半先画的那一帧里主栏比分类栏矮、被拉高；
+         默认 align-content（stretch）会把 auto 行一起拉高，第一行居中的「更多筛选」/ 工具条随之下移，条目到齐后再弹回
+         （桌面 /apps/ 偶发约 83px 跳动）。行高只由内容决定，多余高度留在网格底部。 */
+      align-content: start;
     }
     .list-main > * {
       grid-column: 1 / -1;
