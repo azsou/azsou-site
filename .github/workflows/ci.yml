@@ -44,7 +44,9 @@ jobs:
       # 加载 src/content/apps/_e2e/ 的测试夹具应用（下载中转 / 平台识别 E2E 用）；Vercel 的构建不设，线上没有夹具
       AZ_E2E_FIXTURES: '1'
     steps:
+      # 完整历史：sbtest 初始化执行器的单测从 git 对象库读钉住的源提交（ops/sbtest/init-manifest.json 的 source_sha），浅克隆里没有
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci

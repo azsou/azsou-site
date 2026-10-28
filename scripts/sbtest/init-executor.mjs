@@ -50,11 +50,27 @@ export function assertRef(ref) {
 }
 
 /** 从 git 对象库读钉住 SHA 下的文件（不读工作区，工作区被改过也不影响） */
-export function gitShow(sha, rel, cwd = ROOT) {
+/**
+ * 钉住的提交必须在本地 git 对象库里（浅克隆 / 没 fetch 到 → 拒绝并说明怎么补，而不是当成执行失败）。
+ * @param {string} sha
+ * @param {string} cwd
+ */
+export function assertCommitPresent(sha, cwd = ROOT) {
   if (!/^[0-9a-f]{40}$/.test(sha)) throw new Refused(`源 SHA 必须是完整 40 位：${sha}`);
+  try {
+    execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd, stdio: 'ignore' });
+  } catch {
+    throw new Refused(
+      `钉住的源提交 ${sha} 不在本地 git 对象库里（浅克隆？）：先 git fetch origin ${sha}（或完整克隆）再运行`,
+    );
+  }
+}
+export function gitShow(sha, rel, cwd = ROOT) {
+  assertCommitPresent(sha, cwd);
   return execFileSync('git', ['show', `${sha}:${rel}`], { cwd, maxBuffer: 64 << 20 });
 }
 export function gitLs(sha, dir, cwd = ROOT) {
+  assertCommitPresent(sha, cwd);
   return execFileSync('git', ['ls-tree', '--name-only', `${sha}`, `${dir}/`], { cwd, encoding: 'utf8' })
     .split('\n')
     .filter(Boolean)

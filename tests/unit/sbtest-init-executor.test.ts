@@ -65,6 +65,11 @@ describe('钉住 SHA + sha256', () => {
     expect(() => buildManifest(SHA, read, () => [...list(), '0020_x.sql'])).toThrow(/0001–0019/);
     expect(() => buildManifest(SHA, read, () => list().slice(1))).toThrow(/0001–0019/);
   });
+  it('钉住的提交不在本地 git 对象库（浅克隆）→ 拒绝（exit 2 语义），并提示先 fetch，不当成执行失败', () => {
+    const absent = '0'.repeat(40);
+    expect(() => buildManifest(absent)).toThrow(Refused);
+    expect(() => buildManifest(absent)).toThrow(/不在本地 git 对象库/);
+  });
 });
 
 describe('每个文件一个事务 + 超时 + 账本', () => {
