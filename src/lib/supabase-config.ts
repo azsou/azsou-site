@@ -4,6 +4,7 @@
  */
 import {
   SupabaseConfigError,
+  checkSupabaseConfig,
   classifySupabaseUrl as classifyWith,
   resolveSupabaseConfig,
   type ProductionIdentity,
@@ -25,13 +26,14 @@ export function classifySupabaseUrl(raw: string) {
 }
 
 /**
- * 浏览器端 / 预渲染：读构建期替换进来的 PUBLIC_* 变量，再按同一允许清单校验一次。
+ * 浏览器端 / 预渲染：读构建期替换进来的 PUBLIC_* 变量，再按同一允许清单校验一次（checkSupabaseConfig，与构建期 / 服务端同一规则）。
  * 浏览器拿不到 VERCEL_ENV：生产构建以「注入了生产身份」为准；非生产构建的包即使被塞进生产地址也会拒绝。
+ * 报错只带判定代码：完整中文说明在构建期 / 服务端（resolveSupabaseConfig），不进前台 JS 预算。
  */
 export function supabaseConfig(): { url: string; key: string } {
   const env = import.meta.env ?? {};
   const production = bundledProductionIdentity();
-  const { url, key } = resolveSupabaseConfig(
+  const r = checkSupabaseConfig(
     {
       PUBLIC_SUPABASE_URL: env.PUBLIC_SUPABASE_URL as string | undefined,
       PUBLIC_SUPABASE_KEY: env.PUBLIC_SUPABASE_KEY as string | undefined,
@@ -39,5 +41,6 @@ export function supabaseConfig(): { url: string; key: string } {
     },
     production,
   );
-  return { url, key };
+  if (!r.ok) throw new SupabaseConfigError(`Supabase 配置不合规（${r.fault}），拒绝连接`);
+  return { url: r.url, key: r.key };
 }

@@ -93,49 +93,82 @@ export function isProductionDeploy(env = {}) {
 }
 
 /**
+ * @typedef {'missing' | 'secret-key' | 'production-requires-production' | 'not-allowlisted' | 'non-production-to-production'} SupabaseConfigFault
+ */
+
+/**
+ * 判定本体（不拼报错文案）：浏览器包只引这个，长篇中文说明留在 Node / 服务端的 resolveSupabaseConfig，
+ * 不进前台 JS（/apps/ 首屏 JS 预算 49,152 B）。规则只有这一份，resolveSupabaseConfig 也是调它。
+ * @param {SupabaseEnv} [env]
+ * @param {ProductionIdentity} [production]
+ * @returns {{ ok: true; url: string; key: string; target: SupabaseTarget } | { ok: false; fault: SupabaseConfigFault; url: string; key: string; prod: boolean }}
+ */
+export function checkSupabaseConfig(env = {}, production = NO_PRODUCTION) {
+  const url = (env.PUBLIC_SUPABASE_URL ?? '').trim();
+  const key = (env.PUBLIC_SUPABASE_KEY ?? '').trim();
+  const prod = isProductionDeploy(env);
+  /** @param {SupabaseConfigFault} fault */
+  const fail = (fault) => ({ ok: /** @type {const} */ (false), fault, url, key, prod });
+  if (!url || !key) return fail('missing');
+  if (isSecretLikeKey(key)) return fail('secret-key');
+  const c = classifySupabaseUrl(url, production);
+  if (prod) {
+    if (!c || c.target !== 'production') return fail('production-requires-production');
+    return {
+      ok: /** @type {const} */ (true),
+      url,
+      key,
+      target: /** @type {SupabaseTarget} */ ('production'),
+    };
+  }
+  if (!c) return fail('not-allowlisted');
+  if (c.target === 'production' || (production.publishableKey && key === production.publishableKey))
+    return fail('non-production-to-production');
+  return { ok: /** @type {const} */ (true), url, key, target: c.target };
+}
+
+/**
  * @param {SupabaseEnv} [env]
  * @param {ProductionIdentity} [production] 生产身份（Node 侧传 scripts/supabase-prod.mjs；打包代码传构建期注入值；不传 = 不允许生产）
  * @returns {{ url: string; key: string; source: 'env'; target: SupabaseTarget }}
  */
 export function resolveSupabaseConfig(env = {}, production = NO_PRODUCTION) {
-  const url = (env.PUBLIC_SUPABASE_URL ?? '').trim();
-  const key = (env.PUBLIC_SUPABASE_KEY ?? '').trim();
-  const prod = isProductionDeploy(env);
+  const r = checkSupabaseConfig(env, production);
+  if (r.ok) return { url: r.url, key: r.key, source: 'env', target: r.target };
+  const { url, key, prod } = r;
   const where = prod
     ? 'Vercel 生产'
     : env.VERCEL_ENV
       ? `Vercel「${env.VERCEL_ENV}」`
       : '非生产（本机 / CI / 测试）';
-  if (!url || !key) {
-    const missing = [!url && 'PUBLIC_SUPABASE_URL', !key && 'PUBLIC_SUPABASE_KEY'].filter(Boolean).join('、');
-    throw new SupabaseConfigError(
-      `${where}环境缺少 ${missing}：Supabase 连接必须显式配置，没有默认值，也绝不回退到生产库` +
-        '（PUBLIC_SUPABASE_URL 与 PUBLIC_SUPABASE_KEY 必须同时设置；docs/DEPLOY.md「Supabase 连接配置」）。',
-    );
-  }
-  if (isSecretLikeKey(key))
-    throw new SupabaseConfigError(
-      'PUBLIC_SUPABASE_KEY 是 secret / service_role key：拒绝使用，只能填 publishable / anon key。',
-    );
-  const c = classifySupabaseUrl(url, production);
-  const prodRefs = production.refs ?? [];
-  if (prod) {
-    if (!c || c.target !== 'production')
+  switch (r.fault) {
+    case 'missing': {
+      const missing = [!url && 'PUBLIC_SUPABASE_URL', !key && 'PUBLIC_SUPABASE_KEY']
+        .filter(Boolean)
+        .join('、');
       throw new SupabaseConfigError(
-        `Vercel 生产部署只能连生产项目（生产允许清单${prodRefs.length ? '' : '为空：本构建没有注入生产身份'}）：PUBLIC_SUPABASE_URL 不在清单里。`,
+        `${where}环境缺少 ${missing}：Supabase 连接必须显式配置，没有默认值，也绝不回退到生产库` +
+          '（PUBLIC_SUPABASE_URL 与 PUBLIC_SUPABASE_KEY 必须同时设置；docs/DEPLOY.md「Supabase 连接配置」）。',
       );
-    return { url, key, source: 'env', target: 'production' };
+    }
+    case 'secret-key':
+      throw new SupabaseConfigError(
+        'PUBLIC_SUPABASE_KEY 是 secret / service_role key：拒绝使用，只能填 publishable / anon key。',
+      );
+    case 'production-requires-production':
+      throw new SupabaseConfigError(
+        `Vercel 生产部署只能连生产项目（生产允许清单${(production.refs ?? []).length ? '' : '为空：本构建没有注入生产身份'}）：PUBLIC_SUPABASE_URL 不在清单里。`,
+      );
+    case 'not-allowlisted':
+      throw new SupabaseConfigError(
+        `${where}环境的 PUBLIC_SUPABASE_URL 不在非生产允许清单里（测试项目 ${TEST_PROJECT_REFS.join('、')} 或本机 ` +
+          `${LOCAL_HOSTS.join(' / ')}）：拒绝连接。`,
+      );
+    default:
+      throw new SupabaseConfigError(
+        `${where}环境指向了生产 Supabase：非生产环境（Preview / 本机 / CI）绝不连生产库。`,
+      );
   }
-  if (!c)
-    throw new SupabaseConfigError(
-      `${where}环境的 PUBLIC_SUPABASE_URL 不在非生产允许清单里（测试项目 ${TEST_PROJECT_REFS.join('、')} 或本机 ` +
-        `${LOCAL_HOSTS.join(' / ')}）：拒绝连接。`,
-    );
-  if (c.target === 'production' || (production.publishableKey && key === production.publishableKey))
-    throw new SupabaseConfigError(
-      `${where}环境指向了生产 Supabase：非生产环境（Preview / 本机 / CI）绝不连生产库。`,
-    );
-  return { url, key, source: 'env', target: c.target };
 }
 
 /**
