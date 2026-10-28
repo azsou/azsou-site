@@ -5,7 +5,7 @@
  */
 import { restError } from './supabase';
 import { DataUnavailableError, NotSignedInError, ValidationError } from './types';
-import { DEFAULT_SUPABASE } from '../supabase-config';
+import { supabaseConfig } from '../supabase-config';
 import { getRepository } from './index';
 import type { GuestbookInput, LinkInput, SubmitKind } from '../community-forms';
 
@@ -251,11 +251,9 @@ let api: GuestbookApi | null = null;
 /** 浏览器端入口：与仓储共用同一个登录会话 */
 export function getGuestbook(): GuestbookApi {
   if (api) return api;
-  const env = import.meta.env ?? {};
   const repo = getRepository();
   api = createGuestbookApi({
-    url: env.PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE.url,
-    key: env.PUBLIC_SUPABASE_KEY || DEFAULT_SUPABASE.key,
+    ...supabaseConfig(),
     token: () => repo.auth.accessToken(),
   });
   return api;
