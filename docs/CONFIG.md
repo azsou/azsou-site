@@ -209,7 +209,8 @@ Authentication → Emails → Templates。每个模板复制「主题」和「�
 
 ## 8. 其他
 
-- **Supabase API Keys**：前端只用 publishable key（`sb_publishable_…`），已写在 `src/lib/supabase-config.ts` 作为默认值；
+- **Supabase API Keys**：前端只用 publishable key（`sb_publishable_…`），应通过 Vercel 环境变量 `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_KEY` 提供；
+  `scripts/supabase-env.mjs` 里的生产默认值只在 Vercel 生产（或本机 / CI）漏配时兜底，Preview / Development 缺配置会构建失败（docs/DEPLOY.md「Supabase 连接配置」）；
   secret key 不在任何代码或 Vercel 变量里。
 - **数据库网络限制**（可选）：Project Settings → Database → Network Restrictions。GitHub Actions 备份从 GitHub 托管机器连接，
   开启限制前需要放行 GitHub Actions 的 IP 段，或改用自托管 runner。

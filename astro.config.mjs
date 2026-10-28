@@ -4,6 +4,8 @@ import vercel from '@astrojs/vercel';
 import sitemap from '@astrojs/sitemap';
 import fs from 'node:fs';
 import path from 'node:path';
+import { loadEnv } from 'vite';
+import { resolveSupabaseConfig } from './scripts/supabase-env.mjs';
 
 export const SITE = 'https://azsou.com';
 
@@ -101,6 +103,26 @@ function clientChunkManifest() {
     },
   };
 }
+
+/**
+ * 构建期 fail-closed 检查（站长 2026-10-28）：Vercel 非生产环境（Preview / Development）没配 PUBLIC_SUPABASE_URL / KEY 时
+ * 直接让构建失败，绝不把生产 Supabase 打进预览产物；只配了一个也失败。规则见 scripts/supabase-env.mjs、docs/DEPLOY.md。
+ * 读 process.env（Vercel 注入）并合并 .env 文件里的 PUBLIC_*（本机开发），与 Vite 构建期替换进客户端包的值一致。
+ */
+const SUPABASE_BUILD = (() => {
+  const fileEnv = loadEnv(
+    process.env.NODE_ENV === 'development' ? 'development' : 'production',
+    process.cwd(),
+    'PUBLIC_SUPABASE_',
+  );
+  const r = resolveSupabaseConfig({ ...fileEnv, ...process.env });
+  if (r.source === 'production-default')
+    console.warn(
+      '[supabase-config] Vercel 生产构建未设置 PUBLIC_SUPABASE_URL / KEY，使用受保护的生产默认值（应在 Vercel Production 环境显式配置）',
+    );
+  return r;
+})();
+void SUPABASE_BUILD;
 
 export default defineConfig({
   site: SITE,
