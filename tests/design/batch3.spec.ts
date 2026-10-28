@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { FIXED_TIME } from './pages';
 import { settle } from './detect';
 import { mockAdmin } from './admin-mock';
+import { isSupabaseOrThirdParty } from '../supabase-route';
 
 /**
  * 批次 3（设计系统与交互）验收用例，Chromium。任务 / 用例编号见 docs/audits/2026-10-27-test-plan.md：
@@ -19,9 +20,7 @@ import { mockAdmin } from './admin-mock';
 // （按钮命中检测正常、无遮罩；route 拦截后点击恢复，2794ccb 的构建同样复现）→ 这是环境问题，不是页面 bug。
 // 在 beforeEach 里先注册：mockAdmin 之后注册的 route 优先级更高，后台夹具不受影响。
 test.beforeEach(async ({ page }) => {
-  await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
-    r.abort(),
-  );
+  await page.route(isSupabaseOrThirdParty, (r) => r.abort());
 });
 
 async function open(page: Page, path: string, vp: { width: number; height: number }) {

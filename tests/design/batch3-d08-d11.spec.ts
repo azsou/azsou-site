@@ -1,15 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { FIXED_TIME } from './pages';
 import { settle } from './detect';
+import { isSupabaseOrThirdParty } from '../supabase-route';
 
 /**
  * 批次 3 跟进：D08（动效与玻璃效果成本，T013 / T081 的自动化部分）与 D11（卡片元数据与视觉辨识度，T016）。
  * 真机滚动掉帧（T013 低性能 Android / iPhone）不在这里，另行签字。
  */
 test.beforeEach(async ({ page }) => {
-  await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
-    r.abort(),
-  );
+  await page.route(isSupabaseOrThirdParty, (r) => r.abort());
 });
 async function open(page: Page, path: string, vp: { width: number; height: number }) {
   await page.setViewportSize(vp);

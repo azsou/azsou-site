@@ -9,6 +9,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { PAGES } from './pages';
+import { isSupabaseOrThirdParty } from '../supabase-route';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 /** 不走前台外壳的组件目录页：没有站点导航 / 页脚 */
@@ -26,9 +27,7 @@ async function axe(page: Page) {
 }
 
 async function blockThirdParty(page: Page) {
-  await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
-    r.abort(),
-  );
+  await page.route(isSupabaseOrThirdParty, (r) => r.abort());
 }
 
 for (const p of PAGES) {
