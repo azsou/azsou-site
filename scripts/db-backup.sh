@@ -167,8 +167,9 @@ if [ "$HAS_STORAGE" = true ]; then
     in_snap -c "select bucket_id, name, coalesce(metadata->>'size', ''), coalesce(metadata->>'mimetype', ''), coalesce(metadata->>'cacheControl', ''), coalesce(owner_id, owner::text, '') from storage.objects order by bucket_id collate \"C\", name collate \"C\""
   } >"$PREFIX-storage-listing-$TS.tsv"
   # 第五轮 ②：同一快照里每个对象的 eTag / lastModified / updated_at / version——下载时据此发现快照之后的**同尺寸改写**
+  # updated_at / version 经 to_jsonb(o) 读：storage.objects 不同版本（以及只带最小列的夹具）不一定有这两列，缺列时记空、不让备份失败
   { printf 'bucket_id\tname\tsize\tetag\tlast_modified\tupdated_at\tversion\n'
-    in_snap -c "select bucket_id, name, coalesce(metadata->>'size', ''), coalesce(metadata->>'eTag', ''), coalesce(metadata->>'lastModified', ''), coalesce(to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ''), coalesce(to_jsonb(o)->>'version', '') from storage.objects o order by bucket_id collate \"C\", name collate \"C\""
+    in_snap -c "select bucket_id, name, coalesce(metadata->>'size', ''), coalesce(metadata->>'eTag', ''), coalesce(metadata->>'lastModified', ''), coalesce(to_jsonb(o)->>'updated_at', ''), coalesce(to_jsonb(o)->>'version', '') from storage.objects o order by bucket_id collate \"C\", name collate \"C\""
   } >"$PREFIX-storage-etags-$TS.tsv"
   OBJECTS=$(($(wc -l <"$PREFIX-storage-listing-$TS.tsv") - 1))
 fi
