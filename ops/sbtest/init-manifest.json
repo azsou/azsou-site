@@ -1,0 +1,103 @@
+{
+  "format": 1,
+  "project_ref": "ovvfwkmqlejcpatmfqcd",
+  "source_sha": "5121b1ae9c41bc0ad13a2093c7729e333039089a",
+  "migrations": [
+    {
+      "name": "0001_baseline.sql",
+      "sha256": "09130b11a907a08a86178e4ba84ef08d0711c56956a6d666c792cedb06b90832",
+      "bytes": 9550
+    },
+    {
+      "name": "0002_roles_columns.sql",
+      "sha256": "ad39ca00a6a81bae64a36fa6cdd4ff1ce953ad21195de29e7753e4a3cdbba709",
+      "bytes": 7109
+    },
+    {
+      "name": "0003_social_tables.sql",
+      "sha256": "e15afef80a365be18c2c1db06868471b00126ac8cf82a976e283a73d6b6a4897",
+      "bytes": 6384
+    },
+    {
+      "name": "0004_functions_triggers.sql",
+      "sha256": "2b73bd6ce6d8a98ec015ea0ee7764fde407d9f1a4dd73129a46093be6ebf1dde",
+      "bytes": 24955
+    },
+    {
+      "name": "0005_privileges.sql",
+      "sha256": "c4016476b3a959b7c0ea432d96639d075c3928156700b6d7aadb7f34ae083acb",
+      "bytes": 4872
+    },
+    {
+      "name": "0006_rls.sql",
+      "sha256": "e546eef144f7c0d459989abe842ed8d41ea4868db0dfbebd1cd221408a5024fa",
+      "bytes": 7427
+    },
+    {
+      "name": "0007_signup_guard.sql",
+      "sha256": "25853f47f17370ff4b8e49f141e151ee987ba5e61629dba492ef9cb8adba0777",
+      "bytes": 4026
+    },
+    {
+      "name": "0008_forum_search.sql",
+      "sha256": "5d087ccffc56d684a352f5f562263ee66dd326636a32f17548e1c016dea7a2f9",
+      "bytes": 4255
+    },
+    {
+      "name": "0009_admin.sql",
+      "sha256": "9860ea4ffb5f22aacb6311e702eb741fc36f3641f8ee7d09e7bab48557ee65ad",
+      "bytes": 34564
+    },
+    {
+      "name": "0010_ugc_images.sql",
+      "sha256": "40c26923451834c20719e6886ffaf902f1c0f3eb4f6ef640b0ecaea1a2a38666",
+      "bytes": 5039
+    },
+    {
+      "name": "0011_forum_category_guard.sql",
+      "sha256": "03df7af22b1eb7657b5e7f91a60b0bfc63b299c2bc2f83e730460b14835cc7fd",
+      "bytes": 3366
+    },
+    {
+      "name": "0012_app_store.sql",
+      "sha256": "ed0bf3022aaaa02f60d45033edd738ee326a3b8d1576f0b4a53afa1f27d6e764",
+      "bytes": 20843
+    },
+    {
+      "name": "0013_tool_comments.sql",
+      "sha256": "61676862894c323d8c944f856589a781eb88c4686f5a174bd5c3a0a07f971337",
+      "bytes": 1146
+    },
+    {
+      "name": "0014_video_comments.sql",
+      "sha256": "26f96c694b9585c092cc05e3fb8b3b8bd0f5aedbe6aa39b18774b0899a80197d",
+      "bytes": 1480
+    },
+    {
+      "name": "0015_guestbook.sql",
+      "sha256": "f7cd2d1ebe042e10f52bacfc2bfc627e5224d5a3b4518b108b5e33fa5496562d",
+      "bytes": 19532
+    },
+    {
+      "name": "0016_subscribers.sql",
+      "sha256": "b6403fdcb6dd33fbd7151e15936b9c370c0e865ba6e26bb8e4fffc3522b13c75",
+      "bytes": 10146
+    },
+    {
+      "name": "0017_admin_crm.sql",
+      "sha256": "0ff43759e8c0e103708a7750c3b013a7328b1921083141ff8720197ea6559088",
+      "bytes": 28287
+    },
+    {
+      "name": "0018_state_consistency.sql",
+      "sha256": "57cbbc34d74922816f4d2f3314bdf1acdf2f215b9f1c260e13aa48bc5606bff5",
+      "bytes": 46264
+    },
+    {
+      "name": "0019_restore_review_version_window.sql",
+      "sha256": "23d3ecc3c2f879705d102a6852ab2a66126f2c21a782dd29a119cd50b4992d3e",
+      "bytes": 13489
+    }
+  ],
+  "status_sql_sha256": "d0deb46e5e5cbc75ca854b9765f7189b2857c8258770f9161b472cf1db011ab3"
+}
