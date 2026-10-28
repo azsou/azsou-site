@@ -14,12 +14,16 @@
 //   upload <buckets.tsv> <文件目录> <files.tsv>
 //       目标项目里按 buckets.tsv 建桶（id name public file_size_limit allowed_mime_types）——桶已存在 → 失败（精确恢复只进空目标）；
 //       再按 files.tsv 逐个上传（x-upsert: false，已存在就失败），上传前先核对本地文件 sha256。
+//       设了 STORAGE_CREATED_LEDGER 时，把**本次新建**的桶与**本次上传**的对象（含 sha256）逐条记进这个文件，供失败清理用。
+//   cleanup <created.tsv>
+//       只撤销本次运行创建的东西：逐个对象核对目标上的内容 sha256 仍是本次上传的那份才删除（被别人改过 → 不删、报告）；
+//       再删本次新建、且已经空了的桶（还有别的对象 → 不删、报告）。预先存在的桶 / 对象不在清单里，永远不碰。
 //   verify <files.tsv> [<buckets.tsv>]
 //       从目标逐个下载、比对 sha256 与大小；按桶列出对象（list API 递归）数量必须与清单一致，多一个少一个都失败。
 // 退出码：0 成功；1 校验 / 传输失败；2 用法 / 环境错误。
 // =============================================================================
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
 
 const die = (code, msg) => {
@@ -106,6 +110,11 @@ async function download(listing, outDir, filesTsv) {
   console.log(`storage 文件已下载：${out.length} 个对象 / ${bytes} 字节`);
 }
 
+const LEDGER = process.env.STORAGE_CREATED_LEDGER || '';
+const record = (...cols) => {
+  if (LEDGER) appendFileSync(LEDGER, cols.join('\t') + '\n');
+};
+
 async function upload(bucketsTsv, dir, filesTsv) {
   const buckets = readTsv(bucketsTsv);
   for (const b of buckets) {
@@ -123,6 +132,7 @@ async function upload(bucketsTsv, dir, filesTsv) {
     });
     if (r.status !== 200)
       die(1, `建桶失败 ${b.id}：HTTP ${r.status} ${(await r.text()).slice(0, 200)}（精确恢复只进空目标）`);
+    record('bucket', b.id); // 建成功才记：已存在的桶（别人的）不会进清单
   }
   const files = readTsv(filesTsv);
   let bytes = 0;
@@ -139,6 +149,7 @@ async function upload(bucketsTsv, dir, filesTsv) {
     });
     if (r.status !== 200)
       die(1, `上传失败 ${f.bucket}/${f.name}：HTTP ${r.status} ${(await r.text()).slice(0, 200)}`);
+    record('object', f.bucket, f.name, f.sha256);
     bytes += buf.length;
   }
   console.log(`storage 已恢复：${buckets.length} 个桶、${files.length} 个对象 / ${bytes} 字节`);
@@ -199,14 +210,61 @@ async function verify(filesTsv, bucketsTsv) {
   console.log(`storage 校验通过：${files.length} 个对象`);
 }
 
+/** 失败清理：只撤销清单里本次创建 / 上传的东西 */
+async function cleanup(createdTsv) {
+  const lines = readFileSync(createdTsv, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => l.split('\t'));
+  let left = 0;
+  for (const [kind, bucket, name, sum] of [...lines].reverse()) {
+    if (kind !== 'object') continue;
+    const r = await req('GET', `/object/${encodeURIComponent(bucket)}/${enc(name)}`, { headers: headers() });
+    if (r.status === 404 || r.status === 400) continue; // 已经不在
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (r.status !== 200 || sha256(buf) !== sum) {
+      process.stderr.write(
+        `  不删 ${bucket}/${name}：目标上的内容已不是本次上传的那份（HTTP ${r.status}）\n`,
+      );
+      left++;
+      continue;
+    }
+    const d = await req('DELETE', `/object/${encodeURIComponent(bucket)}`, {
+      headers: headers({ 'content-type': 'application/json' }),
+      body: JSON.stringify({ prefixes: [name] }),
+    });
+    if (d.status !== 200) {
+      process.stderr.write(`  删除 ${bucket}/${name} 失败：HTTP ${d.status}\n`);
+      left++;
+    }
+  }
+  for (const [kind, bucket] of [...lines].reverse()) {
+    if (kind !== 'bucket') continue;
+    const rest = await listAll(bucket);
+    if (rest.length) {
+      process.stderr.write(`  不删桶 ${bucket}：里面还有 ${rest.length} 个不是本次上传的对象\n`);
+      left++;
+      continue;
+    }
+    const d = await req('DELETE', `/bucket/${encodeURIComponent(bucket)}`, { headers: headers() });
+    if (d.status !== 200) {
+      process.stderr.write(`  删除桶 ${bucket} 失败：HTTP ${d.status}\n`);
+      left++;
+    }
+  }
+  if (left) die(1, `storage 失败清理：${left} 项没有撤销（见上）`);
+  console.log('storage 失败清理：本次新建的桶 / 上传的对象已撤销，预先存在的没有动');
+}
+
 const [cmd, ...args] = process.argv.slice(2);
 const usage = () =>
   die(
     2,
-    '用法：storage-files.mjs download <listing.tsv> <目录> <files.tsv> | upload <buckets.tsv> <目录> <files.tsv> | verify <files.tsv> [buckets.tsv]',
+    '用法：storage-files.mjs download <listing.tsv> <目录> <files.tsv> | upload <buckets.tsv> <目录> <files.tsv> | verify <files.tsv> [buckets.tsv] | cleanup <created.tsv>',
   );
 try {
   if (cmd === 'download' && args.length === 3) await download(...args);
+  else if (cmd === 'cleanup' && args.length === 1) await cleanup(args[0]);
   else if (cmd === 'upload' && args.length === 3) await upload(...args);
   else if (cmd === 'verify' && (args.length === 1 || args.length === 2)) await verify(args[0], args[1]);
   else usage();

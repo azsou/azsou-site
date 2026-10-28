@@ -12,7 +12,8 @@
 #                                 建桶 → 上传每个对象 → 回填 owner → 下载比对 sha256 / 清单 / 身份列校验和
 #   --storage-metadata-only       只恢复 storage.buckets / objects 行（没有文件本体）。备份里有文件时也必须显式选择二者之一
 #   --fresh-db NAME               <目标连接串> 是本机超级用户连接：新建库 NAME（已存在 → 拒绝）+ db/shim/plain.sql，再恢复进去
-#   --drop-target-on-failure      任何一步失败就 DROP 目标库（--fresh-db 默认开启；只允许本机库）
+#   --drop-target-on-failure      已废除（第五轮）：失败清理只删除本次运行用 --fresh-db 新建的库（OID + 创建标记核对），
+#                                 预先存在的目标永远不删；单独使用 → 拒绝（退出码 2）
 #
 # 事务：pre-restore（扩展）→ auth 数据 → public（结构 + 数据 + 策略）→ post-restore（auth 触发器 / 收回默认授权）→ ACL →
 #   private → storage 策略（+ metadata-only 时的行）→ 核对（行数 / md5 / 行数清单 / schema 版本）全部在**一个事务**里；
@@ -32,18 +33,22 @@ TARGET=${1:-}
 DIR=${2:-}
 [ -n "$TARGET" ] && [ -n "$DIR" ] || usage
 shift 2
-ACCEPT="" STORAGE_MODE="" FRESH="" DROP=0
+ACCEPT="" STORAGE_MODE="" FRESH="" DROP=0 DROP_FLAG=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --accept-backup-version) ACCEPT=${2:?--accept-backup-version 需要版本号}; shift 2 ;;
     --storage-api) [ -z "$STORAGE_MODE" ] || usage; STORAGE_MODE=api; shift ;;
     --storage-metadata-only) [ -z "$STORAGE_MODE" ] || usage; STORAGE_MODE=metadata; shift ;;
     --fresh-db) FRESH=${2:?--fresh-db 需要库名}; DROP=1; shift 2 ;;
-    --drop-target-on-failure) DROP=1; shift ;;
+    --drop-target-on-failure) DROP_FLAG=1; shift ;;
     *) echo "✗ 未知参数：$1" >&2; usage ;;
   esac
 done
 refuse_prod_target "$TARGET" "精确恢复"
+if [ "$DROP_FLAG" = 1 ] && [ -z "$FRESH" ]; then
+  # 旧版会在失败时 DROP 目标库——包括预先存在、有数据的库（tests/ops/cleanup-safety.sh C1）。现在只删本次新建的库。
+  echo "✗ --drop-target-on-failure 不能单独使用：失败清理只删除本次运行用 --fresh-db 新建的库，预先存在的目标永远不删" >&2; exit 2
+fi
 fail() { echo "✗ $*" >&2; exit 1; }
 [ -d "$DIR" ] || { echo "✗ 备份目录不存在：$DIR" >&2; exit 2; }
 if [ "$DROP" = 1 ] && ! is_local_host "$(url_host "$TARGET")"; then
@@ -51,12 +56,19 @@ if [ "$DROP" = 1 ] && ! is_local_host "$(url_host "$TARGET")"; then
 fi
 
 W=$(mktemp -d)
+AZ_OWNED_LEDGER="$W/owned.tsv"
+export AZ_OWNED_LEDGER
+az_run_id >/dev/null
 DROP_URL="" DROP_NAME=""
 on_exit() {
   rc=$?
-  if [ $rc -ne 0 ] && [ -n "$DROP_NAME" ]; then
-    psql "$DROP_URL" -Xq -c "drop database if exists \"$DROP_NAME\" with (force)" >/dev/null 2>&1 \
-      && echo "已中止：目标库 $DROP_NAME 已删除" >&2 || echo "已中止：删除目标库 $DROP_NAME 失败，请手动删除" >&2
+  # 只删本次运行新建、且 OID / 创建标记仍对得上的库（scripts/ops/backup-lib.sh az_drop_owned_db）
+  if [ $rc -ne 0 ] && [ -n "$DROP_NAME" ] && az_is_owned_db "$DROP_NAME"; then
+    if az_drop_owned_db "$DROP_URL" "$DROP_NAME"; then echo "已中止：本次新建的目标库 $DROP_NAME 已删除" >&2
+    else echo "已中止：本次新建的目标库 $DROP_NAME 没有删除（见上面的原因），请人工确认" >&2; fi
+  fi
+  if [ $rc -ne 0 ] && [ -s "$W/storage-created.tsv" ]; then
+    node scripts/ops/storage-files.mjs cleanup "$W/storage-created.tsv" >&2 || echo "已中止：本次上传的 Storage 对象 / 新建的桶没有清理干净，请人工确认（清单 $W/storage-created.tsv 已打印在上面）" >&2
   fi
   rm -rf "$W"
   exit $rc
@@ -128,15 +140,12 @@ fi
 # ---- 4. 目标：新建（--fresh-db）或检查为空 ----
 if [ -n "$FRESH" ]; then
   [[ "$FRESH" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || { echo "✗ 库名不合法：$FRESH" >&2; exit 2; }
-  ex=$(psql "$TARGET" -XAt -v ON_ERROR_STOP=1 -c "select count(*) from pg_database where datname = '$FRESH'") || fail "连不上 $TARGET"
-  [ "$ex" = 0 ] || { echo "✗ 库 $FRESH 已存在：--fresh-db 只建新库" >&2; exit 3; }
-  psql "$TARGET" -Xq -v ON_ERROR_STOP=1 -c "create database \"$FRESH\"" >/dev/null
+  crc=0
+  az_create_owned_db "$TARGET" "$FRESH" || crc=$?
+  case $crc in 0) ;; 3) echo "✗ 库 $FRESH 已存在：--fresh-db 只建新库（不会使用或删除已有库）" >&2; exit 3 ;; *) fail "建库 $FRESH 失败" ;; esac
   DROP_URL=$TARGET DROP_NAME=$FRESH
   TARGET=$(python3 -c 'import sys,urllib.parse as u;p=u.urlparse(sys.argv[1]);print(p._replace(path="/"+sys.argv[2]).geturl())' "$TARGET" "$FRESH")
   psql "$TARGET" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f db/shim/plain.sql >/dev/null
-elif [ "$DROP" = 1 ]; then
-  DROP_NAME=$(python3 -c 'import sys,urllib.parse as u;print(u.urlparse(sys.argv[1]).path.lstrip("/"))' "$TARGET")
-  DROP_URL=$(python3 -c 'import sys,urllib.parse as u;p=u.urlparse(sys.argv[1]);print(p._replace(path="/postgres").geturl())' "$TARGET")
 fi
 EMPTY_CHECK=$(cat <<'SQL'
 do $$
@@ -259,7 +268,7 @@ sed -n '/^核对通过/,$p' "$W/restore.out"
 if [ "$STORAGE_MODE" = api ]; then
   mkdir -p "$W/files"
   if [ -n "$FARCH" ]; then tar -xf "$B/$FARCH" -C "$W/files"; else printf 'bucket\tname\tsize\tsha256\tcontent_type\tcache_control\n' >"$W/files.tsv"; FLIST=../files.tsv; fi
-  node scripts/ops/storage-files.mjs upload "$B/$SBUCKETS" "$W/files" "$B/$FLIST" || fail "Storage 恢复失败"
+  STORAGE_CREATED_LEDGER="$W/storage-created.tsv" node scripts/ops/storage-files.mjs upload "$B/$SBUCKETS" "$W/files" "$B/$FLIST" || fail "Storage 恢复失败"
   psql "$TARGET" -Xq -v ON_ERROR_STOP=1 >/dev/null <<SQL || fail "回填 Storage 对象 owner 失败"
 begin;
 create temp table _l (bucket_id text, name text, size text, mimetype text, cache_control text, owner_id text) on commit drop;

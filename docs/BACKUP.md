@@ -176,7 +176,7 @@ bash scripts/db-upgrade.sh "$NEW_DATABASE_URL" --from <备份版本> --to <目�
 
 - 目标必须为空（public 无表 / 函数、private 空、auth.users / storage 空），否则拒绝（退出码 3）——精确恢复只进新目标，不在旧库上覆盖。
 - 全部数据库范围在**一个事务**里恢复，并在提交前逐表核对行数 + 内容校验和 + schema 版本；任何错误或不一致 → ROLLBACK，目标保持为空。
-  没有触发器式的「删除保护 / 回滚」，也不再用 `--disable-triggers` / `--clean`：中止 = 回滚事务；本机 `--fresh-db` / `--drop-target-on-failure` 再删除新目标库。
+  没有触发器式的「删除保护 / 回滚」，也不再用 `--disable-triggers` / `--clean`：中止 = 回滚事务；本机 `--fresh-db` 新建的目标库在失败时删除——只删**本次运行新建**、且 OID 与创建标记（库注释 `azsou-run:<运行 id>`）都对得上的库，预先存在的库永远不删（`--drop-target-on-failure` 已废除，单独使用会被拒绝）；`--storage-api` 失败时只撤销本次新建的桶与本次上传的对象（逐个核对 sha256），预先存在的桶 / 对象不动（`tests/ops/cleanup-safety.sh`、`tests/ops/storage-roundtrip.sh` S2）。
 - Storage 经 API 恢复在数据库事务提交之后进行（API 不在数据库事务里）：失败时脚本非 0 退出；远程项目请直接删除这个新建的测试 / 恢复项目重来。
 - 只要数据库、不要文件本体：`--storage-metadata-only`（备份时 `BACKUP_STORAGE_FILES=skip` 的备份只能这样恢复）。
 - 换到非 Supabase 的 Postgres（Neon、RDS、自建）：先 `psql "$NEW" -f db/shim/plain.sql`，再同样精确恢复 + 显式升级；Storage 文件改放 S3 兼容存储时见 PORTABILITY.md。

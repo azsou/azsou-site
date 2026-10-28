@@ -26,15 +26,23 @@ case "$host" in
 esac
 mkdir -p "$OUT"
 OUT=$(cd "$OUT" && pwd)
-NAME=azsou_rehearsal_$$
-RESTORED=azsou_rehearsal_restored_$$
+# shellcheck source=../ops/backup-lib.sh
+. "$ROOT/scripts/ops/backup-lib.sh"
+# 第五轮：库名带随机运行 id、只建新库；清理只删本次新建且 OID / 创建标记对得上的库（旧版开头先 drop 同名库）
+AZ_OWNED_LEDGER=$(mktemp)
+export AZ_OWNED_LEDGER
+az_run_id >/dev/null
+RID=$(printf %s "$AZ_RUN_ID" | tr -dc 'a-z0-9' | tail -c 10)
+NAME=azsou_rehearsal_$RID
+RESTORED=azsou_rehearsal_restored_$RID
 url() { python3 -c 'import sys,urllib.parse as u;p=u.urlparse(sys.argv[1]);print(p._replace(path="/"+sys.argv[2]).geturl())' "$DATABASE_URL" "$1"; }
 DB=$(url "$NAME")
 RDB=$(url "$RESTORED")
 psqlq() { psql "$1" -X -q -v ON_ERROR_STOP=1 "${@:2}"; }
 run() { psqlq "$DB" -f "$1" >/dev/null; }
 cleanup() {
-  psqlq "$DATABASE_URL" -c "drop database if exists $NAME with (force)" -c "drop database if exists $RESTORED with (force)" >/dev/null 2>&1 || true
+  az_drop_all_owned "$DATABASE_URL" || echo "注意：有本次新建的演练库没有删除（见上），请人工确认" >&2
+  rm -f "$AZ_OWNED_LEDGER"
 }
 trap cleanup EXIT
 
@@ -53,8 +61,7 @@ do $$ declare r record; begin
 grant anon, authenticated, service_role to authenticator;
 SQL
 
-cleanup
-psqlq "$DATABASE_URL" -c "create database $NAME" >/dev/null
+az_create_owned_db "$DATABASE_URL" "$NAME"
 log "1. 类生产库：plain shim + 0001_baseline"
 run "$ROOT/db/shim/plain.sql"
 run "$ROOT/db/migrations/0001_baseline.sql"
@@ -162,7 +169,7 @@ log "   重跑后快照与首次迁移后一致：$idem"
 log "6. 回滚演练：迁移前备份恢复到新库"
 # 站长第三轮：不用 --clean（先在目标上 DROP 再建）这类破坏式回滚——恢复进一个**全新的空库**，单事务，出错整体回滚；
 # 演练失败时第 0 步的 trap 会删掉这个新库。全新库不跑 shim：备份本身含 auth / public / private 三个 schema。
-psqlq "$DATABASE_URL" -c "create database $RESTORED" >/dev/null
+az_create_owned_db "$DATABASE_URL" "$RESTORED"
 # 不再 `|| true`：pg_restore 任何一处出错都让演练失败（以前错误被吞掉，只靠行数 diff 兜底）
 pg_restore -l "$OUT/.pre-migration.dump" | grep -vE ' SCHEMA - public ' >"$OUT/.pre-migration.list" # 新库自带 public schema
 pg_restore -d "$RDB" --no-owner --single-transaction --exit-on-error -L "$OUT/.pre-migration.list" "$OUT/.pre-migration.dump" 2>"$OUT/restore-stderr.txt" \

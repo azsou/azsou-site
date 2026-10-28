@@ -239,7 +239,11 @@ if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
   echo "已加密（gpg AES256），目录里只有 .gpg"
 fi
 
-mv "$STAGE"/* "$OUT"/
+# 不覆盖输出目录里已有的文件（-n）；移完核对每个文件都到位（预先存在的同名文件会让这里失败，而不是被覆盖）
+for f in "$STAGE"/*; do
+  [ ! -e "$OUT/$(basename "$f")" ] || { echo "::error::输出目录里已有同名文件 $(basename "$f")，不覆盖" >&2; exit 1; }
+  mv -n "$f" "$OUT"/
+done
 cd "$OUT"
 ls -l
 echo "备份完成：$OUT（快照 $SNAP，schema $SCHEMA_VERSION，Storage 文件 $FILES_STATUS / $OBJECTS 个对象）"
