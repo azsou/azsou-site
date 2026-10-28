@@ -9,18 +9,65 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { EXIT, EXPECTED, MANUAL_CHECKLIST, summarize } from '../../scripts/i01/real-acceptance.mjs';
+import {
+  EXIT,
+  EXPECTED,
+  MANUAL_CHECKLIST,
+  summarize,
+  verifyDeployment,
+} from '../../scripts/i01/real-acceptance.mjs';
+import { allVectors } from '../../scripts/i01/redirect-vectors.mjs';
 
 const SCRIPT = path.resolve(import.meta.dirname, '../../scripts/i01/real-acceptance.mjs');
-const SITE = 'https://azsou-site-git-candidate-azsou.vercel.app';
+// 第六轮 ⑤：预览站必须是该部署的唯一地址（分支别名 *-git-* 会漂移）
+const SITE = 'https://azsou-site-kd7wqy8m5-azsous-projects.vercel.app';
+const SHA = 'a'.repeat(40);
+const DEPLOY_ID = '7387426331';
 const ENV = {
   I01_CONFIRM_ISOLATED: '1',
   I01_SUPABASE_URL: 'https://ovvfwkmqlejcpatmfqcd.supabase.co',
   I01_SUPABASE_ANON_KEY: 'sb_publishable_test',
   I01_SITE_URL: SITE,
+  I01_CANDIDATE_SHA: SHA,
+  I01_GITHUB_DEPLOYMENT_ID: DEPLOY_ID,
 };
-// 子进程里把 fetch 换成哨兵：任何网络请求都会让该用例 fail（从而让「全部通过 → 0」的断言失败）
-const NO_NET = `--import=data:text/javascript,globalThis.fetch=()=>{throw new Error('NETWORK_CALLED')}`;
+/** GitHub Deployments API 假数据（路径 → 响应体）；子进程经 TEST_GH_FIXTURE 读 */
+type Fixture = Record<string, { status?: number; body: unknown }>;
+function ghFixture(
+  o: { sha?: string; state?: string; envUrl?: string; env?: string; creator?: string } = {},
+): Fixture {
+  const base = `/repos/azsou/azsou-site/deployments/${DEPLOY_ID}`;
+  return {
+    [base]: {
+      body: {
+        id: Number(DEPLOY_ID),
+        sha: o.sha ?? SHA,
+        environment: o.env ?? 'Preview',
+        creator: { login: o.creator ?? 'vercel[bot]' },
+        created_at: '2026-10-29T00:00:00Z',
+      },
+    },
+    [`${base}/statuses`]: {
+      body: [
+        {
+          state: o.state ?? 'success',
+          environment_url: o.envUrl ?? SITE,
+          target_url: 'https://vercel.com/azsous-projects/azsou-site/5cZ2Upxoq7nxYxMXzet1RBuie72G',
+          log_url: SITE,
+          description: 'Deployment has completed',
+        },
+      ],
+    },
+  };
+}
+const fixtureFile = (fx: Fixture) => {
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'i01-gh-')), 'gh.json');
+  fs.writeFileSync(f, JSON.stringify(fx));
+  return f;
+};
+// 子进程里把 fetch 换成哨兵：只有 api.github.com 由假数据回答（部署绑定），其余任何网络请求都抛 NETWORK_CALLED
+const FAKE_FETCH = `const fs=process.getBuiltinModule('fs');const fx=process.env.TEST_GH_FIXTURE?JSON.parse(fs.readFileSync(process.env.TEST_GH_FIXTURE,'utf8')):{};globalThis.fetch=async(u)=>{u=String(u);if(u.startsWith('https://api.github.com/')){const p=new URL(u).pathname;const e=fx[p];return e?new Response(JSON.stringify(e.body),{status:e.status??200,headers:{'content-type':'application/json'}}):new Response('{}',{status:404})}throw new Error('NETWORK_CALLED')}`;
+const NO_NET = `--import=data:text/javascript,${encodeURIComponent(FAKE_FETCH)}`;
 const PNG = Buffer.from(
   '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4580000000049454e44ae426082',
   'hex',
@@ -48,7 +95,12 @@ const GOOD_OBS: Record<string, Record<string, unknown>> = {
     code_replay_rejected: true,
     bad_state_rejected: true,
   },
-  T074: { vectors_total: 12, vectors_rejected_or_idempotent: 12, offsite_navigations: 0 },
+  T074: {
+    vectors_total: allVectors().length,
+    vectors_executed: allVectors(),
+    vectors_rejected_or_idempotent: allVectors().length,
+    offsite_navigations: 0,
+  },
 };
 
 type Art = { kind: string; path: string; sha256: string };
@@ -76,13 +128,13 @@ function evidence(ids: string[], tweak?: (m: Manifest, dir: string) => void): st
       result: 'pass',
       performed_at: new Date(Date.now() - 3600_000).toISOString(),
       artifacts,
-      observations: GOOD_OBS[id],
+      observations: structuredClone(GOOD_OBS[id]),
     };
   }
   const m = {
     project_ref: 'ovvfwkmqlejcpatmfqcd',
     site_origin: SITE,
-    candidate_sha: 'a'.repeat(40),
+    candidate_sha: SHA,
     operator: '站长',
     steps,
   };
@@ -91,14 +143,14 @@ function evidence(ids: string[], tweak?: (m: Manifest, dir: string) => void): st
   return dir;
 }
 
-function run(args: string[], env: Record<string, string> = ENV) {
+function run(args: string[], env: Record<string, string> = ENV, fx: Fixture = ghFixture()) {
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 'i01-out-'));
   const base = Object.fromEntries(
     Object.entries(process.env).filter(([k]) => !k.startsWith('I01_')),
   ) as Record<string, string>;
   const r = spawnSync(process.execPath, [NO_NET, SCRIPT, ...args], {
     cwd: out,
-    env: { ...base, ...env },
+    env: { ...base, ...env, TEST_GH_FIXTURE: fixtureFile(fx) },
     encoding: 'utf8',
     timeout: 60_000,
   });
@@ -192,5 +244,95 @@ describe('真实脚本退出码（子进程，无网络）', () => {
     ['产物路径逃出目录', (m: Manifest) => (m.steps['T074'].artifacts[0].path = '../x.png')],
   ])('%s → 1', (_l, tweak) => {
     expect(run([`--manual-evidence=${evidence(ALL, tweak)}`]).status).toBe(EXIT.FAIL);
+  });
+});
+
+describe('第六轮 ⑤ 部署绑定：实际部署的候选 SHA + 唯一预览地址 + 全表向量', () => {
+  it('分支别名（*-git-*）当预览站 → 2', () => {
+    const r = run([], { ...ENV, I01_SITE_URL: 'https://azsou-site-git-candidate-azsou.vercel.app' });
+    expect(r.status).toBe(EXIT.PRECONDITION);
+    expect(r.stderr).toMatch(/分支别名/);
+  });
+  it('缺 I01_CANDIDATE_SHA / I01_GITHUB_DEPLOYMENT_ID → 2', () => {
+    const noSha: Record<string, string> = { ...ENV };
+    delete noSha.I01_CANDIDATE_SHA;
+    const noDep: Record<string, string> = { ...ENV };
+    delete noDep.I01_GITHUB_DEPLOYMENT_ID;
+    expect(run([], noSha).status).toBe(EXIT.PRECONDITION);
+    expect(run([], noDep).status).toBe(EXIT.PRECONDITION);
+  });
+  it.each([
+    ['deployment 的 sha 不是候选', { sha: 'b'.repeat(40) }, /sha/],
+    ['部署失败（state=failure）', { state: 'failure' }, /success/],
+    [
+      'environment_url 不是这个预览站',
+      { envUrl: 'https://azsou-site-other-azsous-projects.vercel.app' },
+      /environment_url/,
+    ],
+    ['不是 Preview 环境', { env: 'Production' }, /Preview/],
+    ['不是 Vercel 创建的', { creator: 'someone' }, /vercel\[bot\]/],
+  ])('%s → 2，不发任何验收请求', (_l, o, msg) => {
+    const r = run([`--manual-evidence=${evidence(ALL)}`], ENV, ghFixture(o));
+    expect(r.status).toBe(EXIT.PRECONDITION);
+    expect(r.stderr).toMatch(msg);
+    expect(r.stdout + r.stderr).not.toMatch(/NETWORK_CALLED/);
+  });
+  it('GitHub deployment 查不到（404 / 未注入凭据）→ 2', () => {
+    const r = run([], ENV, {});
+    expect(r.status).toBe(EXIT.PRECONDITION);
+    expect(r.stderr).toMatch(/HTTP 404/);
+  });
+  it('给了 Vercel 部署 id：出现在状态里 → 通过；对不上 → 2', () => {
+    expect(
+      run([`--manual-evidence=${evidence(ALL)}`], {
+        ...ENV,
+        I01_VERCEL_DEPLOYMENT_ID: 'dpl_5cZ2Upxoq7nxYxMXzet1RBuie72G',
+      }).status,
+    ).toBe(EXIT.PASS);
+    expect(run([], { ...ENV, I01_VERCEL_DEPLOYMENT_ID: 'dpl_Other' }).status).toBe(EXIT.PRECONDITION);
+  });
+  it('通过时报告里带绑定信息（deployment id、sha、environment_url、全表条数）', () => {
+    const r = run([`--manual-evidence=${evidence(ALL)}`]);
+    expect(r.status).toBe(EXIT.PASS);
+    expect(r.report.binding).toMatchObject({
+      github_deployment_id: Number(DEPLOY_ID),
+      sha: SHA,
+      environment_url: SITE,
+      vectors_total: allVectors().length,
+    });
+  });
+  it.each([
+    ['人工证据的 candidate_sha 不是实际部署的候选', (m: Manifest) => (m.candidate_sha = 'c'.repeat(40))],
+    [
+      'T074 只跑了部分向量',
+      (m: Manifest) => (m.steps['T074'].observations.vectors_executed = allVectors().slice(1)),
+    ],
+    [
+      'T074 条数凑够但有重复',
+      (m: Manifest) =>
+        (m.steps['T074'].observations.vectors_executed = [...allVectors().slice(1), allVectors()[1]]),
+    ],
+    [
+      'T074 总数不是全表',
+      (m: Manifest) => {
+        m.steps['T074'].observations.vectors_total = 12;
+        m.steps['T074'].observations.vectors_rejected_or_idempotent = 12;
+      },
+    ],
+  ])('%s → 1', (_l, tweak) => {
+    expect(run([`--manual-evidence=${evidence(ALL, tweak)}`]).status).toBe(EXIT.FAIL);
+  });
+  it('verifyDeployment 带 token 时加 Authorization，不带时不加（线路注入）', async () => {
+    const seen: (string | undefined)[] = [];
+    const fx = ghFixture();
+    const f = (async (u: string, init: RequestInit) => {
+      seen.push((init.headers as Record<string, string>).authorization);
+      const e = fx[new URL(u).pathname];
+      return Response.json(e.body);
+    }) as unknown as typeof fetch;
+    const cfg = { candidateSha: SHA, ghDeploymentId: DEPLOY_ID, vercelDeploymentId: '', siteOrigin: SITE };
+    expect((await verifyDeployment(cfg, { fetchImpl: f })).ok).toBe(true);
+    expect((await verifyDeployment(cfg, { fetchImpl: f, token: 't' })).ok).toBe(true);
+    expect(seen).toEqual([undefined, undefined, 'Bearer t', 'Bearer t']);
   });
 });
