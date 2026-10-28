@@ -15,7 +15,7 @@ import {
 } from '@/lib/images';
 import { renderMarkdown } from '@/lib/markdown';
 import { markdownHtml, sanitize } from '@/lib/sanitize';
-import { DEFAULT_SUPABASE } from '@/lib/supabase-config';
+import { PRODUCTION_SUPABASE as DEFAULT_SUPABASE } from '@/lib/supabase-config';
 import {
   createSupabaseRepository,
   ForbiddenError,
