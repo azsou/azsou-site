@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { RELIABLE, md5, overwriteReason } from '../../scripts/ops/storage-verify.mjs';
 
 const body = Buffer.from('hello-azsou');
-const H = (o = {}) => new Headers(o);
+const H = (o = {}) => new globalThis.Headers(o);
 const MULTI = '0123456789abcdef0123456789abcdef-2';
 
 test('md5 形式 eTag：内容 md5 一致 → 通过；同尺寸改写 → 拒绝', () => {
@@ -24,14 +24,24 @@ test('分段 eTag、响应没有 ETag、也没有版本可比 → 缺可靠核�
   assert.match(overwriteReason({ etag: MULTI }, H(), body), /缺可靠的内容 \/ 版本核验信息/);
   // 只有 Last-Modified 不算可靠核验
   assert.match(
-    overwriteReason({ etag: MULTI, last_modified: '2026-10-28T00:00:00Z' }, H({ 'last-modified': 'Wed, 28 Oct 2026 00:00:00 GMT' }), body),
+    overwriteReason(
+      { etag: MULTI, last_modified: '2026-10-28T00:00:00Z' },
+      H({ 'last-modified': 'Wed, 28 Oct 2026 00:00:00 GMT' }),
+      body,
+    ),
     /缺可靠/,
   );
 });
 
 test('分段 eTag + 对象版本相等 → 通过；版本不同 → 拒绝', () => {
-  assert.equal(overwriteReason({ etag: MULTI, version: 'v-1' }, H({ 'x-amz-version-id': 'v-1' }), body), null);
-  assert.match(overwriteReason({ etag: MULTI, version: 'v-1' }, H({ 'x-amz-version-id': 'v-2' }), body), /对象版本/);
+  assert.equal(
+    overwriteReason({ etag: MULTI, version: 'v-1' }, H({ 'x-amz-version-id': 'v-1' }), body),
+    null,
+  );
+  assert.match(
+    overwriteReason({ etag: MULTI, version: 'v-1' }, H({ 'x-amz-version-id': 'v-2' }), body),
+    /对象版本/,
+  );
 });
 
 test('快照没有 eTag / 没有记录 → 拒绝', () => {

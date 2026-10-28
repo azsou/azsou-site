@@ -47,4 +47,3 @@ export function overwriteReason(snap, resHeaders, buf) {
     return `缺可靠的内容 / 版本核验信息：快照 eTag ${se} 不是内容 md5（分段上传），响应没有 ETag，也没有可比的对象版本——无法证明下载内容就是快照里的那份`;
   return null;
 }
-
