@@ -1,15 +1,17 @@
 /** 服务端（Vercel Function）的 Supabase 配置：规则同 scripts/supabase-env.mjs，单独成模块，不进浏览器包。 */
 import { SupabaseConfigError, resolveSupabaseConfig } from '../../../scripts/supabase-env.mjs';
+import { bundledProductionIdentity } from '../supabase-config';
 
 /**
- * 服务端（Vercel Function 运行时）：读 process.env，含 VERCEL / VERCEL_ENV。
- * Preview 缺变量时抛 SupabaseConfigError（调用方返回 503），不会连生产库。
+ * 服务端（Vercel Function 运行时）：每次请求读 process.env（含 VERCEL_ENV）重新判定——运行时检查，不只依赖构建期。
+ * 缺配置 / 目标不在允许清单 / 非生产指向生产 / 生产部署指向非生产 → 抛 SupabaseConfigError（调用方返回 503，不发任何请求）。
+ * 生产身份来自构建期注入（非生产构建为空）：即使运行时把 VERCEL_ENV 改成 production，非生产构建也连不了生产。
  */
 export function serverSupabaseConfig(env: Record<string, string | undefined> = process.env): {
   url: string;
   key: string;
 } {
-  const { url, key } = resolveSupabaseConfig(env);
+  const { url, key } = resolveSupabaseConfig(env, bundledProductionIdentity());
   return { url, key };
 }
 
