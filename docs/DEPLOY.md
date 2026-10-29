@@ -27,17 +27,36 @@
 
 ## 2. 环境变量（Settings → Environment Variables）
 
-| 变量                        | 环境                 | 必需   | 说明                                                                                                                                                                                                                |
-| --------------------------- | -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TURNSTILE_SITE_KEY`        | Production / Preview | 是     | Cloudflare Turnstile **站点密钥**（公开值，构建时写进注册 / 找回密码页）。未设置时用 Cloudflare 测试 key（总是通过）                                                                                                |
-| `TURNSTILE_SECRET_KEY`      | Production / Preview | 是     | Turnstile **私钥**，只在 `/api/auth/*` 服务端使用。部署环境缺少它时注册 / 找回密码接口拒绝服务（防止误用测试 key 上线）                                                                                             |
-| `SIGNUP_TICKET_SECRET`      | Production           | 切换时 | 注册票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 里的值相同；启用 0007 注册钩子时才需要，见 MIGRATION.md 第 6 步                                                                       |
-| `COMMUNITY_TICKET_SECRET`   | Production / Preview | 是     | 留言板 / 友链申请（T7.3 / T7.4）的票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 的 `community_ticket_secret` 相同。缺少时 `/api/submit/*` 返回 503，数据库也会拒绝，见 MIGRATION.md §5D |
-| `PUBLIC_SUPABASE_URL`       | 全部                 | 否     | 默认 `https://abryflgoljltyakthtql.supabase.co`（代码里的默认值）；换项目 / 换库时设置                                                                                                                              |
-| `PUBLIC_SUPABASE_KEY`       | 全部                 | 否     | Supabase **publishable key**（公开值，权限由 RLS 决定）；默认值写在 `src/lib/supabase-config.ts`。**绝不要**填 secret / service_role key                                                                            |
-| `PUBLIC_IMAGE_HOSTS`        | 全部                 | 否     | 帖子里允许显示的额外图片主机（逗号分隔），换图片存储时用；同时要改 `vercel.json` CSP 的 `img-src`                                                                                                                   |
-| `TURNSTILE_ALLOW_TEST_KEYS` | Preview              | 否     | 设为 `1` 时预览环境允许使用测试密钥（预览域名不在 Turnstile 白名单里时用）。**生产不要设置**                                                                                                                        |
-| `PUBLIC_DATA_ADAPTER`       | —                    | 否     | 只用于本地演示（`memory`）。**生产与预览都不要设置**                                                                                                                                                                |
+| 变量                        | 环境                                           | 必需               | 说明                                                                                                                                                                                                                |
+| --------------------------- | ---------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TURNSTILE_SITE_KEY`        | Production / Preview                           | 是                 | Cloudflare Turnstile **站点密钥**（公开值，构建时写进注册 / 找回密码页）。未设置时用 Cloudflare 测试 key（总是通过）                                                                                                |
+| `TURNSTILE_SECRET_KEY`      | Production / Preview                           | 是                 | Turnstile **私钥**，只在 `/api/auth/*` 服务端使用。部署环境缺少它时注册 / 找回密码接口拒绝服务（防止误用测试 key 上线）                                                                                             |
+| `SIGNUP_TICKET_SECRET`      | Production                                     | 切换时             | 注册票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 里的值相同；启用 0007 注册钩子时才需要，见 MIGRATION.md 第 6 步                                                                       |
+| `COMMUNITY_TICKET_SECRET`   | Production / Preview                           | 是                 | 留言板 / 友链申请（T7.3 / T7.4）的票据 HMAC 密钥（`openssl rand -hex 32`），与数据库 `private.app_settings` 的 `community_ticket_secret` 相同。缺少时 `/api/submit/*` 返回 503，数据库也会拒绝，见 MIGRATION.md §5D |
+| `PUBLIC_SUPABASE_URL`       | Production / Preview（Development 同 Preview） | **是（全部环境）** | Supabase 项目 URL。**任何环境缺少都构建失败**；Preview 只能是 azsou-test，Production 只能是生产项目（见下方「Supabase 连接配置」）                                                                                  |
+| `PUBLIC_SUPABASE_KEY`       | Production / Preview（Development 同 Preview） | 同上               | Supabase **publishable key**（公开值，权限由 RLS 决定），必须与 URL 同时设置（只设一个也构建失败）。**绝不要**填 secret / service_role key                                                                          |
+| `PUBLIC_IMAGE_HOSTS`        | 全部                                           | 否                 | 帖子里允许显示的额外图片主机（逗号分隔），换图片存储时用；同时要改 `vercel.json` CSP 的 `img-src`                                                                                                                   |
+| `TURNSTILE_ALLOW_TEST_KEYS` | Preview                                        | 否                 | 设为 `1` 时预览环境允许使用测试密钥（预览域名不在 Turnstile 白名单里时用）。**生产不要设置**                                                                                                                        |
+| `PUBLIC_DATA_ADAPTER`       | —                                              | 否                 | 只用于本地演示（`memory`）。**生产与预览都不要设置**                                                                                                                                                                |
+
+### Supabase 连接配置（必须显式配置 + 允许清单，2026-10-28 第五轮）
+
+规则只在一处：`scripts/supabase-env.mjs`（`resolveSupabaseConfig`），构建期（`astro.config.mjs`）、浏览器端（`src/lib/supabase-config.ts`）、
+服务端 API 与论坛 sitemap（`src/lib/server/supabase-server-config.ts`，**每次请求按运行时 `process.env` 重新判定**）、本机 / CI 服务器（`scripts/serve.mjs`）共用。
+**没有任何默认值，也没有任何回退。**
+
+| 环境                                                             | 必须                                                     | 允许的目标（允许清单）                                                                                                     | 不满足时                                                            |
+| ---------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Vercel Production（`VERCEL_ENV=production`）                     | `PUBLIC_SUPABASE_URL` + `PUBLIC_SUPABASE_KEY` 都显式设置 | 只允许生产项目（身份在 `scripts/supabase-prod.mjs`，只有生产构建才把生产 ref 注入打包代码）                                | 构建失败；运行时服务端 503                                          |
+| Vercel Preview / Development、GitHub Actions、本机开发、单元测试 | 同上                                                     | 只允许隔离测试项目 azsou-test（`https://ovvfwkmqlejcpatmfqcd.supabase.co`）或本机栈（`localhost` / `127.0.0.1` / `[::1]`） | 构建失败；运行时服务端 503 `service_not_configured`，一个请求都不发 |
+
+- 缺一个或两个变量、URL 不在清单里、非生产指向生产（URL 或生产 publishable key）、生产部署指向测试 / 本机、key 是 `sb_secret_` / service_role JWT → 一律拒绝。
+- 非生产构建的产物（浏览器包 + Vercel Function 包）里**不出现**生产 ref / 生产 key：`tests/built/supabase-target.test.ts` 在 CI 构建后扫描真实产物。
+- **合并后生产部署前，站长需要在 Vercel Production 环境显式配置这两个变量**（以前的「生产默认值兜底」已删除；没配会构建失败，线上保持上一个部署不变）。
+- CI（`.github/workflows/ci.yml` 顶层 `env`）与单元测试（`vitest.config.ts`）显式指向本机栈占位地址 `http://127.0.0.1:54321`：E2E 用例把 `/rest/v1`、`/auth/v1`、`/storage/v1` 转发到本地 PostgREST 或桩，没被转发的请求连本机端口直接被拒，**不会再落到生产库**。`scripts/serve.mjs` 只给这个 loopback 源放行 CSP（`scripts/lib/local-csp.mjs`；线上 `vercel.json` 不变）。
+- 本机开发：在 `.env` 里填 azsou-test 或本机栈（见 `.env.example`）；不填就构建失败。
+- 新增测试项目必须改 `TEST_PROJECT_REFS`（代码审查），不能靠环境变量放行。
+- 测试：`tests/unit/supabase-config.test.ts`（规则 + 运行时 503 + 浏览器再校验 + 源码扫描）、`tests/unit/supabase-build-guard.test.ts`（真实 `astro.config.mjs` 子进程）、`tests/built/supabase-target.test.ts`（真实构建产物）。
 
 `PUBLIC_*` 变量在**构建时**写入页面，修改后需要 Redeploy 才生效。
 

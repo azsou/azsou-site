@@ -19,7 +19,7 @@ beforeAll(async () => {
   if (!enabled) return;
   db = await freshDb('sched');
   await ensureAuthenticator();
-  const port = freePort();
+  const port = await freePort();
   pgrst = await startPostgrest(db.name, port);
   url = `http://127.0.0.1:${port}`;
 }, 90_000);

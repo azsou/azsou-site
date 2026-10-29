@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { slashRedirect } from './lib/slash-redirect.mjs';
+import { localCsp } from './lib/local-csp.mjs';
 
 const port = Number(process.argv[2] || process.env.PORT || 4321);
 const root = path.resolve(process.argv[3] || 'dist/client');
@@ -40,10 +41,8 @@ const redirects = (vercel.redirects || []).map((r) => ({
 }));
 
 // 线上是 https；本地 http 下 upgrade-insecure-requests 会把同源子资源升级成 https 而失败——本地去掉这一条，其余 CSP 原样生效
-const localValue = (h) =>
-  h.key.toLowerCase() === 'content-security-policy'
-    ? h.value.replace(/;\s*upgrade-insecure-requests\s*(?=;|$)/, '')
-    : h.value;
+// 本地改写见 scripts/lib/local-csp.mjs：去掉 upgrade-insecure-requests；构建指向本机栈时只放行那个 loopback 源。其余 CSP 原样生效
+const localValue = (h) => (h.key.toLowerCase() === 'content-security-policy' ? localCsp(h.value) : h.value);
 
 function applyHeaders(res, pathname) {
   for (const rule of headerRules)

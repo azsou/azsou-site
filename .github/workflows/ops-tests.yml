@@ -45,8 +45,10 @@ jobs:
         run: bash tests/ops/backup-guard.test.sh
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: Storage 客户端语法检查
-        run: node --check scripts/ops/storage-files.mjs
+      - name: Storage 客户端语法检查 + 内容核验单测（缺可靠 eTag / md5 / 版本核验 → 拒绝）
+        run: |
+          node --check scripts/ops/storage-files.mjs
+          node --test tests/ops/storage-verify.test.mjs
 
   e2e:
     runs-on: ubuntu-latest

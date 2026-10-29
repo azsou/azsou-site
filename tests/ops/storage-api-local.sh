@@ -64,12 +64,12 @@ SQL
         node dist/start/server.js
     ) >"$log" 2>&1 &
     pid=$!
-    for _ in $(seq 1 60); do
+    for _ in $(seq 1 "${STORAGE_API_READY_SECONDS:-60}"); do
       if curl -fsS --noproxy '*' "http://127.0.0.1:$PORT/status" >/dev/null 2>&1; then echo "$pid"; exit 0; fi
       kill -0 "$pid" 2>/dev/null || { echo "storage-api 启动失败：" >&2; tail -20 "$log" >&2; exit 1; }
       sleep 1
     done
-    echo "storage-api 60 秒未就绪" >&2; tail -20 "$log" >&2; kill "$pid" 2>/dev/null || true; exit 1 ;;
+    echo "storage-api ${STORAGE_API_READY_SECONDS:-60} 秒未就绪" >&2; tail -20 "$log" >&2; kill "$pid" 2>/dev/null || true; exit 1 ;;
   stop) kill "${2:?PID}" 2>/dev/null || true ;;
   *) echo "用法：$0 start|stop|jwt" >&2; exit 2 ;;
 esac

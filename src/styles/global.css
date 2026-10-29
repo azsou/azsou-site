@@ -785,10 +785,21 @@
       padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--space-8));
     }
   }
+  /*
+   * auto-fill + 「最多 4 列」下限（品牌列 + FOOTER / EN_FOOTER 3 列 = 4，tests/design/footer-first-frame-cls.spec.ts 守着）。
+   * 原来的 auto-fit 会把还没解析到的列轨道折叠掉、已有的列拉宽：HTML 解析到页脚一半时先画的那一帧里
+   * 「发现」列在 x≈600，后两列到齐后回到 x≈386——/login/ 这种短页页脚在桌面首屏内，算进 CLS
+   * （CI 40684230597 desktop /login/ 0.0214 > 0.02）。auto-fill 保留空轨道，列位置不再取决于后面的兄弟节点；
+   * 下限取「四等分」让轨道数不超过 4，最终布局与 auto-fit 逐像素相同（300–2560 每 10px × 4 页实测 0 差异），视觉基线不变。
+   * −0.1px：避免四等分的亚像素误差让第 4 条轨道放不下。
+   */
   .footer-grid {
     display: grid;
     gap: var(--space-8);
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(max(min(100%, 180px), calc((100% - 3 * var(--space-8)) / 4 - 0.1px)), 1fr)
+    );
   }
   .footer-grid h2 {
     font-size: var(--fs-meta);

@@ -4,21 +4,25 @@
 > 与「开启定时发布调度（pg_cron）」是**两份独立申请**（见 [2026-10-27-scheduler-cron-release-request.md](2026-10-27-scheduler-cron-release-request.md)）：
 > 本申请批准后迁移执行完，调度仍然关闭；调度要等本申请完成并观察通过后另行批准。
 
-| 项目         | 内容                                                                                                                                                |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 申请日期     | 2026-10-27                                                                                                                                          |
-| 对象         | 生产 Supabase 库（public / private / storage 对象）                                                                                                 |
-| 变更         | 按顺序执行 `db/migrations/0002_*.sql` … `0019_restore_review_version_window.sql`（**永不执行 0001**）                                               |
-| 现状         | 只读核对（`db/verify/status.sql`）：0002–0017 全部未执行（`docs/audits/evidence/batch1/prod-status.json`）；0018、0019 也未执行                     |
-| 演练证据     | `scripts/db/rehearse-migrations.sh`（隔离库）：原有表行数不变、status 未通过 23 → 0、重跑一致、迁移前备份可恢复；`docs/audits/evidence/batch2/b04/` |
-| 预计停写窗口 | 约 10–15 分钟（冻结后台审核写操作；前台只读不受影响）                                                                                               |
-| 不包含       | 启用 pg_cron / 外部调度器；启用注册钩子（0007 的钩子仍关闭，切换时另做）；任何 Supabase / Vercel 设置变更；备份频率变更                             |
+| 项目         | 内容                                                                                                                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 申请日期     | 2026-10-27（2026-10-28 第三轮更新：备份改为 #8 受保护手动工作流、回滚改为精确恢复 / 显式升级、合并条件改为统一候选 SHA；第五轮：删除「停用保护触发器 / 回到 0017」式回滚）                                                                         |
+| 对象         | 生产 Supabase 库（public / private / storage 对象）                                                                                                                                                                                                |
+| 变更         | 按顺序执行 `db/migrations/0002_*.sql` … `0019_restore_review_version_window.sql`（**永不执行 0001**）                                                                                                                                              |
+| 现状         | 只读核对（`db/verify/status.sql`）：0002–0017 全部未执行（`docs/audits/evidence/batch1/prod-status.json`）；0018、0019 也未执行                                                                                                                    |
+| 演练证据     | 本机隔离库：`scripts/db/rehearse-migrations.sh` 通过（原有表行数不变、status 未通过 23 → 0、重跑一致、迁移前备份可恢复；`docs/audits/evidence/batch2/b04/`）。**真实 azsou-test 项目演练：待执行**（等站长确认初始化计划；证据路径：`__________`） |
+| 预计停写窗口 | 约 10–15 分钟（冻结后台审核写操作；前台只读不受影响）                                                                                                                                                                                              |
+| 不包含       | 启用 pg_cron / 外部调度器；启用注册钩子（0007 的钩子仍关闭，切换时另做）；任何 Supabase / Vercel 设置变更；备份频率变更；PITR 开启与 Storage 文件定期同步（§7 单独签字）                                                                           |
 
 ## 1. 前置条件（全部满足才开始）
 
-- [ ] PR #4、PR #5 已合并到 `v2/astro`，CI 全绿；执行用的是合并后的提交（记录 SHA：`__________`）。
-- [ ] 仓库 Secret `SUPABASE_DB_URL`、`BACKUP_PASSPHRASE` 已配置，`DB backup` 工作流在 `v2/astro` 上手动运行**成功过一次**，
-      且已按 §2 下载并在本机恢复验证（`db-verify-backup.sh --restore` 通过）。
+- [ ] 执行用的是**同一个统一候选 SHA**：`<统一候选 SHA，候选重建后填写>`——#4 / #5 / #6 的修复都在这一个提交里，
+      它的代码、CI（全绿）、真实预览（azsou-test）与恢复证据是同一版本；按站长批准合入 `v2/astro` 后的提交与它的树一致（记录：`__________`）。
+- [ ] 真实 azsou-test 项目上的迁移演练已完成并附证据（目前：**待执行**，见上表「演练证据」）。
+- [ ] 运维 PR #8（受保护的手动备份工作流，仅 `workflow_dispatch`，无定时）已经站长批准合并到 **`main`**。
+- [ ] 环境 `backup-production` 已按 `ops/BACKUP-OPS.md` §1 建好：Required reviewers = 站长、Deployment branches 只允许 `main`、
+      变量 `BACKUP_ENVIRONMENT_GUARD`、四个 Environment secrets（`SUPABASE_DB_URL`、`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`BACKUP_PASSPHRASE`）；
+      Settings → Actions → Artifact and log retention **≥ 30 天**。
 - [ ] 本机 `psql` / `pg_dump` 版本 ≥ 服务器版本（Supabase 当前 17）。
 - [ ] 连接串只在本机终端输入（`read -s`），**不写进任何文件、截图或聊天**。
 - [ ] 已通知版主：执行窗口内暂停审核操作。
@@ -27,13 +31,17 @@
 
 ## 2. 备份（必须，先于任何写操作）
 
+按 `ops/BACKUP-OPS.md` 操作（第三轮：只能在 `main` 上手动触发、每次审批；不合并 #8 就没有任何备份会运行）。
+
 ```bash
-# 2.1 GitHub Actions 备份（含 db-verify-backup.sh 的校验和 / 解密 / pg_restore --list / 行数清单）
-#     Actions → DB backup → Run workflow → 分支 v2/astro → 等待绿色；记录 run id：________
-# 2.2 下载 artifact db-backup-<run id> 到本机 backups/pre-0002-0019/，然后在本机隔离库实测恢复：
+# 2.1 Actions → DB backup → Run workflow → 分支 main → confirm_project_ref 填生产项目 ref
+#     → 环境 backup-production 的审批人（站长）批准 → 等待绿色；记录 run id：________
+#     闸门 scripts/ops/backup-guard.sh 在连接数据库之前检查：手动触发 / 处在受保护环境 / 四个 Secret 齐全 / 输入 ref = 连接串 ref = API ref
+# 2.2 下载产物 db-backup-<run id>（只有 .gpg，保留 30 天；统一快照的 public / private / auth / storage + Storage 文件本体 + 校验和 + manifest）
+#     到本机 backups/pre-0002-0019/，校验并在本机隔离库精确恢复：
 BACKUP_PASSPHRASE='<口令，本机输入>' bash scripts/db-verify-backup.sh backups/pre-0002-0019 \
   --restore postgres://postgres:postgres@127.0.0.1:54529/azsou_prerelease_restore
-#     必须输出「校验通过」和「恢复演练通过」，否则停止。
+#     必须输出「校验通过」和「恢复演练通过」，否则停止。记录产物名与 manifest 里的快照时间 / schema 版本：________
 ```
 
 ## 3. 迁移前快照（只读）
@@ -91,17 +99,20 @@ psql "$PROD" -X -A -t -c "select count(*) from cron.job" 2>/dev/null || echo "pg
 
 ## 6. 回滚
 
-| 情况                          | 做法                                                                                                                                                                                                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 某个文件报错                  | 该文件已整体回滚；记录报错，停止。修正后从这个文件重跑（每个文件可重复执行）                                                                                                                                                                         |
-| 0018 行为不被接受             | 不回退迁移：停用触发器 `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on forum_threads / forum_replies / comments`（回到 0017 行为）                                                                                    |
-| 前端异常                      | Vercel → Deployments → 把 §1 记录的部署 Promote 回生产                                                                                                                                                                                               |
-| 数据损坏 / 必须精确回到迁移前 | 用 §2 的已校验备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-*.dump --private azsou-private-*.dump --storage azsou-storage-*.dump`（先 gpg -d 解密），再切换 Vercel 环境变量；不要在生产库上手工删对象 |
+| 情况                          | 做法                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 某个文件报错                  | 该文件已整体回滚；记录报错，停止。修正后从这个文件重跑（每个文件可重复执行）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 0018 行为不被接受             | 不删除 / 停用任何保护触发器，也不「回到 0017」：保护触发器（内容版本、编辑守卫、排程同步）是 0018 的数据完整性保证，拆掉会让后台绕过审计与版本记录。行为问题按正常流程提交新的前向迁移修复（经测试库演练 + 站长批准）；在修复前如需止损，只能冻结对应后台写操作（同表头「预计停写窗口」的冻结做法），或按下一行用备份精确恢复到新的空项目。                                                                                                                                                                                                                                                                                                                                                                                              |
+| 前端异常                      | Vercel → Deployments → 把 §1 记录的部署 Promote 回生产                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 数据损坏 / 必须精确回到迁移前 | 用 §2 的已校验备份**精确恢复**到一个**新的空** Supabase 项目（不执行任何迁移，结果 = 备份时的 schema 版本）：`STORAGE_URL=https://<新 ref>.supabase.co/storage/v1 STORAGE_SERVICE_KEY='<新项目 service_role>' BACKUP_PASSPHRASE='…' bash scripts/db-restore.sh <新库连接串> backups/pre-0002-0019 --storage-api`（文件本体经 Storage API 恢复）；只要数据库行时改用 `--storage-metadata-only`；备份版本 ≠ 代码最新迁移时须显式 `--accept-backup-version <备份版本>`。需要升级到更新 schema 是另一个显式步骤：`scripts/db-upgrade.sh <新库> --from <备份版本> --to <目标版本> --apply-migrations --confirm-remote-host <主机>`。核对后再切换 Vercel 环境变量。两个脚本都拒绝对生产项目执行；不要在生产库上手工删对象（docs/BACKUP.md §3） |
 
 ## 7. 站长签字
 
 - [ ] 我已阅读本申请，批准在 `____年__月__日 __:__`（北京时间）执行 0002 → 0019。
 - [ ] 我确认 §1 前置条件全部满足，§2 备份已在本机恢复验证。
 - [ ] 我确认本次**不**启用调度（pg_cron / 外部调度器），调度另走申请 ②。
+- [ ] **PITR**（Supabase Pro + PITR 付费附加项）：批准开启 / 暂不开启（圈选）。本申请不依赖它；未开启时只能回到 §2 手动备份那一刻，RPO ≤ 1 小时目标未达成（docs/BACKUP.md §2）。签字：________
+- [ ] **Storage 文件同步 / 恢复**：确认 §2 产物含 Storage 文件本体（逐对象 sha256）；在隔离测试项目上用 `--storage-api` 做一次真实恢复验证：批准 / 暂不（圈选）；
+      定期外部存储复制（`ops/disabled-workflows/backup-offsite.yml`）另行单独批准。签字：________
 - [ ] 执行人：________　复核人：________　签字：________
 - [ ] 执行结果（§5 全部勾选）：通过 / 失败（附原因）________

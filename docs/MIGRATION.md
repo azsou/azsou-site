@@ -385,7 +385,7 @@ run db/migrations/0019_restore_review_version_window.sql;    status   # 恢复 �
 | 某个迁移文件报错                                  | 文件在事务里，已整体回滚；修正后重跑同一文件。库停在上一步                                                                                                                                                                                                             |
 | 0018 的行为变化不被接受（例如要让版主改他人正文） | 不回退迁移；按站长决定改策略：版主改正文 = 调整 `az_content_edit_guard()` 判断并放开 `mod_edit_content()` 给版主；隐藏不取消排程 = 把 `az_hide_cancels_schedule()` 改为 `select false`                                                                                 |
 | 0019 行为不被接受                                 | 不回退迁移：恢复 → 待审是 `mod_set_visibility` 的函数体，可按站长决定再替换；版本上限同理替换 `az_save_content_version`                                                                                                                                                |
-| 只想停用 0018 的触发器                            | `drop trigger az_workflow_sync / az_workflow_orphan / az_content_edit_guard on <表>`（三张表各一）——前端照常工作，回到 0017 行为                                                                                                                                       |
+| 0018 的行为不被接受                               | 不停用 / 删除保护触发器，也不回到 0017（站长第五轮：这类回滚会绕过审计与版本记录）；写前向修复迁移，经测试库演练与站长批准后执行；止损期间冻结后台写操作                                                                                                               |
 | 数据损坏 / 需要精确回到迁移前                     | 用第 2 步的备份恢复到**新** Supabase 项目：`scripts/db-restore.sh <新库> azsou-public-*.dump azsou-auth-*.dump --private azsou-private-*.dump --storage azsou-storage-*.dump`（先 gpg -d 解密），再切换 Vercel 环境变量（见第 9 节最后一行）。不要在生产库上手工删对象 |
 
 ## 附：最终执行顺序

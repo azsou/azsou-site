@@ -9,6 +9,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { PAGES } from './pages';
+import { isSupabaseOrThirdParty } from '../supabase-route';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 /** 不走前台外壳的组件目录页：没有站点导航 / 页脚 */
@@ -26,9 +27,7 @@ async function axe(page: Page) {
 }
 
 async function blockThirdParty(page: Page) {
-  await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
-    r.abort(),
-  );
+  await page.route(isSupabaseOrThirdParty, (r) => r.abort());
 }
 
 for (const p of PAGES) {
@@ -176,6 +175,11 @@ test.describe('键盘流程', () => {
     const chip = page.locator('.chip[aria-current="page"]').first();
     await chip.focus();
     await expect(chip).toBeFocused();
+    // 排序按钮的点击处理在 catalog.ts（whenIdle 懒加载）里绑定，绑完才置 data-ready="yes"。
+    // CI 40684235625 trace：Space 在 catalog.js 下载完之前按下 → aria-pressed 不变。
+    // 这里等的是状态（与 e2e/apps.spec.ts 的 catalogReady 同一信号），不是定时等待；
+    // #6 F02 已在产品侧让排序控件就绪前 disabled，这条只覆盖 #4/#5 的旧按钮组。
+    await expect(page.locator('[data-catalog-filter]')).toHaveAttribute('data-ready', 'yes');
     const more = page.locator('[data-more-filters] > summary');
     await more.focus();
     await page.keyboard.press('Enter');

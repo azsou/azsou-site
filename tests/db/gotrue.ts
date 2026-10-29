@@ -71,6 +71,8 @@ export interface GotrueOpts {
   captchaSecret?: string;
   siteUrl?: string;
   allowList?: string;
+  /** GOTRUE_MAILER_AUTOCONFIRM（默认 true）；false = 证明「不靠邮件也能确认」的路径（Admin API email_confirm） */
+  autoconfirm?: boolean;
 }
 
 function gotrueEnv(db: string, port: number, o: GotrueOpts): NodeJS.ProcessEnv {
@@ -96,7 +98,7 @@ function gotrueEnv(db: string, port: number, o: GotrueOpts): NodeJS.ProcessEnv {
     GOTRUE_SITE_URL: site,
     GOTRUE_URI_ALLOW_LIST: o.allowList ?? `${site}/auth/callback/**`,
     GOTRUE_DISABLE_SIGNUP: 'false',
-    GOTRUE_MAILER_AUTOCONFIRM: 'true',
+    GOTRUE_MAILER_AUTOCONFIRM: o.autoconfirm === false ? 'false' : 'true',
     GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true',
     GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: 'true',
     GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: '0',
