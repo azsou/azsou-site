@@ -1,4 +1,4 @@
-# azsou-test 初始化执行器与计划（第五轮 2026-10-28，第六轮 / 第七轮 / 第八轮 2026-10-29 更新）——**未执行初始化；只做过只读预检**
+# azsou-test 初始化执行器与计划（第五轮 2026-10-28，第六轮 – 第十轮 2026-10-29 更新）——**未执行初始化；只做过只读预检**
 
 > 执行器：`scripts/sbtest/init-executor.mjs`；钉住清单：`ops/sbtest/init-manifest.json`；影响清单：`ops/sbtest/init-impact.md`（数据 `ops/sbtest/init-impact.json`，由 `scripts/sbtest/impact-local.mjs` 在本机生成）。
 > 测试：`tests/unit/sbtest-init-executor.test.ts`、`tests/unit/sbtest-init-r7.test.ts`（假 Management API / Auth Admin / Storage，不连任何项目）；`tests/db/sbtest-accounts-gotrue.test.ts`（本机官方 GoTrue 二进制，证明无邮件建号 / 改密 / 接管核对）。
@@ -179,9 +179,15 @@ SBTEST_OWNER_APPROVAL='<批准记录>' NODE_USE_ENV_PROXY=1 \
 执行器跑在 Hark 的沙箱里，交接文件也在沙箱里（例如 `/workspace/.azsou-sbtest/<日期>-accounts.jsonl`，在仓库 `/workspace/work/…` 之外）。站长不需要、也不应该把文件下载到自己电脑。
 
 **N = 交接文件的实际行数** = 本次运行**真正新建**的账号 + 经 `--rotate-passwords` / `--confirm-rotate` **显式改密**的账号。被接管但没改密的账号不在文件里（它们的密码仍是上次交接 / vault 里的那条）。
-N 可以是 1–4 中任何一个数（全新执行通常是 4，部分账号续跑可能是 1–3），**不是固定 4 条**；执行器的运行记录写明「交接文件 N 条」。
+N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续跑可能是 1–3），**不是固定 4 条**；执行器的运行记录与输出写明本次实际的 N。
 
-1. 执行器结束后，Hark 在沙箱里读这个 0600 文件，先核对：行数 = 运行记录里的 N；每行 `project_ref` = `ovvfwkmqlejcpatmfqcd`、`run_id` = 账本 run_id、邮箱在合成清单里且不重复。任何一项不符 → 停下，不存、不删除文件。
+**N = 0（第十轮）**：账号与种子都已完成、本次只补文件的续跑，且**没有**显式改密（没有 `--rotate-passwords` / `--confirm-rotate`）——本次没有新建账号、没有改密，交接文件实际 0 行。
+此时**不调用任何 `save_login`**、**不为凑数改密**（不重跑、不新建、不改密去「补」出 N 条）；被接管账号的密码仍是上次交接 / vault 里的那条。
+执行器核对空交接文件仍是 0 字节的普通文件后直接删除，运行记录与输出写「账号密码交接：N = 0 …不需要任何 save_login / vault 保存，不得为凑数改密；空交接文件 … 已核对为 0 字节并删除」，不会留下一个看起来需要存进 vault 的文件。
+N = 0 但文件不是空的（本次没写，却有内容）→ 执行器不删，保留并写明需要人工核对；Hark 不存、不删，交站长。
+N 以**本次运行的实际交接记录**（运行记录里的那一行 + 文件实际行数）为准，不按上次的 N、也不按账号总数推算。
+
+1. 执行器结束后，先读本次运行记录里的交接行：写的是 N = 0 → 按上面 N = 0 处理（核对文件确实已不存在），到此结束，下面 2–5 步都不做。N > 0 → Hark 在沙箱里读这个 0600 文件，先核对：行数 = 运行记录里的 N；每行 `project_ref` = `ovvfwkmqlejcpatmfqcd`、`run_id` = 账本 run_id、邮箱在合成清单里且不重复。任何一项不符 → 停下，不存、不删除文件。
 2. **对每一行调用一次 Hark 的 `save_login`**（vault 工具），参数只有三项：
    `{"site": "<Preview 登录页所在域名，见下>", "username": "<该行 email>", "password": "<该行 password>"}`。
    Hark 不在聊天里复述密码、不附文件、不写进任何记录；工具返回的只是 vault 条目 id。
@@ -203,7 +209,9 @@ N 可以是 1–4 中任何一个数（全新执行通常是 4，部分账号续
 ## 11. 测试
 
 - `tests/unit/sbtest-init-r9.test.ts`（第九轮：V1.cron 严格类型——缺字段 / null / 字符串 "0" / NaN / Infinity / 负数 / 小数 / 数组 / 对象 → 不确定；false/false/0 通过；true 或 > 0 → 不通过；初始化后的非空库不影响）。
-  超时：纯逻辑用例用 vitest 默认 5s；只有真正起 git 子进程的 10 个 CLI / 钉住 SHA 用例单独 30s（`SPAWN_TIMEOUT`）。
+  超时：纯逻辑用例用 vitest 默认 5s；只有经 CLI `main` 大量起 git 子进程（每个 42–128 次）的 CLI 用例单独 30s（`SPAWN_TIMEOUT`，第十轮共 10 个：第九轮的 9 个 + 第十轮 N = 0 CLI 用例）。
+  「钉住的提交不在本地」只起 2 次 git（单实例、非空闲 37–61 ms），第十轮起回到默认 5s。耗时均为单实例、非空闲（共享 `HEAVY.lock` 下，load1 约 4–6，2 vCPU）实测，不是空闲机器。
+- `tests/unit/sbtest-init-r10.test.ts`（第十轮：交接 N = 0——种子已提交 + 只补文件、不改密时不建号 / 不改密 / 交接 0 行；运行记录与输出写 N = 0、不需要 save_login；空文件核对后删除；0 行但文件非空 → 保留人工核对；N > 0 文件保留）。
 - `tests/unit/sbtest-init-r8.test.ts`（第八轮：共享解析器 / V1.status `[{}]` `[]` / 续跑运行中会话 n 缺失 / status 核对缺字段；交接 run_id = 账本 run_id + attempt_id、符号链接 / 0700 / 0600 / 属主、不隐式改密、显式改密双列表、真实目标禁止 discard；401 分类、403 措辞）。
 - `tests/unit/sbtest-init-executor.test.ts`（第五 / 六轮）+ `tests/unit/sbtest-init-r7.test.ts`（第七轮：准入 401/403/5xx/形状、重定向、C0 收紧、超时核对形状、写后意外 → 阶段 / 清点 / 运行记录、种子哈希、种子运行标记、交接文件、续跑接管、矩阵与文档一致、影响清单分组）。
 - `tests/db/sbtest-accounts-gotrue.test.ts`：本机 GoTrue，需要 `DATABASE_URL`（与 `npm run test:db` 相同）。

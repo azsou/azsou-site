@@ -39,6 +39,7 @@ import {
   readFileSync,
   realpathSync,
   statSync,
+  unlinkSync,
   writeFileSync,
   writeSync,
 } from 'node:fs';
@@ -1343,6 +1344,41 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
 const canHandoff = (h) => !!h && typeof h === 'object' && typeof h.write === 'function';
 
 /**
+ * 第十轮：运行结束时交接文件的结论。N 只看本次运行**实际写进**交接文件的行数（handoff.count()），不推算、不凑数。
+ *  - N > 0：文件保留（0600），N 条全部存进 vault 才覆盖删除（ops/SBTEST-INIT.md §10.1）。
+ *  - N = 0（例如种子已提交 + 只补文件的续跑、没有 --rotate-passwords / --confirm-rotate）：没有任何账号需要交接——
+ *    不调用 save_login、不为凑数改密；建文件时独占创建的空 0600 文件核对仍是 0 字节的普通文件后删除，
+ *    不留下一个看起来「需要存进 vault」的交接文件。0 行但文件不是空的 → 不删，保留并要求人工核对。
+ * 返回运行记录 / 输出用的说明行（不含任何密码）。
+ */
+export function finishHandoff(handoff) {
+  if (!canHandoff(handoff)) return [];
+  const n = handoff.count();
+  const where = handoff.path ?? '（未知路径）';
+  if (n > 0)
+    return [
+      `账号密码交接文件：${where}（0600，N = ${n} 条 = 本次新建 + 显式改密的账号；不含在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密（ops/SBTEST-INIT.md §10.1）`,
+    ];
+  const head =
+    '账号密码交接：N = 0（本次没有新建账号，也没有经 --rotate-passwords / --confirm-rotate 显式改密；被接管账号沿用上次交接 / vault 里的密码）——不需要任何 save_login / vault 保存，不得为凑数改密';
+  let st;
+  try {
+    st = handoff.path ? lstatSync(handoff.path) : undefined;
+  } catch (e) {
+    if (e?.code === 'ENOENT') return [`${head}；交接文件不存在（无需删除）（ops/SBTEST-INIT.md §10.1）`];
+    return [
+      `${head}；交接文件 ${where} 无法核对（${e?.code ?? e}）——保留，请人工核对（ops/SBTEST-INIT.md §10.1）`,
+    ];
+  }
+  if (!st || !st.isFile() || st.size !== 0)
+    return [
+      `${head}；但交接文件 ${where} 不是空的普通文件（本次未写入任何行）——不删，保留并要求人工核对（ops/SBTEST-INIT.md §10.1）`,
+    ];
+  unlinkSync(handoff.path);
+  return [`${head}；空交接文件 ${where} 已核对为 0 字节并删除（ops/SBTEST-INIT.md §10.1）`];
+}
+
+/**
  * 建缺的合成账号（Auth Admin API，email_confirm: true，带运行标记，不发信）。
  * 超时 / 断线 → unknown（不重试；续跑时按运行标记核对接管）；非 2xx → failed（例如 422 已存在 → 续跑接管）。
  */
@@ -2097,18 +2133,16 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       try {
         r = await execute({ sha, manifest, impact, c, runId, attemptId, resume, handoff, rotate });
       } catch (e) {
-        record(null, `拒绝（写之前，未发任何写请求）：${e.message}`, [`attempt_id ${attemptId}`]);
+        const hn = finishHandoff(handoff);
+        for (const l of hn) console.log(l);
+        record(null, `拒绝（写之前，未发任何写请求）：${e.message}`, [`attempt_id ${attemptId}`, ...hn]);
         throw e;
       }
       const verdict = ['成功（V1 全部通过）', '失败（已停）', '拒绝', '不确定（不重试，人工核对）'][r.exit];
-      record(r.preflight, verdict, [
-        ...executeNotes(r),
-        ...(handoff !== 'discard'
-          ? [
-              `账号密码交接文件：${handoff.path}（0600，N = ${handoff.count()} 条 = 本次新建 + 显式改密的账号；不含在本记录里）——文件写好 ≠ 交接完成：${handoff.count()} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密（ops/SBTEST-INIT.md §10.1）`,
-            ]
-          : []),
-      ]);
+      // 第十轮：N 按本次实际写入行数；N = 0 不留需要存 vault 的文件（finishHandoff）
+      const hn = finishHandoff(handoff);
+      record(r.preflight, verdict, [...executeNotes(r), ...hn]);
+      for (const l of hn) console.log(l);
       console.log(`结果：${verdict}`);
       return r.exit;
     }

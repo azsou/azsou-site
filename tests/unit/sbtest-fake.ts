@@ -9,8 +9,10 @@ const { MIGRATIONS, SYNTHETIC_USERS, TEST_REF, buildManifest, client, expectedCo
   X as any;
 
 /**
- * 第九轮：只有真正起子进程（git cat-file / show / ls-tree，经 CLI main 读钉住的迁移）的用例单独放宽到 30s；
- * 纯逻辑用例保持 vitest 默认 5s（不再整文件 vi.setConfig）。空闲单实例实测耗时见 docs/audits/evidence/sbtest/round9-2026-10-29.md。
+ * 第九轮 / 第十轮：只有经 CLI main 读钉住的迁移、真正大量起 git 子进程（cat-file / show / ls-tree，每个用例 42–128 次）的用例单独放宽到 30s；
+ * 纯逻辑用例、以及只起 2 次 git 的「钉住的提交不在本地」用例保持 vitest 默认 5s（不再整文件 vi.setConfig）。
+ * 耗时是单实例、非空闲（共享 HEAVY.lock 下，宿主 load1 约 4–6，2 vCPU）实测，不是空闲机器：见
+ * docs/audits/evidence/sbtest/round9-2026-10-29.md 与 round10-2026-10-29.md。
  */
 export const SPAWN_TIMEOUT = 30_000;
 export const SHA = 'a'.repeat(40);

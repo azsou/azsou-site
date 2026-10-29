@@ -43,7 +43,7 @@ import {
 // 第七轮：假服务器抽到 ./sbtest-fake.ts（与 sbtest-init-r7.test.ts 共用）
 const { FAKE_MG, FAKE_PJ, IMPACT, MANIFEST, SHA, fakeApi, fresh, list, mk, read, run } = F;
 
-// 第九轮：不再整文件放宽超时；只有真正起子进程（git）的用例单独给 SPAWN_TIMEOUT（见 sbtest-fake.ts）
+// 第九轮：不再整文件放宽超时；只有大量起 git 子进程的 CLI 用例单独给 SPAWN_TIMEOUT（见 sbtest-fake.ts；第十轮起「钉住的提交不在本地」回到默认 5s）
 
 describe('ref 允许清单', () => {
   it('只有 azsou-test', () => {
@@ -83,15 +83,12 @@ describe('钉住 SHA + sha256', () => {
     expect(() => buildManifest(SHA, read, () => [...list(), '0020_x.sql'])).toThrow(/0001–0019/);
     expect(() => buildManifest(SHA, read, () => list().slice(1))).toThrow(/0001–0019/);
   });
-  it(
-    '钉住的提交不在本地 git 对象库（浅克隆）→ 拒绝并提示先 fetch',
-    () => {
-      const absent = '0'.repeat(40);
-      expect(() => buildManifest(absent)).toThrow(Refused);
-      expect(() => buildManifest(absent)).toThrow(/不在本地 git 对象库/);
-    },
-    SPAWN_TIMEOUT,
-  );
+  // 第十轮：只起 2 次很快的 git 调用（单实例、非空闲 37–61 ms），回到默认 5s
+  it('钉住的提交不在本地 git 对象库（浅克隆）→ 拒绝并提示先 fetch', () => {
+    const absent = '0'.repeat(40);
+    expect(() => buildManifest(absent)).toThrow(Refused);
+    expect(() => buildManifest(absent)).toThrow(/不在本地 git 对象库/);
+  });
 });
 
 describe('每个文件一个事务 + 超时 + 账本', () => {
