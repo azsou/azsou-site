@@ -97,7 +97,14 @@ const GOOD_OBS: Record<string, Record<string, unknown>> = {
     replay_rejected: true,
   },
   'T046-3': { landing_origins: [SITE, SITE, SITE] },
-  'T046-4': { user_status: 401, verify_session_issued: false, expired_user_status: 401 },
+  // 第八轮：过期原因必须明确是过期、同一 token 有效期内被接受（200）
+  'T046-4': {
+    user_status: 401,
+    verify_session_issued: false,
+    expired_user_status: 401,
+    expired_reason_is_expiry: true,
+    accepted_before_exp_status: 200,
+  },
   'T046-5': {
     turnstile_real_key: true,
     register_api_status: 200,

@@ -96,7 +96,14 @@ const GOOD: Record<string, Record<string, unknown>> = {
     replay_rejected: true,
   },
   'T046-3': { landing_origins: [STABLE, STABLE, STABLE] },
-  'T046-4': { user_status: 401, verify_session_issued: false, expired_user_status: 401 },
+  // 第八轮：过期原因必须明确是过期、同一 token 有效期内被接受（200）
+  'T046-4': {
+    user_status: 401,
+    verify_session_issued: false,
+    expired_user_status: 401,
+    expired_reason_is_expiry: true,
+    accepted_before_exp_status: 200,
+  },
   'T046-5': {
     turnstile_real_key: true,
     register_api_status: 200,
@@ -390,6 +397,7 @@ describe('T046-4 真实过期 token；T046-2 重置后旧 / 新密码（实现�
     siteOrigin: STABLE,
     inbox: true,
     expiredTokenFile: '/x/expired.jwt',
+    expiredTokenRecordFile: '/x/expired.accepted.json',
     ...o,
   });
   const env = {
@@ -461,15 +469,27 @@ describe('T046-4 真实过期 token；T046-2 重置后旧 / 新密码（实现�
       transport: f.t,
       canary: false,
     });
+    // 第八轮：有效期内被接受的记录（同一 token 的 sha256、同一 sub、早于 exp、200）
+    const rec = {
+      token_sha256: createHash('sha256').update(expired).digest('hex'),
+      project_ref: 'ovvfwkmqlejcpatmfqcd',
+      iss: `${SB}/auth/v1`,
+      sub: 'u',
+      exp: CH.jwtPayload(expired).exp,
+      accepted_status: 200,
+      accepted_user_id: 'u',
+      accepted_at: new Date((CH.jwtPayload(expired).exp - 600) * 1000).toISOString(),
+    };
     return R.automatedSteps(env, c, u, {
-      readFile: () => expired,
+      readFile: (p: string) => (String(p).endsWith('.json') ? JSON.stringify(rec) : expired),
+      exists: () => true,
       stat: () => ({ mode: 0o100600 }),
       now: () => Date.now(),
       ...io,
     });
   };
   const notes: string[] = [];
-  it('T046-4：伪造 + 真实过期 token 都被拒（401 且原因是过期）→ 通过', async () => {
+  it('T046-4：伪造 + 真实过期 token 都被拒（401 且原因是过期）+ 有效期内被接受记录 → 通过', async () => {
     const f = fake();
     await steps(f)['T046-4']((m: string) => notes.push(m));
     expect(f.log).toContain('GET /auth/v1/user');

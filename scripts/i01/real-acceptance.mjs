@@ -43,11 +43,27 @@
  *   3 = 有用例阻塞（BLOCKED）或没执行（部分运行，例如 --only、缺收件箱又没有人工证据）。
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { classifySupabaseUrl } from '../supabase-env.mjs';
-import { ChannelPolluted, ChannelViolation, adminChannel, jwtPayload, userChannel } from './channels.mjs';
+import {
+  ChannelPolluted,
+  ChannelUnavailable,
+  ChannelViolation,
+  adminChannel,
+  jwtPayload,
+  userChannel,
+} from './channels.mjs';
 import { mappingChanged, mappingProblems, resolveMapping } from './mapping.mjs';
 import { BENIGN_DOT_NEXT, EVIL_NEXT, allVectors } from './redirect-vectors.mjs';
 
@@ -128,12 +144,18 @@ export const MANUAL_CHECKLIST = Object.freeze({
   'T046-4': {
     artifacts: {
       'forged-token-responses': '伪造 token 调 /auth/v1/user 与 /auth/v1/verify 的响应截图或 HAR',
+      'expired-token-lifecycle':
+        '同一个真实 token 的两段记录：有效期内 /auth/v1/user 200（时间早于 exp），过期后 401/403 且正文原因是 token is expired（token 打码，只留 sha256 前 12 位）',
     },
     observations: {
       user_status: (v) => v === 401 || v === 403,
       verify_session_issued: (v) => v === false,
       // 第七轮：azsou-test 真实签发、已过期的 access token 调 /auth/v1/user 也必须被拒
       expired_user_status: (v) => v === 401 || v === 403,
+      // 第八轮：拒绝原因必须明确是「过期」（GoTrue msg 含 token is expired）；错签名 / 解析错误的 bad_jwt 不算过期
+      expired_reason_is_expiry: (v) => v === true,
+      // 第八轮：同一个 token 在 exp 之前调 /auth/v1/user 返回 200（真实来源、有效期内被接受）
+      accepted_before_exp_status: (v) => v === 200,
     },
   },
   'T046-5': {
@@ -399,6 +421,7 @@ export function checkPreconditions(env) {
       vercelTeamId: env.I01_VERCEL_TEAM_ID || '',
       candidateBranch: env.I01_CANDIDATE_BRANCH || undefined,
       expiredTokenFile: env.I01_EXPIRED_ACCESS_TOKEN_FILE || '',
+      expiredTokenRecordFile: env.I01_EXPIRED_TOKEN_ACCEPTED_FILE || '',
     },
   };
 }
@@ -484,15 +507,80 @@ export async function verifyDeployment(
 
 // ---------------------------------------------------------------- 自动步骤
 /**
+ * 第八轮 T046-4：拒绝正文是否**明确**因为过期。GoTrue v2 对过期 token 回
+ * `{"error_code":"bad_jwt","msg":"invalid JWT: … token has invalid claims: token is expired"}`，
+ * 对错签名同样回 `bad_jwt`（msg 是 `… signature is invalid`）——所以只看 bad_jwt 不够。
+ * 规则：消息里有 token is expired / token has expired / jwt expired；且没有 signature / malformed / parse 之外的过期以外原因（签名错误优先判否）。
+ */
+export function isExpiryRejection(body) {
+  let j;
+  try {
+    j = JSON.parse(String(body ?? ''));
+  } catch {
+    return false;
+  }
+  if (!j || typeof j !== 'object') return false;
+  const msg = [j.msg, j.message, j.error_description, j.error].filter((x) => typeof x === 'string').join(' ');
+  if (/signature (is )?invalid|invalid signature|signature verification|malformed/i.test(msg)) return false;
+  return /\btoken (is|has) expired\b|\bjwt expired\b|\btoken expired\b/i.test(msg);
+}
+
+/**
+ * 第八轮 capture-token（实现了，真实环境未执行）：在 token **有效期内**经用户直连通道调 azsou-test /auth/v1/user，
+ * 必须 200 且返回的 id = token 的 sub；把 {token_sha256, project_ref, iss, sub, exp, accepted_status, accepted_user_id, accepted_at}
+ * 写成 0600 记录（不含 token 本身）。等 token 过期后 T046-4 用同一个 token + 这份记录证明「真实来源、有效期内被接受、过期后因过期被拒」。
+ */
+export async function captureAcceptedToken(token, { SB, out, user, anonKey = '', now = Date.now }) {
+  const pl = jwtPayload(token);
+  if (!pl) throw new Error('不是 JWT');
+  if (pl.iss !== `${String(SB).replace(/\/$/, '')}/auth/v1`)
+    throw new Error(`不是 azsou-test 签发的 token（iss ${pl.iss}）`);
+  if (pl.role !== 'authenticated') throw new Error(`role 是 ${pl.role}（必须是 authenticated 用户 token）`);
+  if (!(Number(pl.exp) * 1000 > now() + 30_000))
+    throw new Error('token 已过期或 30 秒内过期——必须在有效期内记录');
+  const r = await user(`${String(SB).replace(/\/$/, '')}/auth/v1/user`, {
+    headers: { ...(anonKey ? { apikey: anonKey } : {}), authorization: `Bearer ${token}` },
+  });
+  if (r.status !== 200) throw new Error(`有效期内 /auth/v1/user → ${r.status}（必须 200）`);
+  let body = null;
+  try {
+    body = await r.json();
+  } catch {
+    /* 下面判 */
+  }
+  if (!body || body.id !== pl.sub) throw new Error('/auth/v1/user 返回的用户 id 与 token 的 sub 不符');
+  const rec = {
+    token_sha256: createHash('sha256').update(token).digest('hex'),
+    project_ref: TEST_PROJECT_REF,
+    iss: pl.iss,
+    sub: pl.sub,
+    exp: Number(pl.exp),
+    accepted_status: 200,
+    accepted_user_id: body.id,
+    accepted_at: new Date(now()).toISOString(),
+    captured_by: 'scripts/i01/real-acceptance.mjs --capture-token',
+  };
+  const fd = openSync(out, 'wx', 0o600);
+  try {
+    writeFileSync(fd, JSON.stringify(rec, null, 2) + '\n');
+  } finally {
+    closeSync(fd);
+  }
+  chmodSync(out, 0o600);
+  return rec;
+}
+
+/**
  * 自动步骤。所有对测试项目 / 预览站 / 收件箱的请求都只经 user（用户验收通道，直连、只带 anon / 用户 JWT）。
  * @param {Record<string,string>} env
  * @param {any} cfg
  * @param {(url: string, init?: any) => Promise<Response>} user
- * @param {{ readFile?: (p: string) => Buffer | string, stat?: (p: string) => { mode: number }, now?: () => number }} [io]
+ * @param {{ readFile?: (p: string) => Buffer | string, exists?: (p: string) => boolean, stat?: (p: string) => { mode: number }, now?: () => number }} [io]
  */
 export function automatedSteps(env, cfg, user, io = {}) {
   const { SB, SITE, siteOrigin } = cfg;
   const readFile = io.readFile ?? ((p) => readFileSync(p, 'utf8'));
+  const exists = io.exists ?? existsSync;
   const stat = io.stat ?? statSync;
   const now = io.now ?? Date.now;
   const redact = (u) => {
@@ -671,13 +759,47 @@ export function automatedSteps(env, cfg, user, io = {}) {
         `过期 token 的 role 是 ${pl.role}（必须是 authenticated 用户 token）`,
       );
       assert(Number(pl.exp) * 1000 < now() - 60_000, '这个 token 还没过期（exp 晚于现在 - 60 秒）');
+      // 第八轮：真实来源 + 有效期内被接受——capture-token 在 exp 之前写下的记录（0600；token 只存 sha256）
+      const rf = cfg.expiredTokenRecordFile;
+      if (!rf || !exists(rf))
+        throw blocked(
+          '缺 I01_EXPIRED_TOKEN_ACCEPTED_FILE（同一 token 在有效期内被 azsou-test 接受的记录，由 --capture-token 生成）——过期拒绝无法证明不是别的原因',
+        );
+      if ((stat(rf).mode & 0o077) !== 0) throw new Error('有效期内接受记录文件权限必须是 0600');
+      let rec;
+      try {
+        rec = JSON.parse(String(readFile(rf)));
+      } catch {
+        throw new Error('有效期内接受记录不是 JSON');
+      }
+      const tokSha = createHash('sha256').update(tok).digest('hex');
+      assert(rec && rec.project_ref === TEST_PROJECT_REF, `接受记录不是 azsou-test（${rec?.project_ref}）`);
+      assert(rec.token_sha256 === tokSha, '接受记录里的 token sha256 与过期 token 不符（不是同一个 token）');
+      assert(rec.accepted_status === 200, `接受记录里有效期内的状态是 ${rec.accepted_status}（必须是 200）`);
+      assert(
+        rec.accepted_user_id === pl.sub && rec.sub === pl.sub,
+        '接受记录里的用户不是 token 的 sub（不是同一个用户）',
+      );
+      const acceptedAt = Date.parse(rec.accepted_at);
+      assert(
+        Number.isFinite(acceptedAt) && acceptedAt < Number(pl.exp) * 1000,
+        '接受记录的时间不早于 exp——不能证明在有效期内被接受',
+      );
+      note(
+        `有效期内：${new Date(acceptedAt).toISOString()} /auth/v1/user → 200（exp ${new Date(Number(pl.exp) * 1000).toISOString()}，token sha256 ${tokSha.slice(0, 12)}…）`,
+      );
       const e = await user(`${SB}/auth/v1/user`, {
         headers: { apikey: env.I01_SUPABASE_ANON_KEY, authorization: `Bearer ${tok}` },
       });
       const body = await e.text();
       note(`/user（真实过期 token）→ ${e.status}`);
       assert(e.status === 401 || e.status === 403, `真实过期 token 没有被拒（${e.status}）`);
-      assert(/expired|bad_jwt/i.test(body), '拒绝原因不是「过期」（可能是别的错误掩盖了过期检查）');
+      // 第八轮：必须是明确的过期原因；GoTrue 对错签名同样回 bad_jwt，不能算过期
+      assert(
+        isExpiryRejection(body),
+        '拒绝原因不是「过期」（错签名 / 解析错误的 bad_jwt 不算；可能是别的错误掩盖了过期检查）',
+      );
+      note('过期后：401/403 且正文原因是 token is expired；exp < 现在 - 60 秒');
     },
     'T046-5': async () => {
       // 成功路径需要真实浏览器完成真实 Turnstile 挑战并人工收信：只能由人工证据完成，脚本不会把它记为通过
@@ -701,6 +823,41 @@ export async function main(
   io = {},
 ) {
   const arg = (name) => (argv.find((a) => a.startsWith(`--${name}=`)) ?? '').slice(name.length + 3);
+  // 第八轮：--capture-token=<0600 token 文件> --capture-out=<记录路径>——在 token 有效期内记录「被 azsou-test 接受」（只读，用户直连通道）
+  if (arg('capture-token')) {
+    const sb = String(env.I01_SUPABASE_URL ?? '').replace(/\/$/, '');
+    if (
+      sb !== `https://${TEST_PROJECT_REF}.supabase.co` ||
+      !env.I01_SUPABASE_ANON_KEY ||
+      /^sb_secret_/.test(env.I01_SUPABASE_ANON_KEY)
+    ) {
+      console.error(
+        'capture-token：I01_SUPABASE_URL 必须是 azsou-test，I01_SUPABASE_ANON_KEY 必须是 anon / publishable key',
+      );
+      return EXIT.PRECONDITION;
+    }
+    const tf = arg('capture-token');
+    if ((statSync(tf).mode & 0o077) !== 0) {
+      console.error('capture-token：token 文件权限必须是 0600');
+      return EXIT.PRECONDITION;
+    }
+    const u = userChannel({
+      sbOrigin: sb,
+      siteOrigin: sb,
+      anonKey: env.I01_SUPABASE_ANON_KEY,
+      ...(io.userTransport ? { transport: io.userTransport } : {}),
+    });
+    const rec = await captureAcceptedToken(String(readFileSync(tf, 'utf8')).trim(), {
+      SB: sb,
+      out: arg('capture-out'),
+      user: u,
+      anonKey: env.I01_SUPABASE_ANON_KEY,
+    });
+    console.log(
+      `已记录：有效期内 200，token sha256 ${rec.token_sha256.slice(0, 12)}…，exp ${new Date(rec.exp * 1000).toISOString()}`,
+    );
+    return EXIT.PASS;
+  }
   const only = arg('only').split(',').filter(Boolean);
   const pre = checkPreconditions(env);
   if (!pre.ok) {
@@ -779,7 +936,10 @@ export async function main(
       try {
         await auto[id]((m) => r.notes.push(m));
       } catch (e) {
-        if (e instanceof ChannelPolluted || e instanceof ChannelViolation) {
+        if (e instanceof ChannelUnavailable) {
+          polluted = `用户直连通道不可用，验收停止（不回退到管理 / 代理通道）：${e.message}`;
+          r.status = 'blocked';
+        } else if (e instanceof ChannelPolluted || e instanceof ChannelViolation) {
           polluted = `用户通道不干净，验收停止：${e.message}`;
           r.status = 'blocked';
         } else r.status = e && e.blocked ? 'blocked' : 'fail';

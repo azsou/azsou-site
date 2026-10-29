@@ -17,6 +17,11 @@ import https from 'node:https';
 
 export class ChannelViolation extends Error {}
 export class ChannelPolluted extends Error {}
+/**
+ * 第八轮：用户直连通道不可用（DNS / 连接被拒 / 超时 / TLS 等网络层错误）。整个验收停止（阻塞），
+ * **绝不**回退到管理通道或出口代理（那条路会注入凭据，验收结果失真）；也不重试。
+ */
+export class ChannelUnavailable extends Error {}
 
 export const ADMIN_HOSTS = Object.freeze(['api.github.com', 'api.vercel.com']);
 
@@ -115,7 +120,16 @@ export function userChannel({
   const raw = async (url, init = {}) => {
     const h = headerMap(init.headers);
     check(url, h);
-    const r = await transport(url, { ...init, headers: h, redirect: 'manual' });
+    let r;
+    try {
+      r = await transport(url, { ...init, headers: h, redirect: 'manual' });
+    } catch (e) {
+      if (e instanceof ChannelViolation || e instanceof ChannelPolluted) throw e;
+      log.push({ host: new URL(url).host, path: new URL(url).pathname, status: 'ERR' });
+      throw new ChannelUnavailable(
+        `用户直连通道不可用（${new URL(url).host}：${String(e?.code ?? e?.message ?? e).slice(0, 80)}）——验收停止，不回退到管理 / 代理通道`,
+      );
+    }
     log.push({ host: new URL(url).host, path: new URL(url).pathname, status: r.status });
     return r;
   };
