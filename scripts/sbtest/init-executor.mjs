@@ -48,7 +48,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const TEST_REF = 'ovvfwkmqlejcpatmfqcd';
 export const PROD_REF = 'abryflgoljltyakthtql';
-export const EXIT = Object.freeze({ OK: 0, FAILED: 1, REFUSED: 2, UNKNOWN: 3 });
+/**
+ * 退出码。第十一轮新增 INCOMPLETE = 4：原执行成功（V1 全部通过），但必需的交接 / 清理收尾失败（例如空交接文件删不掉、运行记录写不出）——
+ * 不是「完全完成」，云端写操作不需要、也不得重跑，只按收尾错误人工处理。收尾错误从不改变非 0 的原退出码（1 / 2 / 3 原样保留，3 绝不降成 1 或 0）。
+ */
+export const EXIT = Object.freeze({ OK: 0, FAILED: 1, REFUSED: 2, UNKNOWN: 3, INCOMPLETE: 4 });
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const MANIFEST_PATH = path.join(ROOT, 'ops/sbtest/init-manifest.json');
 export const MIGRATIONS = Object.freeze(Array.from({ length: 19 }, (_, i) => String(i + 1).padStart(4, '0')));
@@ -1343,39 +1347,169 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
 }
 const canHandoff = (h) => !!h && typeof h === 'object' && typeof h.write === 'function';
 
+/** 文件系统 / 交接错误 → 短说明（只有错误码与消息，消息里只有路径，不含密码） */
+const fsErr = (e) => {
+  const m = String(e?.message ?? e);
+  return (e?.code && !m.startsWith(String(e.code)) ? `${e.code} ${m}` : m).slice(0, 160);
+};
+
+const ADMIN_CREATE = /^\/auth\/v1\/admin\/users$/;
+const ADMIN_UPDATE = /^\/auth\/v1\/admin\/users\/[^/]+$/;
+const APPLIED = new Set(['created', 'password-set']);
+const NOT_HANDED_OFF = new Set(['created-handoff-write-failed', 'password-set-handoff-write-failed']);
+const ACC_UNKNOWN = new Set(['unknown', 'password-unknown']);
+
 /**
- * 第十轮：运行结束时交接文件的结论。N 只看本次运行**实际写进**交接文件的行数（handoff.count()），不推算、不凑数。
- *  - N > 0：文件保留（0600），N 条全部存进 vault 才覆盖删除（ops/SBTEST-INIT.md §10.1）。
- *  - N = 0（例如种子已提交 + 只补文件的续跑、没有 --rotate-passwords / --confirm-rotate）：没有任何账号需要交接——
- *    不调用 save_login、不为凑数改密；建文件时独占创建的空 0600 文件核对仍是 0 字节的普通文件后删除，
- *    不留下一个看起来「需要存进 vault」的交接文件。0 行但文件不是空的 → 不删，保留并要求人工核对。
- * 返回运行记录 / 输出用的说明行（不含任何密码）。
+ * 第十一轮：本次执行有没有发过 Auth Admin 建号 / 改密请求、结果如何——证据是客户端请求记录（trace，只有方法 / 路径 / 状态）
+ * 加逐项结果（results，只有邮箱与结论）。状态分类：2xx = 已生效；4xx = 被拒（按响应未生效）；
+ * 其余（0、ERR:*、3xx、5xx）= 结果未知，账号可能已创建 / 密码可能已改。
+ * @param {any[]} trace
+ * @param {any[]} [results]
  */
-export function finishHandoff(handoff) {
-  if (!canHandoff(handoff)) return [];
-  const n = handoff.count();
+export function accountWriteEvidence(trace, results = []) {
+  const sent = (trace ?? []).filter(
+    (t) =>
+      (t?.method === 'POST' && ADMIN_CREATE.test(String(t?.path))) ||
+      (t?.method === 'PUT' && ADMIN_UPDATE.test(String(t?.path))),
+  );
+  const cls = (st) =>
+    typeof st === 'number' && st >= 200 && st < 300
+      ? 'applied'
+      : typeof st === 'number' && st >= 400 && st < 500
+        ? 'rejected'
+        : 'unknown';
+  const by = { applied: 0, rejected: 0, unknown: 0 };
+  for (const t of sent) by[cls(t.status)]++;
+  const acc = (results ?? []).filter((x) => String(x?.file ?? '').startsWith('user:'));
+  const email = (x) => String(x.file).slice(5);
+  const notHandedOff = acc.filter((x) => NOT_HANDED_OFF.has(x.outcome));
+  const handedOff = acc.filter((x) => APPLIED.has(x.outcome));
+  const unknown = acc.filter((x) => ACC_UNKNOWN.has(x.outcome));
+  return {
+    sent: sent.length,
+    ...by,
+    handedOff: handedOff.map(email),
+    notHandedOff: notHandedOff.map((x) => ({ email: email(x), error: x.error ?? '' })),
+    unknownEmails: unknown.map(email),
+    /** 请求记录里 2xx / 未知的请求比逐项结果多出来的部分（没有归到任何账号）——一律按未交接 / 未知处理 */
+    extraApplied: Math.max(0, by.applied - handedOff.length - notHandedOff.length),
+    extraUnknown: Math.max(0, by.unknown - unknown.length),
+  };
+}
+
+/**
+ * 第十轮 / 第十一轮：运行结束时交接文件的结论。从不抛异常——任何交接 / 清理错误都放进 errors，与执行结论分开报告，不掩盖原执行结果。
+ * N 只看本次运行**实际写进**交接文件的行数（handoff.count()）。**N = 0 只表示本次没有成功写入任何交接行**：
+ *  - 只有执行证据证明没有发出任何 Auth Admin 建号 / 改密请求（或全部被 4xx 拒绝）时，才写「没有建号 / 改密」、不需要 save_login，
+ *    并在核对空文件仍是 0 字节的普通文件后删除；删除失败 → errors（文件保留，执行结论不变）。
+ *  - 有请求结果未知（响应丢失 / 超时 / 5xx）→ 写「可能已创建 / 可能已改密、状态未知、需人工核对」，不删文件。
+ *  - 有请求已生效（2xx）但交接写入失败 → errors：哪些账号已创建 / 改密但密码未交接；不删文件（证据）。
+ *  - 没有执行证据（evidence 缺失）→ 不下任何「没有建号」的结论，不删文件，交人工核对。
+ * 返回 { n, notes, errors, deleted }（都不含密码）。
+ * @param {any} handoff
+ * @param {{ trace?: any[], results?: any[] } | undefined} evidence
+ */
+export function handoffConclusion(handoff, evidence) {
+  /** @type {{ n: number, notes: string[], errors: string[], deleted: boolean }} */
+  const out = { n: 0, notes: [], errors: [], deleted: false };
+  if (!canHandoff(handoff)) return out;
+  let n;
+  try {
+    n = handoff.count();
+  } catch (e) {
+    out.errors.push(`收尾错误：读取本次交接行数失败（${fsErr(e)}）——交接文件按原样保留，需人工核对`);
+    return out;
+  }
+  out.n = n;
   const where = handoff.path ?? '（未知路径）';
+  const ref = '（ops/SBTEST-INIT.md §10.1）';
+  const ev =
+    evidence && Array.isArray(evidence.trace) ? accountWriteEvidence(evidence.trace, evidence.results) : null;
   if (n > 0)
-    return [
-      `账号密码交接文件：${where}（0600，N = ${n} 条 = 本次新建 + 显式改密的账号；不含在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密（ops/SBTEST-INIT.md §10.1）`,
-    ];
-  const head =
-    '账号密码交接：N = 0（本次没有新建账号，也没有经 --rotate-passwords / --confirm-rotate 显式改密；被接管账号沿用上次交接 / vault 里的密码）——不需要任何 save_login / vault 保存，不得为凑数改密';
+    out.notes.push(
+      `账号密码交接文件：${where}（0600，N = ${n} 条 = 本次新建 + 显式改密且已写入的账号；不含在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密${ref}`,
+    );
+  let keep = false;
+  if (!ev) {
+    keep = true;
+    out.notes.push(
+      `本次执行证据不可用（没有请求记录）——不能断定是否发过 Auth Admin 建号 / 改密请求：账号状态未知，需人工核对；交接文件保留${ref}`,
+    );
+  } else {
+    const unknownN = ev.unknownEmails.length + ev.extraUnknown;
+    if (unknownN > 0) {
+      keep = true;
+      const who = [
+        ...ev.unknownEmails,
+        ...(ev.extraUnknown ? [`另有 ${ev.extraUnknown} 个未归到账号的请求`] : []),
+      ].join('、');
+      out.notes.push(
+        `账号状态未知：${unknownN} 个 Auth Admin 建号 / 改密请求已发出但结果未知（响应丢失 / 超时 / 5xx 等）——${who}：账号可能已创建 / 密码可能已被改，状态未知，需人工核对（按运行标记与 auth.users 核对，见 ops/SBTEST-INIT.md §9）；执行器不自动重试建号 / 改密，也不为补交接改密`,
+      );
+    }
+    const missing = ev.notHandedOff.length + ev.extraApplied;
+    if (missing > 0) {
+      keep = true;
+      const who = [
+        ...ev.notHandedOff.map((x) => `${x.email}${x.error ? `（${x.error}）` : ''}`),
+        ...(ev.extraApplied ? [`另有 ${ev.extraApplied} 个已生效但没有交接记录的请求`] : []),
+      ].join('、');
+      out.errors.push(
+        `交接错误：${missing} 个账号已创建 / 已改密（Auth Admin 返回 2xx），但密码未交接（交接文件写入失败）——${who}。这些账号的密码不在交接文件里，无法存进 vault；交接文件 ${where} 保留作证据（可能为空或只有部分内容），需人工处理：站长批准后才可经 --resume --rotate-passwords / --confirm-rotate 显式改密，执行器不自动重试、不自动改密${ref}`,
+      );
+    }
+  }
+  if (n > 0) return out;
+  const noneSent = !!ev && ev.sent === 0;
+  const rejectedOnly = !!ev && ev.sent > 0 && ev.applied === 0 && ev.unknown === 0 && !keep;
+  if (keep || !(noneSent || rejectedOnly)) {
+    out.notes.push(
+      `账号密码交接：N = 0 只表示本次没有成功写入任何交接行，不表示没有建号 / 改密（见本节的状态未知 / 交接错误）；交接文件 ${where} 保留（本次 0 行），作为证据交人工核对，不删${ref}`,
+    );
+    return out;
+  }
+  const head = noneSent
+    ? '账号密码交接：N = 0（本次请求记录里没有发出任何 Auth Admin 建号 / 改密请求：本次没有新建账号，也没有改密；被接管账号沿用上次交接 / vault 里的密码）——不需要任何 save_login / vault 保存，不得为凑数改密'
+    : `账号密码交接：N = 0（本次发出的 ${ev.sent} 个 Auth Admin 建号 / 改密请求全部被 HTTP 4xx 拒绝，按响应未建号、未改密）——不需要任何 save_login / vault 保存，不得为凑数改密`;
   let st;
   try {
     st = handoff.path ? lstatSync(handoff.path) : undefined;
   } catch (e) {
-    if (e?.code === 'ENOENT') return [`${head}；交接文件不存在（无需删除）（ops/SBTEST-INIT.md §10.1）`];
-    return [
-      `${head}；交接文件 ${where} 无法核对（${e?.code ?? e}）——保留，请人工核对（ops/SBTEST-INIT.md §10.1）`,
-    ];
+    if (e?.code === 'ENOENT') {
+      out.notes.push(`${head}；交接文件不存在（无需删除）${ref}`);
+      return out;
+    }
+    out.notes.push(head);
+    out.errors.push(
+      `收尾错误：交接文件 ${where} 无法核对（${fsErr(e)}）——保留，需人工核对；执行结论不变，不重试任何写操作${ref}`,
+    );
+    return out;
   }
-  if (!st || !st.isFile() || st.size !== 0)
-    return [
-      `${head}；但交接文件 ${where} 不是空的普通文件（本次未写入任何行）——不删，保留并要求人工核对（ops/SBTEST-INIT.md §10.1）`,
-    ];
-  unlinkSync(handoff.path);
-  return [`${head}；空交接文件 ${where} 已核对为 0 字节并删除（ops/SBTEST-INIT.md §10.1）`];
+  if (!st || !st.isFile() || st.size !== 0) {
+    out.notes.push(head);
+    out.errors.push(
+      `收尾错误：交接文件 ${where} 不是空的普通文件（本次未写入任何行）——不删，保留并要求人工核对；执行结论不变${ref}`,
+    );
+    return out;
+  }
+  try {
+    unlinkSync(handoff.path);
+  } catch (e) {
+    out.notes.push(head);
+    out.errors.push(
+      `收尾错误：空交接文件 ${where} 删除失败（${fsErr(e)}）——文件保留（0 字节，不含密码），需人工删除；执行结论不变，不重试任何写操作${ref}`,
+    );
+    return out;
+  }
+  out.deleted = true;
+  out.notes.push(`${head}；空交接文件 ${where} 已核对为 0 字节并删除${ref}`);
+  return out;
+}
+
+/** 兼容第十轮的调用形状：只返回说明行（notes + errors），从不抛异常 */
+export function finishHandoff(handoff, evidence) {
+  const r = handoffConclusion(handoff, evidence);
+  return [...r.notes, ...r.errors];
 }
 
 /**
@@ -1413,8 +1547,15 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
       return { ids, outcome: 'unknown' };
     }
     ids[u.key] = id;
-    if (canHandoff(handoff))
-      await handoff.write(u.email, password, id, { run_id: runId, attempt_id: attemptId });
+    if (canHandoff(handoff)) {
+      // 第十一轮：账号已建、交接写入失败 → 不再写（不建下一个、不改密、不重试），按不确定停下；密码不在交接文件里，记录写明
+      try {
+        await handoff.write(u.email, password, id, { run_id: runId, attempt_id: attemptId });
+      } catch (e) {
+        results.push({ file: `user:${u.email}`, outcome: 'created-handoff-write-failed', error: fsErr(e) });
+        return { ids, outcome: 'unknown' };
+      }
+    }
     results.push({ file: `user:${u.email}`, outcome: 'created' });
   }
   return { ids, outcome: 'ok' };
@@ -1445,7 +1586,16 @@ async function rotateAdopted(c, adopted, handoff, results, meta) {
       results.push({ file: `user:${a.email}`, outcome: `password HTTP ${r.status}` });
       return 'failed';
     }
-    await handoff.write(a.email, password, a.id, meta);
+    try {
+      await handoff.write(a.email, password, a.id, meta);
+    } catch (e) {
+      results.push({
+        file: `user:${a.email}`,
+        outcome: 'password-set-handoff-write-failed',
+        error: fsErr(e),
+      });
+      return 'unknown';
+    }
     results.push({ file: `user:${a.email}`, outcome: 'password-set' });
   }
   return 'ok';
@@ -1813,7 +1963,18 @@ async function executeInner(
 }
 
 /** 运行记录（Markdown，已打码）：只含方法 / 路径 / 状态 / 耗时，不含任何请求头、正文、令牌 */
-export function runRecordMarkdown({ title, when, mode, endpoints, pre, trace, verdict, notes = [] }) {
+export function runRecordMarkdown({
+  title,
+  when,
+  mode,
+  endpoints,
+  pre,
+  trace,
+  verdict,
+  notes = [],
+  handoff,
+  exitCode,
+}) {
   const L = [`# ${title}`, ''];
   L.push(`- 时间：${when}`);
   L.push(
@@ -1871,8 +2032,25 @@ export function runRecordMarkdown({ title, when, mode, endpoints, pre, trace, ve
     L.push(`| ${i + 1} | ${t.phase} | ${t.method} | ${t.path} | ${t.status} | ${t.ms} |`),
   );
   if (notes.length) L.push('', '## 备注', '', ...notes.map((n) => `- ${n}`));
+  // 第十一轮：交接 / 清理收尾与执行结论分开记录——收尾错误不改写上面的结论、阶段、逐项结果与清点
+  if (handoff && (handoff.notes?.length || handoff.errors?.length || exitCode !== undefined)) {
+    L.push('', '## 交接与收尾（与执行结论分开记录，不改变上面的执行结论）', '');
+    for (const n of handoff.notes ?? []) L.push(`- ${n}`);
+    for (const e of handoff.errors ?? []) L.push(`- **${e}**`);
+    if (!handoff.errors?.length) L.push('- 收尾错误：无');
+  }
+  if (exitCode !== undefined) L.push('', `- 退出码 ${exitCode}：${EXIT_MEANING[exitCode] ?? '（未定义）'}`);
   return L.join('\n') + '\n';
 }
+
+/** 退出码含义（运行记录 / 输出用；ops/SBTEST-INIT.md §10.1 同表） */
+export const EXIT_MEANING = Object.freeze({
+  0: '成功（V1 全部通过，交接 / 收尾无错误）',
+  1: '失败（已停，原执行结论；收尾错误不改变退出码）',
+  2: '拒绝（原执行结论；收尾错误不改变退出码）',
+  3: '不确定（原执行结论，不重试，人工核对；收尾错误不改变退出码，绝不降成 1 或 0）',
+  4: '执行成功（V1 全部通过）但必需的交接 / 清理收尾未完成——不是「完全完成」；云端写操作不需要、也不得重跑，只按收尾错误人工处理',
+});
 
 /** execute 结果 → 运行记录备注：阶段、逐项结果（文件 / 结果，不含正文与密码）、V1、清点 */
 export function executeNotes(r) {
@@ -2008,7 +2186,7 @@ export function clientFromEnv(argv, env, fetchImpl = fetch) {
 export async function main(argv = process.argv.slice(2), env = process.env, fetchImpl = fetch) {
   const cmd = argv[0] && !argv[0].startsWith('--') ? argv[0] : 'plan';
   let c;
-  const record = (pre, verdict, notes = []) => {
+  const record = (pre, verdict, notes = [], handoff = undefined, exitCode = undefined) => {
     const out = arg(argv, 'record');
     if (!out || !c) return;
     mkdirSync(path.dirname(out), { recursive: true });
@@ -2023,8 +2201,36 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
         trace: c.trace,
         verdict,
         notes,
+        handoff,
+        exitCode,
       }),
     );
+  };
+  /** 第十一轮：execute 收尾用——写运行记录失败只作为收尾错误返回，不掩盖执行结果 */
+  const safeRecord = (...a) => {
+    try {
+      record(...a);
+      return undefined;
+    } catch (e) {
+      return `收尾错误：运行记录写入失败（${fsErr(e)}）——执行结论见上面的输出`;
+    }
+  };
+  /** 第十一轮：交接结论从不抛异常（handoffConclusion 内部已兜底，这里再兜一层） */
+  const conclude = (handoff, evidence) => {
+    try {
+      return handoffConclusion(handoff, evidence);
+    } catch (e) {
+      return {
+        n: 0,
+        notes: [],
+        errors: [`收尾错误：交接结论生成失败（${fsErr(e)}）——交接文件按原样保留，需人工核对`],
+        deleted: false,
+      };
+    }
+  };
+  const printHandoff = (hc) => {
+    for (const l of hc.notes) console.log(l);
+    for (const l of hc.errors) console.error(`✗ ${l}`);
   };
   try {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
@@ -2133,18 +2339,31 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       try {
         r = await execute({ sha, manifest, impact, c, runId, attemptId, resume, handoff, rotate });
       } catch (e) {
-        const hn = finishHandoff(handoff);
-        for (const l of hn) console.log(l);
-        record(null, `拒绝（写之前，未发任何写请求）：${e.message}`, [`attempt_id ${attemptId}`, ...hn]);
+        // 写之前就停下（execute 只在第一次写之前重新抛出）：证据 = 本次请求记录；收尾错误单列，不改变原退出码
+        const hc = conclude(handoff, { trace: c.trace, results: [] });
+        printHandoff(hc);
+        const re = safeRecord(
+          null,
+          `拒绝（写之前，未发任何写请求）：${e.message}`,
+          [`attempt_id ${attemptId}`],
+          hc,
+        );
+        if (re) console.error(`✗ ${re}`);
         throw e;
       }
       const verdict = ['成功（V1 全部通过）', '失败（已停）', '拒绝', '不确定（不重试，人工核对）'][r.exit];
-      // 第十轮：N 按本次实际写入行数；N = 0 不留需要存 vault 的文件（finishHandoff）
-      const hn = finishHandoff(handoff);
-      record(r.preflight, verdict, [...executeNotes(r), ...hn]);
-      for (const l of hn) console.log(l);
+      // 第十一轮：交接结论按执行证据（请求记录 + 逐项结果）下；交接 / 清理错误单列，不掩盖原执行结果。
+      // 原退出码非 0（1 / 2 / 3）一律原样保留；原成功 + 必需收尾失败 → 4（INCOMPLETE）。收尾失败不重试任何写操作。
+      const hc = conclude(handoff, { trace: c.trace, results: r.results });
+      let exit = r.exit;
+      if (exit === EXIT.OK && hc.errors.length) exit = EXIT.INCOMPLETE;
+      const re = safeRecord(r.preflight, verdict, executeNotes(r), hc, exit);
+      if (re && exit === EXIT.OK) exit = EXIT.INCOMPLETE;
+      printHandoff(hc);
+      if (re) console.error(`✗ ${re}`);
       console.log(`结果：${verdict}`);
-      return r.exit;
+      if (exit !== r.exit) console.error(`✗ 退出码 ${exit}：${EXIT_MEANING[exit]}`);
+      return exit;
     }
     throw new Refused(`未知子命令 ${cmd}`);
   } catch (e) {

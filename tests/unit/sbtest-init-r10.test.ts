@@ -77,7 +77,8 @@ describe('第十轮 交接 N = 0（种子已提交 + 只补文件、没有显式
     const f = path.join(tmp('n0'), 'h', 'a.jsonl');
     const h = E.fileHandoff(f, { attemptId: 'a1' });
     expect(existsSync(f)).toBe(true);
-    const notes: string[] = E.finishHandoff(h);
+    // 第十一轮：只有执行证据（请求记录里没有任何 Auth Admin 写请求）才能下「没有建号 / 改密」的结论
+    const notes: string[] = E.finishHandoff(h, { trace: [] });
     const text = notes.join('\n');
     expect(text).toMatch(/N = 0/);
     expect(text).toMatch(/不需要.*save_login/);
@@ -100,7 +101,7 @@ describe('第十轮 交接 N = 0（种子已提交 + 只补文件、没有显式
     const f = path.join(tmp('n0x'), 'h', 'a.jsonl');
     const h = E.fileHandoff(f, { attemptId: 'a1' });
     writeFileSync(f, '{"email":"x"}\n');
-    const text = E.finishHandoff(h).join('\n');
+    const text = E.finishHandoff(h, { trace: [] }).join('\n');
     expect(text).toMatch(/N = 0/);
     expect(text).toMatch(/保留.*人工核对/);
     expect(existsSync(f)).toBe(true);
