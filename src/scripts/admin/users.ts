@@ -13,6 +13,7 @@ import {
   adminRepo,
   banText,
   dateTime,
+  degradedText,
   errorText,
   h,
   initAdmin,
@@ -144,7 +145,7 @@ async function load() {
   setStatusText(status, '正在加载…');
   try {
     const offset = Number(state.offset) || 0;
-    const { items, total } = await adminRepo().listUsers({
+    const { items, total, degraded } = await adminRepo().listUsers({
       q: state.q,
       role: (state.role || undefined) as Role | undefined,
       banned: state.banned === '' ? undefined : state.banned === '1',
@@ -181,10 +182,10 @@ async function load() {
         void load();
       },
     });
-    setStatusText(status, '');
+    setStatusText(status, degradedText(degraded));
   } catch (e) {
     if (my !== seq) return;
-    showError(rows, COLS, errorText(e), () => void load());
+    showError(rows, COLS, e, () => void load());
     pager.replaceChildren();
     setStatusText(status, '');
   } finally {

@@ -178,6 +178,8 @@ export function mountEditor(ta: HTMLTextAreaElement, opts: EditorOptions): Edito
     'aria-label': '预览',
     role: 'region',
     'aria-live': 'polite',
+    // 宽屏并排时预览高度跟随编辑区、超出部分在框内滚动（见 community.css）；可聚焦才能用键盘滚动
+    tabindex: '0',
   });
   const counter = h('span', { class: 'composer__count', id: `${id}-count`, 'aria-live': 'polite' });
   const hint = h('span', {

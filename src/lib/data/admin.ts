@@ -3,7 +3,9 @@
  * 权限全部由数据库判定（版主 / 管理员）；这里不做任何「信任前端」的判断。
  */
 import { pageKeyUrl, url } from '@/lib/routes';
+import { SORT_MIGRATION } from './schema-map';
 import {
+  SchemaMissingError,
   categoryId,
   categoryName,
   type Author,
@@ -20,6 +22,11 @@ export type ModAction = 'none' | 'hide' | 'lock' | 'ban' | 'warn';
 export interface Listed<T> {
   items: T[];
   total: number;
+  /**
+   * 能力降级（A15）：库里只有旧版函数（缺 0017 的排序参数）时，退回旧签名读取，
+   * 这里说明哪项功能不可用、需要哪个迁移；UI 显示提示，而不是整页报错。
+   */
+  degraded?: { feature: string; migration: string };
 }
 
 export interface AdminStats {
@@ -380,6 +387,21 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
   const rpc = <T>(name: string, body: Record<string, unknown> = {}) =>
     rest<T>(`rpc/${name}`, { method: 'POST', body, requireAuth: true });
 
+  /**
+   * 带 0017 排序参数调用；库里只有 0009 的旧签名时（PGRST202）去掉 p_sort / p_dir 再调一次，
+   * 并标记「服务端排序需要迁移 0017」。旧签名也不存在 → 原样抛出（缺 0009）。
+   */
+  async function rpcSorted(name: string, base: Record<string, unknown>, sort: Record<string, unknown>) {
+    if (!Object.keys(sort).length) return { rows: await rpc<Row[]>(name, base), degraded: undefined };
+    try {
+      return { rows: await rpc<Row[]>(name, { ...base, ...sort }), degraded: undefined };
+    } catch (e) {
+      if (!(e instanceof SchemaMissingError) || e.object !== name) throw e;
+      const rows = await rpc<Row[]>(name, base);
+      return { rows, degraded: { feature: '服务端排序', migration: SORT_MIGRATION } };
+    }
+  }
+
   const bulk = async (path: string, method: 'PATCH' | 'DELETE', body?: unknown) => {
     const rows = await rest<Row[]>(path, {
       method,
@@ -395,20 +417,23 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
       return toStats(await rpc<Record<string, unknown>>('admin_stats'));
     },
     async listContent(q) {
-      const rows = await rpc<Row[]>('mod_list_content', {
-        p_type: q.type,
-        p_q: q.q?.trim() || null,
-        p_cat: q.category ? categoryName(q.category) : null,
-        p_hidden: q.hidden ?? null,
-        p_reported: q.reported ?? null,
-        p_author: q.author && UUID.test(q.author) ? q.author : null,
-        p_limit: clamp(q.limit, 25),
-        p_offset: off(q.offset),
-        ...(q.sort && CONTENT_SORT.includes(q.sort)
+      const { rows, degraded } = await rpcSorted(
+        'mod_list_content',
+        {
+          p_type: q.type,
+          p_q: q.q?.trim() || null,
+          p_cat: q.category ? categoryName(q.category) : null,
+          p_hidden: q.hidden ?? null,
+          p_reported: q.reported ?? null,
+          p_author: q.author && UUID.test(q.author) ? q.author : null,
+          p_limit: clamp(q.limit, 25),
+          p_offset: off(q.offset),
+        },
+        q.sort && CONTENT_SORT.includes(q.sort)
           ? { p_sort: q.sort, p_dir: q.dir === 'asc' ? 'asc' : 'desc' }
-          : {}),
-      });
-      return { items: (rows ?? []).map(toContentRow), total: num(rows?.[0]?.total) };
+          : {},
+      );
+      return { items: (rows ?? []).map(toContentRow), total: num(rows?.[0]?.total), degraded };
     },
     async setPublished(type, ids, published) {
       const list = uuidList(ids);
@@ -563,17 +588,20 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
       return num(n);
     },
     async listUsers(q = {}) {
-      const rows = await rpc<Row[]>('mod_list_users', {
-        p_q: q.q?.trim() || null,
-        p_role: q.role ?? null,
-        p_banned: q.banned ?? null,
-        p_limit: clamp(q.limit, 25),
-        p_offset: off(q.offset),
-        ...(q.sort && USER_SORT.includes(q.sort)
+      const { rows, degraded } = await rpcSorted(
+        'mod_list_users',
+        {
+          p_q: q.q?.trim() || null,
+          p_role: q.role ?? null,
+          p_banned: q.banned ?? null,
+          p_limit: clamp(q.limit, 25),
+          p_offset: off(q.offset),
+        },
+        q.sort && USER_SORT.includes(q.sort)
           ? { p_sort: q.sort, p_dir: q.dir === 'asc' ? 'asc' : 'desc' }
-          : {}),
-      });
-      return { items: (rows ?? []).map(toAdminUser), total: num(rows?.[0]?.total) };
+          : {},
+      );
+      return { items: (rows ?? []).map(toAdminUser), total: num(rows?.[0]?.total), degraded };
     },
     async getUser(id) {
       if (!UUID.test(id)) return null;

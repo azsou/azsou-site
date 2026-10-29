@@ -113,8 +113,9 @@ export async function handleGuardedAuth(
   if (!v.success)
     return json(400, { error_code: 'turnstile_failed', msg: '人机验证没有通过', codes: v.codes });
 
-  const url = env.PUBLIC_SUPABASE_URL || deps.defaults.url;
-  const key = env.PUBLIC_SUPABASE_KEY || deps.defaults.key;
+  // deps.defaults 是调用方按 scripts/supabase-env.mjs 判定好的配置（env 优先、Vercel 非生产缺配置即报错），
+  // 这里不再自行把 env 与默认值混用（fail-closed，2026-10-28）
+  const { url, key } = deps.defaults;
   const redirectTo = safeRedirect(body.redirectTo, origin);
   let path: string;
   let payload: Record<string, unknown>;

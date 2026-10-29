@@ -171,8 +171,9 @@ export async function handleSubscribe(
   );
   const confirm = randomBytes(32).toString('hex');
   const unsub = unsubscribeToken(ticketSecret, email);
-  const url = env.PUBLIC_SUPABASE_URL || deps.defaults.url;
-  const key = env.PUBLIC_SUPABASE_KEY || deps.defaults.key;
+  // deps.defaults 是调用方按 scripts/supabase-env.mjs 判定好的配置（env 优先、Vercel 非生产缺配置即报错），
+  // 这里不再自行把 env 与默认值混用（fail-closed，2026-10-28）
+  const { url, key } = deps.defaults;
   let res: Response;
   try {
     res = await (deps.fetch ?? fetch)(`${url}/rest/v1/rpc/subscribe_request`, {
@@ -233,8 +234,9 @@ export async function handleOneClickUnsubscribe(
   if (request.method !== 'POST') return json(405, { error_code: 'method' });
   const token = new URL(request.url).searchParams.get('token') ?? '';
   if (!/^[a-f0-9]{64}$/.test(token)) return json(400, { error_code: 'invalid_token' });
-  const url = env.PUBLIC_SUPABASE_URL || deps.defaults.url;
-  const key = env.PUBLIC_SUPABASE_KEY || deps.defaults.key;
+  // deps.defaults 是调用方按 scripts/supabase-env.mjs 判定好的配置（env 优先、Vercel 非生产缺配置即报错），
+  // 这里不再自行把 env 与默认值混用（fail-closed，2026-10-28）
+  const { url, key } = deps.defaults;
   try {
     const res = await (deps.fetch ?? fetch)(`${url}/rest/v1/rpc/subscribe_unsubscribe`, {
       method: 'POST',

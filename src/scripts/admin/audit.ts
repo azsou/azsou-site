@@ -177,7 +177,7 @@ async function load() {
     setStatusText(status, '');
   } catch (e) {
     if (my !== seq) return;
-    showError(rows, 5, errorText(e), () => void load());
+    showError(rows, 5, e, () => void load());
     pager.replaceChildren();
     setStatusText(status, '');
   } finally {

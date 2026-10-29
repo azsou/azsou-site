@@ -3,9 +3,11 @@
  * 界面上的权限判断只为体验；每个写操作都由数据库再校验一次。
  */
 import { getRepository, type AdminRepo, type Profile } from '@/lib/data';
+import { adminApiFor } from '@/lib/data/admin-repo';
 import { friendlyError } from '@/lib/community-errors';
+import { adminErrorLine, describeAdminError } from '@/lib/admin-errors';
 import { url } from '@/lib/routes';
-import { h, viewer } from '../community/ui';
+import { h, viewer, viewerStrict } from '../community/ui';
 import { initAdminEnv } from './env';
 import { initWorkbench } from './workbench';
 
@@ -17,7 +19,7 @@ export { h };
 const root = () => document.querySelector<HTMLElement>('[data-admin]')!;
 
 export function adminRepo(): AdminRepo {
-  const a = getRepository().admin;
+  const a = adminApiFor(getRepository());
   if (!a) throw new Error('当前数据适配器不支持管理后台');
   return a;
 }
@@ -33,7 +35,7 @@ export async function initAdmin(): Promise<Profile | null> {
   const need = el.dataset.require === 'admin' ? 'admin' : 'moderator';
   const gate = el.querySelector<HTMLElement>('[data-admin-gate]')!;
   const status = gate.querySelector<HTMLElement>('[data-gate-status]')!;
-  const me = await viewer();
+  const me = (await viewer()) ?? (await gateProfile(gate, status));
   if (!me) {
     status.hidden = true;
     gate.querySelector<HTMLAnchorElement>('[data-gate-login]')!.href = url.login(
@@ -59,6 +61,36 @@ export async function initAdmin(): Promise<Profile | null> {
   return me;
 }
 
+/**
+ * viewer() 为 null 时区分「真没登录 / 没有资料」与「读取资料失败」（A15 故障注入发现：数据服务故障时门禁误显示登录引导）。
+ * 读取失败 → 门禁显示分类错误与「重试」，点了在原页重新读取，直到成功或确认未登录。
+ */
+async function gateProfile(gate: HTMLElement, status: HTMLElement): Promise<Profile | null> {
+  const card = gate.querySelector<HTMLElement>('[data-gate-error]')!;
+  for (;;) {
+    try {
+      const p = await viewerStrict();
+      card.hidden = true;
+      status.hidden = false;
+      return p;
+    } catch (e) {
+      const info = describeAdminError(e);
+      if (info.kind === 'auth') return null; // 登录失效：按未登录处理，显示登录引导
+      status.hidden = true;
+      card.dataset.errorKind = info.kind;
+      card.querySelector<HTMLElement>('[data-gate-error-title]')!.textContent =
+        `暂时无法验证账号：${info.title}`;
+      card.querySelector<HTMLElement>('[data-gate-error-text]')!.textContent = info.text;
+      const btn = card.querySelector<HTMLButtonElement>('[data-gate-retry]')!;
+      btn.textContent = info.retryLabel;
+      btn.disabled = false;
+      card.hidden = false;
+      await new Promise<void>((resolve) => btn.addEventListener('click', () => resolve(), { once: true }));
+      btn.disabled = true;
+    }
+  }
+}
+
 /** 侧栏「举报队列」的待处理数 */
 export async function refreshOpenCount() {
   const badge = root()?.querySelector<HTMLElement>('[data-open-count]');
@@ -79,7 +111,11 @@ export function setStatusText(el: HTMLElement | null, text: string, kind: 'info'
   el.classList.toggle('notice', kind === 'error');
   el.classList.toggle('notice--error', kind === 'error');
 }
-export const errorText = (e: unknown, fallback = '加载失败，请稍后再试。') => friendlyError(e, fallback);
+/** 能力降级提示（A15：旧库缺 0017 时列表仍可读，只是某项功能不可用） */
+export const degradedText = (d?: { feature: string; migration: string }) =>
+  d ? `${d.feature}需要数据库迁移 ${d.migration}：当前按默认顺序（最新在前）显示。` : '';
+/** 一行错误文字（A15：缺迁移 / 网络 / 超时 / 5xx / 权限 分开说明） */
+export const errorText = (e: unknown, fallback = '加载失败，请稍后再试。') => adminErrorLine(e, fallback);
 
 // ------------------------------------------------------------ URL 状态 ------
 export function readParams<T extends Record<string, string>>(defaults: T): T {

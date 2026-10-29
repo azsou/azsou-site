@@ -126,8 +126,9 @@ export async function handleCommunitySubmit(
   const nowSec = Math.floor((deps.now?.() ?? Date.now()) / 1000);
   const client = clientHash(ticketSecret, clientIp ?? '');
   const ticket = makeCommunityTicket(ticketSecret, k, ticketPayload(k, checked.value), client, nowSec);
-  const url = env.PUBLIC_SUPABASE_URL || deps.defaults.url;
-  const key = env.PUBLIC_SUPABASE_KEY || deps.defaults.key;
+  // deps.defaults 是调用方按 scripts/supabase-env.mjs 判定好的配置（env 优先、Vercel 非生产缺配置即报错），
+  // 这里不再自行把 env 与默认值混用（fail-closed，2026-10-28）
+  const { url, key } = deps.defaults;
   const value = checked.value as unknown as Record<string, string>;
   const [rpc, args] =
     k === 'guestbook'
