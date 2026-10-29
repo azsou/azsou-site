@@ -16,13 +16,14 @@ import {
   summarize,
   verifyDeployment,
 } from '../../scripts/i01/real-acceptance.mjs';
-import { allVectors } from '../../scripts/i01/redirect-vectors.mjs';
+import { BENIGN_DOT_NEXT, allVectors } from '../../scripts/i01/redirect-vectors.mjs';
 
 const SCRIPT = path.resolve(import.meta.dirname, '../../scripts/i01/real-acceptance.mjs');
 // 第六轮 ⑤：预览站必须是该部署的唯一地址（分支别名 *-git-* 会漂移）
 const SITE = 'https://azsou-site-kd7wqy8m5-azsous-projects.vercel.app';
 const SHA = 'a'.repeat(40);
 const DEPLOY_ID = '7387426331';
+const VERCEL_DPL = 'dpl_5cZ2Upxoq7nxYxMXzet1RBuie72G';
 const ENV = {
   I01_CONFIRM_ISOLATED: '1',
   I01_SUPABASE_URL: 'https://ovvfwkmqlejcpatmfqcd.supabase.co',
@@ -34,10 +35,19 @@ const ENV = {
 /** GitHub Deployments API 假数据（路径 → 响应体）；子进程经 TEST_GH_FIXTURE 读 */
 type Fixture = Record<string, { status?: number; body: unknown }>;
 function ghFixture(
-  o: { sha?: string; state?: string; envUrl?: string; env?: string; creator?: string } = {},
+  o: { sha?: string; state?: string; envUrl?: string; env?: string; creator?: string; head?: string } = {},
 ): Fixture {
   const base = `/repos/azsou/azsou-site/deployments/${DEPLOY_ID}`;
+  const host = new URL(SITE).host;
   return {
+    // 第七轮：验收前后各查一次「域名 → Vercel 部署 → SHA → 候选分支头」（只读；这里是唯一地址，别名查询 404）
+    [`/v4/aliases/${host}`]: { status: 404, body: {} },
+    [`/v13/deployments/${host}`]: {
+      body: { id: VERCEL_DPL, url: host, readyState: 'READY', meta: { githubCommitSha: SHA } },
+    },
+    '/repos/azsou/azsou-site/git/ref/heads/candidate/2026-10-27-integrated': {
+      body: { object: { sha: o.head ?? SHA } },
+    },
     [base]: {
       body: {
         id: Number(DEPLOY_ID),
@@ -66,7 +76,7 @@ const fixtureFile = (fx: Fixture) => {
   return f;
 };
 // 子进程里把 fetch 换成哨兵：只有 api.github.com 由假数据回答（部署绑定），其余任何网络请求都抛 NETWORK_CALLED
-const FAKE_FETCH = `const fs=process.getBuiltinModule('fs');const fx=process.env.TEST_GH_FIXTURE?JSON.parse(fs.readFileSync(process.env.TEST_GH_FIXTURE,'utf8')):{};globalThis.fetch=async(u)=>{u=String(u);if(u.startsWith('https://api.github.com/')){const p=new URL(u).pathname;const e=fx[p];return e?new Response(JSON.stringify(e.body),{status:e.status??200,headers:{'content-type':'application/json'}}):new Response('{}',{status:404})}throw new Error('NETWORK_CALLED')}`;
+const FAKE_FETCH = `const fs=process.getBuiltinModule('fs');const fx=process.env.TEST_GH_FIXTURE?JSON.parse(fs.readFileSync(process.env.TEST_GH_FIXTURE,'utf8')):{};globalThis.fetch=async(u)=>{u=String(u);if(u.startsWith('https://api.github.com/')||u.startsWith('https://api.vercel.com/')){const p=new URL(u).pathname;const e=fx[p];return e?new Response(JSON.stringify(e.body),{status:e.status??200,headers:{'content-type':'application/json'}}):new Response('{}',{status:404})}throw new Error('NETWORK_CALLED')}`;
 const NO_NET = `--import=data:text/javascript,${encodeURIComponent(FAKE_FETCH)}`;
 const PNG = Buffer.from(
   '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4580000000049454e44ae426082',
@@ -80,9 +90,14 @@ const GOOD_OBS: Record<string, Record<string, unknown>> = {
     session_established: true,
     replay_rejected: true,
   },
-  'T046-2': { verify_redirect_origin: SITE, new_password_login_ok: true, replay_rejected: true },
+  'T046-2': {
+    verify_redirect_origin: SITE,
+    new_password_login_ok: true,
+    old_password_rejected: true,
+    replay_rejected: true,
+  },
   'T046-3': { landing_origins: [SITE, SITE, SITE] },
-  'T046-4': { user_status: 401, verify_session_issued: false },
+  'T046-4': { user_status: 401, verify_session_issued: false, expired_user_status: 401 },
   'T046-5': {
     turnstile_real_key: true,
     register_api_status: 200,
@@ -100,6 +115,12 @@ const GOOD_OBS: Record<string, Record<string, unknown>> = {
     vectors_executed: allVectors(),
     vectors_rejected_or_idempotent: allVectors().length,
     offsite_navigations: 0,
+    // 第七轮：逐条落点（外域 → /；合法点段 → 规范化路径）
+    vectors: allVectors().map((input) => ({
+      input,
+      landed_origin: SITE,
+      landed_path: (BENIGN_DOT_NEXT.find(([i]) => i === input) ?? [input, '/'])[1],
+    })),
   },
 };
 
@@ -136,6 +157,10 @@ function evidence(ids: string[], tweak?: (m: Manifest, dir: string) => void): st
     site_origin: SITE,
     candidate_sha: SHA,
     operator: '站长',
+    deployment_mapping: {
+      before: { domain: new URL(SITE).host, vercel_deployment_id: VERCEL_DPL, sha: SHA },
+      after: { domain: new URL(SITE).host, vercel_deployment_id: VERCEL_DPL, sha: SHA },
+    },
     steps,
   };
   tweak?.(m, dir);
@@ -248,10 +273,11 @@ describe('真实脚本退出码（子进程，无网络）', () => {
 });
 
 describe('第六轮 ⑤ 部署绑定：实际部署的候选 SHA + 唯一预览地址 + 全表向量', () => {
-  it('分支别名（*-git-*）当预览站 → 2', () => {
+  it('第七轮：稳定候选域名（*-git-*）不再硬拒；解析不到映射 → 2（映射），不是「分支别名」', () => {
     const r = run([], { ...ENV, I01_SITE_URL: 'https://azsou-site-git-candidate-azsou.vercel.app' });
     expect(r.status).toBe(EXIT.PRECONDITION);
-    expect(r.stderr).toMatch(/分支别名/);
+    expect(r.stderr).toMatch(/映射/);
+    expect(r.stderr).not.toMatch(/分支别名/);
   });
   it('缺 I01_CANDIDATE_SHA / I01_GITHUB_DEPLOYMENT_ID → 2', () => {
     const noSha: Record<string, string> = { ...ENV };
