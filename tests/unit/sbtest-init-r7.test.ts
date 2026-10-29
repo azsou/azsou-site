@@ -13,7 +13,7 @@
 import { mkdtempSync, readFileSync, statSync, existsSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as X from '../../scripts/sbtest/init-executor.mjs';
 import {
   FAKE_MG,
@@ -58,6 +58,9 @@ const quiet = async <T>(fn: () => Promise<T>) => {
     console.error = e;
   }
 };
+
+// CLI 用例要从 git 对象库读钉住的迁移（机器忙时单个用例 > 5s；第八轮放宽，避免环境性超时）
+vi.setConfig({ testTimeout: 30_000 });
 
 describe('第七轮 ① 项目服务准入（第一次写之前）', () => {
   it('admitProjectService：200 且 {users:[…]} → 接受；只记数量', async () => {
@@ -252,7 +255,17 @@ describe('第七轮 ③ 失败收紧', () => {
     });
     const code = await quiet(() =>
       E.main(
-        ['execute', '--execute', '--confirm-ref', TEST_REF, '--handoff', 'discard', '--record', rec],
+        // 第八轮：真实目标（injected）不允许 discard → 改用仓库外交接文件
+        [
+          'execute',
+          '--execute',
+          '--confirm-ref',
+          TEST_REF,
+          '--handoff-file',
+          path.join(dir, 'h', 'a.jsonl'),
+          '--record',
+          rec,
+        ],
         { SBTEST_OWNER_APPROVAL: 'test' },
         api.fetchImpl,
       ),
@@ -339,7 +352,7 @@ describe('第七轮 ④ 账号：无邮件路径 + 安全交接', () => {
     const dir = path.join(mkdtempSync(path.join(os.tmpdir(), 'r7-ho-')), 'sub');
     const f = path.join(dir, 'accounts.jsonl');
     const h = E.fileHandoff(f);
-    await h.write('a@example.com', 'pw-1', 'id-1');
+    await h.write('a@example.com', 'pw-1', 'id-1', { run_id: 'r1', attempt_id: 'a1' });
     expect(statSync(f).mode & 0o777).toBe(0o600);
     expect(statSync(dir).mode & 0o777).toBe(0o700);
     expect(() => E.fileHandoff(f)).toThrow(/已存在/);
@@ -415,7 +428,7 @@ describe('第七轮 ④ 续跑：部分账号 / 4 个账号已建、种子未提
     expect(r.exit).toBe(EXIT.OK);
     expect(api.calls.some((x) => x.url.endsWith('/auth/v1/admin/users') && x.method === 'POST')).toBe(false);
   });
-  it('接管 + 文件交接：被接管账号经 Admin PUT 换新密码，交接文件 4 条都可用', async () => {
+  it('接管 + 文件交接 + 显式改密（第八轮：必须列出并单独确认）：被接管账号经 Admin PUT 换新密码，交接文件 4 条都可用', async () => {
     const st = fresh({
       azInit: true,
       ledger: ledgerUpTo(19),
@@ -423,7 +436,12 @@ describe('第七轮 ④ 续跑：部分账号 / 4 个账号已建、种子未提
     });
     const { api, c } = mk(st);
     const f = path.join(mkdtempSync(path.join(os.tmpdir(), 'r7-ho3-')), 'h', 'accounts.jsonl');
-    const r = await run(c, { resume: true, handoff: E.fileHandoff(f) });
+    const both = [synth('admin').email, synth('moderator').email];
+    const r = await run(c, {
+      resume: true,
+      handoff: E.fileHandoff(f, { attemptId: 'a1' }),
+      rotate: { accounts: both, confirm: both },
+    });
     expect(r.exit).toBe(EXIT.OK);
     expect(
       api.calls.filter((x) => x.method === 'PUT' && x.url.includes('/auth/v1/admin/users/')),

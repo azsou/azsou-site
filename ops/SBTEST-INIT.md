@@ -1,4 +1,4 @@
-# azsou-test 初始化执行器与计划（第五轮 2026-10-28，第六轮 / 第七轮 2026-10-29 更新）——**未执行初始化；只做过只读预检**
+# azsou-test 初始化执行器与计划（第五轮 2026-10-28，第六轮 / 第七轮 / 第八轮 2026-10-29 更新）——**未执行初始化；只做过只读预检**
 
 > 执行器：`scripts/sbtest/init-executor.mjs`；钉住清单：`ops/sbtest/init-manifest.json`；影响清单：`ops/sbtest/init-impact.md`（数据 `ops/sbtest/init-impact.json`，由 `scripts/sbtest/impact-local.mjs` 在本机生成）。
 > 测试：`tests/unit/sbtest-init-executor.test.ts`、`tests/unit/sbtest-init-r7.test.ts`（假 Management API / Auth Admin / Storage，不连任何项目）；`tests/db/sbtest-accounts-gotrue.test.ts`（本机官方 GoTrue 二进制，证明无邮件建号 / 改密 / 接管核对）。
@@ -26,7 +26,14 @@
 **项目服务准入（第七轮 ①）**：preflight 与 execute 共用同一段代码；**第一次写之前**（全新执行与 `--resume` 都一样）必须通过。
 只认 `GET /auth/v1/admin/users?per_page=1` 返回 HTTP 200 且响应是 `{users:[…]}`（这个端点只读、且需要 service_role）；401 / 403 / 5xx / 非 JSON / 形状不符 → **不接受（not accepted）→ 拒绝（退出码 2），一个写请求都不发**。
 `/auth/v1/settings` 成功（anon 就能读）或 `/storage/v1/bucket` 返回空列表（任何被接受的 Bearer 都可能）**都不算**准入；`--probe-project` 仍会探测这两个，但只作信息。
-运行记录只写状态与返回条数，不写用户数据。2026-10-29 的真实只读结果：**不接受（401，apikey 没有注入）**——见 `docs/audits/evidence/sbtest/readonly-admission-2026-10-29.md`。
+运行记录只写状态与返回条数，不写用户数据。2026-10-29 的真实只读结果：**不接受（401）**；当时对 `/auth/v1/settings`、`/rest/v1/` 的无头探测返回 `No API key found`（= apikey 没有到达），自带无效 apikey 返回 `Invalid API key`——见 `docs/audits/evidence/sbtest/readonly-admission-2026-10-29.md`、`credential-binding-2026-10-29.md`。
+
+**401 分类（第八轮 B3）**：401 **不一律**解释为「没有注入」。执行器读响应正文按 `classify401` 区分并写进运行记录：
+`no_api_key`（Kong `No API key found in request` = apikey 头没有到达）、`invalid_api_key`（Kong `Invalid API key` = apikey 已送达但值无效 / 不属于该项目）、
+`other`（GoTrue `bad_jwt` / `invalid JWT`、Management API `Unauthorized` 等 = 无法区分缺失 / 无效 / 签名错误）。三类都拒绝（退出码 2）。
+
+**结果解析（第八轮 B1）**：所有 `/database/query[/read-only]` 结果都经同一个解析器 `parseOneRow`：必须恰好 1 行、行是对象、字段存在（值可以是合法的 `null`，例如 `json_agg` 空集）；
+`[]`、`[{}]`、多行、缺字段、值类型不对 → `Uncertain`：写之前 = 拒绝（2），写之后 = 不确定（3），**之后不再发任何写请求**。V1.status 只有 `rows: null` 才算「全部 true」。
 
 **不跟随重定向（第七轮 ②）**：每个请求都以 `redirect: 'manual'` 发出；任何 3xx（同主机或跨主机）→ 拒绝（退出码 2），不向 Location 发请求。
 线路注入只按主机名绑定，跟随跨主机重定向可能把请求带到另一条绑定上。2026-10-29 无凭据实测 `api.supabase.io` 的 `/`、`/v1/projects/{ref}`、`/v1/projects` 都没有重定向（最终主机仍是 `api.supabase.io`，见 `credential-binding-2026-10-29.md`）。
@@ -38,8 +45,8 @@
   `https://ovvfwkmqlejcpatmfqcd.supabase.co`（`SBTEST_MGMT_BASE` / `SBTEST_PROJECT_BASE` 可设，但出了允许清单就拒绝）。
   **`api.supabase.com` 是公共 Management API 域名**（不是「生产 API」）：当前有一个生产范围的连接器绑在上面，而 vault 里 azsou-test 只读 PAT 的范围也写着它，
   线路上注入哪一条不可枚举——所以执行器在任何模式下都不向它发请求；任何含生产 ref 的基址拒绝。
-  任何请求得到 **401 = 线路上没有注入凭据 → 拒绝（退出码 2）**，不当成执行失败、不重试；写操作开始后的 401 附打码清点。
-  沙箱里 Node 的全局 `fetch` 默认不走注入代理：运行时加 `NODE_USE_ENV_PROXY=1`（不加就会 401 → 拒绝）。
+  任何请求得到 **401 → 拒绝（退出码 2）**，并按上面的 401 分类写明是哪一类（不一律当成「没有注入」），不当成执行失败、不重试；写操作开始后的 401 附打码清点。
+  沙箱里 Node 的全局 `fetch` 默认不走注入代理：运行时加 `NODE_USE_ENV_PROXY=1`（不加时项目主机通常回 `No API key found`，Management API 回 401 `Unauthorized`——都拒绝）。
 - `env-token`：只给本机假服务器 / 本机 GoTrue 测试；基址必须是回环地址，所以真实令牌永远到不了真实主机。
 
 **凭据绑定声明**（打码，2026-10-29）：见 `docs/audits/evidence/sbtest/credential-binding-2026-10-29.md`。vault 条目可以列出（id 前缀、标签、vault 范围）；
@@ -97,10 +104,14 @@ DATABASE_URL=postgres://postgres@127.0.0.1:<端口>/postgres node scripts/sbtest
 SBTEST_OWNER_APPROVAL='<批准记录>' NODE_USE_ENV_PROXY=1 \
   node scripts/sbtest/init-executor.mjs execute --execute --confirm-ref ovvfwkmqlejcpatmfqcd \
   --handoff-file ~/.azsou-sbtest/<日期>-accounts.jsonl --record <md>
-# 部分完成后的受控续跑：同上加 --resume（交接文件换一个新路径；已存在的文件不覆盖）
+# 部分完成后的受控续跑：同上加 --resume（交接文件换一个新路径；已存在的文件不覆盖）；被接管账号默认不改密
+# 只有确实要换某些被接管账号的密码时（例如上次交接文件丢了），显式列出并单独确认，两份列表必须逐字相同：
+#   --resume --rotate-passwords sbtest-admin@example.com --confirm-rotate sbtest-admin@example.com
 ```
 
-`execute` **必须显式选择交接方式**：`--handoff-file <仓库外绝对路径>` 或 `--handoff discard`；都没给 → 拒绝（2），一个请求都不发。
+`execute` **必须用交接文件**：`--handoff-file <仓库外绝对路径>`。**正式初始化（injected 真实目标）不允许 `--handoff discard`**（第八轮 B2，拒绝且一个请求都不发）；
+`discard` 只允许本机假服务器 / 演练（env-token + 回环地址）。都没给 → 拒绝（2）。
+每次调用生成新的 `attempt_id`（全新执行时 `run_id = attempt_id`；续跑沿用账本里的 `run_id`），两者都写进运行记录与交接文件的每一行。
 
 ## 8. 执行后验收 V1（第六轮 ③，成功的唯一条件）
 
@@ -125,22 +136,23 @@ SBTEST_OWNER_APPROVAL='<批准记录>' NODE_USE_ENV_PROXY=1 \
 
 续跑矩阵（`RESUME_MATRIX`，与代码逐字一致，单测核对）：
 
-| 状态                                                                      | 续跑动作                                 |
-| ------------------------------------------------------------------------- | ---------------------------------------- |
-| 没有 az_init（B0 前失败）                                                 | --resume 拒绝；C0 仍为空时按全新执行     |
-| 账本为空（B0 已提交、无迁移）                                             | 拒绝：人工核对后决定                     |
-| 账本是清单的严格前缀                                                      | 从下一个迁移续跑，沿用原 run_id          |
-| 账本乱序 / 未知文件 / sha256 不符 / 多个 run_id                           | 拒绝：人工处理                           |
-| 仍有 az-init 会话在运行                                                   | 拒绝：等会话结束后人工确认               |
-| pg_cron 已启用                                                            | 拒绝：状态与执行器不符                   |
-| 迁移未完成却已有合成账号                                                  | 拒绝：状态矛盾                           |
-| 部分账号已建（1–3 个）、种子未提交                                        | 逐个核对后接管，补建缺的账号，再提交种子 |
-| 4 个账号已建、种子未提交                                                  | 全部核对后接管，不建号，提交种子         |
-| 已有账号核对不通过（运行标记缺失或不符、未确认、非 email 身份、名称不符） | 拒绝接管：人工核对，不删除账号           |
-| 种子已提交、合成账号不是 4 个                                             | 拒绝：状态矛盾                           |
-| 种子已提交、账本哈希 ≠ 期望种子哈希                                       | 拒绝：人工处理（哈希不符）               |
-| 种子已提交、文件缺失或部分上传                                            | 只补传缺的文件，再跑 V1                  |
-| 已存在的文件内容不符                                                      | 拒绝：不覆盖                             |
+| 状态                                                                      | 续跑动作                                                                                                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 没有 az_init（B0 前失败）                                                 | --resume 拒绝；C0 仍为空时按全新执行                                                                      |
+| 账本为空（B0 已提交、无迁移）                                             | 拒绝：人工核对后决定                                                                                      |
+| 账本是清单的严格前缀                                                      | 从下一个迁移续跑，沿用原 run_id                                                                           |
+| 账本乱序 / 未知文件 / sha256 不符 / 多个 run_id                           | 拒绝：人工处理                                                                                            |
+| 仍有 az-init 会话在运行                                                   | 拒绝：等会话结束后人工确认                                                                                |
+| pg_cron 已启用                                                            | 拒绝：状态与执行器不符                                                                                    |
+| 迁移未完成却已有合成账号                                                  | 拒绝：状态矛盾                                                                                            |
+| 部分账号已建（1–3 个）、种子未提交                                        | 逐个核对后接管，补建缺的账号，再提交种子                                                                  |
+| 4 个账号已建、种子未提交                                                  | 全部核对后接管，不建号，提交种子                                                                          |
+| 已有账号核对不通过（运行标记缺失或不符、未确认、非 email 身份、名称不符） | 拒绝接管：人工核对，不删除账号                                                                            |
+| 种子已提交、合成账号不是 4 个                                             | 拒绝：状态矛盾                                                                                            |
+| 种子已提交、账本哈希 ≠ 期望种子哈希                                       | 拒绝：人工处理（哈希不符）                                                                                |
+| 种子已提交、文件缺失或部分上传                                            | 只补传缺的文件，再跑 V1                                                                                   |
+| 已存在的文件内容不符                                                      | 拒绝：不覆盖                                                                                              |
+| 被接管的已有账号（任何续跑）                                              | 默认不改密；只有 --rotate-passwords 与 --confirm-rotate 逐字列出的账号才经 Admin PUT 改密并写进新交接文件 |
 
 续跑前的人工核对步骤（全部只读）：
 
@@ -149,18 +161,36 @@ SBTEST_OWNER_APPROVAL='<批准记录>' NODE_USE_ENV_PROXY=1 \
 3. 清点为 `unknown` 或有 az-init 会话在跑时，等会话结束（`pg_stat_activity`）再重新清点；仍不确定就停下交站长。
 4. 符合矩阵里的「续跑」行才加 `--resume`，并给一个**新的**交接文件路径。
 
-## 10. 测试账号：无邮件路径与凭据交接（第七轮 ④）
+## 10. 测试账号：无邮件路径与凭据交接（第七轮 ④，第八轮 B2）
 
 - **不依赖任何邮件**：`@example.com` 收不到信，重置邮件 / 魔法链接都不可用，也不该用。
 - 建号：执行器用 `crypto.randomBytes(18)`（24 字符 base64url）生成密码，经 `POST /auth/v1/admin/users` 一次设置：
   `{ email, password, email_confirm: true, user_metadata: { name }, app_metadata: { az_init_run: <运行 id> } }`。不发信。
-- 接管（续跑）：核对邮箱属于合成清单、`app_metadata.az_init_run` = 账本 run_id、邮箱已确认、只有 email 身份、名称一致；用 `--handoff-file` 时再经 `PUT /auth/v1/admin/users/{id}` `{ password }` 换新密码（原密码在上次运行里已丢弃或已在旧交接文件里）。
-- 交接：`--handoff-file <仓库外绝对路径>`——目录不存在则以 0700 创建（已存在且他人可写 → 拒绝），文件以 `wx` + 0600 创建（已存在 → 拒绝，不覆盖），每行 `{email, password, user_id, project_ref, run_id, set_at}`。
-  站长把 4 条导入 vault（Hark Secured Login，按账号各存一条），确认后删除文件。`--handoff discard` 则密码用完即丢（之后要登录只能再跑一次带交接文件的续跑换密码）。
+- 接管（续跑）：核对邮箱属于合成清单、`app_metadata.az_init_run` = 账本 run_id、邮箱已确认、只有 email 身份、名称一致。
+  **被接管账号默认不改密**（密码在上次运行的交接文件 / vault 里；种子已提交 + 只补文件的续跑也一样）。只有 `--rotate-passwords <邮箱,…>` 与 `--confirm-rotate <同一列表>`
+  逐字一致时，才对列出的账号经 `PUT /auth/v1/admin/users/{id}` `{ password }` 改密并写进**新的**交接文件；列表里有不在本次接管范围的账号 → 拒绝，不写。
+- 交接文件路径检查（第八轮 B2）：必须是绝对路径；逐个路径分量 `lstat`，遇到符号链接就解析真实路径——**任何分量指向仓库（按仓库真实路径比较）→ 拒绝**；
+  最终目录的真实路径在仓库里 → 拒绝；目录必须**正好 0700**（已存在但不是 0700 → 拒绝，不替你改权限）、文件**正好 0600**，二者属主都必须是当前用户；
+  文件以 `O_CREAT | O_EXCL | O_NOFOLLOW` 创建（已存在 / 是链接 → 拒绝）。每行 `{email, password, user_id, project_ref, run_id, attempt_id, set_at}`，`run_id` = 实际沿用的账本 run_id。
+- **0600 文件写好 ≠ 交接完成。** 交接完成 = 每个账号都已存进站长的 Hark vault，且沙箱里的文件已粉碎。密码**禁止**出现在聊天、附件、GitHub（PR / 评论 / 提交 / Actions 产物）、运行记录与日志里。
+
+### 10.1 交接完成的具体路径（文件在 Hark 沙箱里，不在站长电脑上）
+
+执行器跑在 Hark 的沙箱里，交接文件也在沙箱里（例如 `/workspace/.azsou-sbtest/<日期>-accounts.jsonl`，在仓库 `/workspace/work/…` 之外）。站长不需要、也不应该把文件下载到自己电脑。
+
+1. 执行器结束后，Hark 在沙箱里读这个 0600 文件；**对每一行调用一次 Hark 的 `save_login`**（vault 工具），参数只有三项：
+   `{"site": "ovvfwkmqlejcpatmfqcd.supabase.co", "username": "<该行 email>", "password": "<该行 password>"}`。
+   Hark 不在聊天里复述密码、不附文件、不写进任何记录；工具返回的只是 vault 条目 id。（说明：密码会作为工具参数经过 Hark 的工具调用通道——这是存进 vault 的唯一入口，不经过聊天。）
+2. 4 条都返回 id 后，Hark 粉碎文件：同长度随机内容覆盖 → `fsync` → 删除，再确认文件不存在；运行记录只写「已存 4 条 vault 条目（id 前缀）+ 文件已粉碎」。
+3. 站长在 Hark **设置 → 已连接账号（Connected accounts）/ vault** 里核对：站点 `ovvfwkmqlejcpatmfqcd.supabase.co` 下有 4 条 `sbtest-*@example.com` 登录。之后浏览器验收用这些条目自动填写，不需要任何人看到明文。
+4. 任何一步失败（例如只存进 3 条）：**不粉碎文件**，停下告诉站长哪几条已存；文件保持 0600 在沙箱里，等补存完再粉碎。
+   本机演示（假密码、本机 GoTrue、不碰 vault）：`tests/db/sbtest-accounts-gotrue.test.ts`「第八轮 B2 安全交接演示」——生成 → 权限核对 → 逐条 `save_login`（桩，只记调用形状）→ 粉碎；记录里没有任何密码。
+
 - 密码**不进**日志、运行记录、清点、退出信息、trace（单测断言）。
 - 在本机官方 GoTrue（v2.197.0）上证明：`tests/db/sbtest-accounts-gotrue.test.ts` 用执行器同一段代码建号 → 交接文件里的密码能 `grant_type=password` 登录、邮箱已确认、运行标记在 `app_metadata`；`PUT` 改密后旧密码 400、新密码 200；准入端点形状是 `{users:[…]}`。
 
 ## 11. 测试
 
+- `tests/unit/sbtest-init-r8.test.ts`（第八轮：共享解析器 / V1.status `[{}]` `[]` / 续跑运行中会话 n 缺失 / status 核对缺字段；交接 run_id = 账本 run_id + attempt_id、符号链接 / 0700 / 0600 / 属主、不隐式改密、显式改密双列表、真实目标禁止 discard；401 分类、403 措辞）。
 - `tests/unit/sbtest-init-executor.test.ts`（第五 / 六轮）+ `tests/unit/sbtest-init-r7.test.ts`（第七轮：准入 401/403/5xx/形状、重定向、C0 收紧、超时核对形状、写后意外 → 阶段 / 清点 / 运行记录、种子哈希、种子运行标记、交接文件、续跑接管、矩阵与文档一致、影响清单分组）。
 - `tests/db/sbtest-accounts-gotrue.test.ts`：本机 GoTrue，需要 `DATABASE_URL`（与 `npm run test:db` 相同）。

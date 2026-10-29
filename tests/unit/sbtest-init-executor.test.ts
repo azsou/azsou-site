@@ -5,7 +5,11 @@
  *     第六轮：权限预检（403 列项目照常继续、名称 / ref / 区域不符拒绝）、injected 凭据通道（不带头、401 拒绝、主机允许清单）、
  *     V1 验收接入 execute（每项失败都非零）、超时清点、--resume、测试账号密码不进日志 / 记录。
  */
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import * as XX from '../../scripts/sbtest/init-executor.mjs';
 import * as F from './sbtest-fake';
 import type { State } from './sbtest-fake';
 import {
@@ -13,6 +17,7 @@ import {
   MIGRATIONS,
   MGMT_INJECTED_BASE,
   NoInjection,
+  Unauthorized,
   PROD_REF,
   PROJECT_BASE,
   Refused,
@@ -36,6 +41,9 @@ import {
 
 // 第七轮：假服务器抽到 ./sbtest-fake.ts（与 sbtest-init-r7.test.ts 共用）
 const { FAKE_MG, FAKE_PJ, IMPACT, MANIFEST, SHA, fakeApi, fresh, list, mk, read, run } = F;
+
+// CLI 用例要从 git 对象库读钉住的迁移（机器忙时单个用例 > 5s；第八轮放宽，避免环境性超时）
+vi.setConfig({ testTimeout: 30_000 });
 
 describe('ref 允许清单', () => {
   it('只有 azsou-test', () => {
@@ -148,17 +156,26 @@ describe('第六轮 ② 凭据通道：injected（默认）/ env-token（只给�
     ).toBe(true);
     expect(api.calls.some((x) => 'authorization' in x.headers || 'apikey' in x.headers)).toBe(false);
   });
-  it('线路上没注入（401）→ NoInjection 拒绝，不继续发后面的请求', async () => {
+  it('401 → Unauthorized 拒绝（第八轮：按正文分类，「no auth」= other，不断言没注入），不继续发后面的请求', async () => {
     const st = fresh();
     const api = fakeApi(st, { unauthorized: () => true });
     const c = client({ fetchImpl: api.fetchImpl });
-    await expect(preflight(c)).rejects.toThrow(NoInjection);
+    await expect(preflight(c)).rejects.toThrow(Unauthorized);
+    const e1 = await preflight(
+      client({ fetchImpl: fakeApi(fresh(), { unauthorized: () => true }).fetchImpl }),
+    ).catch((e: unknown) => e);
+    expect(e1).toBeInstanceOf(Unauthorized);
+    expect(e1).not.toBeInstanceOf(NoInjection);
     expect(api.calls).toHaveLength(1);
     const st2 = fresh();
     const api2 = fakeApi(st2, { unauthorized: (u) => u.includes('/auth/v1/') });
     const c2 = client({ fetchImpl: api2.fetchImpl });
     // 管理面已注入、项目面 Auth 没注入：第七轮起在第一次写之前的项目服务准入就拒绝（不再等迁移跑完到 U1）
-    await expect(run(c2)).rejects.toThrow(/不接受/);
+    // 第八轮：真实目标必须用交接文件（discard 被拒），这里给一个仓库外临时文件，确认拒绝来自准入
+    const hf = path.join(mkdtempSync(path.join(os.tmpdir(), 'r6-401-')), 'h', 'a.jsonl');
+    await expect(run(c2, { handoff: (XX as any).fileHandoff(hf, { attemptId: 'a1' }) })).rejects.toThrow(
+      /不接受/,
+    );
     expect(api2.calls.some((x) => x.url.endsWith('/database/query'))).toBe(false);
     expect(
       api2.calls.filter((x) => x.url.includes('/auth/v1/admin/users') && x.method === 'POST'),
@@ -179,17 +196,17 @@ describe('第六轮 ② 凭据通道：injected（默认）/ env-token（只给�
     });
     expect(md).not.toMatch(/SECRET|Bearer|apikey:/);
     expect(md).toMatch(/\| GET \| \/v1\/projects\/ovvfwkmqlejcpatmfqcd \| 200 \|/);
-    expect(md).toMatch(/project-scoped/);
+    expect(md).toMatch(/403 不能证明令牌范围/);
     expect(md).not.toContain('10.1.2.3');
   });
 });
 
 describe('第六轮 ① 权限预检：固定目标身份，不要求列项目', () => {
-  it('GET /v1/projects → 403：记为 project-scoped，照常继续', async () => {
+  it('GET /v1/projects → 403：只记录、照常继续（第八轮：403 不能证明令牌范围）', async () => {
     const { c } = mk(fresh({ listStatus: 403 }));
     const r = await verifyTarget(c);
     expect(r.scope.list_projects).toBe(403);
-    expect(r.scope.verdict).toMatch(/project-scoped/);
+    expect(r.scope.verdict).toMatch(/不能证明/);
     expect(r.target.organization_id).not.toBe('org1234567890');
   });
   it('名称 / ref / 区域任何一项不符 → 拒绝；状态不是 ACTIVE_HEALTHY → 拒绝', async () => {

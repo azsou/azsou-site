@@ -1,5 +1,7 @@
 # azsou-test preflight 运行记录（已打码）
 
+> **第八轮更正（2026-10-29）**：本记录原文把 `GET /v1/projects` 的 403 写成「列项目被拒即说明令牌只限一个项目」，这个推论不成立——403 只记录，**不能证明**令牌范围（范围只以站长提供的令牌配置记录为准）；原文的 401 解释同样不一律成立，401 按正文分为 `no_api_key` / `invalid_api_key` / `other`。下面只改了这两处措辞，状态码与请求记录未动。
+
 - 时间：2026-10-29T00:30:07.604Z
 - 执行器：scripts/sbtest/init-executor.mjs（同一执行器，preflight 子命令 = execute 的 P0 + P1 + PS 段，只读）
 - 凭据模式：injected（执行器不带 Authorization / apikey 头；凭据由 vault 按主机名在线路上注入）
@@ -19,7 +21,7 @@
 
 ## 令牌范围
 
-- GET /v1/projects → 403：project-scoped（列项目被拒 = 只授权单个项目，符合要求，不是失败）
+- GET /v1/projects → 403：只记录（403 不能证明令牌范围）
 - 能做：GET /v1/projects/{ref}、POST /v1/projects/{ref}/database/query/read-only（以 supabase_read_only_user 执行）
 - 不能 / 未尝试：列出账号下全部项目（403）；任何写端点（database/query、Auth Admin、Storage 写）本次一律未调用
 - 注意：GET /v1/projects 返回 403 不能证明令牌范围；范围只以站长提供的令牌配置记录为准
