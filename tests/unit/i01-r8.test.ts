@@ -9,11 +9,9 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as RA from '../../scripts/i01/real-acceptance.mjs';
 import * as CHM from '../../scripts/i01/channels.mjs';
-
-vi.setConfig({ testTimeout: 30_000 });
 
 const R = RA as any;
 const CH = CHM as any;
