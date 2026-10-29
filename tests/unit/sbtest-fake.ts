@@ -8,6 +8,11 @@ import * as X from '../../scripts/sbtest/init-executor.mjs';
 const { MIGRATIONS, SYNTHETIC_USERS, TEST_REF, buildManifest, client, expectedCounts, expectedObjects } =
   X as any;
 
+/**
+ * 第九轮：只有真正起子进程（git cat-file / show / ls-tree，经 CLI main 读钉住的迁移）的用例单独放宽到 30s；
+ * 纯逻辑用例保持 vitest 默认 5s（不再整文件 vi.setConfig）。空闲单实例实测耗时见 docs/audits/evidence/sbtest/round9-2026-10-29.md。
+ */
+export const SPAWN_TIMEOUT = 30_000;
 export const SHA = 'a'.repeat(40);
 export const FILES: Record<string, Buffer<ArrayBuffer>> = Object.fromEntries(
   (MIGRATIONS as string[]).map((n) => [

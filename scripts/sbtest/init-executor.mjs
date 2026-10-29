@@ -704,6 +704,24 @@ export const C0_FLAGS = Object.freeze([
   'pg_net_extension',
 ]);
 
+/** C0 / V1 共用的类型判断：标志必须是布尔值 */
+export const isFlag = (x) => typeof x === 'boolean';
+/** 第九轮 V1.cron：计数必须是 number 且是有限非负整数（Number.isInteger 已排除 NaN / ±Infinity；字符串 "0"、[0]、null 都不算） */
+export const isStrictCount = (x) => typeof x === 'number' && Number.isInteger(x) && x >= 0;
+const showVal = (v) => (v === undefined ? '缺失' : typeof v === 'number' ? String(v) : JSON.stringify(v));
+/**
+ * 第九轮 V1.cron 形状核对：只看 cron_extension / cron_schema / cron_jobs 三个字段（复用 C0 的布尔判断，计数更严：isStrictCount）。
+ * 不套用初始化前的「空库」要求——V1 在初始化之后运行，业务表 / 账号 / 对象本来就不是 0。
+ */
+export function cronShapeProblems(p) {
+  if (!isObj(p)) return ['C0 返回为空 / 不是对象（不能判断 cron）'];
+  const bad = [];
+  for (const k of ['cron_extension', 'cron_schema'])
+    if (!isFlag(p[k])) bad.push(`${k} 不是布尔值：${showVal(p[k])}`);
+  if (!isStrictCount(p.cron_jobs)) bad.push(`cron_jobs 不是有限非负整数：${showVal(p.cron_jobs)}`);
+  return bad;
+}
+
 /** C0 形状问题（不论全新执行还是续跑都拒绝） */
 export function c0ShapeProblems(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) return ['C0 返回为空 / 不是对象（不能当成空库）'];
@@ -713,7 +731,7 @@ export function c0ShapeProblems(p) {
   for (const k of C0_COUNTS)
     if (!isCount(p[k])) bad.push(`${k} 缺失或不是非负整数：${JSON.stringify(p[k] ?? null)}`);
   for (const k of C0_FLAGS)
-    if (typeof p[k] !== 'boolean') bad.push(`${k} 缺失或不是布尔值：${JSON.stringify(p[k] ?? null)}`);
+    if (!isFlag(p[k])) bad.push(`${k} 缺失或不是布尔值：${JSON.stringify(p[k] ?? null)}`);
   if (!Array.isArray(p.extensions)) bad.push('extensions 缺失或不是数组');
   return bad;
 }
@@ -1030,12 +1048,17 @@ export async function acceptV1(c, { manifest, impact, runId, statusSql, files = 
   };
   let accounts = [];
   await guard('V1.cron', async () => {
+    // 第九轮：以前 `!x && !y && Number(n) === 0` 会把缺字段 / null / "0" / [0] 当成「没有 cron」放行。
+    // 现在：明确的 true 或计数 > 0 → 不通过（证据已足够，不是不确定）；否则形状不对 → 不确定（exit 3）；
+    // 只有 false / false / 0（类型都正确）才通过。
     const p = await ro(c, C0_SQL, 'preflight', isObj);
-    add('V1.cron', !p.cron_extension && !p.cron_schema && Number(p.cron_jobs) === 0, {
-      cron_extension: p.cron_extension,
-      cron_schema: p.cron_schema,
-      cron_jobs: p.cron_jobs,
-    });
+    const shape = cronShapeProblems(p);
+    const detail = { cron_extension: p.cron_extension, cron_schema: p.cron_schema, cron_jobs: p.cron_jobs };
+    const definite =
+      p.cron_extension === true || p.cron_schema === true || (isStrictCount(p.cron_jobs) && p.cron_jobs > 0);
+    if (definite) return add('V1.cron', false, shape.length ? { ...detail, shape_problems: shape } : detail);
+    if (shape.length) throw new Uncertain(`V1.cron 形状不对：${shape.join('；')}`);
+    add('V1.cron', p.cron_extension === false && p.cron_schema === false && p.cron_jobs === 0, detail);
   });
   await guard('V1.status', async () => {
     // 第八轮 B1：只有合法的 rows:null 才是「全部 true」；[{}]（缺字段）、[]、多行、非数组 → 不确定
@@ -1221,7 +1244,8 @@ const lexists = (p) => {
  * 第八轮路径检查：逐个路径分量 lstat，遇到符号链接就解析真实路径——指向仓库（按仓库真实路径比较）→ 拒绝；
  * 最终目录的真实路径在仓库里 → 拒绝；目录必须正好 0700、文件正好 0600，属主都必须是当前用户；文件以 O_EXCL | O_NOFOLLOW 创建。
  * 文件每行一个 JSON：{ email, password, user_id, project_ref, run_id, attempt_id, set_at }——run_id 由调用方按**实际沿用的账本 run_id** 传入。
- * 0600 文件写好 ≠ 交接完成：要等站长 / Hark 把每条存进 vault 并删除文件（ops/SBTEST-INIT.md §5）。
+ * 0600 文件写好 ≠ 交接完成：要等 Hark 把文件里的**每一行**（N = 本次新建 + 显式改密的账号，不是固定 4 条）存进 vault 并覆盖删除文件；
+ * 部分失败 → 保留文件、停下，不重跑、不改密（ops/SBTEST-INIT.md §10.1）。覆盖删除不保证云端残留不可恢复。
  * @param {string} file 绝对路径，必须在仓库外
  * @param {{ repoRoot?: string, attemptId?: string, expectUid?: number }} [o]
  */
@@ -2065,7 +2089,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
         handoff = 'discard';
       } else
         throw new Refused(
-          'execute 必须显式选择账号密码交接：--handoff-file <仓库外绝对路径>（0600；存进 vault 并删除后才算交接完成）',
+          'execute 必须显式选择账号密码交接：--handoff-file <仓库外绝对路径>（0600；文件里每一行都存进 vault 后才覆盖删除，才算交接完成）',
         );
       c = cc;
       const impact = JSON.parse(readFileSync(path.join(ROOT, 'ops/sbtest/init-impact.json'), 'utf8'));
@@ -2081,7 +2105,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
         ...executeNotes(r),
         ...(handoff !== 'discard'
           ? [
-              `账号密码交接文件：${handoff.path}（0600，${handoff.count()} 条；不含在本记录里）——文件写好 ≠ 交接完成，存进 vault 并删除后才算完成`,
+              `账号密码交接文件：${handoff.path}（0600，N = ${handoff.count()} 条 = 本次新建 + 显式改密的账号；不含在本记录里）——文件写好 ≠ 交接完成：${handoff.count()} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密（ops/SBTEST-INIT.md §10.1）`,
             ]
           : []),
       ]);

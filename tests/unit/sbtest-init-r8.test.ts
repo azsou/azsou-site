@@ -21,12 +21,21 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as X from '../../scripts/sbtest/init-executor.mjs';
-import { MANIFEST, fakeApi, fresh, mk, run, writes, type State, type User } from './sbtest-fake';
+import {
+  MANIFEST,
+  fakeApi,
+  fresh,
+  mk,
+  run,
+  writes,
+  type State,
+  type User,
+  SPAWN_TIMEOUT,
+} from './sbtest-fake';
 
-// CLI 用例要从 git 对象库读钉住的迁移（机器忙时单个用例 > 5s）
-vi.setConfig({ testTimeout: 30_000 });
+// 第九轮：不再整文件放宽超时；只有真正起子进程（git）的用例单独给 SPAWN_TIMEOUT（见 sbtest-fake.ts）
 
 const E = X as any;
 const { EXIT, SYNTHETIC_USERS, TEST_REF, Refused } = E;
@@ -144,32 +153,36 @@ describe('第八轮 B1 严格结果解析（单一共享解析器）', () => {
     await expect(run(c, { resume: true })).rejects.toThrow(Refused);
     expect(writes(api.calls)).toHaveLength(0);
   });
-  it('CLI execute --resume：运行中会话查询缺 n → 退出码 2，没有写请求，运行记录写「不确定」', async () => {
-    const st = fresh({ azInit: true, ledger: realLedgerUpTo(3) });
-    const api = fakeApi(st, { onReadOnly: (q) => (isRunning(q) ? {} : undefined) });
-    const dir = tmp('cli-n');
-    const rec = path.join(dir, 'rec.md');
-    const code = await quiet(() =>
-      E.main(
-        [
-          'execute',
-          '--execute',
-          '--resume',
-          '--confirm-ref',
-          TEST_REF,
-          '--handoff-file',
-          path.join(dir, 'h', 'a.jsonl'),
-          '--record',
-          rec,
-        ],
-        { SBTEST_OWNER_APPROVAL: 'test' },
-        api.fetchImpl,
-      ),
-    );
-    expect(code).toBe(EXIT.REFUSED);
-    expect(writes(api.calls)).toHaveLength(0);
-    expect(readFileSync(rec, 'utf8')).toMatch(/不确定/);
-  });
+  it(
+    'CLI execute --resume：运行中会话查询缺 n → 退出码 2，没有写请求，运行记录写「不确定」',
+    async () => {
+      const st = fresh({ azInit: true, ledger: realLedgerUpTo(3) });
+      const api = fakeApi(st, { onReadOnly: (q) => (isRunning(q) ? {} : undefined) });
+      const dir = tmp('cli-n');
+      const rec = path.join(dir, 'rec.md');
+      const code = await quiet(() =>
+        E.main(
+          [
+            'execute',
+            '--execute',
+            '--resume',
+            '--confirm-ref',
+            TEST_REF,
+            '--handoff-file',
+            path.join(dir, 'h', 'a.jsonl'),
+            '--record',
+            rec,
+          ],
+          { SBTEST_OWNER_APPROVAL: 'test' },
+          api.fetchImpl,
+        ),
+      );
+      expect(code).toBe(EXIT.REFUSED);
+      expect(writes(api.calls)).toHaveLength(0);
+      expect(readFileSync(rec, 'utf8')).toMatch(/不确定/);
+    },
+    SPAWN_TIMEOUT,
+  );
   it('共享解析器 parseOneRow：恰好 1 行、是对象、字段存在（值可以是 null）；其余一律 Uncertain', () => {
     expect(typeof E.parseOneRow).toBe('function');
     expect(E.parseOneRow([{ rows: null }], 'rows')).toBeNull();
@@ -180,47 +193,51 @@ describe('第八轮 B1 严格结果解析（单一共享解析器）', () => {
 });
 
 describe('第八轮 B2 交接 / 续跑一致', () => {
-  it('CLI --resume（部分账号）：交接文件 run_id = 账本沿用的 run_id；另有本次调用的 attempt_id（≠ run_id）；运行记录写 attempt_id', async () => {
-    const st = fresh({
-      azInit: true,
-      ledger: realLedgerUpTo(19),
-      users: [adoptable('admin'), adoptable('user')],
-    });
-    const api = fakeApi(st, { onReadOnly: statusOk });
-    const dir = tmp('runid');
-    const hf = path.join(dir, 'h', 'a.jsonl');
-    const rec = path.join(dir, 'rec.md');
-    const code = await quiet(() =>
-      E.main(
-        [
-          'execute',
-          '--execute',
-          '--resume',
-          '--confirm-ref',
-          TEST_REF,
-          '--handoff-file',
-          hf,
-          '--record',
-          rec,
-        ],
-        { SBTEST_OWNER_APPROVAL: 'test' },
-        api.fetchImpl,
-      ),
-    );
-    expect(code).toBe(EXIT.OK);
-    const lines = readFileSync(hf, 'utf8')
-      .trim()
-      .split('\n')
-      .map((l) => JSON.parse(l));
-    expect(lines.length).toBeGreaterThan(0);
-    for (const l of lines) {
-      expect(l.run_id).toBe('old1');
-      expect(l.attempt_id).toMatch(/^\d{8}T\d{6}-[0-9a-f]{6}$/);
-      expect(l.attempt_id).not.toBe(l.run_id);
-    }
-    expect(new Set(st.ledger.map((r) => r.run_id))).toEqual(new Set(['old1']));
-    expect(readFileSync(rec, 'utf8')).toContain(lines[0].attempt_id);
-  });
+  it(
+    'CLI --resume（部分账号）：交接文件 run_id = 账本沿用的 run_id；另有本次调用的 attempt_id（≠ run_id）；运行记录写 attempt_id',
+    async () => {
+      const st = fresh({
+        azInit: true,
+        ledger: realLedgerUpTo(19),
+        users: [adoptable('admin'), adoptable('user')],
+      });
+      const api = fakeApi(st, { onReadOnly: statusOk });
+      const dir = tmp('runid');
+      const hf = path.join(dir, 'h', 'a.jsonl');
+      const rec = path.join(dir, 'rec.md');
+      const code = await quiet(() =>
+        E.main(
+          [
+            'execute',
+            '--execute',
+            '--resume',
+            '--confirm-ref',
+            TEST_REF,
+            '--handoff-file',
+            hf,
+            '--record',
+            rec,
+          ],
+          { SBTEST_OWNER_APPROVAL: 'test' },
+          api.fetchImpl,
+        ),
+      );
+      expect(code).toBe(EXIT.OK);
+      const lines = readFileSync(hf, 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l));
+      expect(lines.length).toBeGreaterThan(0);
+      for (const l of lines) {
+        expect(l.run_id).toBe('old1');
+        expect(l.attempt_id).toMatch(/^\d{8}T\d{6}-[0-9a-f]{6}$/);
+        expect(l.attempt_id).not.toBe(l.run_id);
+      }
+      expect(new Set(st.ledger.map((r) => r.run_id))).toEqual(new Set(['old1']));
+      expect(readFileSync(rec, 'utf8')).toContain(lines[0].attempt_id);
+    },
+    SPAWN_TIMEOUT,
+  );
   it('种子已提交 + 只补文件的续跑（带交接文件）：不隐式改密——没有任何 PUT，旧密码不变', async () => {
     const st = seedDoneFilesMissing();
     const { api, c } = mk(st);
@@ -248,59 +265,63 @@ describe('第八轮 B2 交接 / 续跑一致', () => {
       .sort();
     expect(emails).toEqual([synth('banned').email, synth('user').email].sort());
   });
-  it('CLI 显式改密：--rotate-passwords 列出账号但缺 --confirm-rotate（或不一致）→ 拒绝且不发请求；一致 → 只改列出的账号', async () => {
-    const { s, f } = sentinelFetch();
-    const dir = tmp('rot');
-    const a = synth('admin').email;
-    const m = synth('moderator').email;
-    const base = ['execute', '--execute', '--resume', '--confirm-ref', TEST_REF];
-    expect(
-      await quiet(() =>
-        E.main(
-          [...base, '--handoff-file', path.join(dir, 'h1', 'a.jsonl'), '--rotate-passwords', a],
-          { SBTEST_OWNER_APPROVAL: 't' },
-          f,
+  it(
+    'CLI 显式改密：--rotate-passwords 列出账号但缺 --confirm-rotate（或不一致）→ 拒绝且不发请求；一致 → 只改列出的账号',
+    async () => {
+      const { s, f } = sentinelFetch();
+      const dir = tmp('rot');
+      const a = synth('admin').email;
+      const m = synth('moderator').email;
+      const base = ['execute', '--execute', '--resume', '--confirm-ref', TEST_REF];
+      expect(
+        await quiet(() =>
+          E.main(
+            [...base, '--handoff-file', path.join(dir, 'h1', 'a.jsonl'), '--rotate-passwords', a],
+            { SBTEST_OWNER_APPROVAL: 't' },
+            f,
+          ),
         ),
-      ),
-    ).toBe(EXIT.REFUSED);
-    expect(
-      await quiet(() =>
-        E.main(
-          [
-            ...base,
-            '--handoff-file',
-            path.join(dir, 'h2', 'a.jsonl'),
-            '--rotate-passwords',
-            a,
-            '--confirm-rotate',
-            m,
-          ],
-          { SBTEST_OWNER_APPROVAL: 't' },
-          f,
+      ).toBe(EXIT.REFUSED);
+      expect(
+        await quiet(() =>
+          E.main(
+            [
+              ...base,
+              '--handoff-file',
+              path.join(dir, 'h2', 'a.jsonl'),
+              '--rotate-passwords',
+              a,
+              '--confirm-rotate',
+              m,
+            ],
+            { SBTEST_OWNER_APPROVAL: 't' },
+            f,
+          ),
         ),
-      ),
-    ).toBe(EXIT.REFUSED);
-    expect(s.called).toBe(0);
-    const st = seedDoneFilesMissing(true);
-    const api = fakeApi(st, { onReadOnly: statusOk });
-    const hf = path.join(dir, 'h3', 'a.jsonl');
-    const code = await quiet(() =>
-      E.main(
-        [...base, '--handoff-file', hf, '--rotate-passwords', a, '--confirm-rotate', a],
-        { SBTEST_OWNER_APPROVAL: 't' },
-        api.fetchImpl,
-      ),
-    );
-    expect(code).toBe(EXIT.OK);
-    expect(puts(api.calls)).toHaveLength(1);
-    const lines = readFileSync(hf, 'utf8')
-      .trim()
-      .split('\n')
-      .map((l) => JSON.parse(l));
-    expect(lines.map((l) => l.email)).toEqual([a]);
-    expect(st.users.find((u) => u.email === a)!.password).toBe(lines[0].password);
-    expect(st.users.find((u) => u.email === m)!.password).toBe('old-pw-moderator');
-  });
+      ).toBe(EXIT.REFUSED);
+      expect(s.called).toBe(0);
+      const st = seedDoneFilesMissing(true);
+      const api = fakeApi(st, { onReadOnly: statusOk });
+      const hf = path.join(dir, 'h3', 'a.jsonl');
+      const code = await quiet(() =>
+        E.main(
+          [...base, '--handoff-file', hf, '--rotate-passwords', a, '--confirm-rotate', a],
+          { SBTEST_OWNER_APPROVAL: 't' },
+          api.fetchImpl,
+        ),
+      );
+      expect(code).toBe(EXIT.OK);
+      expect(puts(api.calls)).toHaveLength(1);
+      const lines = readFileSync(hf, 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l));
+      expect(lines.map((l) => l.email)).toEqual([a]);
+      expect(st.users.find((u) => u.email === a)!.password).toBe(lines[0].password);
+      expect(st.users.find((u) => u.email === m)!.password).toBe('old-pw-moderator');
+    },
+    SPAWN_TIMEOUT,
+  );
   it('显式改密列出的账号不在被接管账号里 → 拒绝，不写', async () => {
     const st = fresh({ azInit: true, ledger: ledgerUpTo(19), users: [adoptable('admin')] });
     const { api, c } = mk(st);
@@ -364,47 +385,55 @@ describe('第八轮 B2 交接 / 续跑一致', () => {
     expect(l.attempt_id).toBe('20261029T110000-abcdef');
     expect(() => h.write('b@example.com', 'pw', null, {})).toThrow(Refused);
   });
-  it('CLI execute：--handoff-file 经符号链接指向仓库 → 退出码 2，不发请求，仓库里不留文件', async () => {
-    const probe = path.join(process.cwd(), `.r8-probe-${process.pid}`);
-    mkdirSync(probe, { mode: 0o700 });
-    try {
-      const out = tmp('cli-link');
-      symlinkSync(probe, path.join(out, 'link'));
+  it(
+    'CLI execute：--handoff-file 经符号链接指向仓库 → 退出码 2，不发请求，仓库里不留文件',
+    async () => {
+      const probe = path.join(process.cwd(), `.r8-probe-${process.pid}`);
+      mkdirSync(probe, { mode: 0o700 });
+      try {
+        const out = tmp('cli-link');
+        symlinkSync(probe, path.join(out, 'link'));
+        const { s, f } = sentinelFetch();
+        const code = await quiet(() =>
+          E.main(
+            [
+              'execute',
+              '--execute',
+              '--confirm-ref',
+              TEST_REF,
+              '--handoff-file',
+              path.join(out, 'link', 'h', 'a.jsonl'),
+            ],
+            { SBTEST_OWNER_APPROVAL: 'x' },
+            f,
+          ),
+        );
+        expect(code).toBe(EXIT.REFUSED);
+        expect(s.called).toBe(0);
+        expect(readdirSync(probe)).toEqual([]);
+      } finally {
+        rmSync(probe, { recursive: true, force: true });
+      }
+    },
+    SPAWN_TIMEOUT,
+  );
+
+  it(
+    'CLI 正式初始化（injected 真实目标）+ --handoff discard → 退出码 2，一个请求都不发',
+    async () => {
       const { s, f } = sentinelFetch();
       const code = await quiet(() =>
         E.main(
-          [
-            'execute',
-            '--execute',
-            '--confirm-ref',
-            TEST_REF,
-            '--handoff-file',
-            path.join(out, 'link', 'h', 'a.jsonl'),
-          ],
+          ['execute', '--execute', '--confirm-ref', TEST_REF, '--handoff', 'discard'],
           { SBTEST_OWNER_APPROVAL: 'x' },
           f,
         ),
       );
       expect(code).toBe(EXIT.REFUSED);
       expect(s.called).toBe(0);
-      expect(readdirSync(probe)).toEqual([]);
-    } finally {
-      rmSync(probe, { recursive: true, force: true });
-    }
-  });
-
-  it('CLI 正式初始化（injected 真实目标）+ --handoff discard → 退出码 2，一个请求都不发', async () => {
-    const { s, f } = sentinelFetch();
-    const code = await quiet(() =>
-      E.main(
-        ['execute', '--execute', '--confirm-ref', TEST_REF, '--handoff', 'discard'],
-        { SBTEST_OWNER_APPROVAL: 'x' },
-        f,
-      ),
-    );
-    expect(code).toBe(EXIT.REFUSED);
-    expect(s.called).toBe(0);
-  });
+    },
+    SPAWN_TIMEOUT,
+  );
   it('execute API：真实目标（injected）且交接为 discard / 未给 → 拒绝，一个请求都不发', async () => {
     for (const handoff of ['discard', undefined]) {
       const { s, f } = sentinelFetch();

@@ -13,7 +13,7 @@
 import { mkdtempSync, readFileSync, statSync, existsSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as X from '../../scripts/sbtest/init-executor.mjs';
 import {
   FAKE_MG,
@@ -28,6 +28,7 @@ import {
   run,
   writes,
   type State,
+  SPAWN_TIMEOUT,
 } from './sbtest-fake';
 
 const E = X as any;
@@ -59,8 +60,7 @@ const quiet = async <T>(fn: () => Promise<T>) => {
   }
 };
 
-// CLI 用例要从 git 对象库读钉住的迁移（机器忙时单个用例 > 5s；第八轮放宽，避免环境性超时）
-vi.setConfig({ testTimeout: 30_000 });
+// 第九轮：不再整文件放宽超时；只有真正起子进程（git）的用例单独给 SPAWN_TIMEOUT（见 sbtest-fake.ts）
 
 describe('第七轮 ① 项目服务准入（第一次写之前）', () => {
   it('admitProjectService：200 且 {users:[…]} → 接受；只记数量', async () => {
@@ -239,43 +239,47 @@ describe('第七轮 ③ 失败收紧', () => {
       expect(r.inventory.items.ledger).toHaveLength(5);
     });
 
-  it('CLI execute：写后出意外 → 运行记录里有阶段、已知结果与清点', async () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), 'r7-ex-'));
-    const rec = path.join(dir, 'rec.md');
-    const st = fresh();
-    let n = 0;
-    const api = fakeApi(st, {
-      // 真实 status.sql 文本会被通用假回答误配，这里显式回答 status 查询：第 1 次（0002）全 true，第 2 次（0003）网络错误
-      onReadOnly: (q) => {
-        if (!(q.includes('as rows') && q.includes('step <='))) return undefined;
-        return ++n === 2
-          ? (Promise.reject(new TypeError('fetch failed')) as unknown as Response)
-          : { rows: null };
-      },
-    });
-    const code = await quiet(() =>
-      E.main(
-        // 第八轮：真实目标（injected）不允许 discard → 改用仓库外交接文件
-        [
-          'execute',
-          '--execute',
-          '--confirm-ref',
-          TEST_REF,
-          '--handoff-file',
-          path.join(dir, 'h', 'a.jsonl'),
-          '--record',
-          rec,
-        ],
-        { SBTEST_OWNER_APPROVAL: 'test' },
-        api.fetchImpl,
-      ),
-    );
-    expect(code).toBe(EXIT.UNKNOWN);
-    const md = readFileSync(rec, 'utf8');
-    expect(md).toMatch(/阶段[：:] ?0003/);
-    expect(md).toMatch(/0001.*committed/);
-    expect(md).toMatch(/清点/);
-  });
+  it(
+    'CLI execute：写后出意外 → 运行记录里有阶段、已知结果与清点',
+    async () => {
+      const dir = mkdtempSync(path.join(os.tmpdir(), 'r7-ex-'));
+      const rec = path.join(dir, 'rec.md');
+      const st = fresh();
+      let n = 0;
+      const api = fakeApi(st, {
+        // 真实 status.sql 文本会被通用假回答误配，这里显式回答 status 查询：第 1 次（0002）全 true，第 2 次（0003）网络错误
+        onReadOnly: (q) => {
+          if (!(q.includes('as rows') && q.includes('step <='))) return undefined;
+          return ++n === 2
+            ? (Promise.reject(new TypeError('fetch failed')) as unknown as Response)
+            : { rows: null };
+        },
+      });
+      const code = await quiet(() =>
+        E.main(
+          // 第八轮：真实目标（injected）不允许 discard → 改用仓库外交接文件
+          [
+            'execute',
+            '--execute',
+            '--confirm-ref',
+            TEST_REF,
+            '--handoff-file',
+            path.join(dir, 'h', 'a.jsonl'),
+            '--record',
+            rec,
+          ],
+          { SBTEST_OWNER_APPROVAL: 'test' },
+          api.fetchImpl,
+        ),
+      );
+      expect(code).toBe(EXIT.UNKNOWN);
+      const md = readFileSync(rec, 'utf8');
+      expect(md).toMatch(/阶段[：:] ?0003/);
+      expect(md).toMatch(/0001.*committed/);
+      expect(md).toMatch(/清点/);
+    },
+    SPAWN_TIMEOUT,
+  );
 
   it('V1：seed 账本哈希格式对但不是本次种子的实际哈希 → V1.ledger 不通过', async () => {
     const st = fresh();
@@ -376,27 +380,31 @@ describe('第七轮 ④ 账号：无邮件路径 + 安全交接', () => {
     for (const l of lines) expect(blob).not.toContain(l.password);
     expect(api.calls.filter((x) => x.method === 'PUT')).toHaveLength(0);
   });
-  it('CLI execute 必须显式选择交接方式（--handoff-file <仓库外路径> 或 --handoff discard），否则不发任何请求', async () => {
-    let called = 0;
-    const sentinel = (() => {
-      called++;
-      throw new Error('NETWORK');
-    }) as unknown as typeof fetch;
-    const code = await quiet(() =>
-      E.main(['execute', '--execute', '--confirm-ref', TEST_REF], { SBTEST_OWNER_APPROVAL: 'x' }, sentinel),
-    );
-    expect(code).toBe(EXIT.REFUSED);
-    expect(called).toBe(0);
-    const code2 = await quiet(() =>
-      E.main(
-        ['execute', '--execute', '--confirm-ref', TEST_REF, '--handoff-file', path.resolve('x.jsonl')],
-        { SBTEST_OWNER_APPROVAL: 'x' },
-        sentinel,
-      ),
-    );
-    expect(code2).toBe(EXIT.REFUSED);
-    expect(called).toBe(0);
-  });
+  it(
+    'CLI execute 必须显式选择交接方式（--handoff-file <仓库外路径> 或 --handoff discard），否则不发任何请求',
+    async () => {
+      let called = 0;
+      const sentinel = (() => {
+        called++;
+        throw new Error('NETWORK');
+      }) as unknown as typeof fetch;
+      const code = await quiet(() =>
+        E.main(['execute', '--execute', '--confirm-ref', TEST_REF], { SBTEST_OWNER_APPROVAL: 'x' }, sentinel),
+      );
+      expect(code).toBe(EXIT.REFUSED);
+      expect(called).toBe(0);
+      const code2 = await quiet(() =>
+        E.main(
+          ['execute', '--execute', '--confirm-ref', TEST_REF, '--handoff-file', path.resolve('x.jsonl')],
+          { SBTEST_OWNER_APPROVAL: 'x' },
+          sentinel,
+        ),
+      );
+      expect(code2).toBe(EXIT.REFUSED);
+      expect(called).toBe(0);
+    },
+    SPAWN_TIMEOUT,
+  );
 });
 
 describe('第七轮 ④ 续跑：部分账号 / 4 个账号已建、种子未提交 → 核对后接管', () => {

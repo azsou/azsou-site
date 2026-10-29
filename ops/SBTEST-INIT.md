@@ -117,15 +117,15 @@ SBTEST_OWNER_APPROVAL='<批准记录>' NODE_USE_ENV_PROXY=1 \
 
 `execute` 在 F1 之后自动跑 V1（全部只读 + Storage 下载）；**7 项全部通过才返回 0**，任何一项不通过 → 1：
 
-| 项          | 内容                                                                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| V1.cron     | 没有 pg_cron 扩展、没有 cron schema / 任务                                                                                                              |
-| V1.status   | `db/verify/status.sql` 全为 true                                                                                                                        |
-| V1.objects  | `init-impact.json` 里 public / private / storage / auth 的每个对象都存在（341 个中除 extensions 函数），且 pg_trgm 扩展存在                             |
-| V1.ledger   | `az_init.applied` 恰好 20 行：0001–0019 名称与 sha256 = 清单；seed 1 行且 **sha256 = 按真实账号 id + run_id 重算的期望种子哈希**；run_id 一致；无未知行 |
-| V1.accounts | 4 个合成账号存在、邮箱已确认、只有 email 身份；角色 admin / moderator / user / user + banned（且有生效封禁）                                            |
-| V1.seed     | 种子相关表行数 = 影响清单期望（迁移自带行 + 账号行 + 种子新增行）                                                                                       |
-| V1.storage  | ugc-images 恰好 2 个对象，路径 = `<测试用户 id>/<文件名>`，重新下载 sha256 一致                                                                         |
+| 项          | 内容                                                                                                                                                                                                                                                                                                     |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1.cron     | 没有 pg_cron 扩展、没有 cron schema / 任务。第九轮严格：`cron_extension` / `cron_schema` 必须是布尔值、`cron_jobs` 必须是有限非负整数（number），只有 false / false / 0 通过；明确的 true 或 > 0 → 不通过；缺字段 / null / `"0"` / NaN / 数组等形状不对 → **不确定（exit 3）**。不套用初始化前的空库要求 |
+| V1.status   | `db/verify/status.sql` 全为 true                                                                                                                                                                                                                                                                         |
+| V1.objects  | `init-impact.json` 里 public / private / storage / auth 的每个对象都存在（341 个中除 extensions 函数），且 pg_trgm 扩展存在                                                                                                                                                                              |
+| V1.ledger   | `az_init.applied` 恰好 20 行：0001–0019 名称与 sha256 = 清单；seed 1 行且 **sha256 = 按真实账号 id + run_id 重算的期望种子哈希**；run_id 一致；无未知行                                                                                                                                                  |
+| V1.accounts | 4 个合成账号存在、邮箱已确认、只有 email 身份；角色 admin / moderator / user / user + banned（且有生效封禁）                                                                                                                                                                                             |
+| V1.seed     | 种子相关表行数 = 影响清单期望（迁移自带行 + 账号行 + 种子新增行）                                                                                                                                                                                                                                        |
+| V1.storage  | ugc-images 恰好 2 个对象，路径 = `<测试用户 id>/<文件名>`，重新下载 sha256 一致                                                                                                                                                                                                                          |
 
 ## 9. 失败处理、清点与续跑矩阵（第七轮 ③④）
 
@@ -172,25 +172,38 @@ SBTEST_OWNER_APPROVAL='<批准记录>' NODE_USE_ENV_PROXY=1 \
 - 交接文件路径检查（第八轮 B2）：必须是绝对路径；逐个路径分量 `lstat`，遇到符号链接就解析真实路径——**任何分量指向仓库（按仓库真实路径比较）→ 拒绝**；
   最终目录的真实路径在仓库里 → 拒绝；目录必须**正好 0700**（已存在但不是 0700 → 拒绝，不替你改权限）、文件**正好 0600**，二者属主都必须是当前用户；
   文件以 `O_CREAT | O_EXCL | O_NOFOLLOW` 创建（已存在 / 是链接 → 拒绝）。每行 `{email, password, user_id, project_ref, run_id, attempt_id, set_at}`，`run_id` = 实际沿用的账本 run_id。
-- **0600 文件写好 ≠ 交接完成。** 交接完成 = 每个账号都已存进站长的 Hark vault，且沙箱里的文件已粉碎。密码**禁止**出现在聊天、附件、GitHub（PR / 评论 / 提交 / Actions 产物）、运行记录与日志里。
+- **0600 文件写好 ≠ 交接完成。** 交接完成 = 文件里的每一行（N 条，见 §10.1）都已存进站长的 Hark vault，且沙箱里的文件已覆盖删除（尽力而为，不保证云端残留不可恢复）。密码**禁止**出现在聊天、附件、GitHub（PR / 评论 / 提交 / Actions 产物）、运行记录与日志里。
 
-### 10.1 交接完成的具体路径（文件在 Hark 沙箱里，不在站长电脑上）
+### 10.1 交接完成的具体路径（文件在 Hark 沙箱里，不在站长电脑上；第九轮按实际行数核对）
 
 执行器跑在 Hark 的沙箱里，交接文件也在沙箱里（例如 `/workspace/.azsou-sbtest/<日期>-accounts.jsonl`，在仓库 `/workspace/work/…` 之外）。站长不需要、也不应该把文件下载到自己电脑。
 
-1. 执行器结束后，Hark 在沙箱里读这个 0600 文件；**对每一行调用一次 Hark 的 `save_login`**（vault 工具），参数只有三项：
-   `{"site": "ovvfwkmqlejcpatmfqcd.supabase.co", "username": "<该行 email>", "password": "<该行 password>"}`。
-   Hark 不在聊天里复述密码、不附文件、不写进任何记录；工具返回的只是 vault 条目 id。（说明：密码会作为工具参数经过 Hark 的工具调用通道——这是存进 vault 的唯一入口，不经过聊天。）
-2. 4 条都返回 id 后，Hark 粉碎文件：同长度随机内容覆盖 → `fsync` → 删除，再确认文件不存在；运行记录只写「已存 4 条 vault 条目（id 前缀）+ 文件已粉碎」。
-3. 站长在 Hark **设置 → 已连接账号（Connected accounts）/ vault** 里核对：站点 `ovvfwkmqlejcpatmfqcd.supabase.co` 下有 4 条 `sbtest-*@example.com` 登录。之后浏览器验收用这些条目自动填写，不需要任何人看到明文。
-4. 任何一步失败（例如只存进 3 条）：**不粉碎文件**，停下告诉站长哪几条已存；文件保持 0600 在沙箱里，等补存完再粉碎。
-   本机演示（假密码、本机 GoTrue、不碰 vault）：`tests/db/sbtest-accounts-gotrue.test.ts`「第八轮 B2 安全交接演示」——生成 → 权限核对 → 逐条 `save_login`（桩，只记调用形状）→ 粉碎；记录里没有任何密码。
+**N = 交接文件的实际行数** = 本次运行**真正新建**的账号 + 经 `--rotate-passwords` / `--confirm-rotate` **显式改密**的账号。被接管但没改密的账号不在文件里（它们的密码仍是上次交接 / vault 里的那条）。
+N 可以是 1–4 中任何一个数（全新执行通常是 4，部分账号续跑可能是 1–3），**不是固定 4 条**；执行器的运行记录写明「交接文件 N 条」。
+
+1. 执行器结束后，Hark 在沙箱里读这个 0600 文件，先核对：行数 = 运行记录里的 N；每行 `project_ref` = `ovvfwkmqlejcpatmfqcd`、`run_id` = 账本 run_id、邮箱在合成清单里且不重复。任何一项不符 → 停下，不存、不删除文件。
+2. **对每一行调用一次 Hark 的 `save_login`**（vault 工具），参数只有三项：
+   `{"site": "<Preview 登录页所在域名，见下>", "username": "<该行 email>", "password": "<该行 password>"}`。
+   Hark 不在聊天里复述密码、不附文件、不写进任何记录；工具返回的只是 vault 条目 id。
+   （说明：密码会作为工具调用参数经过 Hark 的工具调用通道——这是存进 vault 的唯一入口，不经过聊天；这些参数在 Hark 平台侧的会话记录 / 日志里保留多久、谁能看到，沙箱里无法确认，按「可能被记录」对待。）
+   `site` 应是浏览器验收时**实际输入密码的页面所在域名**（站点自己的 `/login/` 页，也就是候选 Preview 的稳定域名），而不是 `ovvfwkmqlejcpatmfqcd.supabase.co`：
+   站点前端用 anon key 从登录页调用 Auth API，用户从不在 `*.supabase.co` 上输入密码，vault 按页面域名匹配自动填写。具体域名在候选 Preview 部署批准后确定。
+3. **N 条全部返回 id** 后，Hark 删除文件：同长度随机内容覆盖 → `fsync` → 删除，再确认文件不存在；运行记录只写「已存 N 条 vault 条目（id 前缀）+ 本地文件已覆盖删除」。
+   **覆盖删除只是尽力而为，不保证云端残留不可恢复**：`/workspace` 是 Hark 的持久云端工作区，底层存储的快照、副本、写时复制 / 日志型文件系统都可能保留旧块，沙箱里无法核实或清除。
+   所以真正的保障是：这批密码只用于隔离测试项目的合成账号；若担心残留，站长可让 Hark 用 `--rotate-passwords` + `--confirm-rotate` 显式改密（新密码同样走本节流程），旧密码随即失效。
+4. 站长在 Hark **设置 → 已连接账号（Connected accounts）** 里核对：上一步的 `site` 下有 N 条 `sbtest-*@example.com` 登录，邮箱与运行记录列出的新建 / 改密账号一一对应。之后浏览器验收用这些条目自动填写，不需要任何人看到明文。
+5. **部分失败（例如 N = 4 只存进 3 条）**：立即停下，**不删除文件**（保持 0600 在沙箱里），告诉站长哪几条已存（vault id 前缀）、哪几条没存；只补存缺的那几条，全部存完再执行第 3 步。
+   **不得**为了「补齐」而重跑执行器、重新建号或改密——任何改密都必须由站长明确要求并走 `--rotate-passwords` / `--confirm-rotate`，不会有静默改密。
+   本机演示（假密码、本机 GoTrue、不碰 vault）：`tests/db/sbtest-accounts-gotrue.test.ts`「第八轮 B2 安全交接演示」——生成 → 权限核对 → 逐条 `save_login`（桩，只记调用形状）→ 覆盖删除；记录里没有任何密码。
+   （第八轮演示的桩里 `site` 写的是 `ovvfwkmqlejcpatmfqcd.supabase.co`；第九轮起推荐改用 Preview 登录页域名，见第 2 步。桩只记调用形状，不影响演示结论。）
 
 - 密码**不进**日志、运行记录、清点、退出信息、trace（单测断言）。
 - 在本机官方 GoTrue（v2.197.0）上证明：`tests/db/sbtest-accounts-gotrue.test.ts` 用执行器同一段代码建号 → 交接文件里的密码能 `grant_type=password` 登录、邮箱已确认、运行标记在 `app_metadata`；`PUT` 改密后旧密码 400、新密码 200；准入端点形状是 `{users:[…]}`。
 
 ## 11. 测试
 
+- `tests/unit/sbtest-init-r9.test.ts`（第九轮：V1.cron 严格类型——缺字段 / null / 字符串 "0" / NaN / Infinity / 负数 / 小数 / 数组 / 对象 → 不确定；false/false/0 通过；true 或 > 0 → 不通过；初始化后的非空库不影响）。
+  超时：纯逻辑用例用 vitest 默认 5s；只有真正起 git 子进程的 10 个 CLI / 钉住 SHA 用例单独 30s（`SPAWN_TIMEOUT`）。
 - `tests/unit/sbtest-init-r8.test.ts`（第八轮：共享解析器 / V1.status `[{}]` `[]` / 续跑运行中会话 n 缺失 / status 核对缺字段；交接 run_id = 账本 run_id + attempt_id、符号链接 / 0700 / 0600 / 属主、不隐式改密、显式改密双列表、真实目标禁止 discard；401 分类、403 措辞）。
 - `tests/unit/sbtest-init-executor.test.ts`（第五 / 六轮）+ `tests/unit/sbtest-init-r7.test.ts`（第七轮：准入 401/403/5xx/形状、重定向、C0 收紧、超时核对形状、写后意外 → 阶段 / 清点 / 运行记录、种子哈希、种子运行标记、交接文件、续跑接管、矩阵与文档一致、影响清单分组）。
 - `tests/db/sbtest-accounts-gotrue.test.ts`：本机 GoTrue，需要 `DATABASE_URL`（与 `npm run test:db` 相同）。

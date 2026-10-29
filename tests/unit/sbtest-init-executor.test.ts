@@ -8,10 +8,11 @@
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as XX from '../../scripts/sbtest/init-executor.mjs';
 import * as F from './sbtest-fake';
 import type { State } from './sbtest-fake';
+import { SPAWN_TIMEOUT } from './sbtest-fake';
 import {
   EXIT,
   MIGRATIONS,
@@ -42,8 +43,7 @@ import {
 // 第七轮：假服务器抽到 ./sbtest-fake.ts（与 sbtest-init-r7.test.ts 共用）
 const { FAKE_MG, FAKE_PJ, IMPACT, MANIFEST, SHA, fakeApi, fresh, list, mk, read, run } = F;
 
-// CLI 用例要从 git 对象库读钉住的迁移（机器忙时单个用例 > 5s；第八轮放宽，避免环境性超时）
-vi.setConfig({ testTimeout: 30_000 });
+// 第九轮：不再整文件放宽超时；只有真正起子进程（git）的用例单独给 SPAWN_TIMEOUT（见 sbtest-fake.ts）
 
 describe('ref 允许清单', () => {
   it('只有 azsou-test', () => {
@@ -83,11 +83,15 @@ describe('钉住 SHA + sha256', () => {
     expect(() => buildManifest(SHA, read, () => [...list(), '0020_x.sql'])).toThrow(/0001–0019/);
     expect(() => buildManifest(SHA, read, () => list().slice(1))).toThrow(/0001–0019/);
   });
-  it('钉住的提交不在本地 git 对象库（浅克隆）→ 拒绝并提示先 fetch', () => {
-    const absent = '0'.repeat(40);
-    expect(() => buildManifest(absent)).toThrow(Refused);
-    expect(() => buildManifest(absent)).toThrow(/不在本地 git 对象库/);
-  });
+  it(
+    '钉住的提交不在本地 git 对象库（浅克隆）→ 拒绝并提示先 fetch',
+    () => {
+      const absent = '0'.repeat(40);
+      expect(() => buildManifest(absent)).toThrow(Refused);
+      expect(() => buildManifest(absent)).toThrow(/不在本地 git 对象库/);
+    },
+    SPAWN_TIMEOUT,
+  );
 });
 
 describe('每个文件一个事务 + 超时 + 账本', () => {
@@ -537,31 +541,39 @@ describe('第六轮 ③ 测试账号凭据：密码由执行器生成，不进�
 });
 
 describe('CLI dry-run', () => {
-  it('plan 不发任何网络请求（fetch 被替换成会抛错的哨兵）', async () => {
-    const orig = globalThis.fetch;
-    let called = 0;
-    globalThis.fetch = (() => {
-      called++;
-      throw new Error('NETWORK');
-    }) as typeof fetch;
-    try {
-      const log = console.log;
-      console.log = () => {};
-      const code = await main(['plan']);
-      console.log = log;
-      expect(code).toBe(EXIT.OK);
-      expect(called).toBe(0);
-    } finally {
-      globalThis.fetch = orig;
-    }
-  });
-  it('execute 缺站长批准 / 确认 ref 不对 → 拒绝（exit 2）', async () => {
-    const err = console.error;
-    console.error = () => {};
-    expect(await main(['execute', '--execute', '--confirm-ref', PROD_REF], {})).toBe(EXIT.REFUSED);
-    expect(await main(['execute', '--execute', '--confirm-ref', TEST_REF], {})).toBe(EXIT.REFUSED);
-    console.error = err;
-  });
+  it(
+    'plan 不发任何网络请求（fetch 被替换成会抛错的哨兵）',
+    async () => {
+      const orig = globalThis.fetch;
+      let called = 0;
+      globalThis.fetch = (() => {
+        called++;
+        throw new Error('NETWORK');
+      }) as typeof fetch;
+      try {
+        const log = console.log;
+        console.log = () => {};
+        const code = await main(['plan']);
+        console.log = log;
+        expect(code).toBe(EXIT.OK);
+        expect(called).toBe(0);
+      } finally {
+        globalThis.fetch = orig;
+      }
+    },
+    SPAWN_TIMEOUT,
+  );
+  it(
+    'execute 缺站长批准 / 确认 ref 不对 → 拒绝（exit 2）',
+    async () => {
+      const err = console.error;
+      console.error = () => {};
+      expect(await main(['execute', '--execute', '--confirm-ref', PROD_REF], {})).toBe(EXIT.REFUSED);
+      expect(await main(['execute', '--execute', '--confirm-ref', TEST_REF], {})).toBe(EXIT.REFUSED);
+      console.error = err;
+    },
+    SPAWN_TIMEOUT,
+  );
   it('syntheticFiles 两个对象 sha256 不同', () => {
     const f = syntheticFiles();
     expect(f[0].sha256).not.toBe(f[1].sha256);
