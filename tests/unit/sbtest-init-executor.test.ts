@@ -5,8 +5,9 @@
  *     第六轮：权限预检（403 列项目照常继续、名称 / ref / 区域不符拒绝）、injected 凭据通道（不带头、401 拒绝、主机允许清单）、
  *     V1 验收接入 execute（每项失败都非零）、超时清点、--resume、测试账号密码不进日志 / 记录。
  */
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import * as F from './sbtest-fake';
+import type { State } from './sbtest-fake';
 import {
   EXIT,
   MIGRATIONS,
@@ -15,7 +16,6 @@ import {
   PROD_REF,
   PROJECT_BASE,
   Refused,
-  SYNTHETIC_USERS,
   TEST_REF,
   analyzeLedger,
   applyOne,
@@ -23,8 +23,6 @@ import {
   buildManifest,
   client,
   execute,
-  expectedCounts,
-  expectedObjects,
   main,
   preflight,
   preflightProblems,
@@ -36,249 +34,8 @@ import {
   wrapMigration,
 } from '../../scripts/sbtest/init-executor.mjs';
 
-const SHA = 'a'.repeat(40);
-const FILES = Object.fromEntries(
-  MIGRATIONS.map((n) => [
-    `db/migrations/${n}_m.sql`,
-    Buffer.from(`-- ${n}\nbegin;\ncreate table t${n} (x int);\ncommit;\n`),
-  ]),
-);
-FILES['db/verify/status.sql'] = Buffer.from("select '0002' as step, 'x' as item, true as ok;\n");
-const read = (rel: string) =>
-  FILES[rel] ??
-  (() => {
-    throw new Error(`no ${rel}`);
-  })();
-const list = () => MIGRATIONS.map((n) => `${n}_m.sql`);
-const IMPACT = JSON.parse(readFileSync('ops/sbtest/init-impact.json', 'utf8'));
-const MANIFEST = buildManifest(SHA, read, list);
-const FAKE_MG = 'http://127.0.0.1:9';
-const FAKE_PJ = 'http://127.0.0.1:10';
-
-type Obj = { name: string; body: Buffer };
-type State = {
-  project: Record<string, unknown>;
-  listStatus: number;
-  listRefs: string[];
-  azInit: boolean;
-  ledger: { run_id: string; file: string; sha256: string }[];
-  users: { email: string; id: string; key: string }[];
-  seeded: boolean;
-  objects: Obj[];
-  cron: boolean;
-  statusBad: string[];
-  missingObjects: number;
-  countsDelta: Record<string, number>;
-  roleOverride: Record<string, string>;
-  corruptDownload: boolean;
-  running: number;
-  publicTables: number;
-};
-const fresh = (o: Partial<State> = {}): State => ({
-  project: {
-    ref: TEST_REF,
-    id: TEST_REF,
-    name: 'azsou-test',
-    region: 'ap-southeast-1',
-    status: 'ACTIVE_HEALTHY',
-    organization_id: 'org1234567890',
-  },
-  listStatus: 403,
-  listRefs: [TEST_REF],
-  azInit: false,
-  ledger: [],
-  users: [],
-  seeded: false,
-  objects: [],
-  cron: false,
-  statusBad: [],
-  missingObjects: 0,
-  countsDelta: {},
-  roleOverride: {},
-  corruptDownload: false,
-  running: 0,
-  publicTables: 0,
-  ...o,
-});
-
-/**
- * 有状态假服务器（Management API + Auth Admin + Storage）。
- * hooks.onQuery / onUser / onUpload 可以注入失败、超时；calls 记录 url / 方法 / 头 / 正文。
- */
-function fakeApi(
-  st: State,
-  hooks: {
-    onQuery?: (q: string) => Response | Promise<Response> | undefined;
-    onReadOnly?: (q: string) => unknown;
-    onUser?: (body: { email: string }) => Response | undefined;
-    onUpload?: (p: string) => Response | undefined;
-    unauthorized?: (url: string) => boolean;
-  } = {},
-) {
-  const calls: { url: string; method: string; headers: Record<string, string>; body: string }[] = [];
-  const ledgerInsert =
-    /insert into az_init\.applied \(run_id, file, sha256\) values \('([^']+)', '([^']+)', '([^']+)'\)/;
-  const f = async (url: string, init: RequestInit = {}) => {
-    const headers = Object.fromEntries(
-      Object.entries((init.headers as Record<string, string>) ?? {}).map(([k, v]) => [k.toLowerCase(), v]),
-    );
-    calls.push({
-      url,
-      method: init.method ?? 'GET',
-      headers,
-      body: typeof init.body === 'string' ? init.body : '',
-    });
-    if (hooks.unauthorized?.(url)) return new Response('no auth', { status: 401 });
-    const u = new URL(url);
-    const p = u.pathname;
-    if (p === `/v1/projects/${TEST_REF}`) return Response.json(st.project);
-    if (p === '/v1/projects')
-      return st.listStatus === 200
-        ? Response.json(st.listRefs.map((ref) => ({ ref })))
-        : new Response('forbidden', { status: st.listStatus });
-    const q = p.includes('/database/query') && init.body ? JSON.parse(String(init.body)).query : '';
-    if (p.endsWith('/database/query/read-only')) {
-      const o = hooks.onReadOnly?.(q);
-      if (o instanceof Response) return o;
-      if (o !== undefined) return Response.json([o], { status: 201 });
-      return Response.json([answer(st, q)], { status: 201 });
-    }
-    if (p.endsWith('/database/query')) {
-      const h = await hooks.onQuery?.(q);
-      if (h) return h;
-      if (q.includes('create schema if not exists az_init')) {
-        st.azInit = true;
-        return Response.json([], { status: 201 });
-      }
-      const m = q.match(ledgerInsert);
-      if (m) {
-        st.ledger.push({ run_id: m[1], file: m[2], sha256: m[3] });
-        if (m[2] === 'seed') st.seeded = true;
-      }
-      return Response.json([], { status: 201 });
-    }
-    if (p === '/auth/v1/admin/users') {
-      const body = JSON.parse(String(init.body));
-      const h = hooks.onUser?.(body);
-      if (h) return h;
-      const id = crypto.randomUUID();
-      st.users.push({
-        email: body.email,
-        id,
-        key: SYNTHETIC_USERS.find((x: { email: string }) => x.email === body.email)!.key,
-      });
-      return Response.json({ id });
-    }
-    if (p.startsWith('/storage/v1/object/ugc-images/')) {
-      const name = decodeURIComponent(p.slice('/storage/v1/object/ugc-images/'.length));
-      const h = hooks.onUpload?.(name);
-      if (h) return h;
-      st.objects.push({ name, body: Buffer.from(init.body as Uint8Array) });
-      return Response.json({ Key: name });
-    }
-    if (p.startsWith('/storage/v1/object/authenticated/ugc-images/')) {
-      const name = decodeURIComponent(p.slice('/storage/v1/object/authenticated/ugc-images/'.length));
-      const o = st.objects.find((x) => x.name === name);
-      if (!o) return new Response('not found', { status: 404 });
-      return new Response(
-        new Uint8Array(st.corruptDownload ? Buffer.concat([o.body, Buffer.from('x')]) : o.body),
-      );
-    }
-    if (p === '/auth/v1/settings') return new Response('no apikey', { status: 401 });
-    if (p === '/storage/v1/bucket') return Response.json([]);
-    return new Response('?', { status: 404 });
-  };
-  return { calls, fetchImpl: f as unknown as typeof fetch };
-}
-
-/** 假只读端点：按执行器 SQL 的别名回答当前状态 */
-function answer(st: State, q: string): Record<string, unknown> {
-  if (q.includes('as identity'))
-    return {
-      identity: {
-        current_database: 'postgres',
-        current_user: 'supabase_read_only_user',
-        version: 'PostgreSQL 17.6',
-        server_addr: '10.1.2.3',
-        server_port: 5432,
-        in_recovery: false,
-      },
-    };
-  if (q.includes('as preflight'))
-    return {
-      preflight: {
-        server_version: '17.6',
-        public_relations: st.publicTables,
-        public_functions: 0,
-        private_schema: false,
-        az_init_schema: st.azInit,
-        supabase_migrations_schema: false,
-        cron_extension: st.cron,
-        cron_schema: st.cron,
-        cron_jobs: 0,
-        pg_net_extension: false,
-        auth_users: st.users.length,
-        auth_identities: st.users.length,
-        auth_sessions: 0,
-        auth_refresh_tokens: 0,
-        storage_buckets: 0,
-        storage_objects: st.objects.length,
-        extensions: ['plpgsql'],
-      },
-    };
-  if (q.includes('as v')) return { v: { ledger: 0, running: st.running } };
-  if (q.includes('as ledger')) return { ledger: st.azInit ? st.ledger : null };
-  if (q.includes('as n')) return { n: st.running };
-  if (q.includes('as accounts') && q.includes('active_ban'))
-    return {
-      accounts: st.users.map((u) => {
-        const s = SYNTHETIC_USERS.find((x: { email: string }) => x.email === u.email);
-        return {
-          email: u.email,
-          id: u.id,
-          confirmed: true,
-          role: st.roleOverride[u.email] ?? (st.seeded ? s!.role : 'user'),
-          banned: st.seeded && !!s!.banned,
-          providers: ['email'],
-          active_ban: st.seeded && !!s!.banned,
-        };
-      }),
-    };
-  if (q.includes('as accounts')) return { accounts: st.users.map((u) => ({ email: u.email, id: u.id })) };
-  if (q.includes('as counts')) {
-    const exp = expectedCounts(IMPACT);
-    const out: Record<string, number> = {};
-    for (const k of Object.keys(exp)) out[k] = (st.seeded ? exp[k] : 0) + (st.countsDelta[k] ?? 0);
-    return { counts: out };
-  }
-  if (q.includes("bucket_id = 'ugc-images'"))
-    return { objects: st.objects.map((o) => ({ name: o.name, size: o.body.length })) };
-  if (q.includes("kind || '|'")) {
-    const all = [...expectedObjects(IMPACT), 'extension|-|pg_trgm'];
-    return { objects: all.slice(st.missingObjects) };
-  }
-  if (q.includes('as rows'))
-    return {
-      rows: st.statusBad.length ? st.statusBad.map((s) => ({ step: s, item: 'x', ok: false })) : null,
-    };
-  return {};
-}
-
-const mk = (st: State, hooks = {}, trace: unknown[] = []) => {
-  const api = fakeApi(st, hooks);
-  const c = client({
-    mode: 'env-token',
-    token: 'tok-SECRET',
-    serviceKey: 'svc-SECRET',
-    mgmtBase: FAKE_MG,
-    projectBase: FAKE_PJ,
-    fetchImpl: api.fetchImpl,
-    trace,
-  });
-  return { api, c };
-};
-const run = (c: ReturnType<typeof client>, o: Record<string, unknown> = {}) =>
-  execute({ sha: SHA, manifest: MANIFEST, impact: IMPACT, c, runId: 'r1', read, log: () => {}, ...o });
+// 第七轮：假服务器抽到 ./sbtest-fake.ts（与 sbtest-init-r7.test.ts 共用）
+const { FAKE_MG, FAKE_PJ, IMPACT, MANIFEST, SHA, fakeApi, fresh, list, mk, read, run } = F;
 
 describe('ref 允许清单', () => {
   it('只有 azsou-test', () => {
@@ -385,7 +142,10 @@ describe('第六轮 ② 凭据通道：injected（默认）/ env-token（只给�
     const c = client({ fetchImpl: api.fetchImpl });
     await preflight(c);
     expect(api.calls.length).toBeGreaterThan(0);
-    expect(api.calls.every((x) => x.url.startsWith(MGMT_INJECTED_BASE))).toBe(true);
+    // 第七轮：preflight 还会对项目主机做只读准入（GET /auth/v1/admin/users?per_page=1）
+    expect(
+      api.calls.every((x) => x.url.startsWith(MGMT_INJECTED_BASE) || x.url.startsWith(PROJECT_BASE)),
+    ).toBe(true);
     expect(api.calls.some((x) => 'authorization' in x.headers || 'apikey' in x.headers)).toBe(false);
   });
   it('线路上没注入（401）→ NoInjection 拒绝，不继续发后面的请求', async () => {
@@ -397,12 +157,12 @@ describe('第六轮 ② 凭据通道：injected（默认）/ env-token（只给�
     const st2 = fresh();
     const api2 = fakeApi(st2, { unauthorized: (u) => u.includes('/auth/v1/') });
     const c2 = client({ fetchImpl: api2.fetchImpl });
-    // 管理面已注入、项目面 Auth 没注入：迁移跑完到 U1 时拒绝（exit 2，不是失败、不重试），附打码清点
-    const r = await run(c2);
-    expect(r.exit).toBe(EXIT.REFUSED);
-    expect(r.refused).toMatch(/401/);
-    expect(r.inventory.items.ledger).toHaveLength(19);
-    expect(api2.calls.filter((x) => x.url.includes('/auth/v1/admin/users'))).toHaveLength(1);
+    // 管理面已注入、项目面 Auth 没注入：第七轮起在第一次写之前的项目服务准入就拒绝（不再等迁移跑完到 U1）
+    await expect(run(c2)).rejects.toThrow(/不接受/);
+    expect(api2.calls.some((x) => x.url.endsWith('/database/query'))).toBe(false);
+    expect(
+      api2.calls.filter((x) => x.url.includes('/auth/v1/admin/users') && x.method === 'POST'),
+    ).toHaveLength(0);
   });
   it('运行记录只有方法 / 路径 / 状态 / 耗时，不含令牌', async () => {
     const trace: { path: string }[] = [];
@@ -455,8 +215,37 @@ describe('第六轮 ① 权限预检：固定目标身份，不要求列项目',
     expect((await verifyTarget(mk(fresh({ listStatus: 200 })).c)).scope.list_projects).toBe(200);
   });
   it('C0：非空 / 有 cron / 有 az_init → 预检问题，execute 拒绝且一个写请求都不发', async () => {
-    expect(preflightProblems({ server_version: '17', auth_users: 3, public_relations: 2 })).toHaveLength(2);
-    expect(preflightProblems({ server_version: '17', cron_extension: true })).toHaveLength(1);
+    // 第七轮：C0 必须完整（缺键 / null 另有用例），这里用完整对象只改要测的键
+    const full = (o: Record<string, unknown>) => ({
+      server_version: '17',
+      ...Object.fromEntries(
+        [
+          'public_relations',
+          'public_functions',
+          'cron_jobs',
+          'auth_users',
+          'auth_identities',
+          'auth_sessions',
+          'auth_refresh_tokens',
+          'storage_buckets',
+          'storage_objects',
+        ].map((k) => [k, 0]),
+      ),
+      ...Object.fromEntries(
+        [
+          'private_schema',
+          'az_init_schema',
+          'supabase_migrations_schema',
+          'cron_extension',
+          'cron_schema',
+          'pg_net_extension',
+        ].map((k) => [k, false]),
+      ),
+      extensions: [],
+      ...o,
+    });
+    expect(preflightProblems(full({ auth_users: 3, public_relations: 2 }))).toHaveLength(2);
+    expect(preflightProblems(full({ cron_extension: true }))).toHaveLength(1);
     const st = fresh({ publicTables: 1 });
     const { api, c } = mk(st);
     await expect(run(c)).rejects.toThrow(/预检不通过/);
@@ -556,7 +345,9 @@ describe('第六轮 ③ V1 验收接入 execute：只有全部通过才 exit 0',
     ]);
     expect(r.v1.checks.every((x: { ok: boolean }) => x.ok)).toBe(true);
     expect(st.ledger).toHaveLength(20);
-    expect(api.calls.filter((x) => x.url.includes('/auth/v1/admin/users'))).toHaveLength(4);
+    expect(
+      api.calls.filter((x) => x.url.includes('/auth/v1/admin/users') && x.method === 'POST'),
+    ).toHaveLength(4);
     expect(
       api.calls.filter((x) => x.url.includes('/storage/v1/object/authenticated/ugc-images/')),
     ).toHaveLength(2);
@@ -651,17 +442,19 @@ describe('第六轮 ③ --resume：按账本续跑，不一致就拒绝', () => 
     expect(queries.some((q) => q.includes('0008_m.sql'))).toBe(true);
     expect(queries.some((q) => q.includes('create schema if not exists az_init'))).toBe(false);
   });
-  it('种子未提交但已有部分合成账号 → 拒绝（需人工处理），不发写请求', async () => {
+  it('种子未提交但已有部分合成账号且没有本次运行标记 → 拒绝接管（第七轮：带标记的会被接管，见 r7），不发写请求', async () => {
     const st = fresh({
       azInit: true,
       ledger: ledgerUpTo(19),
       users: [{ email: 'sbtest-admin@example.com', id: crypto.randomUUID(), key: 'admin' }],
     });
     const { api, c } = mk(st);
-    await expect(run(c, { resume: true })).rejects.toThrow(/部分建号需人工处理/);
-    expect(api.calls.some((x) => x.url.endsWith('/database/query') || x.url.includes('/admin/users'))).toBe(
-      false,
-    );
+    await expect(run(c, { resume: true })).rejects.toThrow(/不能接管/);
+    expect(
+      api.calls.some(
+        (x) => x.url.endsWith('/database/query') || (x.url.includes('/admin/users') && x.method !== 'GET'),
+      ),
+    ).toBe(false);
   });
   it('种子已提交、文件缺 1 个 → 只补传缺的那个，再 V1', async () => {
     const st = fresh();
@@ -675,7 +468,7 @@ describe('第六轮 ③ --resume：按账本续跑，不一致就拒绝', () => 
     expect(
       api.calls.filter((x) => x.method === 'POST' && x.url.includes('/storage/v1/object/ugc-images/')),
     ).toHaveLength(1);
-    expect(api.calls.some((x) => x.url.includes('/admin/users'))).toBe(false);
+    expect(api.calls.some((x) => x.url.includes('/admin/users') && x.method !== 'GET')).toBe(false);
   });
   it('已存在的对象内容不符 → 拒绝（不覆盖）', async () => {
     const st = fresh();
@@ -717,7 +510,7 @@ describe('第六轮 ③ 测试账号凭据：密码由执行器生成，不进�
     });
     expect(r.exit).toBe(EXIT.OK);
     const pw = api.calls
-      .filter((x) => x.url.includes('/admin/users'))
+      .filter((x) => x.url.includes('/admin/users') && x.method === 'POST')
       .map((x) => JSON.parse(x.body).password);
     expect(new Set(pw).size).toBe(4);
     expect(Object.values(got).sort()).toEqual([...pw].sort());

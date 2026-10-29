@@ -25,7 +25,7 @@
 | trigger   | public     | 35   | admin_notes.az_audit_crm, admin_user_tags.az_audit_crm, app_reviews.az_audit_reviews, app_reviews.az_reviews_guard, bookmarks.az_bookmarks_guard, comments.az_audit_comments, comments.az_comments_guard, comments.az_content_edit_guard, comments.az_content_version, comments.az_notify_mentions, comments.az_workflow_orphan, comments.az_workflow_sync, forum_replies.az_audit_replies, forum_replies.az_content_edit_guard, forum_replies.az_content_version, forum_replies.az_notify_mentions, forum_replies.az_notify_reply, forum_replies.az_replies_guard, forum_replies.az_workflow_orphan, forum_replies.az_workflow_sync, forum_threads.az_audit_threads, forum_threads.az_content_edit_guard, forum_threads.az_content_version, forum_threads.az_threads_category_guard, forum_threads.az_threads_guard, forum_threads.az_workflow_orphan, forum_threads.az_workflow_sync, likes.az_likes_guard, notifications.az_notif …（全表见 init-impact.json） | drop trigger（auth.users 上的 on_auth_user_created 属平台 schema，回退需同时删） |
 | view      | public     | 1    | app_review_stats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | drop view                                                                        |
 
-## 2. 迁移本身写入的行（种子 / 默认设置）
+## 2. 迁移自带的行（迁移文件自己写入，合计 9）
 
 | 表                        | 行数 | 可逆性             |
 | ------------------------- | ---- | ------------------ |
@@ -35,46 +35,59 @@
 
 ## 3. 执行器自己的账本
 
+| 对象                               | 行数                      | 可逆性                      |
+| ---------------------------------- | ------------------------- | --------------------------- |
 | schema az_init、表 az_init.applied | 20 行（0001–0019 + seed） | drop schema az_init cascade |
 
-## 4. 合成账号（Auth Admin API，email_confirm: true，不发邮件）
+## 4. 账号及关联行（Auth Admin API，email_confirm: true，不发邮件，带运行标记）
 
-| 邮箱                         | 角色           | 由谁建                                                                               | 可逆性                                                       |
-| ---------------------------- | -------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| sbtest-admin@example.com     | admin          | auth.users + auth.identities（email，GoTrue 自动建）+ public.profiles（0001 触发器） | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容） |
-| sbtest-moderator@example.com | moderator      | auth.users + auth.identities（email，GoTrue 自动建）+ public.profiles（0001 触发器） | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容） |
-| sbtest-user@example.com      | user           | auth.users + auth.identities（email，GoTrue 自动建）+ public.profiles（0001 触发器） | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容） |
-| sbtest-banned@example.com    | user（banned） | auth.users + auth.identities（email，GoTrue 自动建）+ public.profiles（0001 触发器） | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容） |
+| 邮箱                         | 角色           | 可逆性                                                                 |
+| ---------------------------- | -------------- | ---------------------------------------------------------------------- |
+| sbtest-admin@example.com     | admin          | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容；另行批准） |
+| sbtest-moderator@example.com | moderator      | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容；另行批准） |
+| sbtest-user@example.com      | user           | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容；另行批准） |
+| sbtest-banned@example.com    | user（banned） | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容；另行批准） |
+
+| 表              | 行数 | 来源                                                                                                    |
+| --------------- | ---- | ------------------------------------------------------------------------------------------------------- |
+| auth.users      | 4    | GoTrue Admin 建号（本机实测）                                                                           |
+| public.profiles | 4    | 0001 的 on_auth_user_created 触发器（本机实测）                                                         |
+| auth.identities | 4    | GoTrue Admin 建号时为每个账号建 1 条 email 身份（本机 shim 不计量；V1.accounts 核对 providers = email） |
 
 不建任何 OAuth（GitHub）身份：真实 OAuth 登录只能由 I01 人工证据证明，不能用伪造的 auth.identities 代替。
 
-## 5. 内容种子（单事务；行数 = 本机跑同一段 SQL 的实测增量，含触发器产生的行）
+## 5. 种子新增行（单事务，本机跑同一段 SQL 的实测增量，含触发器产生的行，合计 12）
 
-| 表                                    | 新增行数   | 可逆性                                        |
-| ------------------------------------- | ---------- | --------------------------------------------- |
-| auth.users                            | 4（账号）  | 删用户级联                                    |
-| public.profiles                       | 4（账号）  | 删用户级联                                    |
-| public.comments                       | 1          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.forum_replies                  | 1          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.forum_threads                  | 2          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.friend_links                   | 1          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.guestbook_entries              | 2          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.notifications                  | 1          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.reports                        | 1          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.subscribers                    | 1          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.user_bans                      | 2          | 按本次 run 的用户 id / 标题删除；或删用户级联 |
-| public.profiles（role / banned 更新） | 3 行被更新 | 改回 user / false                             |
+| 表                       | 新增行数 | 说明                                            | 可逆性                                                    |
+| ------------------------ | -------- | ----------------------------------------------- | --------------------------------------------------------- |
+| public.comments          | 1        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.forum_replies     | 1        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.forum_threads     | 2        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.friend_links      | 1        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.guestbook_entries | 2        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.notifications     | 1        | 回复里的 @提及 由触发器产生                     | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.reports           | 1        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.subscribers       | 1        | 种子 SQL 显式插入                               | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
+| public.user_bans         | 2        | 显式插入 1 + profiles.banned 更新由触发器同步 1 | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |
 
-## 6. Storage
+## 6. 资料更新（不新增行，3 行被更新）
 
-| 对象                                             | 大小 | sha256                                                           | 可逆性                                                                     |
-| ------------------------------------------------ | ---- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 桶 ugc-images                                    | —    | —                                                                | 0010 建（storage.buckets 行）；清空后 DELETE /storage/v1/bucket/ugc-images |
-| ugc-images/<测试用户 id>/202610-sbtest-a-1x1.png | 69 B | 43a1dacd1de04a69a1df3b0c1e357c0413982a52ac0fe35acd6d3d0adbf974fb | DELETE /storage/v1/object/ugc-images                                       |
-| ugc-images/<测试用户 id>/202610-sbtest-b-1x1.png | 75 B | 56efa7cf7ad0ef755d966656b25f10821ee8fda36c9001cda28e6fbaf840dd38 | DELETE /storage/v1/object/ugc-images                                       |
+| 表              | 更新                              | 可逆性     |
+| --------------- | --------------------------------- | ---------- |
+| public.profiles | sbtest-admin → role admin         | 改回 user  |
+| public.profiles | sbtest-moderator → role moderator | 改回 user  |
+| public.profiles | sbtest-banned → banned true       | 改回 false |
 
-## 7. 不做的事
+## 7. Storage
 
-- 不启用 pg_cron、不执行 db/ops/（调度另批）；不发任何邮件；不碰生产；不清空 azsou-test（预检非空即停）。
-- 迁移没有 down 脚本：整体回退 = 删除 / 重建 azsou-test 项目（站长操作）；逐项回退按上表。
+| 对象                                             | 大小 | sha256                                                           | 可逆性                                                                                     |
+| ------------------------------------------------ | ---- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 桶 ugc-images                                    | —    | —                                                                | 0010 建（已计入第 2 节 storage.buckets 1 行）；清空后 DELETE /storage/v1/bucket/ugc-images |
+| ugc-images/<测试用户 id>/202610-sbtest-a-1x1.png | 69 B | 43a1dacd1de04a69a1df3b0c1e357c0413982a52ac0fe35acd6d3d0adbf974fb | DELETE /storage/v1/object/ugc-images                                                       |
+| ugc-images/<测试用户 id>/202610-sbtest-b-1x1.png | 75 B | 56efa7cf7ad0ef755d966656b25f10821ee8fda36c9001cda28e6fbaf840dd38 | DELETE /storage/v1/object/ugc-images                                                       |
+
+## 8. 不做的事
+
+- 不启用 pg_cron、不执行 db/ops/（调度另批）；不发任何邮件；不碰生产；不清空测试项目（预检非空即停）。
+- 迁移没有 down 脚本：逐项回退按上表，回退本身另行批准；执行器与本清单都不把删除或重新创建测试项目当作回退或修复手段。
 - Management API 不是 pg_dump / pg_restore 通道：备份恢复演练的执行通道仍未决定（见 ops/SBTEST-INIT.md）。

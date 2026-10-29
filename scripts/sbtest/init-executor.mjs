@@ -6,8 +6,11 @@
  *
  * 通道：Supabase Management API（不是 Postgres 协议，所以**不是** pg_dump / 恢复通道——恢复通道仍未决定）。
  *   凭据（第六轮 ②）：默认 injected 模式——执行器不带 Authorization / apikey 头，vault 按主机名在线路上注入；
- *     Management API 只允许 https://api.supabase.io（只读 / 写 PAT 绑定在这个主机；api.supabase.com 归生产 PAT 连接器，永不使用），
+ *     Management API 只允许 https://api.supabase.io；api.supabase.com 是公共 Management API 域名，当前有一个生产范围的连接器绑在上面
+ *     （vault 里还有一条只读 PAT 也写着这个范围，注入哪一条不可枚举），所以执行器永不使用它。
  *     项目 API 只允许 https://ovvfwkmqlejcpatmfqcd.supabase.co；任何 401 = 没注入 → 拒绝。env-token 模式只给本机假服务器测试。
+ *   第七轮：所有请求 redirect: 'manual'，任何 3xx（含同主机）→ 拒绝；第一次写之前必须通过项目服务准入
+ *     （GET /auth/v1/admin/users?per_page=1 → 200 且 {users:[…]}；Auth settings / Storage 列桶成功都不算）。
  *   读：POST /v1/projects/{ref}/database/query/read-only（预检、执行后验收、清点）；写：POST /v1/projects/{ref}/database/query。
  *   权限预检（第六轮 ①）：GET /v1/projects/{ref} 核对 ref / name / region / 状态；GET /v1/projects 只记录范围（403 = project-scoped，照常继续）。
  *   托管账号：Auth Admin API POST /auth/v1/admin/users（email_confirm: true，不发邮件）——不直接写 auth.users / auth.identities，不伪造 OAuth 身份。
@@ -23,7 +26,17 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  fchmodSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -206,6 +219,8 @@ export function contentSeedSql(ids, runId) {
   return `/* az-init:${runId}:seed */
 begin;
 set local statement_timeout = '${STATEMENT_TIMEOUT_S}s';
+set local lock_timeout = '${LOCK_TIMEOUT_S}s';
+set local application_name = 'az-init:${runId}:seed';
 update public.profiles set role = 'admin' where id = ${q(ids.admin)};
 update public.profiles set role = 'moderator' where id = ${q(ids.moderator)};
 update public.profiles set banned = true where id = ${q(ids.banned)};
@@ -286,7 +301,10 @@ export const TARGET = Object.freeze({ ref: TEST_REF, name: 'azsou-test', region:
 export const MGMT_INJECTED_BASE = 'https://api.supabase.io';
 export const PROJECT_BASE = `https://${TEST_REF}.supabase.co`;
 export const MODES = Object.freeze(['injected', 'env-token']);
-/** 这个主机归生产 PAT 连接器：执行器在任何模式下都不向它发请求 */
+/**
+ * api.supabase.com 是公共 Management API 域名（不是「生产 API」）：当前有生产范围的连接器绑在这个主机上，
+ * 而 vault 里 azsou-test 只读 PAT 的范围也写的是它——线路上注入哪一条从沙箱里不可枚举。执行器在任何模式下都不向它发请求。
+ */
 export const FORBIDDEN_HOSTS = Object.freeze(['api.supabase.com']);
 
 export class NoInjection extends Refused {}
@@ -310,7 +328,7 @@ export function resolveEndpoints({ mode = 'injected', mgmtBase, projectBase } = 
       throw new Refused(`基址不是合法 URL：${u}`);
     }
     if (FORBIDDEN_HOSTS.includes(new URL(u).hostname))
-      throw new Refused(`拒绝：${host} 归生产 PAT 连接器，执行器永不使用`);
+      throw new Refused(`拒绝：${host} 当前绑着生产范围的连接器（生产 PAT 连接器），执行器永不使用`);
     if (mode === 'env-token' && !LOOPBACK.has(new URL(u).hostname))
       throw new Refused(`env-token 模式只允许本机假服务器（回环地址），拒绝 ${host}`);
   }
@@ -366,8 +384,20 @@ export function client({
     const t0 = Date.now();
     trace.push(entry);
     try {
-      const r = await fetchImpl(url, { ...init, signal: ac.signal });
+      // 第七轮 ②：从不自动跟随重定向；任何 3xx（含同主机）都拒绝——注入凭据只按主机名绑定，跟随跨主机重定向可能把请求送到别的绑定上
+      const r = await fetchImpl(url, { ...init, redirect: 'manual', signal: ac.signal });
       entry.status = r.status;
+      if ((r.status >= 300 && r.status < 400) || r.type === 'opaqueredirect') {
+        let to = '';
+        try {
+          to = new URL(r.headers?.get?.('location') ?? '', url).host;
+        } catch {
+          /* 没有 / 无效 Location */
+        }
+        throw new Refused(
+          `${what}：HTTP ${r.status || '3xx'} 重定向被拒（不自动跟随；${to && to !== u.host ? `跨主机 ${u.host} → ${to}` : `同主机 ${u.host}`}）`,
+        );
+      }
       if (r.status === 401)
         throw new NoInjection(
           `${what}：HTTP 401——线路上没有注入凭据（主机 ${u.host} 缺 vault 绑定，或进程没走注入代理：Node 需 NODE_USE_ENV_PROXY=1）`,
@@ -412,8 +442,15 @@ export function client({
     readOnly: (query) =>
       mg(`/projects/${ref}/database/query/read-only`, { query }, 'database/query/read-only'),
     authSettings: () => pj('/auth/v1/settings', { method: 'GET', headers: pjHeaders() }, 'auth settings'),
+    /** 第七轮 ① 项目服务准入：真正只读、需要 service_role 的端点 */
+    authAdminList: () =>
+      pj(
+        '/auth/v1/admin/users?per_page=1',
+        { method: 'GET', headers: pjHeaders() },
+        'Auth Admin 列用户（只读准入）',
+      ),
     storageBuckets: () => pj('/storage/v1/bucket', { method: 'GET', headers: pjHeaders() }, 'storage 列桶'),
-    adminCreateUser: (u, password) =>
+    adminCreateUser: (u, password, runId) =>
       pj(
         '/auth/v1/admin/users',
         {
@@ -424,10 +461,25 @@ export function client({
             password,
             email_confirm: true,
             user_metadata: { name: u.name },
+            // 运行标记：续跑时据此（加邮箱 / 名称 / 身份）判断这个账号是不是本次运行建的，才能接管
+            app_metadata: { az_init_run: runId },
           }),
         },
         'Auth Admin 建账号',
       ),
+    /** 只改密码（续跑接管账号、交接到文件时用）；不发邮件 */
+    adminSetPassword: (id, password) => {
+      if (!/^[0-9a-f-]{36}$/i.test(String(id))) throw new Refused(`用户 id 格式无效：${mask(id)}`);
+      return pj(
+        `/auth/v1/admin/users/${id}`,
+        {
+          method: 'PUT',
+          headers: pjHeaders({ 'content-type': 'application/json' }),
+          body: JSON.stringify({ password }),
+        },
+        'Auth Admin 设置密码',
+      );
+    },
     upload: (objPath, body) =>
       pj(
         `/storage/v1/object/ugc-images/${objPath}`,
@@ -535,7 +587,46 @@ export const C0_SQL = `select json_build_object(
 /** 兼容旧名 */
 export const PREFLIGHT_SQL = C0_SQL;
 
+/** C0 每个键的类型（第七轮 ③：{} / 缺键 / null / 类型不对 / 版本无效 → 拒绝，不能当成「空库」） */
+export const C0_COUNTS = Object.freeze([
+  'public_relations',
+  'public_functions',
+  'cron_jobs',
+  'auth_users',
+  'auth_identities',
+  'auth_sessions',
+  'auth_refresh_tokens',
+  'storage_buckets',
+  'storage_objects',
+]);
+export const C0_FLAGS = Object.freeze([
+  'private_schema',
+  'az_init_schema',
+  'supabase_migrations_schema',
+  'cron_extension',
+  'cron_schema',
+  'pg_net_extension',
+]);
+const isCount = (x) =>
+  (typeof x === 'number' && Number.isInteger(x) && x >= 0) || (typeof x === 'string' && /^\d+$/.test(x));
+
+/** C0 形状问题（不论全新执行还是续跑都拒绝） */
+export function c0ShapeProblems(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return ['C0 返回为空 / 不是对象（不能当成空库）'];
+  const bad = [];
+  if (typeof p.server_version !== 'string' || !/^\d+(\.\d+)*\b/.test(p.server_version))
+    bad.push(`server_version 无效（版本无法判断）：${JSON.stringify(p.server_version ?? null)}`);
+  for (const k of C0_COUNTS)
+    if (!isCount(p[k])) bad.push(`${k} 缺失或不是非负整数：${JSON.stringify(p[k] ?? null)}`);
+  for (const k of C0_FLAGS)
+    if (typeof p[k] !== 'boolean') bad.push(`${k} 缺失或不是布尔值：${JSON.stringify(p[k] ?? null)}`);
+  if (!Array.isArray(p.extensions)) bad.push('extensions 缺失或不是数组');
+  return bad;
+}
+
 export function preflightProblems(p) {
+  const shape = c0ShapeProblems(p);
+  if (shape.length) return shape;
   const bad = [];
   if (Number(String(p.server_version).split('.')[0]) < 15) bad.push(`Postgres ${p.server_version} < 15`);
   for (const k of [
@@ -558,14 +649,59 @@ export function preflightProblems(p) {
   return bad;
 }
 
-/** 只读预检（权限 + 身份 + C0）——preflight 子命令与 execute 共用同一段代码 */
+/** 只读预检（权限 + 身份 + C0 + 项目服务准入）——preflight 子命令与 execute 共用同一段代码 */
 export async function preflight(c) {
   const { target, scope } = await verifyTarget(c);
   c.setPhase?.('P1');
-  const id = await ro(c, IDENTITY_SQL, 'identity');
+  const id = (await ro(c, IDENTITY_SQL, 'identity')) ?? {};
   const identity = { ...id, server_addr: id.server_addr ? mask(id.server_addr) : '' };
   const c0 = await ro(c, C0_SQL, 'preflight');
-  return { target, scope, identity, c0, c0_problems: preflightProblems(c0) };
+  let service;
+  try {
+    service = await admitProjectService(c);
+  } catch (e) {
+    if (!(e instanceof NotAdmitted)) throw e;
+    service = { accepted: false, endpoint: ADMIN_PROBE, reason: e.message };
+  }
+  return { target, scope, identity, c0, c0_problems: preflightProblems(c0), service };
+}
+
+/**
+ * 第七轮 ① 项目服务准入（第一次写之前，只读）：GET /auth/v1/admin/users?per_page=1。
+ * 这个端点需要 service_role（Kong 要 apikey，GoTrue 要 service_role 的 Authorization），且只读。
+ * 只有 HTTP 200 且响应是 {users:[…]} 才算接受；401 / 403 / 5xx / 非 JSON / 形状不符 → 不接受（NotAdmitted，拒绝）。
+ * Auth settings 成功、Storage 列桶返回空数组都**不算**准入（前者 anon 就能读，后者可能是任何被接受的 Bearer）。
+ * 只记录状态与返回条数，不记任何用户数据。
+ */
+export class NotAdmitted extends Refused {}
+export const ADMIN_PROBE = 'GET /auth/v1/admin/users?per_page=1';
+export async function admitProjectService(c) {
+  c.setPhase?.('PS');
+  const no = (why) => new NotAdmitted(`项目服务凭据不接受（not accepted）：${ADMIN_PROBE} → ${why}`);
+  let r;
+  try {
+    r = await c.authAdminList();
+  } catch (e) {
+    if (e instanceof NoInjection) throw no('HTTP 401（apikey / service_role 没有注入或无效）');
+    if (e instanceof Refused) throw e;
+    throw no(`请求失败 ${String(e?.message ?? e).slice(0, 120)}`);
+  }
+  if (r.status !== 200) throw no(`HTTP ${r.status}`);
+  let body;
+  try {
+    body = JSON.parse(await r.text());
+  } catch {
+    throw no('HTTP 200 但响应不是 JSON');
+  }
+  if (!body || typeof body !== 'object' || !Array.isArray(body.users))
+    throw no('HTTP 200 但响应形状不是 {users:[…]}');
+  return {
+    accepted: true,
+    endpoint: ADMIN_PROBE,
+    status: 200,
+    shape: '{users:[…]}',
+    users_returned: body.users.length,
+  };
 }
 
 /**
@@ -576,12 +712,12 @@ export async function probeProject(c) {
   c.setPhase?.('PJ');
   const out = {};
   for (const [k, fn] of [
-    ['GET /auth/v1/settings（需要 apikey 头）', () => c.authSettings()],
-    ['GET /storage/v1/bucket（需要 Authorization 头）', () => c.storageBuckets()],
+    ['GET /auth/v1/settings（需要 apikey 头；仅信息，不算准入）', () => c.authSettings()],
+    ['GET /storage/v1/bucket（需要 Authorization 头；仅信息，不算准入）', () => c.storageBuckets()],
   ]) {
     try {
       const r = await fn();
-      out[k] = `HTTP ${r.status}（有凭据被注入并被接受）`;
+      out[k] = `HTTP ${r.status}（仅信息：不能证明 service_role 被接受，准入只看 ${ADMIN_PROBE}）`;
     } catch (e) {
       out[k] =
         e instanceof NoInjection
@@ -614,14 +750,20 @@ export async function runTx(c, file, wrappedSql, runId) {
         'running', (select count(*) from pg_stat_activity where application_name = 'az-init:${runId}:${file}' and state <> 'idle')) as v`,
     );
     if (!v.ok) return { file, outcome: 'unknown', error: err, verify: `HTTP ${v.status}` };
-    const row = (await v.json())[0]?.v ?? {};
+    // 第七轮 ③：核对结果必须同时有 ledger 与 running 两个非负整数；[{}]、缺键、null、ledger > 1 → unknown（不是 not-committed）
+    const arr = await v.json();
+    const row = Array.isArray(arr) ? arr[0]?.v : undefined;
+    if (!row || typeof row !== 'object' || !isCount(row.ledger) || !isCount(row.running))
+      return {
+        file,
+        outcome: 'unknown',
+        error: err,
+        verify: `核对结果形状无效：${JSON.stringify(arr).slice(0, 120)}`,
+      };
     if (Number(row.running) > 0) return { file, outcome: 'still-running', error: err };
-    return {
-      file,
-      outcome: Number(row.ledger) === 1 ? 'committed' : 'not-committed',
-      via: 'ledger',
-      error: err,
-    };
+    const n = Number(row.ledger);
+    if (n !== 0 && n !== 1) return { file, outcome: 'unknown', error: err, verify: `账本行数 ${n}` };
+    return { file, outcome: n === 1 ? 'committed' : 'not-committed', via: 'ledger', error: err };
   } catch (e) {
     if (e instanceof Refused) throw e;
     return { file, outcome: 'unknown', error: err, verify: String(e?.message ?? e) };
@@ -656,10 +798,41 @@ export const ACCOUNTS_SQL = () => `select coalesce(json_agg(json_build_object(
   'active_ban', exists (select 1 from public.user_bans b where b.user_id = u.id and (b.expires_at is null or b.expires_at > now()))
 ) order by u.email), '[]'::json) as accounts
 from auth.users u left join public.profiles p on p.id = u.id where u.email in (${SBTEST_EMAILS()})`;
-/** 合成账号（不依赖 public 表——迁移没跑完时也能查） */
-export const ACCOUNTS_BARE_SQL =
-  () => `select coalesce(json_agg(json_build_object('email', email, 'id', id) order by email), '[]'::json) as accounts
-from auth.users where email in (${SBTEST_EMAILS()})`;
+/** 合成账号（不依赖 public 表——迁移没跑完时也能查）：续跑接管要核对的字段（邮箱、确认、名称、运行标记、身份） */
+export const ACCOUNTS_BARE_SQL = () => `select coalesce(json_agg(json_build_object(
+  'email', u.email, 'id', u.id, 'confirmed', u.email_confirmed_at is not null,
+  'name', u.raw_user_meta_data->>'name', 'run', u.raw_app_meta_data->>'az_init_run',
+  'providers', (select coalesce(json_agg(distinct i.provider), '[]'::json) from auth.identities i where i.user_id = u.id)
+) order by u.email), '[]'::json) as accounts
+from auth.users u where u.email in (${SBTEST_EMAILS()})`;
+
+/**
+ * 第七轮 ④ 接管核对：已存在的合成账号只有全部满足才能被续跑接管——
+ * 邮箱在合成清单里、运行标记 app_metadata.az_init_run = 账本 run_id、邮箱已确认、只有 email 身份、名称元数据一致。
+ */
+export function adoptionProblems(a, runId) {
+  const u = SYNTHETIC_USERS.find((x) => x.email === a?.email);
+  if (!u) return [`${a?.email ?? '（无邮箱）'} 不是合成账号`];
+  const p = [];
+  if (a.run !== runId) p.push(`${a.email} 运行标记 ${a.run ?? '（无）'} ≠ 账本 run_id ${runId}`);
+  if (a.confirmed !== true) p.push(`${a.email} 邮箱未确认`);
+  if (JSON.stringify(a.providers) !== JSON.stringify(['email']))
+    p.push(`${a.email} 身份 ${JSON.stringify(a.providers)}（只允许 email）`);
+  if (a.name !== u.name) p.push(`${a.email} 名称元数据不符`);
+  if (!/^[0-9a-f-]{36}$/i.test(String(a.id ?? ''))) p.push(`${a.email} id 无效`);
+  return p;
+}
+
+/** 期望的种子哈希：按账号的真实 id + run_id 重算 seedTx（账号不全 → null） */
+export function expectedSeedSha(accounts, runId) {
+  const ids = {};
+  for (const a of accounts ?? []) {
+    const u = SYNTHETIC_USERS.find((x) => x.email === a.email);
+    if (u) ids[u.key] = a.id;
+  }
+  if (SYNTHETIC_USERS.some((u) => !ids[u.key])) return null;
+  return seedTx(ids, runId).sha;
+}
 export const LEDGER_SQL = `select case when to_regclass('az_init.applied') is null then null else
   (xpath('/row/j/text()', query_to_xml('select coalesce(json_agg(json_build_object(''run_id'', run_id, ''file'', file, ''sha256'', sha256) order by applied_at, file), ''[]'') as j from az_init.applied', false, true, '')))[1]::text::json end as ledger`;
 export const RUNNING_SQL = `select count(*) as n from pg_stat_activity where application_name like 'az-init:%' and state <> 'idle'`;
@@ -783,6 +956,12 @@ export async function acceptV1(c, { manifest, impact, runId, statusSql, files = 
     }
     const seed = byFile.get('seed');
     if (!seed || !/^[0-9a-f]{64}$/.test(seed.sha256 ?? '')) problems.push('seed 行缺失或 sha256 无效');
+    else {
+      // 第七轮 ③：格式对还不够——按真实账号 id + run_id 重算本次种子 SQL 的哈希，必须相等
+      const exp = expectedSeedSha(await ro(c, ACCOUNTS_BARE_SQL(), 'accounts'), runId);
+      if (!exp) problems.push('seed 期望哈希无法计算（合成账号不全）');
+      else if (seed.sha256 !== exp) problems.push('seed sha256 ≠ 本次种子的期望哈希');
+    }
     const runIds = [...new Set(led.map((r) => r.run_id))];
     if (runIds.length !== 1 || runIds[0] !== runId) problems.push(`run_id 不一致：${runIds.join(',')}`);
     const extra = led.filter((r) => r.file !== 'seed' && !manifest.migrations.some((m) => m.name === r.file));
@@ -902,37 +1081,126 @@ export function analyzeLedger(ledger, manifest) {
   return { runId: runIds[0], next: migs.length, seedDone };
 }
 
-/** 生成测试账号密码：只在内存里；绝不写日志 / 运行记录 */
+/** 生成测试账号密码：只在内存里；绝不写日志 / 运行记录（24 字符 base64url = 144 位随机） */
 export function genPassword() {
   return randomBytes(18).toString('base64url');
 }
 
 /**
- * 测试账号凭据交接（ops/SBTEST-INIT.md §8）：
- *   handoff = 'discard'（默认）：密码只用于 Admin API 建号，随后丢弃；站长之后用 Auth Admin / Dashboard 重置。
- *   handoff = { write(email, password) }：交给调用方提供的安全通道（例如 0600 临时文件 → vault 表单 → 删除）。
+ * 第七轮 ④ 测试账号凭据交接——不依赖任何邮件（@example.com 收不到信，重置邮件 / 魔法链接都不可用）：
+ * 执行器生成强密码 → Auth Admin API 建号时直接设置（email_confirm: true）或接管时用 PUT 设置 →
+ * 写进**仓库外**的 0600 文件（目录 0700，文件不存在才创建，不覆盖）。站长把它导入 vault（Hark Secured Login），然后删除文件。
+ * 文件每行一个 JSON：{ email, password, user_id, project_ref, run_id, set_at }。密码不进日志 / 运行记录 / 清点 / 退出信息。
+ * @param {string} file 绝对路径，必须在仓库外
+ * @param {{ repoRoot?: string, runId?: string }} [o]
  */
-async function createUsers(c, missing, handoff, results) {
+export function fileHandoff(file, { repoRoot = ROOT, runId = '' } = {}) {
+  if (typeof file !== 'string' || !path.isAbsolute(file))
+    throw new Refused('交接文件必须是绝对路径（仓库外，例如 ~/.azsou-sbtest/<运行 id>.jsonl）');
+  const abs = path.resolve(file);
+  const rel = path.relative(path.resolve(repoRoot), abs);
+  if (!rel.startsWith('..') && !path.isAbsolute(rel))
+    throw new Refused('交接文件不能放在仓库里（会被 git 追踪 / 上传）');
+  if (existsSync(abs)) throw new Refused(`交接文件已存在（不覆盖）：${abs}`);
+  const dir = path.dirname(abs);
+  const created = mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if (!created && (statSync(dir).mode & 0o022) !== 0)
+    throw new Refused(
+      `交接文件所在目录可被他人写入（${(statSync(dir).mode & 0o777).toString(8)}）：换一个只有自己能写的目录`,
+    );
+  const fd = openSync(abs, 'wx', 0o600);
+  fchmodSync(fd, 0o600);
+  closeSync(fd);
+  let n = 0;
+  return {
+    kind: 'file',
+    path: abs,
+    count: () => n,
+    write(email, password, id) {
+      appendFileSync(
+        abs,
+        JSON.stringify({
+          email,
+          password,
+          user_id: id ?? null,
+          project_ref: TEST_REF,
+          run_id: runId || null,
+          set_at: new Date().toISOString(),
+        }) + '\n',
+        { mode: 0o600 },
+      );
+      n++;
+    },
+  };
+}
+const canHandoff = (h) => !!h && typeof h === 'object' && typeof h.write === 'function';
+
+/**
+ * 建缺的合成账号（Auth Admin API，email_confirm: true，带运行标记，不发信）。
+ * 超时 / 断线 → unknown（不重试；续跑时按运行标记核对接管）；非 2xx → failed（例如 422 已存在 → 续跑接管）。
+ */
+export async function createUsers(c, missing, handoff, results, runId) {
   const ids = {};
   for (const u of missing) {
     const password = genPassword();
     let r;
     try {
-      r = await c.adminCreateUser(u, password);
+      r = await c.adminCreateUser(u, password, runId);
     } catch (e) {
       if (e instanceof Refused) throw e;
-      results.push({ file: `user:${u.email}`, outcome: 'unknown', error: String(e?.message ?? e) });
+      results.push({
+        file: `user:${u.email}`,
+        outcome: 'unknown',
+        error: String(e?.message ?? e).slice(0, 120),
+      });
       return { ids, outcome: 'unknown' };
     }
     if (!r.ok) {
       results.push({ file: `user:${u.email}`, outcome: `HTTP ${r.status}` });
       return { ids, outcome: 'failed' };
     }
-    ids[u.key] = (await r.json()).id;
-    if (handoff && typeof handoff.write === 'function') await handoff.write(u.email, password);
+    let id;
+    try {
+      id = (await r.json())?.id;
+    } catch {
+      /* 留空 */
+    }
+    if (!/^[0-9a-f-]{36}$/i.test(String(id ?? ''))) {
+      results.push({ file: `user:${u.email}`, outcome: 'unknown', error: '建号响应里没有有效 id' });
+      return { ids, outcome: 'unknown' };
+    }
+    ids[u.key] = id;
+    if (canHandoff(handoff)) await handoff.write(u.email, password, id);
     results.push({ file: `user:${u.email}`, outcome: 'created' });
   }
   return { ids, outcome: 'ok' };
+}
+
+/** 接管的账号：交接到文件时用 Admin API 换新密码（原密码在上次运行里已丢弃或已交接）；discard 时不动 */
+async function rotateAdopted(c, adopted, handoff, results) {
+  if (!canHandoff(handoff)) return 'ok';
+  for (const a of adopted) {
+    const password = genPassword();
+    let r;
+    try {
+      r = await c.adminSetPassword(a.id, password);
+    } catch (e) {
+      if (e instanceof Refused) throw e;
+      results.push({
+        file: `user:${a.email}`,
+        outcome: 'password-unknown',
+        error: String(e?.message ?? e).slice(0, 120),
+      });
+      return 'unknown';
+    }
+    if (!r.ok) {
+      results.push({ file: `user:${a.email}`, outcome: `password HTTP ${r.status}` });
+      return 'failed';
+    }
+    await handoff.write(a.email, password, a.id);
+    results.push({ file: `user:${a.email}`, outcome: 'password-set' });
+  }
+  return 'ok';
 }
 
 async function uploadFiles(c, userId, files, existing, results) {
@@ -964,28 +1232,76 @@ async function uploadFiles(c, userId, files, existing, results) {
 }
 
 /**
- * 执行：P0 目标身份 → P1 C0 → B0 账本 → 0001–0019（逐文件事务 + status 核对）→ U1 账号 → S1 种子 → F1 文件 → V1 验收。
- * 只有 V1 全部通过才 exit 0。写操作开始后任何非成功出口都附打码清点（inventory）。从不自动重试、从不清空 / 重建 azsou-test。
- * resume = true：按账本续跑（账本 / 状态不一致 → 拒绝）。
+ * 续跑矩阵（第七轮 ④；ops/SBTEST-INIT.md §9 逐字列出，单测核对文档与代码一致）。
+ * 任何「拒绝」都只是停下：不删除、不清空、不重建，交人工核对。
+ */
+export const RESUME_MATRIX = Object.freeze([
+  { state: '没有 az_init（B0 前失败）', action: '--resume 拒绝；C0 仍为空时按全新执行' },
+  { state: '账本为空（B0 已提交、无迁移）', action: '拒绝：人工核对后决定' },
+  { state: '账本是清单的严格前缀', action: '从下一个迁移续跑，沿用原 run_id' },
+  { state: '账本乱序 / 未知文件 / sha256 不符 / 多个 run_id', action: '拒绝：人工处理' },
+  { state: '仍有 az-init 会话在运行', action: '拒绝：等会话结束后人工确认' },
+  { state: 'pg_cron 已启用', action: '拒绝：状态与执行器不符' },
+  { state: '迁移未完成却已有合成账号', action: '拒绝：状态矛盾' },
+  {
+    state: '部分账号已建（1–3 个）、种子未提交',
+    action: '逐个核对后接管，补建缺的账号，再提交种子',
+  },
+  { state: '4 个账号已建、种子未提交', action: '全部核对后接管，不建号，提交种子' },
+  {
+    state: '已有账号核对不通过（运行标记缺失或不符、未确认、非 email 身份、名称不符）',
+    action: '拒绝接管：人工核对，不删除账号',
+  },
+  { state: '种子已提交、合成账号不是 4 个', action: '拒绝：状态矛盾' },
+  { state: '种子已提交、账本哈希 ≠ 期望种子哈希', action: '拒绝：人工处理（哈希不符）' },
+  { state: '种子已提交、文件缺失或部分上传', action: '只补传缺的文件，再跑 V1' },
+  { state: '已存在的文件内容不符', action: '拒绝：不覆盖' },
+]);
+
+/**
+ * 执行：P0 目标身份 → P1 C0 → PS 项目服务准入 → B0 账本 → 0001–0019（逐文件事务 + status 核对）→ U1 账号（建 / 接管）
+ *   → S1 种子 → F1 文件 → V1 验收。只有 V1 全部通过才 exit 0。
+ * 写操作开始后任何非成功出口（含意外异常）都附阶段、已知结果与打码清点。从不自动重试、从不清空 / 删除 / 重建 azsou-test。
+ * resume = true：按账本续跑（矩阵见 RESUME_MATRIX）。
  */
 /**
  * @param {any} opts
  * @returns {Promise<any>}
  */
 export async function execute(opts) {
-  const ctx = { wrote: false, results: [], runId: opts.runId };
+  const ctx = { wrote: false, results: [], runId: opts.runId, stage: 'P0' };
+  const snap = async () => {
+    try {
+      return await inventory(opts.c);
+    } catch (e2) {
+      return { status: 'unknown', error: String(e2?.message ?? e2) };
+    }
+  };
   try {
     return await executeInner(opts, ctx);
   } catch (e) {
-    // 写操作开始后被拒绝（例如项目主机 401 未注入、续跑发现内容不符）：不重试，返回拒绝 + 打码清点
-    if (!(e instanceof Refused) || !ctx.wrote) throw e;
-    let inv;
-    try {
-      inv = await inventory(opts.c);
-    } catch (e2) {
-      inv = { status: 'unknown', error: String(e2?.message ?? e2) };
-    }
-    return { exit: EXIT.REFUSED, refused: e.message, results: ctx.results, runId: ctx.runId, inventory: inv };
+    if (!ctx.wrote) throw e;
+    // 写操作开始后被拒绝（例如项目主机 401、重定向、续跑发现内容不符）：不重试，返回拒绝 + 打码清点
+    if (e instanceof Refused)
+      return {
+        exit: EXIT.REFUSED,
+        refused: e.message,
+        stage: ctx.stage,
+        results: ctx.results,
+        runId: ctx.runId,
+        inventory: await snap(),
+      };
+    // 第七轮 ③：写操作开始后的意外异常（网络错误、JSON 错误……）→ 不确定，写出阶段 / 已知结果 / 清点
+    const inv = await snap();
+    inv.status = 'unknown';
+    return {
+      exit: EXIT.UNKNOWN,
+      error: String(e?.message ?? e).slice(0, 300),
+      stage: ctx.stage,
+      results: ctx.results,
+      runId: ctx.runId,
+      inventory: inv,
+    };
   }
 }
 
@@ -1005,12 +1321,16 @@ async function executeInner(
 ) {
   const results = ctx.results;
   let wrote = false;
+  const phase = (p) => {
+    ctx.stage = p;
+    c.setPhase?.(p);
+  };
   const markWrote = () => {
     wrote = true;
     ctx.wrote = true;
   };
   const finish = async (exit, extra = {}) => {
-    const out = { exit, results, runId, ...extra };
+    const out = { exit, results, runId, stage: ctx.stage, ...extra };
     if (exit !== EXIT.OK && wrote) {
       try {
         out.inventory = await inventory(c);
@@ -1022,13 +1342,21 @@ async function executeInner(
     return out;
   };
   const pre = await preflight(c);
+  ctx.stage = 'PS';
+  // 第七轮 ①：项目服务准入必须在第一次写之前通过（全新执行与续跑都一样）
+  if (!pre.service?.accepted)
+    throw new NotAdmitted(pre.service?.reason ?? '项目服务凭据不接受（not accepted）');
+  const shape = c0ShapeProblems(pre.c0);
+  if (shape.length) throw new Refused(`C0 无效（拒绝）：${shape.join('；')}`);
   const statusSql = read('db/verify/status.sql').toString('utf8').replace(/;\s*$/, '');
   let start = 0;
   let seedDone = false;
+  /** 续跑时已存在、核对通过的合成账号 */
+  let adopted = [];
   if (!resume) {
     if (pre.c0_problems.length)
       throw new Refused(`预检不通过（不清空、不覆盖）：${pre.c0_problems.join('；')}`);
-    c.setPhase?.('B0');
+    phase('B0');
     markWrote();
     let b;
     try {
@@ -1054,12 +1382,25 @@ async function executeInner(
     start = st.next;
     seedDone = st.seedDone;
     const acc = await ro(c, ACCOUNTS_BARE_SQL(), 'accounts');
-    if (!seedDone && acc.length > 0)
+    if (!Array.isArray(acc)) throw new Refused('--resume：合成账号查询结果形状无效');
+    if (acc.length && start < manifest.migrations.length)
       throw new Refused(
-        `--resume：种子未提交但已有 ${acc.length} 个合成账号——部分建号需人工处理（删除或补齐）后再续跑`,
+        `--resume：迁移未完成（账本到第 ${start} 个）却已有 ${acc.length} 个合成账号——状态矛盾，需人工处理`,
+      );
+    const probs = acc.flatMap((a) => adoptionProblems(a, runId));
+    if (probs.length)
+      throw new Refused(
+        `--resume：已有合成账号不能接管（需人工核对，见 ops/SBTEST-INIT.md §9；不删除账号）：${probs.join('；')}`,
       );
     if (seedDone && acc.length !== SYNTHETIC_USERS.length)
       throw new Refused(`--resume：种子已提交但合成账号只有 ${acc.length} 个——状态矛盾，需人工处理`);
+    if (seedDone) {
+      const led = (await ro(c, LEDGER_SQL, 'ledger')) ?? [];
+      const got = led.find((r) => r.file === 'seed')?.sha256;
+      if (got !== expectedSeedSha(acc, runId))
+        throw new Refused('--resume：seed 账本哈希与本次种子的期望哈希不符——需人工处理（哈希不符）');
+    }
+    adopted = acc;
     if (start > 0) {
       const step = manifest.migrations[start - 1].name.slice(0, 4);
       const rows = await ro(
@@ -1070,21 +1411,39 @@ async function executeInner(
       if (rows) throw new Refused(`--resume：账本到 ${step}，但 status.sql 该步及之前有未生效项——需人工处理`);
     }
     markWrote();
-    log(`续跑：run_id ${runId}，账本已有 ${start} 个迁移${seedDone ? ' + seed' : ''}`);
+    log(
+      `续跑：run_id ${runId}，账本已有 ${start} 个迁移${seedDone ? ' + seed' : ''}，接管 ${adopted.length} 个已有合成账号`,
+    );
   }
   for (const m of manifest.migrations.slice(start)) {
-    c.setPhase?.(m.name.slice(0, 4));
+    const step = m.name.slice(0, 4);
+    phase(step);
     const r = await applyOne(c, m, read(`db/migrations/${m.name}`), runId);
     results.push(r);
     log(`${r.outcome.padEnd(13)} ${m.name}${r.error ? ` — ${r.error}` : ''}`);
     if (r.outcome === 'not-committed') return finish(EXIT.FAILED, { preflight: pre });
     if (r.outcome !== 'committed') return finish(EXIT.UNKNOWN, { preflight: pre });
-    const step = m.name.slice(0, 4);
     if (step !== '0001') {
-      const s = await c.readOnly(
-        `select json_agg(x) as rows from (${statusSql}) x where step <= '${step}' and not ok`,
-      );
-      const rows = s.ok ? (await s.json())[0]?.rows : 'HTTP ' + s.status;
+      // 第七轮 ③：迁移已提交后 status 查询出错（网络 / HTTP / JSON / 形状）= 状态不确定 → exit 3，不当成失败、不重试
+      let rows;
+      try {
+        const s = await c.readOnly(
+          `select json_agg(x) as rows from (${statusSql}) x where step <= '${step}' and not ok`,
+        );
+        if (!s.ok) throw new Error(`status 查询 HTTP ${s.status}`);
+        const j = await s.json();
+        if (!Array.isArray(j) || !j[0] || typeof j[0] !== 'object' || !('rows' in j[0]))
+          throw new Error(`status 查询结果形状无效：${JSON.stringify(j).slice(0, 80)}`);
+        rows = j[0].rows;
+      } catch (e) {
+        if (e instanceof Refused) throw e;
+        results.push({
+          file: m.name,
+          outcome: 'status-check-unknown',
+          error: String(e?.message ?? e).slice(0, 200),
+        });
+        return finish(EXIT.UNKNOWN, { preflight: pre });
+      }
       if (rows) {
         results.push({ file: m.name, outcome: 'status-check-failed', detail: rows });
         return finish(EXIT.FAILED, { preflight: pre });
@@ -1092,27 +1451,32 @@ async function executeInner(
     }
   }
   const files = syntheticFiles();
-  let ids = {};
+  const ids = {};
+  for (const a of adopted) {
+    ids[SYNTHETIC_USERS.find((u) => u.email === a.email).key] = a.id;
+    results.push({ file: `user:${a.email}`, outcome: 'adopted' });
+  }
+  phase('U1');
+  const rot = await rotateAdopted(c, adopted, handoff, results);
+  if (rot !== 'ok') return finish(rot === 'unknown' ? EXIT.UNKNOWN : EXIT.FAILED, { preflight: pre });
   if (!seedDone) {
-    c.setPhase?.('U1');
-    const u = await createUsers(c, SYNTHETIC_USERS, handoff, results);
-    ids = u.ids;
+    const missing = SYNTHETIC_USERS.filter((u) => !ids[u.key]);
+    const u = await createUsers(c, missing, handoff, results, runId);
+    Object.assign(ids, u.ids);
     if (u.outcome !== 'ok')
       return finish(u.outcome === 'unknown' ? EXIT.UNKNOWN : EXIT.FAILED, { preflight: pre });
-    c.setPhase?.('S1');
+    phase('S1');
     const seed = seedTx(ids, runId);
     const s = await runTx(c, 'seed', seed.sql, runId);
     results.push(s);
     if (s.outcome === 'not-committed') return finish(EXIT.FAILED, { preflight: pre });
     if (s.outcome !== 'committed') return finish(EXIT.UNKNOWN, { preflight: pre });
-  } else {
-    for (const a of await ro(c, ACCOUNTS_BARE_SQL(), 'accounts'))
-      ids[SYNTHETIC_USERS.find((u) => u.email === a.email).key] = a.id;
   }
-  c.setPhase?.('F1');
+  phase('F1');
   const existing = resume ? await ro(c, OBJECTS_SQL, 'objects') : [];
   const f = await uploadFiles(c, ids.user, files, existing, results);
   if (f !== 'ok') return finish(f === 'unknown' ? EXIT.UNKNOWN : EXIT.FAILED, { preflight: pre });
+  phase('V1');
   const v1 = await acceptV1(c, { manifest, impact, runId, statusSql, files });
   for (const x of v1.checks) log(`${x.ok ? '✓' : '✗'} ${x.id}`);
   if (!v1.ok) return finish(EXIT.FAILED, { preflight: pre, v1 });
@@ -1124,7 +1488,7 @@ export function runRecordMarkdown({ title, when, mode, endpoints, pre, trace, ve
   const L = [`# ${title}`, ''];
   L.push(`- 时间：${when}`);
   L.push(
-    `- 执行器：scripts/sbtest/init-executor.mjs（同一执行器，preflight 子命令 = execute 的 P0 + P1 段，只读）`,
+    `- 执行器：scripts/sbtest/init-executor.mjs（同一执行器，preflight 子命令 = execute 的 P0 + P1 + PS 段，只读）`,
   );
   L.push(`- 凭据模式：${mode}（执行器不带 Authorization / apikey 头；凭据由 vault 按主机名在线路上注入）`);
   if (endpoints)
@@ -1142,6 +1506,19 @@ export function runRecordMarkdown({ title, when, mode, endpoints, pre, trace, ve
     );
     L.push(
       '- 不能 / 未尝试：列出账号下全部项目（403）；任何写端点（database/query、Auth Admin、Storage 写）本次一律未调用',
+      '- 注意：GET /v1/projects 返回 403 不能证明令牌范围；范围只以站长提供的令牌配置记录为准',
+      '',
+    );
+  }
+  if (pre?.service) {
+    L.push('## 项目服务准入（第一次写之前，只读）', '');
+    L.push(
+      `- 端点：${pre.service.endpoint}（需要 service_role；Auth settings / Storage 列桶成功都不算准入）`,
+    );
+    L.push(
+      pre.service.accepted
+        ? `- 结果：接受（HTTP 200，形状 ${pre.service.shape}，返回 ${pre.service.users_returned} 条；不记录用户数据）`
+        : `- 结果：**不接受**——${pre.service.reason}`,
       '',
     );
   }
@@ -1168,6 +1545,22 @@ export function runRecordMarkdown({ title, when, mode, endpoints, pre, trace, ve
   return L.join('\n') + '\n';
 }
 
+/** execute 结果 → 运行记录备注：阶段、逐项结果（文件 / 结果，不含正文与密码）、V1、清点 */
+export function executeNotes(r) {
+  return [
+    `run_id ${r.runId}`,
+    `阶段：${r.stage ?? '（无）'}`,
+    ...(r.refused ? [`拒绝原因：${r.refused}`] : []),
+    ...(r.error ? [`意外错误：${r.error}`] : []),
+    ...(r.results ?? []).map(
+      (x) =>
+        `结果 ${x.file} ${x.outcome}${x.verify ? `（核对：${x.verify}）` : ''}${x.error ? `（${String(x.error).slice(0, 120)}）` : ''}`,
+    ),
+    ...(r.v1 ? r.v1.checks.map((x) => `${x.ok ? '✓' : '✗'} ${x.id}`) : []),
+    ...(r.inventory ? [`清点（${r.inventory.status}）：${JSON.stringify(r.inventory.items ?? {})}`] : []),
+  ];
+}
+
 // ---------------------------------------------------------------- 影响清单
 /** 影响清单：迁移建的对象（来自本机按同一 SHA 跑出的目录差异，见 ops/sbtest/init-impact.json）+ 种子 / 账号 / 桶 / 文件 */
 export function impactMarkdown(impact, manifest) {
@@ -1191,44 +1584,68 @@ export function impactMarkdown(impact, manifest) {
     L.push(
       `| ${g.kind} | ${g.schema} | ${g.names.length} | ${g.names.join(', ').slice(0, 900)}${g.names.join(', ').length > 900 ? ' …（全表见 init-impact.json）' : ''} | ${g.reversible} |`,
     );
-  L.push('', '## 2. 迁移本身写入的行（种子 / 默认设置）', '');
+  const sum = (rows) => (rows ?? []).reduce((n, r) => n + Number(r.rows), 0);
+  const SEED_NOTE = {
+    'public.user_bans': '显式插入 1 + profiles.banned 更新由触发器同步 1',
+    'public.notifications': '回复里的 @提及 由触发器产生',
+  };
+  L.push('', `## 2. 迁移自带的行（迁移文件自己写入，合计 ${sum(impact.migration_rows)}）`, '');
   L.push('| 表 | 行数 | 可逆性 |', '| --- | --- | --- |');
   for (const r of impact.migration_rows) L.push(`| ${r.table} | ${r.rows} | ${r.reversible} |`);
   L.push('', '## 3. 执行器自己的账本', '');
+  L.push('| 对象 | 行数 | 可逆性 |', '| --- | --- | --- |');
   L.push(
     `| schema az_init、表 az_init.applied | ${MIGRATIONS.length + 1} 行（0001–0019 + seed） | drop schema az_init cascade |`,
   );
-  L.push('', '## 4. 合成账号（Auth Admin API，email_confirm: true，不发邮件）', '');
-  L.push('| 邮箱 | 角色 | 由谁建 | 可逆性 |', '| --- | --- | --- | --- |');
+  L.push('', '## 4. 账号及关联行（Auth Admin API，email_confirm: true，不发邮件，带运行标记）', '');
+  L.push('| 邮箱 | 角色 | 可逆性 |', '| --- | --- | --- |');
   for (const u of SYNTHETIC_USERS)
     L.push(
-      `| ${u.email} | ${u.role}${u.banned ? '（banned）' : ''} | auth.users + auth.identities（email，GoTrue 自动建）+ public.profiles（0001 触发器） | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容） |`,
+      `| ${u.email} | ${u.role}${u.banned ? '（banned）' : ''} | DELETE /auth/v1/admin/users/<id>（级联删 profiles 及其内容；另行批准） |`,
     );
+  L.push('', '| 表 | 行数 | 来源 |', '| --- | --- | --- |');
+  for (const r of impact.users_rows ?? [])
+    L.push(
+      `| ${r.table} | ${r.rows} | ${r.table === 'public.profiles' ? '0001 的 on_auth_user_created 触发器' : 'GoTrue Admin 建号'}（本机实测） |`,
+    );
+  L.push(
+    `| auth.identities | ${SYNTHETIC_USERS.length} | GoTrue Admin 建号时为每个账号建 1 条 email 身份（本机 shim 不计量；V1.accounts 核对 providers = email） |`,
+  );
   L.push(
     '',
     '不建任何 OAuth（GitHub）身份：真实 OAuth 登录只能由 I01 人工证据证明，不能用伪造的 auth.identities 代替。',
     '',
   );
-  L.push('## 5. 内容种子（单事务；行数 = 本机跑同一段 SQL 的实测增量，含触发器产生的行）', '');
-  L.push('| 表 | 新增行数 | 可逆性 |', '| --- | --- | --- |');
-  for (const r of impact.users_rows ?? []) L.push(`| ${r.table} | ${r.rows}（账号） | 删用户级联 |`);
+  L.push(
+    `## 5. 种子新增行（单事务，本机跑同一段 SQL 的实测增量，含触发器产生的行，合计 ${sum(impact.seed_rows)}）`,
+    '',
+  );
+  L.push('| 表 | 新增行数 | 说明 | 可逆性 |', '| --- | --- | --- | --- |');
   for (const r of impact.seed_rows ?? [])
-    L.push(`| ${r.table} | ${r.rows} | 按本次 run 的用户 id / 标题删除；或删用户级联 |`);
-  L.push('| public.profiles（role / banned 更新） | 3 行被更新 | 改回 user / false |');
-  L.push('', '## 6. Storage', '');
+    L.push(
+      `| ${r.table} | ${r.rows} | ${SEED_NOTE[r.table] ?? '种子 SQL 显式插入'} | 按本次 run 的用户 id / 标题删除；或删用户级联（另行批准） |`,
+    );
+  L.push('', '## 6. 资料更新（不新增行，3 行被更新）', '');
+  L.push('| 表 | 更新 | 可逆性 |', '| --- | --- | --- |');
+  L.push('| public.profiles | sbtest-admin → role admin | 改回 user |');
+  L.push('| public.profiles | sbtest-moderator → role moderator | 改回 user |');
+  L.push('| public.profiles | sbtest-banned → banned true | 改回 false |');
+  L.push('', '## 7. Storage', '');
   L.push('| 对象 | 大小 | sha256 | 可逆性 |', '| --- | --- | --- | --- |');
   L.push(
-    '| 桶 ugc-images | — | — | 0010 建（storage.buckets 行）；清空后 DELETE /storage/v1/bucket/ugc-images |',
+    '| 桶 ugc-images | — | — | 0010 建（已计入第 2 节 storage.buckets 1 行）；清空后 DELETE /storage/v1/bucket/ugc-images |',
   );
   for (const f of files)
     L.push(
       `| ugc-images/<测试用户 id>/${f.name} | ${f.bytes} B | ${f.sha256} | DELETE /storage/v1/object/ugc-images |`,
     );
-  L.push('', '## 7. 不做的事', '');
+  L.push('', '## 8. 不做的事', '');
   L.push(
-    '- 不启用 pg_cron、不执行 db/ops/（调度另批）；不发任何邮件；不碰生产；不清空 azsou-test（预检非空即停）。',
+    '- 不启用 pg_cron、不执行 db/ops/（调度另批）；不发任何邮件；不碰生产；不清空测试项目（预检非空即停）。',
   );
-  L.push('- 迁移没有 down 脚本：整体回退 = 删除 / 重建 azsou-test 项目（站长操作）；逐项回退按上表。');
+  L.push(
+    '- 迁移没有 down 脚本：逐项回退按上表，回退本身另行批准；执行器与本清单都不把删除或重新创建测试项目当作回退或修复手段。',
+  );
   L.push(
     '- Management API 不是 pg_dump / pg_restore 通道：备份恢复演练的执行通道仍未决定（见 ops/SBTEST-INIT.md）。',
   );
@@ -1299,25 +1716,37 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
         throw e;
       }
       const empty = pre.c0_problems.length === 0;
+      const admitted = !!pre.service?.accepted;
       const notes = [];
       if (argv.includes('--probe-project')) {
         const pj = await probeProject(c);
         for (const [k, v] of Object.entries(pj)) notes.push(`项目主机探测 ${k} → ${v}`);
         console.log(JSON.stringify({ project_probe: pj }, null, 2));
       }
+      const verdicts = [];
+      if (!empty) verdicts.push(`C0 不通过：${pre.c0_problems.join('；')}`);
+      if (!admitted) verdicts.push(`项目服务准入不接受：${pre.service?.reason ?? '未知'}`);
       record(
         pre,
-        empty ? '通过：目标身份一致，C0 空库（未发任何写请求）' : `C0 不为空：${pre.c0_problems.join('；')}`,
+        verdicts.length
+          ? `拒绝（未发任何写请求）——${verdicts.join('；')}`
+          : '通过：目标身份一致，C0 空库，项目服务准入接受（未发任何写请求）',
         notes,
       );
       console.log(
         JSON.stringify(
-          { target: pre.target, scope: pre.scope, identity: pre.identity, c0_problems: pre.c0_problems },
+          {
+            target: pre.target,
+            scope: pre.scope,
+            identity: pre.identity,
+            c0_problems: pre.c0_problems,
+            service: pre.service,
+          },
           null,
           2,
         ),
       );
-      return empty ? EXIT.OK : EXIT.REFUSED;
+      return verdicts.length ? EXIT.REFUSED : EXIT.OK;
     }
     verifyPinned(manifest, sha);
     if (cmd === 'plan') {
@@ -1339,15 +1768,32 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       assertRef(arg(argv, 'confirm-ref') ?? '');
       if (!env.SBTEST_OWNER_APPROVAL)
         throw new Refused('缺 SBTEST_OWNER_APPROVAL（站长批准记录）：初始化必须站长单独批准');
+      const runId = `${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}-${randomBytes(3).toString('hex')}`;
+      // 第七轮 ④：必须显式选择测试账号密码的交接方式（在任何网络请求之前）
+      const hf = arg(argv, 'handoff-file');
+      const hm = arg(argv, 'handoff');
+      let handoff;
+      if (hf) handoff = fileHandoff(hf, { runId });
+      else if (hm === 'discard') handoff = 'discard';
+      else
+        throw new Refused(
+          'execute 必须显式选择账号密码交接：--handoff-file <仓库外绝对路径>（0600，导入 vault 后删除）或 --handoff discard',
+        );
       c = clientFromEnv(argv, env, fetchImpl);
       const impact = JSON.parse(readFileSync(path.join(ROOT, 'ops/sbtest/init-impact.json'), 'utf8'));
-      const runId = `${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}-${randomBytes(3).toString('hex')}`;
-      const r = await execute({ sha, manifest, impact, c, runId, resume: argv.includes('--resume') });
+      let r;
+      try {
+        r = await execute({ sha, manifest, impact, c, runId, resume: argv.includes('--resume'), handoff });
+      } catch (e) {
+        record(null, `拒绝（写之前，未发任何写请求）：${e.message}`, [`run_id ${runId}`]);
+        throw e;
+      }
       const verdict = ['成功（V1 全部通过）', '失败（已停）', '拒绝', '不确定（不重试，人工核对）'][r.exit];
       record(r.preflight, verdict, [
-        `run_id ${r.runId}`,
-        ...(r.v1 ? r.v1.checks.map((x) => `${x.ok ? '✓' : '✗'} ${x.id}`) : []),
-        ...(r.inventory ? [`清点（${r.inventory.status}）：${JSON.stringify(r.inventory.items ?? {})}`] : []),
+        ...executeNotes(r),
+        ...(handoff !== 'discard'
+          ? [`账号密码交接文件：${handoff.path}（0600，${handoff.count()} 条；不含在本记录里）`]
+          : []),
       ]);
       console.log(`结果：${verdict}`);
       return r.exit;
