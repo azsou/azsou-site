@@ -49,3 +49,9 @@
 | ------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 2026-10-28    | `images.spec.ts:90`（webkit-iphone）                | 导航已提交到新主题，但新文档在 WebKit 上 7 秒内没跑完模块脚本，`toHaveURL` 只拿到旧页地址；同时发现发布成功后按钮立即恢复、跳转期间可重复提交 | 测试按真实信号分段等待（写库 201 → 新主题文档请求 → DOMContentLoaded，`publishThread`）；应用：提交锁保持到离开本页 | `docs/audits/evidence/ci/images-flake-2026-10-28.md` |
 | 2026-10-27/28 | `community.spec.ts` 工具栏 / 超长（webkit-desktop） | 宽屏预览 200ms 防抖渲染后变高，把「发布主题」往下推，点击落在按钮移走前的位置                                                                 | 应用：并排预览不撑高表单（`contain: size` + 框内滚动，可聚焦）；去掉 #6 9f16831 里只等预览的临时等待                | 同上                                                 |
+
+## 4. 视觉基线与 Lighthouse 产物（r13）
+
+- **视觉基线门禁**（design 任务，`scripts/ci/visual-baseline-gate.mjs`）：push / PR 时基线目录缺失、为空（0 个 .png）、缺任何必需快照（按 visual 项目用例标题推出）、或出现推不出快照名的新标题 → **失败**。不再在空目录时自动 `--update-snapshots=all`；比较一律 `--update-snapshots=none`（缺快照只失败、不写入）。门禁结果 `reports/visual-gate.json` 随 `design-report-*` 上传。
+- **候选基线**：只有手动 `workflow_dispatch` 勾选 `update_visual` 才会另跑 `visual-candidate` 任务，产物 `visual-candidate-baseline`。它**没有和任何基线比较**，任务成功只表示生成完毕，不算视觉门禁通过、不算验收；人工审阅后才可提交。同一次运行里 design 任务照常比较已提交的基线。
+- **Lighthouse 两档分开存证**（`scripts/ci/lhci-tier.sh`）：移动档 → `lhci-out/mobile`（产物 `lighthouse-mobile`），桌面档 → `lhci-out/desktop`（产物 `lighthouse-desktop`）。每档含 `raw/`（原始 lhr-*.json + assertion-results.json）、`reports/`、`summary.json` / `summary.md`、`exit-codes.json`、`manifest.sha256`。输出目录已存在或 `.lighthouseci` 有残留就拒绝运行，后跑的档不能覆盖先跑的档；两个产物都 `if: always()` 上传；最后一步 `lhci-gate.sh` 复核两档清单，任一档失败 / 缺档 / 归档被改动 → 任务失败。
