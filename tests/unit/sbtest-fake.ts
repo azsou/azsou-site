@@ -12,6 +12,7 @@ const { MIGRATIONS, SYNTHETIC_USERS, TEST_REF, buildManifest, client, expectedCo
  * 第九轮 / 第十轮：只有经 CLI main 读钉住的迁移、真正大量起 git 子进程（cat-file / show / ls-tree，每个用例 42–128 次）的用例单独放宽到 30s；
  * 纯逻辑用例、以及只起 2 次 git 的「钉住的提交不在本地」用例保持 vitest 默认 5s（不再整文件 vi.setConfig）。
  * 第十一轮：sbtest-init-r11 里 4 个起真实 CLI 子进程（node scripts/sbtest/init-executor.mjs，回环假服务器）的用例同样按用例 30s；其纯逻辑用例默认 5s。
+ * 第十二轮：sbtest-init-r12 里 6 个起真实 CLI 子进程的用例同样按用例 30s；其 5 个纯逻辑用例（进程内假 fetch）默认 5s。
  * 耗时是单实例、非空闲（共享 HEAVY.lock 下，宿主 load1 约 4–6，2 vCPU）实测，不是空闲机器：见
  * docs/audits/evidence/sbtest/round9-2026-10-29.md 与 round10-2026-10-29.md。
  */

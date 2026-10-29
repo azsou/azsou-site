@@ -384,6 +384,16 @@ export class Unauthorized extends Refused {
   }
 }
 export class NoInjection extends Unauthorized {}
+/**
+ * 第十二轮：收到 3xx（从不跟随）。仍是拒绝（读请求 / 写之前的闸门照旧 exit 2）；但写请求**已经发出**后才收到的 3xx
+ * 说明服务器可能已经处理了这次写——createUsers / rotateAdopted 按「结果未知」（exit 3）处理，不当成拒绝。
+ */
+export class Redirected extends Refused {
+  constructor(msg, status) {
+    super(msg);
+    this.status = status;
+  }
+}
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 const stripSlash = (u) => String(u).replace(/\/+$/, '');
@@ -470,8 +480,9 @@ export function client({
         } catch {
           /* 没有 / 无效 Location */
         }
-        throw new Refused(
+        throw new Redirected(
           `${what}：HTTP ${r.status || '3xx'} 重定向被拒（不自动跟随；${to && to !== u.host ? `跨主机 ${u.host} → ${to}` : `同主机 ${u.host}`}）`,
+          r.status,
         );
       }
       if (r.status === 401) {
@@ -1249,7 +1260,7 @@ const lexists = (p) => {
  * 第八轮路径检查：逐个路径分量 lstat，遇到符号链接就解析真实路径——指向仓库（按仓库真实路径比较）→ 拒绝；
  * 最终目录的真实路径在仓库里 → 拒绝；目录必须正好 0700、文件正好 0600，属主都必须是当前用户；文件以 O_EXCL | O_NOFOLLOW 创建。
  * 文件每行一个 JSON：{ email, password, user_id, project_ref, run_id, attempt_id, set_at }——run_id 由调用方按**实际沿用的账本 run_id** 传入。
- * 0600 文件写好 ≠ 交接完成：要等 Hark 把文件里的**每一行**（N = 本次新建 + 显式改密的账号，不是固定 4 条）存进 vault 并覆盖删除文件；
+ * 0600 文件写好 ≠ 交接完成：要等 Hark 把文件里的**每一行**（N = 本次成功写入交接文件的记录条数，不是云端建号 / 改密次数，也不是固定 4 条）存进 vault 并覆盖删除文件；
  * 部分失败 → 保留文件、停下，不重跑、不改密（ops/SBTEST-INIT.md §10.1）。覆盖删除不保证云端残留不可恢复。
  * @param {string} file 绝对路径，必须在仓库外
  * @param {{ repoRoot?: string, attemptId?: string, expectUid?: number }} [o]
@@ -1337,7 +1348,13 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
         }) + '\n';
       const wfd = openSync(real, FS.O_WRONLY | FS.O_APPEND | (FS.O_NOFOLLOW ?? 0));
       try {
-        writeSync(wfd, line);
+        // 第十二轮：短写 = 写入失败（文件可能已部分写入、含密码片段，按敏感文件处理），不计入 N
+        const want = Buffer.byteLength(line);
+        const got = writeSync(wfd, line);
+        if (got !== want)
+          throw Object.assign(new Error(`交接行只写入 ${got} / ${want} 字节（短写）`), {
+            code: 'ESHORTWRITE',
+          });
       } finally {
         closeSync(wfd);
       }
@@ -1352,6 +1369,9 @@ const fsErr = (e) => {
   const m = String(e?.message ?? e);
   return (e?.code && !m.startsWith(String(e.code)) ? `${e.code} ${m}` : m).slice(0, 160);
 };
+
+/** 第十二轮：只有 4xx 是服务器显式拒绝（按响应未生效）；其余非 2xx（3xx、5xx、0）在写请求已发出后一律是「结果未知」 */
+const isRejection = (status) => typeof status === 'number' && status >= 400 && status < 500;
 
 const ADMIN_CREATE = /^\/auth\/v1\/admin\/users$/;
 const ADMIN_UPDATE = /^\/auth\/v1\/admin\/users\/[^/]+$/;
@@ -1427,7 +1447,7 @@ export function handoffConclusion(handoff, evidence) {
     evidence && Array.isArray(evidence.trace) ? accountWriteEvidence(evidence.trace, evidence.results) : null;
   if (n > 0)
     out.notes.push(
-      `账号密码交接文件：${where}（0600，N = ${n} 条 = 本次新建 + 显式改密且已写入的账号；不含在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密${ref}`,
+      `账号密码交接文件：${where}（0600，N = ${n} 条 = 本次成功写入交接文件的记录条数，不是云端建号 / 改密次数；内容不在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密${ref}`,
     );
   let keep = false;
   if (!ev) {
@@ -1455,7 +1475,7 @@ export function handoffConclusion(handoff, evidence) {
         ...(ev.extraApplied ? [`另有 ${ev.extraApplied} 个已生效但没有交接记录的请求`] : []),
       ].join('、');
       out.errors.push(
-        `交接错误：${missing} 个账号已创建 / 已改密（Auth Admin 返回 2xx），但密码未交接（交接文件写入失败）——${who}。这些账号的密码不在交接文件里，无法存进 vault；交接文件 ${where} 保留作证据（可能为空或只有部分内容），需人工处理：站长批准后才可经 --resume --rotate-passwords / --confirm-rotate 显式改密，执行器不自动重试、不自动改密${ref}`,
+        `交接错误：${missing} 个账号已创建 / 已改密（Auth Admin 返回 2xx），但密码未交接（交接文件写入失败）——${who}。这些账号的密码没有完整、可核对地写进交接文件，不能据此存进 vault；交接文件 ${where} 可能已部分写入（可能含密码片段），一律按敏感文件处理：保持 0600、只留在原机器上、不读出、不外传、不贴进任何记录 / 聊天，保留作证据，需人工处理：站长批准后才可经 --resume --rotate-passwords / --confirm-rotate 显式改密，执行器不自动重试、不自动改密${ref}`,
       );
     }
   }
@@ -1524,15 +1544,25 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
     try {
       r = await c.adminCreateUser(u, password, runId);
     } catch (e) {
-      if (e instanceof Refused) throw e;
+      // 第十二轮：写请求已发出后收到 3xx（不跟随）→ 服务器可能已建号 → 结果未知（exit 3），不是拒绝；401 等其他拒绝照旧
+      if (e instanceof Refused && !(e instanceof Redirected)) throw e;
       results.push({
         file: `user:${u.email}`,
         outcome: 'unknown',
-        error: String(e?.message ?? e).slice(0, 120),
+        error: String(e?.message ?? e).slice(0, 160),
       });
       return { ids, outcome: 'unknown' };
     }
     if (!r.ok) {
+      // 第十二轮：只有 4xx 是显式拒绝（按响应未建号 → 失败，exit 1）；5xx / 其他非 2xx = 请求已发出、结果未知 → exit 3
+      if (!isRejection(r.status)) {
+        results.push({
+          file: `user:${u.email}`,
+          outcome: 'unknown',
+          error: `HTTP ${r.status}（建号请求已发出，结果未知：账号可能已创建）`,
+        });
+        return { ids, outcome: 'unknown' };
+      }
       results.push({ file: `user:${u.email}`, outcome: `HTTP ${r.status}` });
       return { ids, outcome: 'failed' };
     }
@@ -1548,7 +1578,8 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
     }
     ids[u.key] = id;
     if (canHandoff(handoff)) {
-      // 第十一轮：账号已建、交接写入失败 → 不再写（不建下一个、不改密、不重试），按不确定停下；密码不在交接文件里，记录写明
+      // 第十一轮：账号已建、交接写入失败 → 不再写（不建下一个、不改密、不重试），按不确定停下；
+      // 第十二轮：交接文件可能已部分写入（可能含密码片段）→ 按敏感文件处理，记录写明
       try {
         await handoff.write(u.email, password, id, { run_id: runId, attempt_id: attemptId });
       } catch (e) {
@@ -1574,15 +1605,24 @@ async function rotateAdopted(c, adopted, handoff, results, meta) {
     try {
       r = await c.adminSetPassword(a.id, password);
     } catch (e) {
-      if (e instanceof Refused) throw e;
+      // 第十二轮：PUT 已发出后收到 3xx（不跟随）→ 密码可能已被改 → 结果未知（exit 3）
+      if (e instanceof Refused && !(e instanceof Redirected)) throw e;
       results.push({
         file: `user:${a.email}`,
         outcome: 'password-unknown',
-        error: String(e?.message ?? e).slice(0, 120),
+        error: String(e?.message ?? e).slice(0, 160),
       });
       return 'unknown';
     }
     if (!r.ok) {
+      if (!isRejection(r.status)) {
+        results.push({
+          file: `user:${a.email}`,
+          outcome: 'password-unknown',
+          error: `HTTP ${r.status}（改密请求已发出，结果未知：密码可能已被改）`,
+        });
+        return 'unknown';
+      }
       results.push({ file: `user:${a.email}`, outcome: `password HTTP ${r.status}` });
       return 'failed';
     }
@@ -1962,11 +2002,96 @@ async function executeInner(
   return finish(EXIT.OK, { preflight: pre, v1 });
 }
 
+/** 第十二轮：只读预检阶段（preflight 子命令 = execute 的 P0 + P1 + PS 段；PJ = 只读项目主机探测） */
+const PREFLIGHT_PHASES = new Set(['P0', 'P1', 'PS', 'PJ']);
+/** 写请求 = 除 GET 与 database/query/read-only 以外的任何请求（database/query、Auth Admin 建号 / 改密、Storage 上传……） */
+const isWriteCall = (t) =>
+  !!t && t.method !== 'GET' && t.method !== 'HEAD' && !/\/database\/query\/read-only$/.test(String(t.path));
+/** 写请求按状态分：2xx 已确认；4xx 被拒（按响应未生效）；其余（0、ERR:*、3xx、5xx）结果未知 */
+function writeCalls(trace) {
+  const all = (trace ?? []).filter(isWriteCall);
+  const ok = (s) => typeof s === 'number' && s >= 200 && s < 300;
+  return {
+    all,
+    confirmed: all.filter((t) => ok(t.status)),
+    rejected: all.filter((t) => isRejection(t.status)),
+    unknown: all.filter((t) => !ok(t.status) && !isRejection(t.status)),
+  };
+}
+/** 路径里的 uuid（用户 id、对象路径前缀）打码 */
+const maskPath = (p) =>
+  String(p ?? '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, (m) => mask(m));
+/** 兜底回执里的自由文本（错误 / 核对说明）：截断 + 去掉任何像凭据的片段 + 去掉调用方给出的已知秘密值 */
+function redactText(v, secrets = []) {
+  let s = String(v ?? '').slice(0, 200);
+  for (const x of secrets) if (x && String(x).length >= 4) s = s.split(String(x)).join('[已打码]');
+  return s
+    .replace(/bearer\s+\S+/gi, '[已打码]')
+    .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]*/g, '[已打码]')
+    .replace(/\bsb[a-z]?_[\w-]{6,}/gi, '[已打码]')
+    .replace(/\b(authorization|apikey|api[_-]?key|password|passwd|token|secret)\b\S*/gi, '[已打码]');
+}
+const RECEIPT_RESULT_KEYS = ['file', 'outcome', 'verify', 'error'];
+/**
+ * 第十二轮：运行记录（审计记录）写入失败时的兜底回执——一行结构化 JSON，**白名单**字段：
+ * receipt / command / exit / run_id / attempt_id / phase / results（逐项：file、outcome、verify、error，打码）/
+ * confirmed_writes / unknown_writes（只有阶段、方法、打码路径、状态）/ inventory（已打码的清点）/ record_write_failure。
+ * 绝不包含密码、令牌、请求头、完整原始响应、交接文件内容——输入里有别的字段也一律不取。
+ * @param {{ command: string, exit: number, result?: any, trace?: any[], recordError: string, secrets?: string[] }} o
+ */
+export function fallbackReceipt({ command, exit, result, trace, recordError, secrets = [] }) {
+  const w = writeCalls(trace);
+  const call = (t) => ({
+    phase: String(t.phase ?? ''),
+    method: String(t.method ?? ''),
+    path: maskPath(t.path),
+    status: typeof t.status === 'number' ? t.status : redactText(t.status, secrets),
+  });
+  const results = (result?.results ?? []).map((x) => {
+    const o = {};
+    for (const k of RECEIPT_RESULT_KEYS)
+      if (x?.[k] !== undefined)
+        o[k] = k === 'file' || k === 'outcome' ? String(x[k]) : redactText(x[k], secrets);
+    return o;
+  });
+  let inventory = null;
+  if (result?.inventory && typeof result.inventory === 'object') {
+    inventory = { status: String(result.inventory.status ?? 'unknown') };
+    /** @type {(v: any) => any} */
+    const deep = (v) =>
+      typeof v === 'string'
+        ? redactText(v, secrets)
+        : Array.isArray(v)
+          ? v.map(deep)
+          : v && typeof v === 'object'
+            ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
+            : v;
+    if (result.inventory.items !== undefined) inventory.items = deep(result.inventory.items);
+    if (result.inventory.error !== undefined) inventory.error = redactText(result.inventory.error, secrets);
+  }
+  const lastPhase = [...(trace ?? [])].reverse().find((t) => t?.phase)?.phase ?? null;
+  return {
+    receipt: 'sbtest-run-fallback/v1',
+    command: String(command),
+    exit,
+    run_id: result?.runId ?? null,
+    attempt_id: result?.attemptId ?? null,
+    phase: result?.stage ?? lastPhase,
+    results,
+    confirmed_writes: w.confirmed.map(call),
+    unknown_writes: w.unknown.map(call),
+    inventory,
+    record_write_failure: { error: redactText(recordError, secrets) },
+  };
+}
+
 /**
  * 运行记录（Markdown，已打码）：只含方法 / 路径 / 状态 / 耗时，不含任何请求头、正文、令牌。
  * 第十一轮：handoff（交接与收尾说明 / 错误）与 exitCode（最终退出码）可选，单独成节，不改写上面的执行结论。
+ * 第十二轮：command（'preflight' / 'execute'）可选。「写端点未调用」只针对只读预检阶段（P0 / P1 / PS / PJ），并按请求记录核对；
+ * execute 记录另起一节，按本次请求记录如实列出写端点调用（已确认 / 被拒 / 结果未知）。
  * @param {{ title: string, when: string, mode: string, endpoints?: any, pre?: any, trace: any[], verdict: string,
- *   notes?: string[], handoff?: { notes?: string[], errors?: string[] }, exitCode?: number }} o
+ *   notes?: string[], handoff?: { notes?: string[], errors?: string[] }, exitCode?: number, command?: string }} o
  */
 export function runRecordMarkdown({
   title,
@@ -1979,8 +2104,10 @@ export function runRecordMarkdown({
   notes = [],
   handoff,
   exitCode,
+  command,
 }) {
   const L = [`# ${title}`, ''];
+  const pfWrites = (trace ?? []).filter((t) => PREFLIGHT_PHASES.has(t?.phase) && isWriteCall(t)).length;
   L.push(`- 时间：${when}`);
   L.push(
     `- 执行器：scripts/sbtest/init-executor.mjs（同一执行器，preflight 子命令 = execute 的 P0 + P1 + PS 段，只读）`,
@@ -2000,7 +2127,10 @@ export function runRecordMarkdown({
       '- 能做：GET /v1/projects/{ref}、POST /v1/projects/{ref}/database/query/read-only（以 supabase_read_only_user 执行）',
     );
     L.push(
-      '- 不能 / 未尝试：列出账号下全部项目（403）；任何写端点（database/query、Auth Admin、Storage 写）本次一律未调用',
+      '- 不能 / 未尝试：列出账号下全部项目（403）',
+      pfWrites === 0
+        ? '- 只读预检阶段（P0 / P1 / PS）：按本次请求记录，写端点调用 0 次（database/query、Auth Admin、Storage 写在只读预检阶段一律未调用；只读预检之后的写见「写端点调用」一节）'
+        : `- **只读预检阶段（P0 / P1 / PS）：按本次请求记录出现 ${pfWrites} 次写端点调用——与只读预检不符，需人工核对**`,
       '- 注意：GET /v1/projects 返回 403 不能证明令牌范围；范围只以站长提供的令牌配置记录为准',
       '',
     );
@@ -2036,6 +2166,21 @@ export function runRecordMarkdown({
   trace.forEach((t, i) =>
     L.push(`| ${i + 1} | ${t.phase} | ${t.method} | ${t.path} | ${t.status} | ${t.ms} |`),
   );
+  if (command === 'execute') {
+    // 第十二轮：按本次请求记录如实描述写端点调用，不沿用只读预检的措辞
+    const w = writeCalls(trace);
+    L.push('', '## 写端点调用（按本次请求记录）', '');
+    if (!w.all.length) L.push('- 本次执行按请求记录没有发出任何写请求');
+    else {
+      L.push(
+        `- 共 ${w.all.length} 次：已确认 ${w.confirmed.length}（2xx）；被拒 ${w.rejected.length}（4xx，按响应未生效）；结果未知 ${w.unknown.length}（无响应 / 超时 / 3xx / 5xx：可能已生效，需人工核对）`,
+      );
+      for (const t of w.unknown)
+        L.push(
+          `- 结果未知：${t.phase} ${t.method} ${maskPath(t.path)} → ${t.status}（不重试、不跟随重定向）`,
+        );
+    }
+  }
   if (notes.length) L.push('', '## 备注', '', ...notes.map((n) => `- ${n}`));
   // 第十一轮：交接 / 清理收尾与执行结论分开记录——收尾错误不改写上面的结论、阶段、逐项结果与清点
   if (handoff && (handoff.notes?.length || handoff.errors?.length || exitCode !== undefined)) {
@@ -2054,7 +2199,7 @@ export const EXIT_MEANING = Object.freeze({
   1: '失败（已停，原执行结论；收尾错误不改变退出码）',
   2: '拒绝（原执行结论；收尾错误不改变退出码）',
   3: '不确定（原执行结论，不重试，人工核对；收尾错误不改变退出码，绝不降成 1 或 0）',
-  4: '执行成功（V1 全部通过）但必需的交接 / 清理收尾未完成——不是「完全完成」；云端写操作不需要、也不得重跑，只按收尾错误人工处理',
+  4: '原结论成功（execute：V1 全部通过；preflight：预检通过）但必需的交接 / 清理 / 运行记录收尾未完成——不是「完全完成」；云端写操作不需要、也不得重跑，只按收尾错误（运行记录写入失败时按兜底回执）人工处理',
 });
 
 /** execute 结果 → 运行记录备注：阶段、逐项结果（文件 / 结果，不含正文与密码）、V1、清点 */
@@ -2198,6 +2343,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
     writeFileSync(
       out,
       runRecordMarkdown({
+        command: cmd,
         title: `azsou-test ${cmd} 运行记录（已打码）`,
         when: new Date().toISOString(),
         mode: c.mode,
@@ -2211,14 +2357,41 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       }),
     );
   };
-  /** 第十一轮：execute 收尾用——写运行记录失败只作为收尾错误返回，不掩盖执行结果 */
+  /** 第十一轮：写运行记录失败只作为收尾错误返回，不掩盖执行结果（第十二轮：preflight 也走这里） */
   const safeRecord = (...a) => {
     try {
       record(...a);
       return undefined;
     } catch (e) {
-      return `收尾错误：运行记录写入失败（${fsErr(e)}）——执行结论见上面的输出`;
+      return fsErr(e);
     }
+  };
+  /**
+   * 第十二轮：运行记录写入失败 → 收尾错误 + stderr 一行白名单兜底回执（fallbackReceipt）。原退出码 1 / 2 / 3 原样保留，
+   * 只有原成功才变成 4（INCOMPLETE）。返回最终退出码。
+   */
+  const recordFailed = (recErr, exit, result) => {
+    const fin = exit === EXIT.OK ? EXIT.INCOMPLETE : exit;
+    console.error(
+      `✗ 收尾错误：运行记录写入失败（${recErr}）——原结论不变；下一行是打码的兜底回执（白名单字段，不含密码 / 令牌 / 请求头 / 原始响应 / 交接内容）`,
+    );
+    try {
+      console.error(
+        JSON.stringify(
+          fallbackReceipt({
+            command: cmd,
+            exit: fin,
+            result,
+            trace: c?.trace ?? [],
+            recordError: recErr,
+            secrets: [env.SBTEST_MGMT_TOKEN, env.SBTEST_SERVICE_KEY].filter(Boolean),
+          }),
+        ),
+      );
+    } catch (e) {
+      console.error(`✗ 兜底回执生成失败（${fsErr(e)}）——原结论不变`);
+    }
+    return fin;
   };
   /** 第十一轮：交接结论从不抛异常（handoffConclusion 内部已兜底，这里再兜一层） */
   const conclude = (handoff, evidence) => {
@@ -2253,7 +2426,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       try {
         pre = await preflight(c);
       } catch (e) {
-        record(null, `拒绝：${e.message}`);
+        const re = safeRecord(null, `拒绝：${e.message}`);
+        if (re) recordFailed(re, e instanceof Refused ? EXIT.REFUSED : EXIT.FAILED, undefined);
         throw e;
       }
       const empty = pre.c0_problems.length === 0;
@@ -2267,7 +2441,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       const verdicts = [];
       if (!empty) verdicts.push(`C0 不通过：${pre.c0_problems.join('；')}`);
       if (!admitted) verdicts.push(`项目服务准入不接受：${pre.service?.reason ?? '未知'}`);
-      record(
+      const pfRe = safeRecord(
         pre,
         verdicts.length
           ? `拒绝（未发任何写请求）——${verdicts.join('；')}`
@@ -2287,7 +2461,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
           2,
         ),
       );
-      return verdicts.length ? EXIT.REFUSED : EXIT.OK;
+      const pfExit = verdicts.length ? EXIT.REFUSED : EXIT.OK;
+      return pfRe ? recordFailed(pfRe, pfExit, undefined) : pfExit;
     }
     verifyPinned(manifest, sha);
     if (cmd === 'plan') {
@@ -2353,7 +2528,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
           [`attempt_id ${attemptId}`],
           hc,
         );
-        if (re) console.error(`✗ ${re}`);
+        if (re)
+          recordFailed(re, e instanceof Refused ? EXIT.REFUSED : EXIT.FAILED, {
+            runId,
+            attemptId,
+            results: [],
+          });
         throw e;
       }
       const verdict = ['成功（V1 全部通过）', '失败（已停）', '拒绝', '不确定（不重试，人工核对）'][r.exit];
@@ -2363,9 +2543,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       let exit = r.exit;
       if (exit === EXIT.OK && hc.errors.length) exit = EXIT.INCOMPLETE;
       const re = safeRecord(r.preflight, verdict, executeNotes(r), hc, exit);
-      if (re && exit === EXIT.OK) exit = EXIT.INCOMPLETE;
       printHandoff(hc);
-      if (re) console.error(`✗ ${re}`);
+      if (re) exit = recordFailed(re, exit, r);
       console.log(`结果：${verdict}`);
       if (exit !== r.exit) console.error(`✗ 退出码 ${exit}：${EXIT_MEANING[exit]}`);
       return exit;
