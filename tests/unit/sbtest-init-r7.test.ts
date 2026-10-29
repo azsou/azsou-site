@@ -129,7 +129,9 @@ describe('第七轮 ② 不跟随重定向', () => {
     await expect(E.preflight(c)).rejects.toThrow(/重定向/);
     expect(api.calls.some((x) => x.url.includes('api.supabase.com'))).toBe(false);
   });
-  it('同主机 307 也拒绝（不当成普通失败去核对账本）', async () => {
+  // 第十三轮（站长 round 13 B）：迁移写请求**已发出**后才收到的同主机 307 仍然不跟随，但不再当成「拒绝」（2）——
+  // 服务器可能已处理，按账本 + 运行标记核对（只读端点，不访问 Location）：这里账本 0 行、无标记会话 → 确认未提交（1）
+  it('同主机 307（迁移写请求发出后）：不跟随，按账本核对——未提交 → exit 1，不当成拒绝，不发下一个文件', async () => {
     const { api, c } = mk(fresh(), {
       onQuery: (q) =>
         q.includes('0002_m.sql')
@@ -137,8 +139,11 @@ describe('第七轮 ② 不跟随重定向', () => {
           : undefined,
     });
     const r = await run(c);
-    expect(r.exit).toBe(EXIT.REFUSED);
-    expect(r.refused).toMatch(/重定向/);
+    expect(r.exit).toBe(EXIT.FAILED);
+    const m2 = r.results.find((x: { file: string }) => x.file === '0002_m.sql');
+    expect(m2.http).toEqual({ status: 307, redirect_followed: false });
+    expect(m2.verification.conclusion).toBe('not-committed');
+    expect(api.calls.some((x) => x.url.includes('/elsewhere'))).toBe(false);
     expect(api.calls.filter((x) => x.url.includes('0003'))).toHaveLength(0);
   });
 });

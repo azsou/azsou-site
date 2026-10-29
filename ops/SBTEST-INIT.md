@@ -37,6 +37,7 @@
 
 **不跟随重定向（第七轮 ②）**：每个请求都以 `redirect: 'manual'` 发出；任何 3xx（同主机或跨主机）→ 拒绝（退出码 2），不向 Location 发请求。
 **例外（第十二轮）**：Auth Admin 建号（`POST /auth/v1/admin/users`）/ 显式改密（`PUT /auth/v1/admin/users/{id}`）请求**已经发出**后才收到的 3xx 仍然不跟随，但服务器可能已经处理了这次写，所以按**结果未知（退出码 3）**处理，不是拒绝（见 §10.1「执行状态与证据一致」）。读请求和写之前的闸门收到 3xx 照旧是拒绝（退出码 2）。
+**例外（第十三轮）**：B0 建账本、迁移 / 种子事务（`POST …/database/query`）、Storage 上传（`POST /storage/v1/object/ugc-images/…`）请求**已经发出**后才收到的 3xx 同样不跟随、**不当成写之前的拒绝**：B0 与迁移 / 种子按 §4 核对账本（只用允许清单内的只读端点，从不访问 Location 主机），Storage 按结果未知（退出码 3）。
 线路注入只按主机名绑定，跟随跨主机重定向可能把请求带到另一条绑定上。2026-10-29 无凭据实测 `api.supabase.io` 的 `/`、`/v1/projects/{ref}`、`/v1/projects` 都没有重定向（最终主机仍是 `api.supabase.io`，见 `credential-binding-2026-10-29.md`）。
 
 **凭据模式**（`--mode` / `SBTEST_CRED_MODE`）：
@@ -66,14 +67,23 @@
 - 执行器**从 git 对象库**读 `source_sha` 下的文件（不读工作区），逐个比对清单：文件不是恰好 0001–0019、任何哈希 / 大小不符 → 拒绝。
 - 换候选版本时：`node scripts/sbtest/init-executor.mjs manifest --source-sha <新 SHA> --write`，清单变化随 PR 审阅。
 
-## 4. 每个文件一个事务 + 超时 + 「提交了没有」核对（第七轮 ③ 收紧）
+## 4. 每个文件一个事务 + 超时 + 「提交了没有」核对（第七轮 ③ 收紧；第十三轮：B0 / Storage / 写后 3xx / 两层结果）
 
 - 每个迁移文件本身以单独一行 `begin;` 开头、`commit;` 结尾（执行器校验各恰好一次，否则拒绝）。执行器去掉这两行，换成：
   `begin; set local statement_timeout = '300s'; set local lock_timeout = '15s'; set local application_name = 'az-init:<运行 id>:<文件>'; <正文>; insert into az_init.applied (run_id, file, sha256) …; commit;`
 - **种子事务同样带运行标记**：`set local lock_timeout`、`set local application_name = 'az-init:<运行 id>:seed'`，超时核对与迁移完全相同。
-- HTTP 失败 / 断线 / 客户端超时（330 s）后，执行器先用只读端点查 `{ledger, running}`：
+- HTTP 失败 / 断线 / 客户端超时（330 s）/ **发出后收到 3xx（第十三轮，不跟随）**后，执行器先用只读端点查 `{ledger, running}`：
   - 两个字段都必须是非负整数，否则（`[{}]`、`[]`、缺键、`null`、账本行数 > 1）→ **不确定（unknown）**，退出码 3——**绝不当成「未提交」**；
   - `running > 0` → 仍在跑，退出码 3；`ledger = 1` → 已提交，继续；`ledger = 0` 且 `running = 0` → 未提交，退出码 1。
+  - 核对请求本身出错（非 2xx、3xx、401、形状不符、网络）→ 无法核对，退出码 3（第十三轮：写已发出，核对失败不当成拒绝）。
+  - 所以 5xx 并不一律映射成 3：账本证明已提交 → 继续；证明未提交 → 1；仍在跑 / 查不到 → 3。
+- **B0 建账本（第十三轮）**：单事务，C0 已证明 `az_init` 不存在。2xx → 继续；4xx → 显式拒绝、未提交（1）；5xx / 其他非 2xx / 超时 / 断线 / 发出后 3xx →
+  只读查 `az_init.applied` 是否存在：存在 → 已提交（只能是本次 B0），继续；**不存在 → 不确定（3）**——B0 没有运行标记，不能排除仍在运行 / 延迟提交，**不是「确定未提交」**；核对失败 → 3。
+- **Storage 上传（第十三轮）**：2xx → 已存储；4xx（例如 409 已存在、413）→ 显式拒绝（1）；5xx / 其他非 2xx / 超时 / 断线 / 发出后 3xx → **结果未知（3）**，
+  立即停止后续一切写；不自动重传、不覆盖、不删除（对象可能已存储，也可能不完整），由人工按清点 `storage_objects` 核对。
+- **结果两层（第十三轮）**：B0、迁移 / 种子、Storage 的逐项结果都分开写 ① `http`（原始 HTTP 状态 / 传输错误：`{status}`、`{status, redirect_followed: false}`、`{error: timeout | network}`，**不含服务器正文**）
+  与 ② `verification`（核对结论 `committed` / `not-committed` / `still-running` / `unverifiable` / `not-verified` / `rejected` + 依据）；`outcome` 是业务结论。
+  例：HTTP 503 + 账本 1 行 → `http: {status: 503}`、`verification: committed`，业务结果 = committed，继续。运行记录写成「结果 0005_… committed（HTTP 503；核对：committed，账本 1 行…）」。
 - 每个文件提交后跑 `db/verify/status.sql`：该步及之前全为 true 才继续；有 false → 失败（1）。**status 查询本身出错**（网络错误、非 2xx、JSON 错误、形状不符）→ 不确定（3）。
 - C0（执行前）：所有键必须存在且类型正确（版本是数字版本串、计数是非负整数、标志是布尔值、扩展是数组）；`{}`、缺键、`null`、版本无效 → **拒绝（2）**，不当成「空库」。
 - 写操作开始后的**任何意外异常**也归为不确定（3），同样写出阶段、已知结果与打码清点（见 §9）。
@@ -212,6 +222,11 @@ N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续
 
 **运行记录（审计记录）写不出时的兜底回执（第十二轮）。** `--record` 写入失败（磁盘满、只读、权限……）时，执行器在 stderr 输出一行以 `{"receipt":"sbtest-run-fallback/v1"` 开头的 JSON，只取**白名单**字段：
 `command`、`exit`、`run_id`、`attempt_id`、`phase`、`results`（逐项：文件 / 账号、结论、核对说明、错误，自由文本打码截断）、`confirmed_writes` 与 `unknown_writes`（只有阶段、方法、打码路径、状态）、`inventory`（已打码的清点）、`record_write_failure`（失败原因）。
+**第十三轮：逐层白名单。** 每一层都按允许的字段名 + 类型投影，不认识的字段（任意层）直接丢弃，不转储：
+`results[]` 只取 `file`（须是 az_init / seed / 迁移文件名 / 合成 PNG / 合成账号）、`outcome`（已知结论）、`http`（第 ① 层）、`verification`（第 ② 层：结论 + 依据）、`verify`、`error`；
+`error` 只输出**受控错误码**（`http_status` / `redirect` / `timeout` / `network` / `unauthorized` / `uncertain_shape` / 文件系统码如 `ENOSPC` / `other`）+ 状态类别（`5xx`、`3xx`、`none`……）+ 阶段 + 端点，**不输出服务器原始正文**；
+`inventory.items` 只认 `ledger`（file / run_id / 哈希前缀）、`accounts`（合成邮箱 + 打码 id；非合成邮箱隐藏）、`counts`（表名 → 非负整数）、`storage_objects`（打码对象名 + 大小）、`running_sessions`；`inventory.error` 同样只给错误码；
+`record_write_failure` 只给错误码。仅剩的自由文本（核对依据）**先**替换已知秘密值（含 URL 编码形式），再按关键字打码（`password: v`、`"password" : "x"`、`token=…`、引号里带空格的值、Bearer、JWT、sb_ 密钥），**最后**才截断——秘密跨截断点也不留前缀。
 **绝不**包含密码、令牌、请求头、完整原始响应、交接文件内容。preflight 与 execute（包括写之前就被拒绝）都一样。这一行就是本次运行的审计依据，保存它，交站长核对；不因此重跑任何写操作。退出码：
 
 | 原执行结果            | 收尾无错误 | 收尾有错误                                                                                                                                                                                                               |
@@ -220,7 +235,7 @@ N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续
 | 失败（1） / 拒绝（2） | 1 / 2      | 1 / 2（不变）                                                                                                                                                                                                            |
 | 不确定（3）           | 3          | 3（**绝不**降成 1 或 0）                                                                                                                                                                                                 |
 
-收尾失败从不自动重试建号、改密或任何其他写操作。回归：`tests/unit/sbtest-init-r11.test.ts`（真实本机 CLI 子进程 + 回环假服务器 + 合成数据：建号响应丢失、建号后交接写入失败、原成功 / 原不确定 + 空文件删除失败）；`tests/unit/sbtest-init-r12.test.ts`（发出后 3xx / 5xx → 3、4xx 不变；运行记录写入失败 → 兜底回执、原 1 / 2 / 3 不变、原成功 → 4）。
+收尾失败从不自动重试建号、改密或任何其他写操作。回归：`tests/unit/sbtest-init-r11.test.ts`（真实本机 CLI 子进程 + 回环假服务器 + 合成数据：建号响应丢失、建号后交接写入失败、原成功 / 原不确定 + 空文件删除失败）；`tests/unit/sbtest-init-r12.test.ts`（发出后 3xx / 5xx → 3、4xx 不变；运行记录写入失败 → 兜底回执、原 1 / 2 / 3 不变、原成功 → 4）；`tests/unit/sbtest-init-r13.test.ts`（回执逐层白名单 / 受控错误码 / 先打码后截断；B0、迁移 / 种子、Storage 写后不确定性与两层结果）。
 
 1. 执行器结束后，先读本次运行记录「交接与收尾」一节（运行记录没写成 → 读 stderr 里的兜底回执，按「收尾错误」停下交站长，不存、不删、不重跑）：写的是「N = 0（本次请求记录里没有发出任何 Auth Admin 建号 / 改密请求…）」或「…全部被 HTTP 4xx 拒绝…」且没有收尾错误 → 核对文件确实已不存在，到此结束，下面 2–5 步都不做；有「账号状态未知」「交接错误」或「收尾错误」→ 停下交站长人工核对（按上表），不存、不删、不重跑、不改密。N > 0 → Hark 在沙箱里读这个 0600 文件，先核对：行数 = 运行记录里的 N；每行 `project_ref` = `ovvfwkmqlejcpatmfqcd`、`run_id` = 账本 run_id、邮箱在合成清单里且不重复。任何一项不符 → 停下，不存、不删除文件。
 2. **对每一行调用一次 Hark 的 `save_login`**（vault 工具），参数只有三项：
@@ -244,10 +259,11 @@ N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续
 ## 11. 测试
 
 - `tests/unit/sbtest-init-r9.test.ts`（第九轮：V1.cron 严格类型——缺字段 / null / 字符串 "0" / NaN / Infinity / 负数 / 小数 / 数组 / 对象 → 不确定；false/false/0 通过；true 或 > 0 → 不通过；初始化后的非空库不影响）。
-  超时：纯逻辑用例用 vitest 默认 5s；只有经 CLI `main` 大量起 git 子进程（每个 42–128 次）的 CLI 用例单独 30s（`SPAWN_TIMEOUT`，第十轮共 10 个：第九轮的 9 个 + 第十轮 N = 0 CLI 用例；第十一轮再加 4 个起 CLI 子进程的用例，共 14 个；第十二轮再加 6 个，共 20 个）。
+  超时：纯逻辑用例用 vitest 默认 5s；只有经 CLI `main` 大量起 git 子进程（每个 42–128 次）的 CLI 用例单独 30s（`SPAWN_TIMEOUT`，第十轮共 10 个：第九轮的 9 个 + 第十轮 N = 0 CLI 用例；第十一轮再加 4 个起 CLI 子进程的用例，共 14 个；第十二轮再加 6 个，共 20 个；第十三轮再加 6 个，共 26 个）。
   「钉住的提交不在本地」只起 2 次 git（单实例、非空闲 37–61 ms），第十轮起回到默认 5s。耗时均为单实例、非空闲（共享 `HEAVY.lock` 下，load1 约 4–6，2 vCPU）实测，不是空闲机器。
 - `tests/unit/sbtest-init-r11.test.ts`（第十一轮：N = 0 只表示本次没有成功写入交接行——纯逻辑 5 个用例按默认 5s；4 个用例起真实 CLI 子进程 `node scripts/sbtest/init-executor.mjs execute`（env-token 模式只连本测试进程里的回环 HTTP 假服务器 = 共用 fakeApi 合成状态；文件系统故障用 `tests/fixtures/sbtest/fs-fault.mjs` 预加载注入）：建号响应丢失 → exit 3、写可能已创建 / 状态未知；建号后交接写入失败（ENOSPC）→ exit 3、交接错误列账号、保留文件；原成功 + 空文件删除失败（EACCES）→ exit 4；原不确定 + 删除失败 → 仍 exit 3。这 4 个 CLI 用例各自 30s（`SPAWN_TIMEOUT`）：每个起一个 node 子进程、经 CLI main 读钉住的 19 个迁移（再起 git 子进程）并走回环 HTTP 跑完整执行 / 续跑；单实例、非空闲实测见 docs/audits/evidence/sbtest/round11-2026-10-29.md）。
 - `tests/unit/sbtest-init-r12.test.ts`（第十二轮：纯逻辑 5 个用例按默认 5s——进程内假 fetch 下建号 POST 发出后 302 / 307 / 500 / 503 → exit 3、422 → 1、401 → 2；显式改密 PUT 发出后 307 / 503 → 3、403 → 1；兜底回执只含白名单字段、无秘密；运行记录「写端点未调用」只限只读预检阶段；N / 敏感文件措辞。6 个用例起真实 CLI 子进程（各 30s）：建号 POST 发出后 302（Location 指向另一个回环端口，目标收到 0 次请求）→ 3；建号后 503 → 3；改密 PUT 后 307 → 3；原成功 + 运行记录写入失败（ENOSPC 预加载注入）→ 4 + 兜底回执；原不确定 + 记录失败 → 3 + 回执、不含交接文件里的密码；preflight 通过 / 拒绝 + 记录失败 → 4 / 2 + 回执）。
+- `tests/unit/sbtest-init-r13.test.ts`（第十三轮：纯逻辑 7 个用例按默认 5s——兜底回执逐层白名单（未知嵌套字段丢弃、非合成邮箱 / 未打码 id 不原样输出、清点仍有用）；错误 → 受控错误码 + 阶段 + 端点 + 状态类别、无服务器正文；redactText 先打码后截断（秘密跨截断点不留 ≥4 字符前缀）、`password: v` / `"password" : "x"` / 带空格引号值 / 无关键字的已知秘密值；B0 发出后 503 / 307 / 断线 × 已提交 / 未提交 → 0 / 3、400 → 1；迁移 / 种子发出后 503 / 307 / 502 × 已提交 / 未提交 → 0 / 1，仍在运行 / 核对请求 307 → 3；Storage 发出后 503 / 307 / 302 / 断线 → 3、409 / 413 → 1，只 1 次上传、不删除；回执两层。全部只用合成秘密（SYNTH-…）。6 个用例起真实 CLI 子进程（各 30s）：B0 已提交 / 未提交 + 503 → 0 / 3；迁移 0007 已提交 + 307（Location 指向另一回环端口，0 次请求）→ 0、未提交 + 503 → 1；Storage 已存储 + 503 → 3；Storage 302 不跟随 → 3；种子已提交 + 502 → 0、断线未提交 → 1；运行记录写入失败 + 迁移 503 已提交 + Storage 503 → 3 + 两层兜底回执）。
 - `tests/unit/sbtest-init-r10.test.ts`（第十轮：交接 N = 0——种子已提交 + 只补文件、不改密时不建号 / 不改密 / 交接 0 行；运行记录与输出写 N = 0、不需要 save_login；空文件核对后删除；0 行但文件非空 → 保留人工核对；N > 0 文件保留）。
 - `tests/unit/sbtest-init-r8.test.ts`（第八轮：共享解析器 / V1.status `[{}]` `[]` / 续跑运行中会话 n 缺失 / status 核对缺字段；交接 run_id = 账本 run_id + attempt_id、符号链接 / 0700 / 0600 / 属主、不隐式改密、显式改密双列表、真实目标禁止 discard；401 分类、403 措辞）。
 - `tests/unit/sbtest-init-executor.test.ts`（第五 / 六轮）+ `tests/unit/sbtest-init-r7.test.ts`（第七轮：准入 401/403/5xx/形状、重定向、C0 收紧、超时核对形状、写后意外 → 阶段 / 清点 / 运行记录、种子哈希、种子运行标记、交接文件、续跑接管、矩阵与文档一致、影响清单分组）。

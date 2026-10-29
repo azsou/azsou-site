@@ -860,26 +860,77 @@ export async function probeProject(c) {
 
 // ---------------------------------------------------------------- 执行（只有 --execute 才走到这里）
 /**
- * 执行一个事务（迁移文件或种子）；失败 / 超时 / 断线一律先查账本判断有没有提交：
- *   committed → 当成功继续；not-committed → 停（exit 1）；still-running / 查不到 → 停（exit 3），不重试。
- * 401 直接抛 Unauthorized（按 classify401 分类）：请求没被服务端接受，不需要核对。
+ * 第十三轮：传输层错误 → 受控短码（不带服务器正文 / 路径）。timeout = 客户端超时；network = 连接断开 / 响应丢失 / 无响应。
+ * @param {any} e
+ */
+export function transportCode(e) {
+  const m = `${e?.name ?? ''} ${e?.message ?? e ?? ''} ${e?.cause?.code ?? ''}`;
+  if (/client-timeout|AbortError|timeout/i.test(m)) return 'timeout';
+  return 'network';
+}
+/**
+ * 第十三轮：写请求**已经发出**后的第 ① 层（原始 HTTP / 传输状态）。只有状态码 / 受控短码，绝不含服务器正文。
+ *   { status: 503 } / { status: 307, redirect_followed: false } / { error: 'timeout' | 'network' }
+ * @param {{ response?: any, error?: any }} o
+ */
+export function postSendHttp({ response, error }) {
+  if (response) return { status: response.status };
+  if (error instanceof Redirected) return { status: error.status, redirect_followed: false };
+  return { error: transportCode(error) };
+}
+/** 第 ① 层 → 一句话（运行记录用；只有状态码 / 受控短码） */
+export function httpText(h) {
+  if (!h) return '';
+  if (typeof h.status === 'number')
+    return `HTTP ${h.status}${h.redirect_followed === false ? '，重定向未跟随' : ''}`;
+  return h.error === 'timeout' ? '客户端超时' : '连接断开 / 无响应';
+}
+/** 写请求发出后，只读核对本身的错误 → 受控说明（核对请求 3xx / 401 / 非 2xx / 形状不符 / 网络都只算「无法核对」，不算拒绝） */
+const verifyFailText = (e) =>
+  e instanceof Redirected
+    ? `核对请求 HTTP ${e.status}（重定向未跟随）`
+    : e instanceof Unauthorized
+      ? '核对请求 HTTP 401'
+      : e instanceof Uncertain
+        ? '核对结果形状无效'
+        : `核对请求失败（${transportCode(e)}）`;
+/**
+ * 执行一个事务（迁移文件或种子）；失败 / 超时 / 断线 / **发出后收到 3xx**（第十三轮，不跟随）一律先查账本判断有没有提交：
+ *   committed → 当成功继续；not-committed（账本 0 行且标记会话已结束）→ 停（exit 1）；still-running / 查不到 → 停（exit 3），不重试。
+ * 第十三轮：结果分两层——http（第 ① 层：原始 HTTP / 传输状态，不含服务器正文）+ verification（第 ② 层：账本核对结论 + 依据）；
+ * outcome = 业务结论。核对只用只读端点（Management API 允许清单内），从不访问 Location 主机；核对请求自身的 3xx / 401 /
+ * 形状不符 / 网络错误 → 无法核对（unknown，exit 3），不当成拒绝。
+ * 401（写请求本身）直接抛 Unauthorized（按 classify401 分类）：请求没被服务端接受，不需要核对。
  */
 export async function runTx(c, file, wrappedSql, runId) {
-  let err;
+  let http;
   try {
     const r = await c.query(wrappedSql);
-    if (r.ok) return { file, outcome: 'committed', via: 'response' };
-    err = `HTTP ${r.status} ${(await r.text()).slice(0, 300)}`;
+    if (r.ok) return { file, outcome: 'committed', via: 'response', http: { status: r.status } };
+    http = postSendHttp({ response: r });
+    try {
+      await r.text(); // 读完丢弃：服务器正文不进结果 / 记录 / 回执
+    } catch {
+      /* 读不到也无妨 */
+    }
   } catch (e) {
-    if (e instanceof Refused) throw e;
-    err = String(e?.message ?? e);
+    if (e instanceof Refused && !(e instanceof Redirected)) throw e;
+    http = postSendHttp({ error: e });
   }
+  const err = httpText(http);
+  const unknown = (basis) => ({
+    file,
+    outcome: 'unknown',
+    error: err,
+    http,
+    verification: { conclusion: 'unverifiable', basis },
+  });
   try {
     const v = await c.readOnly(
       `select json_build_object('ledger', (select count(*) from az_init.applied where file = '${file}' and run_id = '${runId}'),
         'running', (select count(*) from pg_stat_activity where application_name = 'az-init:${runId}:${file}' and state <> 'idle')) as v`,
     );
-    if (!v.ok) return { file, outcome: 'unknown', error: err, verify: `HTTP ${v.status}` };
+    if (!v.ok) return unknown(`核对请求 HTTP ${v.status}`);
     // 第七轮 ③ / 第八轮 B1：共享解析器——恰好 1 行、字段 v 存在且 ledger / running 都是非负整数；否则 unknown（不是 not-committed）
     let row;
     try {
@@ -889,21 +940,97 @@ export async function runTx(c, file, wrappedSql, runId) {
         (x) => isObj(x) && isCount(x.ledger) && isCount(x.running),
         '提交核对',
       );
-    } catch (pe) {
+    } catch {
+      return unknown('核对结果形状无效（不是恰好 1 行、ledger / running 非负整数）');
+    }
+    const n = Number(row.ledger);
+    const basis = `账本 ${n} 行（run_id + 文件；与正文同一事务写入），标记会话 ${Number(row.running)} 个在运行`;
+    if (Number(row.running) > 0)
       return {
         file,
-        outcome: 'unknown',
+        outcome: 'still-running',
         error: err,
-        verify: `核对结果形状无效：${String(pe?.message ?? pe).slice(0, 120)}`,
+        http,
+        verification: { conclusion: 'still-running', basis },
       };
-    }
-    if (Number(row.running) > 0) return { file, outcome: 'still-running', error: err };
-    const n = Number(row.ledger);
-    if (n !== 0 && n !== 1) return { file, outcome: 'unknown', error: err, verify: `账本行数 ${n}` };
-    return { file, outcome: n === 1 ? 'committed' : 'not-committed', via: 'ledger', error: err };
+    if (n !== 0 && n !== 1) return unknown(`账本行数 ${n}（应为 0 或 1）`);
+    const concl = n === 1 ? 'committed' : 'not-committed';
+    return {
+      file,
+      outcome: concl,
+      via: 'ledger',
+      error: err,
+      http,
+      verification: { conclusion: concl, basis },
+    };
   } catch (e) {
-    if (e instanceof Refused) throw e;
-    return { file, outcome: 'unknown', error: err, verify: String(e?.message ?? e) };
+    return unknown(verifyFailText(e));
+  }
+}
+/**
+ * 第十三轮 B0（建账本，单事务；C0 已证明 az_init 不存在）。返回 undefined = 2xx 已提交（不记结果，与以前相同）；否则返回逐项结果：
+ *  - 4xx（401 除外，401 照旧按凭据拒绝抛出）：显式拒绝 → not-committed（exit 1）；
+ *  - 5xx / 其他非 2xx / 超时 / 断线 / **发出后收到 3xx**（不跟随）：只读核对 az_init.applied 是否存在——
+ *    存在 → committed（B0 单事务，C0 时不存在，只能是本次提交的）→ 继续；
+ *    不存在 → unknown（exit 3）：B0 事务没有运行标记，不能排除仍在运行 / 延迟提交，**不是「确定未提交」**；
+ *    核对本身失败（非 2xx / 3xx / 401 / 形状 / 网络）→ unknown（exit 3）。
+ * 两层：http（原始状态，不含正文）+ verification（结论 + 依据）。
+ * @param {any} c
+ */
+export async function bootstrapLedger(c) {
+  let http;
+  try {
+    const b = await c.query(BOOTSTRAP_SQL);
+    if (b.ok) return undefined;
+    http = postSendHttp({ response: b });
+    try {
+      await b.text();
+    } catch {
+      /* 丢弃正文 */
+    }
+    if (isRejection(b.status))
+      return {
+        file: 'az_init',
+        outcome: 'not-committed',
+        error: httpText(http),
+        http,
+        verification: {
+          conclusion: 'rejected',
+          basis: 'HTTP 4xx 显式拒绝（单事务，按响应未提交；未另行核对）',
+        },
+      };
+  } catch (e) {
+    if (e instanceof Refused && !(e instanceof Redirected)) throw e;
+    http = postSendHttp({ error: e });
+  }
+  const base = { file: 'az_init', error: httpText(http), http };
+  try {
+    const led = await ro(c, LEDGER_SQL, 'ledger', isArrOrNull);
+    if (Array.isArray(led))
+      return {
+        ...base,
+        outcome: 'committed',
+        via: 'ledger',
+        verification: {
+          conclusion: 'committed',
+          basis: 'az_init.applied 已存在（C0 时 az_init 不存在；B0 是单事务，表只能由本次 B0 提交）',
+        },
+      };
+    return {
+      ...base,
+      outcome: 'unknown',
+      verification: {
+        conclusion: 'unverifiable',
+        basis:
+          'az_init.applied 尚不存在，但 B0 事务没有运行标记，不能排除仍在运行 / 延迟提交——不能确认未提交',
+      },
+    };
+  } catch (e) {
+    return {
+      ...base,
+      outcome: 'unknown',
+      verification: { conclusion: 'unverifiable', basis: verifyFailText(e) },
+    };
   }
 }
 export async function applyOne(c, m, sql, runId) {
@@ -1682,18 +1809,44 @@ async function uploadFiles(c, userId, files, existing, results) {
       continue;
     }
     let r;
+    // 第十三轮：上传已发出后结果不确定（5xx / 其他非 2xx / 超时 / 断线 / 发出后 3xx，不跟随）→ unknown（exit 3），立即停止后续写；
+    // 不自动核对后重传、不覆盖、不删除（对象可能已存在，也可能不完整）——由人工按清点 storage_objects 核对
+    const unknown = (http) => {
+      results.push({
+        file: f.name,
+        outcome: 'unknown',
+        error: `${httpText(http)}（上传请求已发出，结果未知：对象可能已存储）`,
+        http,
+        verification: {
+          conclusion: 'not-verified',
+          basis: 'Storage 写后不自动核对、不重传 / 覆盖 / 删除；见清点 storage_objects，需人工核对',
+        },
+      });
+      return 'unknown';
+    };
     try {
       r = await c.upload(p, f.body);
     } catch (e) {
-      if (e instanceof Refused) throw e;
-      results.push({ file: f.name, outcome: 'unknown', error: String(e?.message ?? e) });
-      return 'unknown';
+      if (e instanceof Refused && !(e instanceof Redirected)) throw e;
+      return unknown(postSendHttp({ error: e }));
     }
     if (!r.ok) {
-      results.push({ file: f.name, outcome: `HTTP ${r.status}` });
+      const http = postSendHttp({ response: r });
+      try {
+        await r.text();
+      } catch {
+        /* 丢弃正文 */
+      }
+      if (!isRejection(r.status)) return unknown(http);
+      results.push({
+        file: f.name,
+        outcome: `HTTP ${r.status}`,
+        http,
+        verification: { conclusion: 'rejected', basis: 'HTTP 4xx 显式拒绝（按响应未存储；未另行核对）' },
+      });
       return 'failed';
     }
-    results.push({ file: f.name, outcome: 'uploaded', sha256: f.sha256 });
+    results.push({ file: f.name, outcome: 'uploaded', sha256: f.sha256, http: { status: r.status } });
   }
   return 'ok';
 }
@@ -1865,17 +2018,11 @@ async function executeInner(
       throw new Refused(`预检不通过（不清空、不覆盖）：${pre.c0_problems.join('；')}`);
     phase('B0');
     markWrote();
-    let b;
-    try {
-      b = await c.query(BOOTSTRAP_SQL);
-    } catch (e) {
-      if (e instanceof Refused) throw e;
-      results.push({ file: 'az_init', outcome: 'unknown', error: String(e?.message ?? e) });
-      return finish(EXIT.UNKNOWN, { preflight: pre });
-    }
-    if (!b.ok) {
-      results.push({ file: 'az_init', outcome: 'not-committed' });
-      return finish(EXIT.FAILED, { preflight: pre });
+    const b0 = await bootstrapLedger(c);
+    if (b0) {
+      results.push(b0);
+      if (b0.outcome === 'not-committed') return finish(EXIT.FAILED, { preflight: pre });
+      if (b0.outcome !== 'committed') return finish(EXIT.UNKNOWN, { preflight: pre });
     }
   } else {
     if (!pre.c0.az_init_schema) throw new Refused('--resume：az_init 不存在，没有可续跑的账本');
@@ -2021,67 +2168,242 @@ function writeCalls(trace) {
 /** 路径里的 uuid（用户 id、对象路径前缀）打码 */
 const maskPath = (p) =>
   String(p ?? '').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, (m) => mask(m));
-/** 兜底回执里的自由文本（错误 / 核对说明）：截断 + 去掉任何像凭据的片段 + 去掉调用方给出的已知秘密值 */
-function redactText(v, secrets = []) {
-  let s = String(v ?? '').slice(0, 200);
-  for (const x of secrets) if (x && String(x).length >= 4) s = s.split(String(x)).join('[已打码]');
-  return s
-    .replace(/bearer\s+\S+/gi, '[已打码]')
+const SECRET_KEYS =
+  'authorization|apikey|api[_-]?key|password|passwd|pwd|access[_-]?token|refresh[_-]?token|token|secret|client[_-]?secret|service[_-]?(?:role[_-]?)?key';
+const KV_RE = new RegExp(
+  `(["']?)\\b(${SECRET_KEYS})\\b\\1(\\s*[:=]\\s*)("(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*'|bearer\\s+[^\\s"',;}&]+|[^\\s"',;}&]+)`,
+  'gi',
+);
+const BARE_RE = new RegExp(`\\b(${SECRET_KEYS})\\b(\\s+)(?![:=])([^\\s"',;}&]{6,})`, 'gi');
+/**
+ * 第十三轮：自由文本打码——**先**在完整字符串上替换调用方给出的已知秘密值（长的先换，含 URL 编码形式），
+ * 再按关键字规则打码（`key: v`、`key=v`、`"key" : "v"`、`'key': 'v w'`、Bearer、JWT、sb_ 密钥），**最后**才截断到 max。
+ * 这样跨截断点的秘密也不会留下前缀。关键字规则只是第二层：回执本身只投影白名单字段，自由文本只剩核对依据等执行器自己写的话。
+ * @param {unknown} v
+ * @param {unknown[]} [secrets]
+ * @param {number} [max]
+ */
+export function redactText(v, secrets = [], max = 200) {
+  let s = String(v ?? '');
+  const known = [
+    ...new Set(
+      (secrets ?? [])
+        .filter((x) => x !== undefined && x !== null && String(x).length >= 4)
+        .flatMap((x) => [String(x), encodeURIComponent(String(x))]),
+    ),
+  ].sort((a, b) => b.length - a.length);
+  for (const x of known) s = s.split(x).join('[已打码]');
+  s = s
+    .replace(KV_RE, (_m, q, k, sep) => `${q}${k}${q}${sep}[已打码]`)
+    .replace(/bearer\s+[^\s"',;}&]+/gi, '[已打码]')
     .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]*/g, '[已打码]')
     .replace(/\bsb[a-z]?_[\w-]{6,}/gi, '[已打码]')
-    .replace(/\b(authorization|apikey|api[_-]?key|password|passwd|token|secret)\b\S*/gi, '[已打码]');
+    .replace(BARE_RE, (_m, k, sp) => `${k}${sp}[已打码]`);
+  return s.length > max ? `${s.slice(0, max)}…` : s;
 }
-const RECEIPT_RESULT_KEYS = ['file', 'outcome', 'verify', 'error'];
+
+// ---- 第十三轮：兜底回执逐层白名单（字段名 + 类型）；不认识的字段一律丢弃，不转储
+const isInt = (x) => typeof x === 'number' && Number.isInteger(x) && x >= 0;
+const SYNTH_EMAILS = new Set(SYNTHETIC_USERS.map((u) => u.email));
+const MASKED_ID = /^[0-9a-f]{4}…[0-9a-f-]{2}$/i;
+const SAFE_ID = /^[\w.:-]{1,80}$/;
+const FILE_RE = /^(az_init|seed|\d{4}_[\w.-]{1,80}\.sql|[\w.-]{1,80}\.png|user:[\w.+-]{1,64}@example\.com)$/;
+const OUTCOME_RE =
+  /^(committed|not-committed|still-running|unknown|status-check-unknown|status-check-failed|created|password-set|created-handoff-write-failed|password-set-handoff-write-failed|password-unknown|adopted|uploaded|already-present|(password )?HTTP \d{3})$/;
+const CONCLUSIONS = new Set([
+  'committed',
+  'not-committed',
+  'still-running',
+  'unverifiable',
+  'not-verified',
+  'rejected',
+]);
+const TRANSPORT = new Set(['timeout', 'network']);
+const PHASE_RE = /^(P0|P1|PS|PJ|B0|\d{4}|U1|S1|F1|V1|INV|init)$/;
+const hidden = (what) => `[${what}格式不符，已隐藏]`;
+const pick = (v, ok, fallback) => (ok(v) ? v : fallback);
+/** 第 ① 层：{ status, redirect_followed } 或 { error }；其余字段丢弃 */
+function projectHttp(h) {
+  if (!isObj(h)) return undefined;
+  const o = {};
+  if (typeof h.status === 'number' && Number.isInteger(h.status) && h.status >= 100 && h.status <= 599)
+    o.status = h.status;
+  if (h.redirect_followed === false) o.redirect_followed = false;
+  if (TRANSPORT.has(h.error)) o.error = h.error;
+  return Object.keys(o).length ? o : undefined;
+}
+/** 逐项结果 → 阶段 / 端点（由文件种类推出，不取自由文本） */
+function itemPhase(file, outcome) {
+  if (file === 'az_init') return 'B0';
+  if (file === 'seed') return 'S1';
+  if (/^\d{4}_/.test(file)) return file.slice(0, 4);
+  if (file.startsWith('user:')) return 'U1';
+  if (/\.png$/.test(file)) return 'F1';
+  return outcome ? 'unknown' : 'unknown';
+}
+/** @type {Record<string, string>} */
+const ENDPOINT = {
+  B0: 'POST /v1/projects/{ref}/database/query',
+  S1: 'POST /v1/projects/{ref}/database/query',
+  MIG: 'POST /v1/projects/{ref}/database/query',
+  F1: 'POST /storage/v1/object/ugc-images/{id}/{name}',
+  INV: 'POST /v1/projects/{ref}/database/query/read-only',
+};
+function itemEndpoint(file, outcome) {
+  if (file.startsWith('user:'))
+    return String(outcome).startsWith('password')
+      ? 'PUT /auth/v1/admin/users/{id}'
+      : 'POST /auth/v1/admin/users';
+  const ph = itemPhase(file, outcome);
+  return ENDPOINT[ph] ?? (/^\d{4}$/.test(ph) ? ENDPOINT.MIG : 'unknown');
+}
 /**
- * 第十二轮：运行记录（审计记录）写入失败时的兜底回执——一行结构化 JSON，**白名单**字段：
- * receipt / command / exit / run_id / attempt_id / phase / results（逐项：file、outcome、verify、error，打码）/
- * confirmed_writes / unknown_writes（只有阶段、方法、打码路径、状态）/ inventory（已打码的清点）/ record_write_failure。
- * 绝不包含密码、令牌、请求头、完整原始响应、交接文件内容——输入里有别的字段也一律不取。
+ * 错误（任意文本 / 对象）→ 受控错误码 + 状态类别；从不返回原文。
+ * code：http_status | redirect | timeout | network | uncertain_shape | unauthorized | E…（文件系统错误码）| other
+ */
+export function errorCode(v) {
+  if (typeof v !== 'string') return { code: 'other', status_class: 'none' };
+  const st = v.match(/\bHTTP (\d)\d\d\b/);
+  const cls = st ? `${st[1]}xx` : 'none';
+  const fs = v.match(/\b(E[A-Z][A-Z0-9]{2,15})\b/);
+  if (/重定向|redirect/i.test(v)) return { code: 'redirect', status_class: st ? cls : '3xx' };
+  if (/\b401\b/.test(v) && /HTTP 401/.test(v)) return { code: 'unauthorized', status_class: '4xx' };
+  if (/client-timeout|AbortError|超时|timeout/i.test(v)) return { code: 'timeout', status_class: cls };
+  if (st) return { code: 'http_status', status_class: cls };
+  if (fs && !/^(ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/.test(fs[1]))
+    return { code: fs[1], status_class: 'none' };
+  if (
+    /fetch failed|socket|network|ECONN|EPIPE|ENOTFOUND|EAI_AGAIN|terminated|other side closed|连接断开|无响应|UND_ERR/i.test(
+      v,
+    )
+  )
+    return { code: 'network', status_class: 'none' };
+  if (/结果不确定|形状/.test(v)) return { code: 'uncertain_shape', status_class: 'none' };
+  return { code: 'other', status_class: 'none' };
+}
+const RESULT_KEYS = ['file', 'outcome', 'http', 'verification', 'verify', 'error'];
+function projectResult(x, secrets) {
+  if (!isObj(x)) return undefined;
+  const file = typeof x.file === 'string' && FILE_RE.test(x.file) ? x.file : hidden('文件名');
+  const outcome = typeof x.outcome === 'string' && OUTCOME_RE.test(x.outcome) ? x.outcome : 'other';
+  /** @type {Record<string, any>} */
+  const o = { file, outcome };
+  const h = projectHttp(x.http);
+  if (h) o.http = h;
+  if (isObj(x.verification)) {
+    o.verification = {
+      conclusion: pick(x.verification.conclusion, (c) => CONCLUSIONS.has(c), 'other'),
+      ...(x.verification.basis !== undefined
+        ? { basis: redactText(x.verification.basis, secrets, 160) }
+        : {}),
+    };
+  }
+  if (x.verify !== undefined) o.verify = redactText(x.verify, secrets, 160);
+  if (x.error !== undefined)
+    o.error = {
+      ...errorCode(x.error),
+      phase: itemPhase(file, outcome),
+      endpoint: itemEndpoint(file, outcome),
+    };
+  return Object.fromEntries(RESULT_KEYS.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
+}
+/** 清点逐项的投影规则：只认识这 5 项；每项要么 'unknown'（或无账本说明），要么按字段名 + 类型逐层投影 */
+const INV_ITEMS = {
+  ledger: (v) =>
+    v === '（无 az_init）'
+      ? v
+      : Array.isArray(v)
+        ? v.filter(isObj).map((r) => ({
+            file: typeof r.file === 'string' && FILE_RE.test(r.file) ? r.file : hidden('文件名'),
+            run_id: pick(r.run_id, (x) => typeof x === 'string' && SAFE_ID.test(x), hidden('run_id')),
+            sha256: pick(
+              r.sha256,
+              (x) => typeof x === 'string' && /^([0-9a-f]{1,12}|n\/a)…$/.test(x),
+              hidden('哈希'),
+            ),
+          }))
+        : undefined,
+  accounts: (v) =>
+    Array.isArray(v)
+      ? v.filter(isObj).map((a) => ({
+          email: SYNTH_EMAILS.has(a.email) ? a.email : '[非合成邮箱，已隐藏]',
+          id: typeof a.id === 'string' && MASKED_ID.test(a.id) ? a.id : mask(a.id),
+        }))
+      : undefined,
+  counts: (v) =>
+    isObj(v)
+      ? Object.fromEntries(
+          Object.entries(v).filter(([k, n]) => /^[a-z_]{1,40}\.[a-z_]{1,60}$/.test(k) && isInt(n)),
+        )
+      : undefined,
+  storage_objects: (v) =>
+    Array.isArray(v)
+      ? v.filter(isObj).map((o) => ({
+          name:
+            typeof o.name === 'string' && /^[0-9a-f]{4}…[0-9a-f-]{2}\/[\w.-]{1,80}$/i.test(o.name)
+              ? o.name
+              : hidden('对象名'),
+          ...(isInt(o.size) ? { size: o.size } : {}),
+        }))
+      : undefined,
+  running_sessions: (v) => (isInt(v) ? v : undefined),
+};
+function projectInventory(inv) {
+  if (!isObj(inv)) return null;
+  const out = { status: inv.status === 'determined' ? 'determined' : 'unknown' };
+  if (isObj(inv.items)) {
+    const items = {};
+    for (const [k, f] of Object.entries(INV_ITEMS)) {
+      if (!(k in inv.items)) continue;
+      const v = inv.items[k];
+      items[k] = v === 'unknown' ? 'unknown' : (f(v) ?? 'unknown');
+    }
+    out.items = items;
+  }
+  if (inv.error !== undefined) out.error = { ...errorCode(inv.error), phase: 'INV', endpoint: ENDPOINT.INV };
+  return out;
+}
+/**
+ * 第十二轮 / 第十三轮：运行记录（审计记录）写入失败时的兜底回执——一行结构化 JSON，**逐层白名单**：
+ * receipt / command / exit / run_id / attempt_id / phase / results（逐项只取 file、outcome、http（第 ① 层：原始 HTTP / 传输状态）、
+ * verification（第 ② 层：账本 / 资源核对结论 + 依据）、verify、error（受控错误码 + 状态类别 + 阶段 + 端点，不含原文））/
+ * confirmed_writes / unknown_writes（只有阶段、方法、打码路径、状态）/ inventory（按字段名 + 类型逐层投影的清点）/
+ * record_write_failure（只有错误码）。任何不认识的字段（任意层）都丢弃，不转储；自由文本先替换已知秘密值再按关键字打码，最后截断。
+ * 绝不包含密码、令牌、请求头、服务器原始正文、交接文件内容。
  * @param {{ command: string, exit: number, result?: any, trace?: any[], recordError: string, secrets?: string[] }} o
  */
 export function fallbackReceipt({ command, exit, result, trace, recordError, secrets = [] }) {
   const w = writeCalls(trace);
   const call = (t) => ({
-    phase: String(t.phase ?? ''),
-    method: String(t.method ?? ''),
-    path: maskPath(t.path),
-    status: typeof t.status === 'number' ? t.status : redactText(t.status, secrets),
+    phase: pick(String(t.phase ?? ''), (x) => PHASE_RE.test(x), 'unknown'),
+    method: pick(String(t.method ?? ''), (x) => /^(GET|HEAD|POST|PUT|PATCH|DELETE)$/.test(x), 'OTHER'),
+    path: redactText(maskPath(t.path), secrets, 120),
+    status:
+      typeof t.status === 'number'
+        ? t.status
+        : pick(String(t.status ?? ''), (x) => /^ERR:[A-Za-z]{1,32}$/.test(x), 'ERR:other'),
   });
-  const results = (result?.results ?? []).map((x) => {
-    const o = {};
-    for (const k of RECEIPT_RESULT_KEYS)
-      if (x?.[k] !== undefined)
-        o[k] = k === 'file' || k === 'outcome' ? String(x[k]) : redactText(x[k], secrets);
-    return o;
-  });
-  let inventory = null;
-  if (result?.inventory && typeof result.inventory === 'object') {
-    inventory = { status: String(result.inventory.status ?? 'unknown') };
-    /** @type {(v: any) => any} */
-    const deep = (v) =>
-      typeof v === 'string'
-        ? redactText(v, secrets)
-        : Array.isArray(v)
-          ? v.map(deep)
-          : v && typeof v === 'object'
-            ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
-            : v;
-    if (result.inventory.items !== undefined) inventory.items = deep(result.inventory.items);
-    if (result.inventory.error !== undefined) inventory.error = redactText(result.inventory.error, secrets);
-  }
+  const results = (Array.isArray(result?.results) ? result.results : [])
+    .map((x) => projectResult(x, secrets))
+    .filter(Boolean);
   const lastPhase = [...(trace ?? [])].reverse().find((t) => t?.phase)?.phase ?? null;
+  const ph = result?.stage ?? lastPhase;
+  const rid = (v) =>
+    v === undefined || v === null
+      ? null
+      : pick(v, (x) => typeof x === 'string' && SAFE_ID.test(x), hidden('id'));
   return {
     receipt: 'sbtest-run-fallback/v1',
-    command: String(command),
-    exit,
-    run_id: result?.runId ?? null,
-    attempt_id: result?.attemptId ?? null,
-    phase: result?.stage ?? lastPhase,
+    command: pick(String(command), (x) => /^(preflight|execute|plan|manifest)$/.test(x), 'other'),
+    exit: pick(exit, (x) => Number.isInteger(x) && x >= 0 && x <= 4, null),
+    run_id: rid(result?.runId),
+    attempt_id: rid(result?.attemptId),
+    phase: ph === null ? null : pick(String(ph), (x) => PHASE_RE.test(x), 'unknown'),
     results,
     confirmed_writes: w.confirmed.map(call),
     unknown_writes: w.unknown.map(call),
-    inventory,
-    record_write_failure: { error: redactText(recordError, secrets) },
+    inventory: projectInventory(result?.inventory),
+    record_write_failure: { error: errorCode(String(recordError ?? '')).code },
   };
 }
 
@@ -2210,10 +2532,13 @@ export function executeNotes(r) {
     `阶段：${r.stage ?? '（无）'}`,
     ...(r.refused ? [`拒绝原因：${r.refused}`] : []),
     ...(r.error ? [`意外错误：${r.error}`] : []),
-    ...(r.results ?? []).map(
-      (x) =>
-        `结果 ${x.file} ${x.outcome}${x.password ? `（密码 ${x.password}）` : ''}${x.verify ? `（核对：${x.verify}）` : ''}${x.error ? `（${String(x.error).slice(0, 120)}）` : ''}`,
-    ),
+    ...(r.results ?? []).map((x) => {
+      // 第十三轮：两层——①（原始 HTTP / 传输状态）；核对：②（账本 / 资源核对结论，依据）；业务结论 = outcome
+      const layers = x.verification
+        ? `（${x.http ? httpText(x.http) : '无 HTTP 响应'}；核对：${x.verification.conclusion}${x.verification.basis ? `，${x.verification.basis}` : ''}）`
+        : '';
+      return `结果 ${x.file} ${x.outcome}${layers}${x.password ? `（密码 ${x.password}）` : ''}${x.verify ? `（核对：${x.verify}）` : ''}${x.error && !x.verification ? `（${String(x.error).slice(0, 120)}）` : ''}`;
+    }),
     ...(r.v1 ? r.v1.checks.map((x) => `${x.ok ? '✓' : '✗'} ${x.id}`) : []),
     ...(r.inventory ? [`清点（${r.inventory.status}）：${JSON.stringify(r.inventory.items ?? {})}`] : []),
   ];
