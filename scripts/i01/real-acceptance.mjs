@@ -19,6 +19,16 @@
  *   node scripts/i01/real-acceptance.mjs [--manual-evidence=<目录>] [--only=T046-4,…]
  * 输出：test-results/i01-real/report.json（只记状态码 / 错误码 / 跳转目标的源与路径；不记密码、cookie、token、密钥、邮件正文）。
  *
+ * 第七轮（2026-10-29）：
+ *   - 稳定候选域名（Vercel 分支别名）不再硬拒：验收前后各记录一次「域名 → Vercel 部署 id → SHA → 候选分支头」映射
+ *     （scripts/i01/mapping.mjs，只读 Vercel / GitHub API）；开始前映射必须指向候选且分支头 = 候选（冻结推送），
+ *     前后不一致 → 证据作废（退出码 3）。人工证据顶层 deployment_mapping.before / after 必须与脚本记录一致。
+ *   - 用户验收通道与管理通道分开（scripts/i01/channels.mjs）：用户 / anon / 封禁 / RLS 请求只走直连通道，
+ *     头里只能有 anon key 与用户 JWT；第一次请求前做金丝雀（只带 anon 读 Auth Admin 必须 401 / 403），否则停止。
+ *   - T074 逐条记录 42 个 next 向量的期望落点与实际落点；3 条合法点段路径必须落到规范化后的本站路径。
+ *   - T046-4 增加真实过期 token（I01_EXPIRED_ACCESS_TOKEN_FILE：azsou-test 真实签发、已过期的 access token，0600 文件）；
+ *     T046-2 增加重置密码后旧密码被拒、新密码可用。真实邮件 / 限流用例仍未执行。
+ *
  * 部署绑定（第六轮 ⑤，任何 Supabase / 站点请求之前）：只读 GitHub Deployments API 核对
  *   GitHub deployment I01_GITHUB_DEPLOYMENT_ID 的 sha = I01_CANDIDATE_SHA、environment = Preview、创建者 vercel[bot]、
  *   当前状态 success、状态里的 environment_url 的源 = I01_SITE_URL 的源（唯一部署地址；分支别名 *-git-* 会随新推送漂移 → 拒绝）；
@@ -37,7 +47,9 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { classifySupabaseUrl } from '../supabase-env.mjs';
-import { allVectors } from './redirect-vectors.mjs';
+import { ChannelPolluted, ChannelViolation, adminChannel, jwtPayload, userChannel } from './channels.mjs';
+import { mappingChanged, mappingProblems, resolveMapping } from './mapping.mjs';
+import { BENIGN_DOT_NEXT, EVIL_NEXT, allVectors } from './redirect-vectors.mjs';
 
 export const EXIT = Object.freeze({ PASS: 0, FAIL: 1, PRECONDITION: 2, INCOMPLETE: 3 });
 
@@ -99,6 +111,8 @@ export const MANUAL_CHECKLIST = Object.freeze({
     observations: {
       verify_redirect_origin: (v, c) => v === c.siteOrigin,
       new_password_login_ok: (v) => v === true,
+      // 第七轮：重置后旧密码必须被拒（grant_type=password → 400）
+      old_password_rejected: (v) => v === true,
       replay_rejected: (v) => v === true,
     },
   },
@@ -118,6 +132,8 @@ export const MANUAL_CHECKLIST = Object.freeze({
     observations: {
       user_status: (v) => v === 401 || v === 403,
       verify_session_issued: (v) => v === false,
+      // 第七轮：azsou-test 真实签发、已过期的 access token 调 /auth/v1/user 也必须被拒
+      expired_user_status: (v) => v === 401 || v === 403,
     },
   },
   'T046-5': {
@@ -163,9 +179,53 @@ export const MANUAL_CHECKLIST = Object.freeze({
         allVectors().every((x) => v.includes(x)),
       vectors_rejected_or_idempotent: (v, _c, o) => v === o.vectors_total,
       offsite_navigations: (v) => v === 0,
+      // 第七轮：逐条期望 vs 实际落点（42 条各一次；3 条合法点段路径必须落到规范化后的本站路径）
+      vectors: (v, c) => vectorProblems(v, c.siteOrigin).length === 0,
     },
   },
 });
+
+/** T074 每个 next 向量的期望落点：外域 / 绕过向量 → 回落 `/`；合法点段 → 规范化后的本站路径（与 safeNext 单测同一份数据） */
+export function expectedLanding(input) {
+  const benign = BENIGN_DOT_NEXT.find(([i]) => i === input);
+  if (benign) return benign[1];
+  if (EVIL_NEXT.includes(input)) return '/';
+  return null;
+}
+/**
+ * 逐条核对 T074 的实际落点：v = [{ input, landed_origin, landed_path }]（landed_path 含查询串）。
+ * 返回问题列表；空 = 42 条全部执行一次且都落在期望位置。
+ */
+export function vectorProblems(v, siteOrigin) {
+  if (!Array.isArray(v)) return ['vectors 不是数组'];
+  const p = [];
+  const seen = new Set();
+  for (const x of v) {
+    const exp = expectedLanding(x?.input);
+    if (exp === null) {
+      p.push(`未知向量 ${JSON.stringify(x?.input)}`);
+      continue;
+    }
+    if (seen.has(x.input)) p.push(`重复向量 ${JSON.stringify(x.input)}`);
+    seen.add(x.input);
+    if (x.landed_origin !== siteOrigin) p.push(`${JSON.stringify(x.input)} 落到外站 ${x.landed_origin}`);
+    else if (x.landed_path !== exp) p.push(`${JSON.stringify(x.input)} 落点 ${x.landed_path}，期望 ${exp}`);
+  }
+  for (const i of allVectors()) if (!seen.has(i)) p.push(`缺向量 ${JSON.stringify(i)}`);
+  return p;
+}
+/** 报告用：逐条期望 vs 实际 */
+export function vectorTable(v, siteOrigin) {
+  return (Array.isArray(v) ? v : []).map((x) => {
+    const expected = expectedLanding(x?.input);
+    return {
+      input: x?.input,
+      expected: expected === null ? null : `${siteOrigin}${expected}`,
+      actual: `${x?.landed_origin ?? ''}${x?.landed_path ?? ''}`,
+      ok: expected !== null && x?.landed_origin === siteOrigin && x?.landed_path === expected,
+    };
+  });
+}
 
 export const TEST_PROJECT_REF = 'ovvfwkmqlejcpatmfqcd';
 const MAX_EVIDENCE_AGE_DAYS = 30;
@@ -204,7 +264,7 @@ const isImage = (buf) =>
  * 校验人工证据目录；返回 { ok, errors, steps: Map<id, {status, notes}> }。
  * 顶层：project_ref = azsou-test、site_origin = I01_SITE_URL 的源、candidate_sha 为 40 位、operator 非空。
  */
-export function loadManualEvidence(dir, { siteOrigin, candidateSha, now = new Date() }) {
+export function loadManualEvidence(dir, { siteOrigin, candidateSha, mapping = null, now = new Date() }) {
   const errors = [];
   const steps = new Map();
   const mf = path.join(dir, 'manifest.json');
@@ -222,6 +282,17 @@ export function loadManualEvidence(dir, { siteOrigin, candidateSha, now = new Da
   else if (candidateSha && m.candidate_sha !== candidateSha)
     errors.push(`candidate_sha（${m.candidate_sha}）不是实际部署的候选 I01_CANDIDATE_SHA（${candidateSha}）`);
   if (!String(m.operator ?? '').trim()) errors.push('operator（执行人）不能为空');
+  // 第七轮：执行人前后各记录一次「域名 → 部署 id → SHA」，必须与脚本记录的映射一致（映射变了 = 证据作废）
+  if (mapping) {
+    for (const when of ['before', 'after']) {
+      const dm = m.deployment_mapping?.[when];
+      if (!dm) errors.push(`缺 deployment_mapping.${when}（域名 → 部署 id → SHA）`);
+      else
+        for (const k of ['domain', 'vercel_deployment_id', 'sha'])
+          if (dm[k] !== mapping[k])
+            errors.push(`deployment_mapping.${when}.${k}（${dm[k]}）≠ 脚本记录的映射（${mapping[k]}）`);
+    }
+  }
   const top = errors.length;
   const ctx = { siteOrigin };
   for (const [id, spec] of Object.entries(MANUAL_CHECKLIST)) {
@@ -265,9 +336,15 @@ export function loadManualEvidence(dir, { siteOrigin, candidateSha, now = new Da
       if (!(field in obs)) bad(`缺观测值 ${field}`);
       else if (!ok(obs[field], ctx, obs)) bad(`观测值 ${field}=${JSON.stringify(obs[field])} 不满足通过条件`);
     }
+    if (id === 'T074' && 'vectors' in obs)
+      for (const msg of vectorProblems(obs.vectors, siteOrigin).slice(0, 10)) bad(`T074 ${msg}`);
     const status = notes.length ? 'fail' : s.result === 'pass' ? 'pass' : 'fail';
     if (!notes.length && s.result === 'fail') notes.push('执行人记录为失败');
-    steps.set(id, { status, notes: notes.length ? notes : ['人工证据校验通过'] });
+    steps.set(id, {
+      status,
+      notes: notes.length ? notes : ['人工证据校验通过'],
+      ...(id === 'T074' ? { vectors: vectorTable(obs.vectors, siteOrigin) } : {}),
+    });
   }
   return { ok: errors.length === 0, errors, steps };
 }
@@ -299,8 +376,7 @@ export function checkPreconditions(env) {
     errors.push('I01_SITE_URL 不是 URL');
   }
   if (/^https:\/\/(www\.)?azsou\.com$/.test(siteOrigin)) errors.push('拒绝：I01_SITE_URL 是生产站点');
-  if (/^https:\/\/[^/]*-git-[^/]*\.vercel\.app$/.test(siteOrigin))
-    errors.push('拒绝：I01_SITE_URL 是分支别名（*-git-*），会随新推送指向别的部署——用该部署的唯一地址');
+  // 第七轮：稳定候选域名（分支别名 *-git-*）不再硬拒——改为验收前后记录映射，映射变了证据作废（scripts/i01/mapping.mjs）
   if (!/^[0-9a-f]{40}$/.test(env.I01_CANDIDATE_SHA))
     errors.push('I01_CANDIDATE_SHA 必须是完整 40 位提交 SHA');
   if (!/^\d+$/.test(env.I01_GITHUB_DEPLOYMENT_ID)) errors.push('I01_GITHUB_DEPLOYMENT_ID 必须是数字');
@@ -320,6 +396,9 @@ export function checkPreconditions(env) {
       candidateSha: env.I01_CANDIDATE_SHA,
       ghDeploymentId: env.I01_GITHUB_DEPLOYMENT_ID,
       vercelDeploymentId: env.I01_VERCEL_DEPLOYMENT_ID || '',
+      vercelTeamId: env.I01_VERCEL_TEAM_ID || '',
+      candidateBranch: env.I01_CANDIDATE_BRANCH || undefined,
+      expiredTokenFile: env.I01_EXPIRED_ACCESS_TOKEN_FILE || '',
     },
   };
 }
@@ -329,8 +408,12 @@ export const REPO = 'azsou/azsou-site';
  * 部署绑定（只读 GitHub Deployments API）：返回 { ok, errors, binding }。
  * binding 只含公开信息（deployment id、sha、environment、状态、environment_url、创建时间）。
  */
+/**
+ * @param {{ candidateSha: string, ghDeploymentId: string, vercelDeploymentId?: string, siteOrigin: string, deploymentOrigin?: string }} cfg
+ * @param {{ fetchImpl?: (url: string, init?: any) => Promise<Response>, token?: string, apiBase?: string, repo?: string }} [opts]
+ */
 export async function verifyDeployment(
-  { candidateSha, ghDeploymentId, vercelDeploymentId, siteOrigin },
+  { candidateSha, ghDeploymentId, vercelDeploymentId, siteOrigin, deploymentOrigin },
   { fetchImpl = fetch, token = '', apiBase = 'https://api.github.com', repo = REPO } = {},
 ) {
   const errors = [];
@@ -368,9 +451,11 @@ export async function verifyDeployment(
     } catch {
       /* 留空 */
     }
-    if (envOrigin !== siteOrigin)
+    // 第七轮：稳定域名时比对的是它解析到的唯一部署地址
+    const want = deploymentOrigin || siteOrigin;
+    if (envOrigin !== want)
       errors.push(
-        `deployment 的 environment_url 源 ${envOrigin || '（无）'} ≠ I01_SITE_URL 源 ${siteOrigin}`,
+        `deployment 的 environment_url 源 ${envOrigin || '（无）'} ≠ ${deploymentOrigin ? '稳定域名解析到的部署地址' : 'I01_SITE_URL 源'} ${want}`,
       );
   }
   if (vercelDeploymentId) {
@@ -398,8 +483,18 @@ export async function verifyDeployment(
 }
 
 // ---------------------------------------------------------------- 自动步骤
-function automatedSteps(env, cfg) {
+/**
+ * 自动步骤。所有对测试项目 / 预览站 / 收件箱的请求都只经 user（用户验收通道，直连、只带 anon / 用户 JWT）。
+ * @param {Record<string,string>} env
+ * @param {any} cfg
+ * @param {(url: string, init?: any) => Promise<Response>} user
+ * @param {{ readFile?: (p: string) => Buffer | string, stat?: (p: string) => { mode: number }, now?: () => number }} [io]
+ */
+export function automatedSteps(env, cfg, user, io = {}) {
   const { SB, SITE, siteOrigin } = cfg;
+  const readFile = io.readFile ?? ((p) => readFileSync(p, 'utf8'));
+  const stat = io.stat ?? statSync;
+  const now = io.now ?? Date.now;
   const redact = (u) => {
     try {
       const x = new URL(u, SITE);
@@ -413,7 +508,7 @@ function automatedSteps(env, cfg) {
     if (!c) throw new Error(m);
   };
   const auth = (p, body, q = '') =>
-    fetch(`${SB}/auth/v1/${p}${q}`, {
+    user(`${SB}/auth/v1/${p}${q}`, {
       method: 'POST',
       headers: { apikey: env.I01_SUPABASE_ANON_KEY, 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -422,14 +517,14 @@ function automatedSteps(env, cfg) {
   async function waitForLink(to, timeoutMs = 120_000) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeoutMs) {
-      const r = await fetch(`${env.I01_INBOX_API}/search?query=${encodeURIComponent(`to:${to}`)}`, {
+      const r = await user(`${env.I01_INBOX_API}/search?query=${encodeURIComponent(`to:${to}`)}`, {
         headers: { authorization: `Bearer ${env.I01_INBOX_TOKEN}` },
       });
       if (r.ok) {
         const id = (await r.json()).messages?.[0]?.ID;
         if (id) {
           const m = await (
-            await fetch(`${env.I01_INBOX_API}/message/${id}`, {
+            await user(`${env.I01_INBOX_API}/message/${id}`, {
               headers: { authorization: `Bearer ${env.I01_INBOX_TOKEN}` },
             })
           ).json();
@@ -443,10 +538,30 @@ function automatedSteps(env, cfg) {
     }
     throw new Error(`收件箱 ${timeoutMs / 1000}s 内没有收到 ${to} 的验证邮件`);
   }
-  const follow = async (url) => (await fetch(url, { redirect: 'manual' })).headers.get('location') ?? '';
+  const follow = async (url) => (await user(url, { redirect: 'manual' })).headers.get('location') ?? '';
+  /** 从回调地址的锚点 / 查询串取 access_token（不写进报告） */
+  const tokenFrom = (loc) => {
+    try {
+      const u = new URL(loc);
+      return (
+        new URLSearchParams(u.hash.replace(/^#/, '')).get('access_token') ??
+        u.searchParams.get('access_token') ??
+        ''
+      );
+    } catch {
+      return '';
+    }
+  };
+  const passwordLogin = (email, password) =>
+    user(`${SB}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: env.I01_SUPABASE_ANON_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
   const stamp = Date.now();
   const mail = (tag) => `i01-${tag}-${stamp}@${env.I01_INBOX_DOMAIN}`;
   const PW = `I01-${stamp}-Aa!`; // 只用于本次测试账号，不写入报告
+  const PW2 = `I01-${stamp}-Bb!`; // T046-2 重置后的新密码，不写入报告
   const needInbox = () => {
     if (!cfg.inbox)
       throw blocked('没有可程序读取的收件箱（I01_INBOX_*），且没有该用例的人工证据（--manual-evidence）');
@@ -492,7 +607,27 @@ function automatedSteps(env, cfg) {
       const loc = await follow(link);
       note(`verify → ${redact(loc)}`);
       assert(new URL(loc).origin === siteOrigin, '找回链接跳到了外站');
+      const recovery = tokenFrom(loc);
+      assert(recovery, '找回链接没有给出 recovery 会话');
       assert(!/access_token=/.test(await follow(link)), '找回链接可以重复使用（应被拒）');
+      // 第七轮：用 recovery 会话设新密码，然后旧密码必须被拒、新密码可用
+      const set = await user(`${SB}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          apikey: env.I01_SUPABASE_ANON_KEY,
+          authorization: `Bearer ${recovery}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ password: PW2 }),
+      });
+      note(`PUT /user（新密码）→ ${set.status}`);
+      assert(set.status === 200, `设新密码失败 ${set.status}`);
+      const oldR = await passwordLogin(to, PW);
+      note(`旧密码登录 → ${oldR.status}`);
+      assert(oldR.status === 400, `重置后旧密码仍可登录（${oldR.status}）`);
+      const newR = await passwordLogin(to, PW2);
+      note(`新密码登录 → ${newR.status}`);
+      assert(newR.status === 200, `重置后新密码不能登录（${newR.status}）`);
     },
     'T046-3': async (note) => {
       needInbox();
@@ -510,7 +645,7 @@ function automatedSteps(env, cfg) {
       }
     },
     'T046-4': async (note) => {
-      const r = await fetch(`${SB}/auth/v1/user`, {
+      const r = await user(`${SB}/auth/v1/user`, {
         headers: { apikey: env.I01_SUPABASE_ANON_KEY, authorization: 'Bearer forged.jwt.token' },
       });
       note(`/user（伪造）→ ${r.status}`);
@@ -520,6 +655,29 @@ function automatedSteps(env, cfg) {
       );
       note(`verify（伪造）→ ${redact(v)}`);
       assert(!/access_token=/.test(v), '伪造确认 token 换到了会话');
+      // 第七轮：真实过期 token——azsou-test 真实签发、已过期的 access token（0600 文件，不进报告）
+      const f = cfg.expiredTokenFile;
+      if (!f)
+        throw blocked(
+          '缺 I01_EXPIRED_ACCESS_TOKEN_FILE（azsou-test 真实签发、已过期的 access token）——伪造 token 已拒，真实过期 token 未验',
+        );
+      if ((stat(f).mode & 0o077) !== 0) throw new Error('过期 token 文件权限必须是 0600');
+      const tok = String(readFile(f)).trim();
+      const pl = jwtPayload(tok);
+      assert(pl, '过期 token 文件里不是 JWT');
+      assert(pl.iss === `${SB}/auth/v1`, `过期 token 不是 azsou-test 签发的（iss ${pl.iss}）`);
+      assert(
+        pl.role === 'authenticated',
+        `过期 token 的 role 是 ${pl.role}（必须是 authenticated 用户 token）`,
+      );
+      assert(Number(pl.exp) * 1000 < now() - 60_000, '这个 token 还没过期（exp 晚于现在 - 60 秒）');
+      const e = await user(`${SB}/auth/v1/user`, {
+        headers: { apikey: env.I01_SUPABASE_ANON_KEY, authorization: `Bearer ${tok}` },
+      });
+      const body = await e.text();
+      note(`/user（真实过期 token）→ ${e.status}`);
+      assert(e.status === 401 || e.status === 403, `真实过期 token 没有被拒（${e.status}）`);
+      assert(/expired|bad_jwt/i.test(body), '拒绝原因不是「过期」（可能是别的错误掩盖了过期检查）');
     },
     'T046-5': async () => {
       // 成功路径需要真实浏览器完成真实 Turnstile 挑战并人工收信：只能由人工证据完成，脚本不会把它记为通过
@@ -536,7 +694,12 @@ function automatedSteps(env, cfg) {
   };
 }
 
-export async function main(argv = process.argv.slice(2), env = process.env, out = 'test-results/i01-real') {
+export async function main(
+  argv = process.argv.slice(2),
+  env = process.env,
+  out = 'test-results/i01-real',
+  io = {},
+) {
   const arg = (name) => (argv.find((a) => a.startsWith(`--${name}=`)) ?? '').slice(name.length + 3);
   const only = arg('only').split(',').filter(Boolean);
   const pre = checkPreconditions(env);
@@ -547,13 +710,42 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
     return EXIT.PRECONDITION;
   }
   const { cfg } = pre;
-  const bind = await verifyDeployment(cfg, { token: env.I01_GITHUB_TOKEN || '' });
-  if (!bind.ok) {
-    console.error('I01 真实链路验收：部署绑定不成立（未发出任何验收请求）：');
-    for (const e of bind.errors) console.error(`  - ${e}`);
+  // 第七轮：管理通道（GitHub / Vercel 只读，可经注入）与用户验收通道（直连、只带 anon / 用户 JWT）分开
+  const admin = adminChannel({
+    transport: io.adminTransport ?? fetch,
+    forbidOrigins: [cfg.SB, cfg.siteOrigin],
+  });
+  const mapCfg = {
+    siteOrigin: cfg.siteOrigin,
+    teamId: cfg.vercelTeamId,
+    branch: cfg.candidateBranch,
+  };
+  const precond = (msgs, title) => {
+    console.error(`I01 真实链路验收：${title}（未发出任何验收请求）：`);
+    for (const e of msgs) console.error(`  - ${e}`);
     console.error('VERDICT INCOMPLETE（退出码 2）');
     return EXIT.PRECONDITION;
+  };
+  let before;
+  try {
+    before = await resolveMapping(mapCfg, admin);
+  } catch (e) {
+    return precond([String(e?.message ?? e)], '稳定域名 → 部署 → SHA 映射查不到');
   }
+  const mp = mappingProblems(before, cfg);
+  if (mp.length) return precond(mp, '稳定域名 → 部署 → SHA 映射不成立');
+  const bind = await verifyDeployment(
+    {
+      ...cfg,
+      vercelDeploymentId: before.vercel_deployment_id,
+      deploymentOrigin: before.deployment_url ? `https://${before.deployment_url}` : '',
+    },
+    { token: env.I01_GITHUB_TOKEN || '', fetchImpl: admin },
+  );
+  if (!bind.ok) return precond(bind.errors, '部署绑定不成立');
+  console.log(
+    `映射（前）：${before.domain}（${before.kind}）→ ${before.vercel_deployment_id} → ${before.sha}；分支 ${before.branch} 头 ${before.branch_head}`,
+  );
   console.log(
     `部署绑定：GitHub deployment ${bind.binding.github_deployment_id} = ${bind.binding.sha}（${bind.binding.environment}，${bind.binding.state}）→ ${bind.binding.environment_url}；T074 全表 ${bind.binding.vectors_total} 条`,
   );
@@ -563,21 +755,34 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
     manual = loadManualEvidence(path.resolve(evDir), {
       siteOrigin: cfg.siteOrigin,
       candidateSha: cfg.candidateSha,
+      mapping: before,
     });
     for (const e of manual.errors) console.error(`人工证据：${e}`);
   }
-  const auto = automatedSteps(env, cfg);
+  const user = userChannel({
+    sbOrigin: cfg.SB,
+    siteOrigin: cfg.siteOrigin,
+    inboxOrigin: env.I01_INBOX_API ? new URL(env.I01_INBOX_API).origin : '',
+    anonKey: env.I01_SUPABASE_ANON_KEY,
+    ...(io.userTransport ? { transport: io.userTransport } : {}),
+  });
+  const auto = automatedSteps(env, cfg, user, io);
   const results = [];
+  let polluted = '';
   for (const { id, title } of EXPECTED) {
     if (only.length && !only.includes(id)) continue; // 没执行 → summarize 记为 notRun（退出码 3）
     let r;
     if (manual.steps.has(id)) r = { id, title, mode: 'manual', ...manual.steps.get(id) };
+    else if (polluted) r = { id, title, mode: 'auto', status: 'blocked', notes: [polluted] };
     else {
       r = { id, title, mode: 'auto', status: 'pass', notes: [] };
       try {
         await auto[id]((m) => r.notes.push(m));
       } catch (e) {
-        r.status = e && e.blocked ? 'blocked' : 'fail';
+        if (e instanceof ChannelPolluted || e instanceof ChannelViolation) {
+          polluted = `用户通道不干净，验收停止：${e.message}`;
+          r.status = 'blocked';
+        } else r.status = e && e.blocked ? 'blocked' : 'fail';
         r.notes.push(String(e && e.message ? e.message : e));
       }
     }
@@ -587,6 +792,24 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
     );
   }
   const s = summarize(results);
+  // 第七轮：验收结束再记录一次映射；任何变化 → 本次证据作废（不是通过）
+  let after = null;
+  let changed;
+  try {
+    after = await resolveMapping(mapCfg, admin);
+    changed = mappingChanged(before, after);
+  } catch (e) {
+    changed = [`验收后映射查不到：${String(e?.message ?? e)}`];
+  }
+  if (changed.length) {
+    s.invalidated = changed;
+    if (s.exitCode === EXIT.PASS) {
+      s.exitCode = EXIT.INCOMPLETE;
+      s.verdict = 'INCOMPLETE';
+    }
+    console.error(`映射在验收期间变化，本次证据作废：${changed.join('；')}`);
+  }
+  if (polluted) s.channel = polluted;
   console.log(
     `VERDICT ${s.verdict}：预期 ${s.expected}，执行 ${s.executed}，通过 ${s.passed.length}，失败 ${s.failed.length}，阻塞 ${s.blocked.length}，未执行 ${s.notRun.length}（退出码 ${s.exitCode}）`,
   );
@@ -597,9 +820,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, out 
       {
         when: new Date().toISOString(),
         site: cfg.siteOrigin,
+        mapping: { before, after, changed },
         binding: bind.binding,
         summary: s,
         manualErrors: manual.errors,
+        user_channel: user.log,
         results,
       },
       null,
