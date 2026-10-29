@@ -1962,7 +1962,12 @@ async function executeInner(
   return finish(EXIT.OK, { preflight: pre, v1 });
 }
 
-/** 运行记录（Markdown，已打码）：只含方法 / 路径 / 状态 / 耗时，不含任何请求头、正文、令牌 */
+/**
+ * 运行记录（Markdown，已打码）：只含方法 / 路径 / 状态 / 耗时，不含任何请求头、正文、令牌。
+ * 第十一轮：handoff（交接与收尾说明 / 错误）与 exitCode（最终退出码）可选，单独成节，不改写上面的执行结论。
+ * @param {{ title: string, when: string, mode: string, endpoints?: any, pre?: any, trace: any[], verdict: string,
+ *   notes?: string[], handoff?: { notes?: string[], errors?: string[] }, exitCode?: number }} o
+ */
 export function runRecordMarkdown({
   title,
   when,
