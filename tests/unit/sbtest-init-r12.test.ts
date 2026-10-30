@@ -274,8 +274,8 @@ describe('第十二轮 B：兜底回执、记录措辞（纯逻辑）', () => {
       command: 'execute',
       exit: 3,
       result: {
-        runId: 'run-1',
-        attemptId: 'att-1',
+        runId: '20261030T010203-0a0b0c',
+        attemptId: '20261030T010203-0d0e0f',
         stage: 'U1',
         results: [
           { file: 'az_init', outcome: 'committed' },
@@ -308,8 +308,8 @@ describe('第十二轮 B：兜底回执、记录措辞（纯逻辑）', () => {
     expect(s).not.toMatch(FORBIDDEN);
     expect(s).not.toContain('SECRET');
     expect(s).not.toContain(uid);
-    expect(r.run_id).toBe('run-1');
-    expect(r.attempt_id).toBe('att-1');
+    expect(r.run_id).toBe('20261030T010203-0a0b0c');
+    expect(r.attempt_id).toBe('20261030T010203-0d0e0f');
     expect(r.phase).toBe('U1');
     expect(r.exit).toBe(3);
     expect(r.confirmed_writes).toHaveLength(2); // 只读查询不算写

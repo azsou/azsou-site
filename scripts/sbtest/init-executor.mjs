@@ -60,16 +60,253 @@ export const MIGRATIONS = Object.freeze(Array.from({ length: 19 }, (_, i) => Str
 export const STATEMENT_TIMEOUT_S = 300;
 export const LOCK_TIMEOUT_S = 15;
 
-export class Refused extends Error {}
+// ---------------------------------------------------------------- 第十四轮：受控输出（按构造的允许清单）
+/**
+ * 用户可见的一切文本（stdout / stderr、运行记录、兜底回执、执行器自己的异常消息）只能由两类东西拼成：
+ *   ① 执行器源码里的字面量（S`…` 标签模板的字面部分）；
+ *   ② 受控字段——整数、布尔值，或经 F.* 校验器按格式 / 枚举 / 允许清单校验后放行的值（阶段、run / attempt id、文件名、
+ *      合成账号、HTTP 状态、错误码、核对结论、清点计数……）。
+ * S`…` 的产物登记在 SAFE_TEXT 里；插值处如果是未登记的字符串（服务器正文、任意异常消息、URL、请求头……）一律替换成「[已隐藏]」。
+ * 输出口（Refused 构造、safeText()、safeJSON()）只放行登记过的文本。安全性**不依赖**已知秘密值替换（injected 模式下进程里根本没有秘密值），
+ * 也不依赖截断——没有经过校验器的值根本进不了输出。
+ */
+const SAFE_TEXT = new Set();
+/** @param {string} s */
+const reg = (s) => {
+  SAFE_TEXT.add(s);
+  return s;
+};
+export const HIDDEN = reg('[已隐藏]');
+/** @param {unknown} s */
+export const isSafeText = (s) => typeof s === 'string' && SAFE_TEXT.has(s);
+/** @param {unknown} v */
+const piece = (v) =>
+  isSafeText(v)
+    ? /** @type {string} */ (v)
+    : typeof v === 'number' && Number.isInteger(v)
+      ? String(v)
+      : typeof v === 'boolean'
+        ? String(v)
+        : HIDDEN;
+/**
+ * 受控文本标签模板：字面部分来自源码；插值只接受登记过的文本 / 整数 / 布尔值，其余 → [已隐藏]。
+ * @param {TemplateStringsArray} strings
+ * @param {...unknown} vals
+ */
+export function S(strings, ...vals) {
+  if (!strings || !Array.isArray(strings.raw)) return HIDDEN;
+  let o = strings[0];
+  vals.forEach((v, i) => {
+    o += piece(v) + strings[i + 1];
+  });
+  return reg(o);
+}
+const SEPS = new Set(['、', '；', ', ', ',', ' / ', '\n']);
+/**
+ * 受控拼接：每一项按 S 的插值规则处理；分隔符只能是固定几种。
+ * @param {unknown[]} list
+ * @param {string} [sep]
+ */
+export const SJ = (list, sep = '、') =>
+  reg((Array.isArray(list) ? list : []).map(piece).join(SEPS.has(sep) ? sep : '、'));
+/** 输出口：只放行登记过的文本 @param {unknown} s */
+export const safeText = (s) => (isSafeText(s) ? /** @type {string} */ (s) : HIDDEN);
+/**
+ * 受控 JSON：对象 / 数组逐层重建；字符串只放行登记过的文本，键只放行登记过的或小写下划线标识符；数字只放行有限数；其余 → [已隐藏]。
+ * @param {unknown} v
+ * @returns {unknown}
+ */
+export function controlled(v) {
+  if (v === null || typeof v === 'boolean') return v;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : HIDDEN;
+  if (typeof v === 'string') return safeText(v);
+  if (Array.isArray(v)) return v.map(controlled);
+  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    /** @type {Record<string, unknown>} */
+    const o = {};
+    for (const [k, x] of Object.entries(v)) {
+      if (x === undefined) continue;
+      if (isSafeText(k) || /^[a-z][a-z0-9_]{0,39}$/.test(k)) o[k] = controlled(x);
+    }
+    return o;
+  }
+  return HIDDEN;
+}
+/** @param {unknown} v @param {number} [indent] */
+export const safeJSON = (v, indent) => reg(JSON.stringify(controlled(v), null, indent));
+/** 本进程登记过的迁移文件名（来自钉住的清单 / buildManifest），清点里的账本文件名只认这些 */
+const KNOWN_FILES = new Set();
+/** @param {unknown} m */
+const registerManifest = (m) => {
+  for (const x of /** @type {any} */ (m)?.migrations ?? [])
+    if (typeof x?.name === 'string' && /^\d{4}_[\w.-]{1,80}\.sql$/.test(x.name)) KNOWN_FILES.add(x.name);
+};
+/** run_id / attempt_id 只认 newAttemptId 的格式（YYYYMMDDTHHMMSS-6 位十六进制） */
+const RUN_ID_RE = /^\d{8}T\d{6}-[0-9a-f]{6}$/;
+/** @param {RegExp} re */
+const fmt = (re) => /** @param {unknown} v */ (v) => (typeof v === 'string' && re.test(v) ? reg(v) : HIDDEN);
+/** 受控字段校验器：只放行格式 / 枚举 / 允许清单内的值（登记后可插进 S`…`），否则 [已隐藏] */
+export const F = Object.freeze({
+  ref: fmt(/^[a-z]{20}$/),
+  sha: fmt(/^[0-9a-f]{7,64}$/),
+  step: fmt(/^\d{4}$/),
+  /** 本地仓库里的迁移文件名（钉住的清单 / git ls-tree），不是服务器返回的值 */
+  migName: fmt(/^\d{4}_[\w.-]{1,80}\.sql$/),
+  /** @param {unknown} v Postgres 版本：只取开头的数字点分部分 */
+  version: (v) => {
+    const m = typeof v === 'string' ? v.match(/^\d{1,3}(\.\d{1,4}){0,3}/) : null;
+    return m ? reg(m[0]) : HIDDEN;
+  },
+  runId: fmt(RUN_ID_RE),
+  /** @param {unknown} v */
+  file: (v) => (isKnownFile(v) ? reg(/** @type {string} */ (v)) : reg('[文件名格式不符，已隐藏]')),
+  /** @param {unknown} v */
+  email: (v) =>
+    typeof v === 'string' && SYNTHETIC_USERS.some((u) => u.email === v)
+      ? reg(v)
+      : reg('[非合成邮箱，已隐藏]'),
+  /** @param {unknown} v */
+  maskedId: (v) => (typeof v === 'string' && /^[0-9a-f][0-9a-f-]{7,63}$/i.test(v) ? reg(mask(v)) : HIDDEN),
+  /** @param {unknown} n */
+  octal: (n) => (Number.isInteger(n) ? reg(/** @type {number} */ (n).toString(8)) : HIDDEN),
+  /** @param {unknown} e */
+  code: (e) => reg(errorCode(e).code),
+  /** 本机文件路径（运维自己在命令行给的交接 / 记录路径）：只认绝对路径里的常见字符 */
+  localPath: fmt(/^\/[\w./@+~-]{0,240}$/),
+  /** @param {unknown} v @param {ReadonlySet<unknown> | readonly unknown[]} set */
+  oneOf: (v, set) =>
+    typeof v === 'string' && (Array.isArray(set) ? set.includes(v) : /** @type {Set<unknown>} */ (set).has(v))
+      ? reg(v)
+      : HIDDEN,
+  /** @param {unknown} u 基址 → 主机类别（不输出完整 URL / 主机名 / 凭据） */
+  host: (u) => hostClass(u),
+});
+/** @param {unknown} u */
+function hostClass(u) {
+  let h;
+  try {
+    h = new URL(String(u));
+  } catch {
+    return reg('无效基址');
+  }
+  if (h.origin === MGMT_INJECTED_BASE) return reg('Management API（允许清单 api.supabase.io）');
+  if (h.origin === PROJECT_BASE) return reg('azsou-test 项目主机（允许清单）');
+  if (LOOPBACK.has(h.hostname)) return reg('本机回环地址');
+  return reg('允许清单外的主机');
+}
+/** @param {unknown} v */
+function isKnownFile(v) {
+  if (typeof v !== 'string') return false;
+  if (v === 'az_init' || v === 'seed' || KNOWN_FILES.has(v)) return true;
+  if (v.startsWith('user:')) return SYNTHETIC_USERS.some((u) => `user:${u.email}` === v);
+  return syntheticFiles().some((f) => f.name === v);
+}
+
+const TX_OUTCOMES = Object.freeze(['committed', 'not-committed', 'still-running', 'unknown']);
+const V1_IDS = Object.freeze([
+  'V1.cron',
+  'V1.status',
+  'V1.objects',
+  'V1.ledger',
+  'V1.accounts',
+  'V1.seed',
+  'V1.storage',
+]);
+/**
+ * 任意异常 → 受控说明：执行器自己的拒绝（Refused 及子类，消息按构造就是受控文本）原样；其他异常（网络、JSON、文件系统、
+ * 任意第三方对象）只给允许清单错误码，绝不输出其消息 / 对象内容。
+ * @param {unknown} e
+ */
+export function describeError(e) {
+  if (e instanceof Refused) return safeText(e.message);
+  return S`意外错误（${F.code(e)}）`;
+}
+/** 执行器自己的拒绝；消息必须是 S`…` 拼出的受控文本，否则只剩 [已隐藏] */
+export class Refused extends Error {
+  /** @param {unknown} msg */
+  constructor(msg) {
+    super(safeText(msg));
+  }
+}
 /**
  * 第八轮 B1：结果不确定（查询返回的形状不能可靠判断）。继承 Refused：写之前出现 → 拒绝（退出码 2，一个写请求都不发）；
  * 写之后出现 → execute 判为不确定（退出码 3），不再发任何写请求。
  */
 export class Uncertain extends Refused {
+  /** @param {unknown} msg */
   constructor(msg) {
-    super(`结果不确定：${msg}`);
+    super(S`结果不确定：${msg}`);
   }
 }
+/** 第十四轮：只读查询非 2xx（只带状态码）；仍是「结果不确定」，调用方语义不变 */
+export class HttpStatusError extends Uncertain {
+  /** @param {unknown} msg @param {number} status */
+  constructor(msg, status) {
+    super(msg);
+    this.status = status;
+  }
+}
+/** 第十四轮：客户端超时（AbortController 的 reason）；transportCode / errorCode 按类型识别，不看消息文本 */
+export class ClientTimeout extends Error {
+  constructor() {
+    super('client-timeout');
+    this.name = 'ClientTimeout';
+  }
+}
+/**
+ * 第十四轮：错误码允许清单——只从**真实 Error 对象**的 code 属性读（undici 的 fetch failed 再看一层 cause，同样要求是 Error、code 在清单内）。
+ * 不认识的一律 other；从不从消息 / 响应正文里抽取「像错误码的东西」。ESHORTWRITE 是执行器自己给短写定义的码。
+ */
+export const ERROR_CODES = Object.freeze([
+  'ENOENT',
+  'EACCES',
+  'EPERM',
+  'ENOSPC',
+  'EEXIST',
+  'EISDIR',
+  'ENOTDIR',
+  'EROFS',
+  'EMFILE',
+  'ENFILE',
+  'EBUSY',
+  'EIO',
+  'ELOOP',
+  'ENAMETOOLONG',
+  'EXDEV',
+  'EBADF',
+  'EDQUOT',
+  'ESHORTWRITE',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'EPIPE',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENETDOWN',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_CLOSED',
+  'UND_ERR_ABORTED',
+]);
+const ERROR_CODE_SET = new Set(ERROR_CODES);
+/** 回执 / 结果里允许出现的全部错误码（受控短码 + 允许清单） */
+export const RESULT_ERROR_CODES = Object.freeze([
+  'http_status',
+  'redirect',
+  'timeout',
+  'network',
+  'unauthorized',
+  'uncertain_shape',
+  'refused',
+  'other',
+  ...ERROR_CODES,
+]);
+for (const c of RESULT_ERROR_CODES) reg(c);
 
 /**
  * 第八轮 B1 单一共享解析器：Management API 查询（/database/query 与 /read-only）的结果必须是**恰好 1 行**的数组，
@@ -77,22 +314,33 @@ export class Uncertain extends Refused {
  * 其余一律 Uncertain：[]、[{}]、多行、null、非数组、行不是对象。
  */
 export function parseOneRow(json, key) {
-  if (!Array.isArray(json))
-    throw new Uncertain(`查询结果不是数组：${String(JSON.stringify(json)).slice(0, 80)}`);
-  if (json.length !== 1) throw new Uncertain(`查询结果应恰好 1 行，实际 ${json.length} 行`);
+  // 第十四轮：形状错误只说类型 / 行数 / 字段名（执行器自己的键），不再把服务器返回的值拼进消息
+  if (!Array.isArray(json)) throw new Uncertain(S`查询结果不是数组（类型 ${typeName(json)}）`);
+  if (json.length !== 1) throw new Uncertain(S`查询结果应恰好 1 行，实际 ${json.length} 行`);
   const row = json[0];
   if (!row || typeof row !== 'object' || Array.isArray(row))
-    throw new Uncertain(`查询结果行不是对象：${String(JSON.stringify(row)).slice(0, 80)}`);
+    throw new Uncertain(S`查询结果行不是对象（类型 ${typeName(row)}）`);
   if (!Object.prototype.hasOwnProperty.call(row, key))
-    throw new Uncertain(`查询结果缺字段 ${key}（与合法的 null 不同）`);
+    throw new Uncertain(S`查询结果缺字段 ${keyName(key)}（与合法的 null 不同）`);
   return row[key];
 }
-/** 解析 + 校验值：check(v) 返回 true 才接受，否则 Uncertain */
+/** 解析 + 校验值：check(v) 返回 true 才接受，否则 Uncertain（消息只有字段名与值的类型） */
 export function parseChecked(json, key, check, what = key) {
   const v = parseOneRow(json, key);
-  if (!check(v)) throw new Uncertain(`${what} 的值不确定：${String(JSON.stringify(v)).slice(0, 80)}`);
+  if (!check(v)) throw new Uncertain(S`${keyName(what)} 的值不确定（类型 ${typeName(v)}）`);
   return v;
 }
+/** 值的类型名（受控枚举） @param {unknown} v */
+export function typeName(v) {
+  return reg(v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
+}
+/** 执行器自己的字段名 / 说明（源码常量）：只认小写标识符或中文说明字符 @param {unknown} k */
+const keyName = (k) =>
+  typeof k === 'string' &&
+  /^[a-z_][a-z0-9_.]{0,40}$|^[\u4e00-\u9fa5a-zA-Z0-9_. ]{1,40}$/.test(k) &&
+  /[a-z_\u4e00-\u9fa5]/.test(k[0])
+    ? reg(k)
+    : HIDDEN;
 export const isCount = (x) =>
   (typeof x === 'number' && Number.isInteger(x) && x >= 0) || (typeof x === 'string' && /^\d+$/.test(x));
 export const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
@@ -105,9 +353,9 @@ const sha256 = (b) => createHash('sha256').update(b).digest('hex');
 
 /** ref 允许清单：只有 azsou-test */
 export function assertRef(ref) {
-  if (ref === PROD_REF) throw new Refused(`拒绝：${ref} 是生产项目`);
+  if (ref === PROD_REF) throw new Refused(S`拒绝：目标是生产项目`);
   if (ref !== TEST_REF)
-    throw new Refused(`拒绝：ref ${ref} 不是 azsou-test（${TEST_REF}）——执行器只对 azsou-test 生效`);
+    throw new Refused(S`拒绝：ref ${F.ref(ref)} 不是 azsou-test（${TEST_REF}）——执行器只对 azsou-test 生效`);
 }
 
 /** 从 git 对象库读钉住 SHA 下的文件（不读工作区，工作区被改过也不影响） */
@@ -117,12 +365,12 @@ export function assertRef(ref) {
  * @param {string} cwd
  */
 export function assertCommitPresent(sha, cwd = ROOT) {
-  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Refused(`源 SHA 必须是完整 40 位：${sha}`);
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Refused(S`源 SHA 必须是完整 40 位（给的值格式不符，已隐藏）`);
   try {
     execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd, stdio: 'ignore' });
   } catch {
     throw new Refused(
-      `钉住的源提交 ${sha} 不在本地 git 对象库里（浅克隆？）：先 git fetch origin ${sha}（或完整克隆）再运行`,
+      S`钉住的源提交 ${F.sha(sha)} 不在本地 git 对象库里（浅克隆？）：先 git fetch origin ${F.sha(sha)}（或完整克隆）再运行`,
     );
   }
 }
@@ -149,19 +397,23 @@ export function buildManifest(
     .sort();
   const nums = names.map((n) => n.slice(0, 4));
   if (JSON.stringify(nums) !== JSON.stringify(MIGRATIONS))
-    throw new Refused(`源 SHA ${sha} 的 db/migrations 不是恰好 0001–0019：${nums.join(',')}`);
+    throw new Refused(
+      S`源 SHA ${F.sha(sha)} 的 db/migrations 不是恰好 0001–0019：${SJ(nums.map(F.step), ',')}`,
+    );
   const files = names.map((name) => {
     const buf = read(`db/migrations/${name}`);
     return { name, sha256: sha256(buf), bytes: buf.length };
   });
   const status = read('db/verify/status.sql');
-  return {
+  const m = {
     format: 1,
     project_ref: TEST_REF,
     source_sha: sha,
     migrations: files,
     status_sql_sha256: sha256(status),
   };
+  registerManifest(m);
+  return m;
 }
 
 /** 校验：钉住 SHA 下的内容 = 仓库里提交的清单（哈希、大小、顺序、status.sql） */
@@ -171,19 +423,19 @@ export function verifyPinned(
   read = (rel) => gitShow(sha, rel),
   list = () => gitLs(sha, 'db/migrations'),
 ) {
-  if (manifest.project_ref !== TEST_REF) throw new Refused('清单的 project_ref 不是 azsou-test');
+  if (manifest.project_ref !== TEST_REF) throw new Refused(S`清单的 project_ref 不是 azsou-test`);
   if (manifest.source_sha !== sha)
-    throw new Refused(`清单钉住的源 SHA 是 ${manifest.source_sha}，不是 ${sha}`);
+    throw new Refused(S`清单钉住的源 SHA 是 ${F.sha(manifest.source_sha)}，不是 ${F.sha(sha)}`);
   const got = buildManifest(sha, read, list);
   const bad = [];
   for (let i = 0; i < MIGRATIONS.length; i++) {
     const a = manifest.migrations[i];
     const b = got.migrations[i];
-    if (!a || a.name !== b.name || a.sha256 !== b.sha256 || a.bytes !== b.bytes) bad.push(b.name);
+    if (!a || a.name !== b.name || a.sha256 !== b.sha256 || a.bytes !== b.bytes) bad.push(F.migName(b.name));
   }
-  if (manifest.migrations.length !== MIGRATIONS.length) bad.push('文件数');
-  if (manifest.status_sql_sha256 !== got.status_sql_sha256) bad.push('db/verify/status.sql');
-  if (bad.length) throw new Refused(`钉住校验失败（与清单不符）：${bad.join('、')}`);
+  if (manifest.migrations.length !== MIGRATIONS.length) bad.push(S`文件数`);
+  if (manifest.status_sql_sha256 !== got.status_sql_sha256) bad.push(S`db/verify/status.sql`);
+  if (bad.length) throw new Refused(S`钉住校验失败（与清单不符）：${SJ(bad)}`);
   return got;
 }
 
@@ -211,7 +463,7 @@ export function wrapMigration(sql, { name, sha, runId }) {
     count !== 2
   )
     throw new Refused(
-      `${name}：必须以单独一行 begin; 开头、commit; 结尾且各只有一次，执行器才能把它包进单个事务`,
+      S`${F.migName(name)}：必须以单独一行 begin; 开头、commit; 结尾且各只有一次，执行器才能把它包进单个事务`,
     );
   const body = lines.slice(first + 1, last).join('\n');
   const tag = `az-init:${runId}:${name}`;
@@ -349,6 +601,26 @@ export function plan(manifest, runId = 'dry-run') {
 export const TARGET = Object.freeze({ ref: TEST_REF, name: 'azsou-test', region: 'ap-southeast-1' });
 export const MGMT_INJECTED_BASE = 'https://api.supabase.io';
 export const PROJECT_BASE = `https://${TEST_REF}.supabase.co`;
+/** 第十四轮：执行器源码常量登记为受控文本（只登记常量，从不登记运行时数据） */
+for (const k of [TEST_REF, TARGET.name, TARGET.region, MGMT_INJECTED_BASE, PROJECT_BASE]) reg(k);
+/** Management API 项目状态枚举（只有枚举内的值会出现在消息里） */
+const PROJECT_STATUSES = Object.freeze([
+  'ACTIVE_HEALTHY',
+  'ACTIVE_UNHEALTHY',
+  'COMING_UP',
+  'GOING_DOWN',
+  'INACTIVE',
+  'INIT_FAILED',
+  'PAUSED',
+  'PAUSING',
+  'REMOVED',
+  'RESIZING',
+  'RESTARTING',
+  'RESTORING',
+  'RESTORE_FAILED',
+  'UNKNOWN',
+  'UPGRADING',
+]);
 export const MODES = Object.freeze(['injected', 'env-token']);
 /**
  * api.supabase.com 是公共 Management API 域名（不是「生产 API」）：当前有生产范围的连接器绑在这个主机上，
@@ -363,17 +635,18 @@ export const FORBIDDEN_HOSTS = Object.freeze(['api.supabase.com']);
  *   other           其他 401（GoTrue bad_jwt / invalid JWT、Management API「Unauthorized」等）——无法区分缺失 / 无效 / 错签名
  */
 export function classify401(text) {
+  // 第十四轮：正文只用来分类，绝不拼进标签（标签是固定文本）
   const t = String(text ?? '');
   if (/no api key found/i.test(t))
-    return { kind: 'no_api_key', label: 'No API key found——apikey 头没有到达（未注入）' };
+    return { kind: 'no_api_key', label: S`No API key found——apikey 头没有到达（未注入）` };
   if (/invalid api key/i.test(t))
     return {
       kind: 'invalid_api_key',
-      label: 'Invalid API key——apikey 已送达但无效（值错误 / 不属于该项目）',
+      label: S`Invalid API key——apikey 已送达但无效（值错误 / 不属于该项目）`,
     };
   return {
     kind: 'other',
-    label: `其他 401（other）——无法区分凭据缺失 / 无效 / 签名错误：${t.replace(/\s+/g, ' ').slice(0, 120) || '（无正文）'}`,
+    label: S`其他 401（other）——无法区分凭据缺失 / 无效 / 签名错误（响应正文不记录）`,
   };
 }
 /** HTTP 401（kind 见 classify401）；NoInjection 只用于明确的 no_api_key */
@@ -384,6 +657,15 @@ export class Unauthorized extends Refused {
   }
 }
 export class NoInjection extends Unauthorized {}
+const KINDS_401 = Object.freeze(['no_api_key', 'invalid_api_key', 'other']);
+/** 401 分类 → 固定说明（与 classify401 的标签相同；不含正文） @param {unknown} kind */
+const label401 = (kind) =>
+  classify401(
+    kind === 'no_api_key' ? 'No API key found' : kind === 'invalid_api_key' ? 'Invalid API key' : '',
+  ).label;
+/** 请求说明（client 里的固定字面量，如 'database/query'）：只认允许的字符 @param {unknown} w */
+const whatText = (w) =>
+  typeof w === 'string' && /^[\w /{}.?=&\u4e00-\u9fa5（）]{1,60}$/.test(w) ? reg(w) : HIDDEN;
 /**
  * 第十二轮：收到 3xx（从不跟随）。仍是拒绝（读请求 / 写之前的闸门照旧 exit 2）；但写请求**已经发出**后才收到的 3xx
  * 说明服务器可能已经处理了这次写——createUsers / rotateAdopted 按「结果未知」（exit 3）处理，不当成拒绝。
@@ -401,27 +683,34 @@ const stripSlash = (u) => String(u).replace(/\/+$/, '');
 /** 端点允许清单：injected 只认两个固定 https 基址；env-token 只认本机回环（假服务器） */
 /** @param {{ mode?: string, mgmtBase?: string, projectBase?: string }} [o] */
 export function resolveEndpoints({ mode = 'injected', mgmtBase, projectBase } = {}) {
-  if (!MODES.includes(mode)) throw new Refused(`未知凭据模式 ${mode}（只有 ${MODES.join(' / ')}）`);
+  if (!MODES.includes(mode)) throw new Refused(S`未知凭据模式（值已隐藏；只有 injected / env-token）`);
   const mg = stripSlash(mgmtBase ?? (mode === 'injected' ? MGMT_INJECTED_BASE : ''));
   const pj = stripSlash(projectBase ?? (mode === 'injected' ? PROJECT_BASE : ''));
   for (const u of [mg, pj]) {
-    if (!u) throw new Refused(`${mode} 模式需要显式的基址（SBTEST_MGMT_BASE / SBTEST_PROJECT_BASE）`);
-    if (u.includes(PROD_REF)) throw new Refused('拒绝：基址含生产项目 ref');
-    let host;
+    if (!u)
+      throw new Refused(
+        S`${F.oneOf(mode, MODES)} 模式需要显式的基址（SBTEST_MGMT_BASE / SBTEST_PROJECT_BASE）`,
+      );
+    if (u.includes(PROD_REF)) throw new Refused(S`拒绝：基址含生产项目 ref`);
     try {
-      host = new URL(u).host;
+      new URL(u);
     } catch {
-      throw new Refused(`基址不是合法 URL：${u}`);
+      throw new Refused(S`基址不是合法 URL（值已隐藏）`);
     }
     if (FORBIDDEN_HOSTS.includes(new URL(u).hostname))
-      throw new Refused(`拒绝：${host} 当前绑着生产范围的连接器（生产 PAT 连接器），执行器永不使用`);
+      throw new Refused(
+        S`拒绝：api.supabase.com 当前绑着生产范围的连接器（生产 PAT 连接器），执行器永不使用`,
+      );
     if (mode === 'env-token' && !LOOPBACK.has(new URL(u).hostname))
-      throw new Refused(`env-token 模式只允许本机假服务器（回环地址），拒绝 ${host}`);
+      throw new Refused(S`env-token 模式只允许本机假服务器（回环地址），拒绝${F.host(u)}`);
   }
   if (mode === 'injected') {
     if (mg !== MGMT_INJECTED_BASE)
-      throw new Refused(`injected 模式的 Management API 基址只允许 ${MGMT_INJECTED_BASE}，拒绝 ${mg}`);
-    if (pj !== PROJECT_BASE) throw new Refused(`injected 模式的项目基址只允许 ${PROJECT_BASE}，拒绝 ${pj}`);
+      throw new Refused(
+        S`injected 模式的 Management API 基址只允许 ${MGMT_INJECTED_BASE}，拒绝${F.host(mg)}`,
+      );
+    if (pj !== PROJECT_BASE)
+      throw new Refused(S`injected 模式的项目基址只允许 ${PROJECT_BASE}，拒绝${F.host(pj)}`);
   }
   return { mode, mgmtBase: mg, projectBase: pj };
 }
@@ -458,13 +747,13 @@ export function client({
   assertRef(ref);
   const ep = resolveEndpoints({ mode, mgmtBase, projectBase });
   if (mode === 'injected' && (token || serviceKey))
-    throw new Refused('injected 模式不接受进程内令牌（凭据只由 vault 在线路上注入）');
+    throw new Refused(S`injected 模式不接受进程内令牌（凭据只由 vault 在线路上注入）`);
   if (mode === 'env-token' && (!token || !serviceKey))
-    throw new Refused('env-token 模式（只用于本机假服务器）需要 token 与 serviceKey');
+    throw new Refused(S`env-token 模式（只用于本机假服务器）需要 token 与 serviceKey`);
   let phase = 'init';
   const call = async (url, init, what) => {
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(new Error('client-timeout')), timeoutMs);
+    const t = setTimeout(() => ac.abort(new ClientTimeout()), timeoutMs);
     const u = new URL(url);
     const entry = { phase, method: init.method ?? 'GET', path: u.pathname, status: 0, ms: 0 };
     const t0 = Date.now();
@@ -474,14 +763,16 @@ export function client({
       const r = await fetchImpl(url, { ...init, redirect: 'manual', signal: ac.signal });
       entry.status = r.status;
       if ((r.status >= 300 && r.status < 400) || r.type === 'opaqueredirect') {
-        let to = '';
+        let cross = false;
         try {
-          to = new URL(r.headers?.get?.('location') ?? '', url).host;
+          const loc = r.headers?.get?.('location');
+          cross = !!loc && new URL(loc, url).host !== u.host;
         } catch {
           /* 没有 / 无效 Location */
         }
+        // 第十四轮：只给状态码 + 主机类别（同主机 / 跨主机），不输出 Location 主机名或完整 URL
         throw new Redirected(
-          `${what}：HTTP ${r.status || '3xx'} 重定向被拒（不自动跟随；${to && to !== u.host ? `跨主机 ${u.host} → ${to}` : `同主机 ${u.host}`}）`,
+          S`${whatText(what)}：HTTP ${r.status || S`3xx`} 重定向被拒（不自动跟随；${cross ? S`跨主机，目标主机不记录` : S`同主机`}，请求主机：${F.host(url)}）`,
           r.status,
         );
       }
@@ -493,19 +784,23 @@ export function client({
           /* 读不到正文 → other */
         }
         const k = classify401(body);
+        const h = F.host(url);
         const hint =
           k.kind === 'no_api_key'
-            ? `（主机 ${u.host} 缺 apikey 绑定，或进程没走注入代理：Node 需 NODE_USE_ENV_PROXY=1）`
+            ? S`（${h} 缺 apikey 绑定，或进程没走注入代理：Node 需 NODE_USE_ENV_PROXY=1）`
             : k.kind === 'invalid_api_key'
-              ? `（主机 ${u.host} 收到了 apikey，但值无效）`
-              : `（主机 ${u.host}；无法区分）`;
+              ? S`（${h} 收到了 apikey，但值无效）`
+              : S`（${h}；无法区分）`;
         const Cls = k.kind === 'no_api_key' ? NoInjection : Unauthorized;
-        throw new Cls(`${what}：HTTP 401 [${k.kind}] ${k.label}${hint}`, k.kind);
+        throw new Cls(
+          S`${whatText(what)}：HTTP 401 [${F.oneOf(k.kind, KINDS_401)}] ${k.label}${hint}`,
+          k.kind,
+        );
       }
       return r;
     } catch (e) {
-      if (!entry.status)
-        entry.status = `ERR:${e?.message === 'client-timeout' || e?.name === 'AbortError' ? 'timeout' : (e?.name ?? 'error')}`;
+      // 第十四轮：请求记录里的传输错误只有受控短码（ERR:timeout / ERR:network），不取异常名 / 消息
+      if (!entry.status) entry.status = `ERR:${transportCode(e)}`;
       throw e;
     } finally {
       entry.ms = Date.now() - t0;
@@ -569,7 +864,7 @@ export function client({
       ),
     /** 只改密码（续跑接管账号、交接到文件时用）；不发邮件 */
     adminSetPassword: (id, password) => {
-      if (!/^[0-9a-f-]{36}$/i.test(String(id))) throw new Refused(`用户 id 格式无效：${mask(id)}`);
+      if (!/^[0-9a-f-]{36}$/i.test(String(id))) throw new Refused(S`用户 id 格式无效（值已隐藏）`);
       return pj(
         `/auth/v1/admin/users/${id}`,
         {
@@ -605,12 +900,16 @@ export function client({
  */
 export async function ro(c, sql, key, check = () => true) {
   const r = await c.readOnly(sql);
-  if (!r.ok) throw new Uncertain(`read-only HTTP ${r.status} ${(await r.text()).slice(0, 200)}`);
+  if (!r.ok) {
+    // 第十四轮：只给状态码；正文读完丢弃，不进消息 / 记录 / 回执
+    await r.text().catch(() => undefined);
+    throw new HttpStatusError(S`read-only HTTP ${r.status}`, r.status);
+  }
   let json;
   try {
     json = await r.json();
   } catch {
-    throw new Uncertain('read-only 响应不是 JSON');
+    throw new Uncertain(S`read-only 响应不是 JSON`);
   }
   return parseChecked(json, key, check);
 }
@@ -625,43 +924,44 @@ export async function ro(c, sql, key, check = () => true) {
 export async function verifyTarget(c) {
   c.setPhase?.('P0');
   const r = await c.getProject();
-  if (r.status !== 200) throw new Refused(`目标身份：GET /v1/projects/{ref} → HTTP ${r.status}`);
+  if (r.status !== 200) throw new Refused(S`目标身份：GET /v1/projects/{ref} → HTTP ${r.status}`);
   const p = await r.json();
   const bad = [];
-  if ((p.ref ?? p.id) !== TARGET.ref) bad.push(`ref ${p.ref ?? p.id}`);
-  if (p.name !== TARGET.name) bad.push(`name ${p.name}`);
-  if (p.region !== TARGET.region) bad.push(`region ${p.region}`);
+  // 第十四轮：只说哪个字段不符，不回显服务器给的值
+  if ((p.ref ?? p.id) !== TARGET.ref) bad.push(S`ref 不符`);
+  if (p.name !== TARGET.name) bad.push(S`name 不符`);
+  if (p.region !== TARGET.region) bad.push(S`region 不符`);
   if (bad.length)
-    throw new Refused(
-      `目标身份不符（期望 ${TARGET.ref} / ${TARGET.name} / ${TARGET.region}）：${bad.join('、')}`,
-    );
-  if (p.status !== 'ACTIVE_HEALTHY') throw new Refused(`目标项目状态 ${p.status}，不是 ACTIVE_HEALTHY`);
+    throw new Refused(S`目标身份不符（期望 ${TARGET.ref} / ${TARGET.name} / ${TARGET.region}）：${SJ(bad)}`);
+  if (p.status !== 'ACTIVE_HEALTHY')
+    throw new Refused(S`目标项目状态 ${F.oneOf(p.status, PROJECT_STATUSES)}，不是 ACTIVE_HEALTHY`);
+  // 第十四轮：ref / name / region / status 已逐一核对等于常量；其余服务器字段按格式校验后才输出
   const target = {
-    ref: p.ref ?? p.id,
-    name: p.name,
-    region: p.region,
-    status: p.status,
-    organization_id: p.organization_id ? mask(p.organization_id) : '（未返回）',
-    db_version: p.database?.version ?? '（未返回）',
+    ref: TEST_REF,
+    name: TARGET.name,
+    region: TARGET.region,
+    status: S`ACTIVE_HEALTHY`,
+    // 组织 id 是服务器给的任意字符串：只记录有没有返回，不输出任何片段
+    organization_id: p.organization_id ? S`（已返回，不记录）` : S`（未返回）`,
+    db_version: p.database?.version != null ? F.version(p.database.version) : S`（未返回）`,
   };
   let scope;
   const l = await c.listProjects();
   if (l.status === 403)
     scope = {
       list_projects: 403,
-      verdict:
-        '只记录：列项目被拒（403）照常继续；403 不能证明令牌范围（可能是项目级令牌，也可能是别的原因），范围只以站长提供的令牌配置记录为准',
+      verdict: S`只记录：列项目被拒（403）照常继续；403 不能证明令牌范围（可能是项目级令牌，也可能是别的原因），范围只以站长提供的令牌配置记录为准`,
     };
   else if (l.status === 200) {
     const list = await l.json().catch(() => null);
-    if (!Array.isArray(list)) throw new Uncertain('GET /v1/projects 200 但响应不是数组');
+    if (!Array.isArray(list)) throw new Uncertain(S`GET /v1/projects 200 但响应不是数组`);
     const refs = list.map((x) => x.ref ?? x.id).sort();
     if (refs.includes(PROD_REF))
-      throw new Refused('拒绝：令牌能看到生产项目——只接受只授权 azsou-test 的令牌');
+      throw new Refused(S`拒绝：令牌能看到生产项目——只接受只授权 azsou-test 的令牌`);
     if (JSON.stringify(refs) !== JSON.stringify([TEST_REF]))
-      throw new Refused(`拒绝：令牌能看到 ${refs.length} 个项目，必须只授权 azsou-test`);
-    scope = { list_projects: 200, verdict: '列项目只返回 azsou-test' };
-  } else scope = { list_projects: l.status, verdict: '范围未确定（列项目返回非 200/403；不依赖它）' };
+      throw new Refused(S`拒绝：令牌能看到 ${refs.length} 个项目，必须只授权 azsou-test`);
+    scope = { list_projects: 200, verdict: S`列项目只返回 azsou-test` };
+  } else scope = { list_projects: l.status, verdict: S`范围未确定（列项目返回非 200/403；不依赖它）` };
   return { target, scope };
 }
 
@@ -724,31 +1024,39 @@ export const C0_FLAGS = Object.freeze([
 export const isFlag = (x) => typeof x === 'boolean';
 /** 第九轮 V1.cron：计数必须是 number 且是有限非负整数（Number.isInteger 已排除 NaN / ±Infinity；字符串 "0"、[0]、null 都不算） */
 export const isStrictCount = (x) => typeof x === 'number' && Number.isInteger(x) && x >= 0;
-const showVal = (v) => (v === undefined ? '缺失' : typeof v === 'number' ? String(v) : JSON.stringify(v));
+/** 第十四轮：形状问题里的值只给整数本身或类型名，不再 JSON.stringify 服务器值 @param {unknown} v */
+const showVal = (v) =>
+  v === undefined
+    ? S`缺失`
+    : typeof v === 'number' && Number.isInteger(v)
+      ? S`${v}`
+      : typeof v === 'boolean'
+        ? S`${v}`
+        : S`类型 ${typeName(v)}`;
 /**
  * 第九轮 V1.cron 形状核对：只看 cron_extension / cron_schema / cron_jobs 三个字段（复用 C0 的布尔判断，计数更严：isStrictCount）。
  * 不套用初始化前的「空库」要求——V1 在初始化之后运行，业务表 / 账号 / 对象本来就不是 0。
  */
 export function cronShapeProblems(p) {
-  if (!isObj(p)) return ['C0 返回为空 / 不是对象（不能判断 cron）'];
+  if (!isObj(p)) return [S`C0 返回为空 / 不是对象（不能判断 cron）`];
   const bad = [];
   for (const k of ['cron_extension', 'cron_schema'])
-    if (!isFlag(p[k])) bad.push(`${k} 不是布尔值：${showVal(p[k])}`);
-  if (!isStrictCount(p.cron_jobs)) bad.push(`cron_jobs 不是有限非负整数：${showVal(p.cron_jobs)}`);
+    if (!isFlag(p[k])) bad.push(S`${keyName(k)} 不是布尔值：${showVal(p[k])}`);
+  if (!isStrictCount(p.cron_jobs)) bad.push(S`cron_jobs 不是有限非负整数：${showVal(p.cron_jobs)}`);
   return bad;
 }
 
 /** C0 形状问题（不论全新执行还是续跑都拒绝） */
 export function c0ShapeProblems(p) {
-  if (!p || typeof p !== 'object' || Array.isArray(p)) return ['C0 返回为空 / 不是对象（不能当成空库）'];
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return [S`C0 返回为空 / 不是对象（不能当成空库）`];
   const bad = [];
   if (typeof p.server_version !== 'string' || !/^\d+(\.\d+)*\b/.test(p.server_version))
-    bad.push(`server_version 无效（版本无法判断）：${JSON.stringify(p.server_version ?? null)}`);
+    bad.push(S`server_version 无效（版本无法判断）：${showVal(p.server_version ?? null)}`);
   for (const k of C0_COUNTS)
-    if (!isCount(p[k])) bad.push(`${k} 缺失或不是非负整数：${JSON.stringify(p[k] ?? null)}`);
+    if (!isCount(p[k])) bad.push(S`${keyName(k)} 缺失或不是非负整数：${showVal(p[k] ?? null)}`);
   for (const k of C0_FLAGS)
-    if (!isFlag(p[k])) bad.push(`${k} 缺失或不是布尔值：${JSON.stringify(p[k] ?? null)}`);
-  if (!Array.isArray(p.extensions)) bad.push('extensions 缺失或不是数组');
+    if (!isFlag(p[k])) bad.push(S`${keyName(k)} 缺失或不是布尔值：${showVal(p[k] ?? null)}`);
+  if (!Array.isArray(p.extensions)) bad.push(S`extensions 缺失或不是数组`);
   return bad;
 }
 
@@ -756,7 +1064,8 @@ export function preflightProblems(p) {
   const shape = c0ShapeProblems(p);
   if (shape.length) return shape;
   const bad = [];
-  if (Number(String(p.server_version).split('.')[0]) < 15) bad.push(`Postgres ${p.server_version} < 15`);
+  if (Number(String(p.server_version).split('.')[0]) < 15)
+    bad.push(S`Postgres ${F.version(p.server_version)} < 15`);
   for (const k of [
     'public_relations',
     'public_functions',
@@ -768,12 +1077,12 @@ export function preflightProblems(p) {
     'storage_objects',
     'cron_jobs',
   ])
-    if (p[k] !== undefined && Number(p[k]) !== 0) bad.push(`${k} = ${p[k]}（必须为 0）`);
-  if (p.private_schema) bad.push('private schema 已存在');
-  if (p.supabase_migrations_schema) bad.push('supabase_migrations schema 已存在');
-  if (p.cron_extension || p.cron_schema) bad.push('pg_cron 已启用（初始化不启用调度）');
+    if (p[k] !== undefined && Number(p[k]) !== 0) bad.push(S`${keyName(k)} = ${Number(p[k])}（必须为 0）`);
+  if (p.private_schema) bad.push(S`private schema 已存在`);
+  if (p.supabase_migrations_schema) bad.push(S`supabase_migrations schema 已存在`);
+  if (p.cron_extension || p.cron_schema) bad.push(S`pg_cron 已启用（初始化不启用调度）`);
   if (p.az_init_schema)
-    bad.push('az_init schema 已存在（之前跑过？用 --resume 按账本续跑或人工核对，不重跑）');
+    bad.push(S`az_init schema 已存在（之前跑过？用 --resume 按账本续跑或人工核对，不重跑）`);
   return bad;
 }
 
@@ -782,14 +1091,14 @@ export async function preflight(c) {
   const { target, scope } = await verifyTarget(c);
   c.setPhase?.('P1');
   const id = await ro(c, IDENTITY_SQL, 'identity', isObj);
-  const identity = { ...id, server_addr: id.server_addr ? mask(id.server_addr) : '' };
+  const identity = projectIdentity(id);
   const c0 = await ro(c, C0_SQL, 'preflight', isObj);
   let service;
   try {
     service = await admitProjectService(c);
   } catch (e) {
     if (!(e instanceof NotAdmitted)) throw e;
-    service = { accepted: false, endpoint: ADMIN_PROBE, reason: e.message };
+    service = { accepted: false, endpoint: ADMIN_PROBE, reason: safeText(e.message) };
   }
   return { target, scope, identity, c0, c0_problems: preflightProblems(c0), service };
 }
@@ -802,32 +1111,33 @@ export async function preflight(c) {
  * 只记录状态与返回条数，不记任何用户数据。
  */
 export class NotAdmitted extends Refused {}
-export const ADMIN_PROBE = 'GET /auth/v1/admin/users?per_page=1';
+export const ADMIN_PROBE = reg('GET /auth/v1/admin/users?per_page=1');
 export async function admitProjectService(c) {
   c.setPhase?.('PS');
-  const no = (why) => new NotAdmitted(`项目服务凭据不接受（not accepted）：${ADMIN_PROBE} → ${why}`);
+  const no = (why) => new NotAdmitted(S`项目服务凭据不接受（not accepted）：${ADMIN_PROBE} → ${why}`);
   let r;
   try {
     r = await c.authAdminList();
   } catch (e) {
-    if (e instanceof Unauthorized) throw no(`HTTP 401 ${String(e.message).replace(/^.*?HTTP 401 /, '')}`);
+    // 第十四轮：401 只给分类（no_api_key / invalid_api_key / other），请求失败只给受控错误码
+    if (e instanceof Unauthorized) throw no(S`HTTP 401 [${F.oneOf(e.kind, KINDS_401)}] ${label401(e.kind)}`);
     if (e instanceof Refused) throw e;
-    throw no(`请求失败 ${String(e?.message ?? e).slice(0, 120)}`);
+    throw no(S`请求失败（${transportCode(e)}，${F.code(e)}）`);
   }
-  if (r.status !== 200) throw no(`HTTP ${r.status}`);
+  if (r.status !== 200) throw no(S`HTTP ${r.status}`);
   let body;
   try {
     body = JSON.parse(await r.text());
   } catch {
-    throw no('HTTP 200 但响应不是 JSON');
+    throw no(S`HTTP 200 但响应不是 JSON`);
   }
   if (!body || typeof body !== 'object' || !Array.isArray(body.users))
-    throw no('HTTP 200 但响应形状不是 {users:[…]}');
+    throw no(S`HTTP 200 但响应形状不是 {users:[…]}`);
   return {
     accepted: true,
     endpoint: ADMIN_PROBE,
     status: 200,
-    shape: '{users:[…]}',
+    shape: S`{users:[…]}`,
     users_returned: body.users.length,
   };
 }
@@ -840,19 +1150,21 @@ export async function probeProject(c) {
   c.setPhase?.('PJ');
   const out = {};
   for (const [k, fn] of [
-    ['GET /auth/v1/settings（需要 apikey 头；仅信息，不算准入）', () => c.authSettings()],
-    ['GET /storage/v1/bucket（需要 Authorization 头；仅信息，不算准入）', () => c.storageBuckets()],
+    [S`GET /auth/v1/settings（需要 apikey 头；仅信息，不算准入）`, () => c.authSettings()],
+    [S`GET /storage/v1/bucket（需要 Authorization 头；仅信息，不算准入）`, () => c.storageBuckets()],
   ]) {
     try {
       const r = await fn();
-      out[k] = `HTTP ${r.status}（仅信息：不能证明 service_role 被接受，准入只看 ${ADMIN_PROBE}）`;
+      await r.text?.().catch(() => undefined);
+      out[k] = S`HTTP ${r.status}（仅信息：不能证明 service_role 被接受，准入只看 ${ADMIN_PROBE}）`;
     } catch (e) {
+      // 第十四轮：只给分类 / 受控错误码
       out[k] =
         e instanceof Unauthorized
-          ? `HTTP 401 ${String(e.message)
-              .replace(/^.*?HTTP 401 /, '')
-              .slice(0, 160)}`
-          : `错误 ${String(e?.message ?? e).slice(0, 80)}`;
+          ? S`HTTP 401 [${F.oneOf(e.kind, KINDS_401)}] ${label401(e.kind)}`
+          : e instanceof Redirected
+            ? S`HTTP ${e.status || S`3xx`}（重定向未跟随）`
+            : S`错误（${transportCode(e)}，${F.code(e)}）`;
     }
   }
   return out;
@@ -864,9 +1176,12 @@ export async function probeProject(c) {
  * @param {any} e
  */
 export function transportCode(e) {
-  const m = `${e?.name ?? ''} ${e?.message ?? e ?? ''} ${e?.cause?.code ?? ''}`;
-  if (/client-timeout|AbortError|timeout/i.test(m)) return 'timeout';
-  return 'network';
+  // 第十四轮：按类型 / 允许清单错误码判断，不再对消息文本跑正则
+  if (e instanceof ClientTimeout || e?.name === 'AbortError' || e?.name === 'TimeoutError')
+    return reg('timeout');
+  const code = errorCode(e).code;
+  if (code === 'timeout' || code === 'ETIMEDOUT' || /^UND_ERR_\w*TIMEOUT$/.test(code)) return reg('timeout');
+  return reg('network');
 }
 /**
  * 第十三轮：写请求**已经发出**后的第 ① 层（原始 HTTP / 传输状态）。只有状态码 / 受控短码，绝不含服务器正文。
@@ -880,20 +1195,29 @@ export function postSendHttp({ response, error }) {
 }
 /** 第 ① 层 → 一句话（运行记录用；只有状态码 / 受控短码） */
 export function httpText(h) {
-  if (!h) return '';
-  if (typeof h.status === 'number')
-    return `HTTP ${h.status}${h.redirect_followed === false ? '，重定向未跟随' : ''}`;
-  return h.error === 'timeout' ? '客户端超时' : '连接断开 / 无响应';
+  if (!h) return reg('');
+  if (typeof h.status === 'number' && Number.isInteger(h.status))
+    return S`HTTP ${h.status}${h.redirect_followed === false ? S`，重定向未跟随` : S``}`;
+  return h.error === 'timeout' ? S`客户端超时` : S`连接断开 / 无响应`;
+}
+/** 第 ① 层 → 受控错误码（结果的 error_code 字段；回执只认这个，不解析文本） */
+export function httpCode(h) {
+  if (!h) return reg('other');
+  if (h.redirect_followed === false) return reg('redirect');
+  if (typeof h.status === 'number') return reg('http_status');
+  return h.error === 'timeout' ? reg('timeout') : reg('network');
 }
 /** 写请求发出后，只读核对本身的错误 → 受控说明（核对请求 3xx / 401 / 非 2xx / 形状不符 / 网络都只算「无法核对」，不算拒绝） */
 const verifyFailText = (e) =>
   e instanceof Redirected
-    ? `核对请求 HTTP ${e.status}（重定向未跟随）`
+    ? S`核对请求 HTTP ${e.status}（重定向未跟随）`
     : e instanceof Unauthorized
-      ? '核对请求 HTTP 401'
-      : e instanceof Uncertain
-        ? '核对结果形状无效'
-        : `核对请求失败（${transportCode(e)}）`;
+      ? S`核对请求 HTTP 401`
+      : e instanceof HttpStatusError
+        ? S`核对请求 HTTP ${e.status}`
+        : e instanceof Uncertain
+          ? S`核对结果形状无效`
+          : S`核对请求失败（${transportCode(e)}）`;
 /**
  * 执行一个事务（迁移文件或种子）；失败 / 超时 / 断线 / **发出后收到 3xx**（第十三轮，不跟随）一律先查账本判断有没有提交：
  *   committed → 当成功继续；not-committed（账本 0 行且标记会话已结束）→ 停（exit 1）；still-running / 查不到 → 停（exit 3），不重试。
@@ -918,10 +1242,12 @@ export async function runTx(c, file, wrappedSql, runId) {
     http = postSendHttp({ error: e });
   }
   const err = httpText(http);
+  const error_code = httpCode(http);
   const unknown = (basis) => ({
     file,
     outcome: 'unknown',
     error: err,
+    error_code,
     http,
     verification: { conclusion: 'unverifiable', basis },
   });
@@ -930,7 +1256,10 @@ export async function runTx(c, file, wrappedSql, runId) {
       `select json_build_object('ledger', (select count(*) from az_init.applied where file = '${file}' and run_id = '${runId}'),
         'running', (select count(*) from pg_stat_activity where application_name = 'az-init:${runId}:${file}' and state <> 'idle')) as v`,
     );
-    if (!v.ok) return unknown(`核对请求 HTTP ${v.status}`);
+    if (!v.ok) {
+      await v.text().catch(() => undefined);
+      return unknown(S`核对请求 HTTP ${v.status}`);
+    }
     // 第七轮 ③ / 第八轮 B1：共享解析器——恰好 1 行、字段 v 存在且 ledger / running 都是非负整数；否则 unknown（不是 not-committed）
     let row;
     try {
@@ -941,25 +1270,27 @@ export async function runTx(c, file, wrappedSql, runId) {
         '提交核对',
       );
     } catch {
-      return unknown('核对结果形状无效（不是恰好 1 行、ledger / running 非负整数）');
+      return unknown(S`核对结果形状无效（不是恰好 1 行、ledger / running 非负整数）`);
     }
     const n = Number(row.ledger);
-    const basis = `账本 ${n} 行（run_id + 文件；与正文同一事务写入），标记会话 ${Number(row.running)} 个在运行`;
+    const basis = S`账本 ${n} 行（run_id + 文件；与正文同一事务写入），标记会话 ${Number(row.running)} 个在运行`;
     if (Number(row.running) > 0)
       return {
         file,
         outcome: 'still-running',
         error: err,
+        error_code,
         http,
         verification: { conclusion: 'still-running', basis },
       };
-    if (n !== 0 && n !== 1) return unknown(`账本行数 ${n}（应为 0 或 1）`);
+    if (n !== 0 && n !== 1) return unknown(S`账本行数 ${n}（应为 0 或 1）`);
     const concl = n === 1 ? 'committed' : 'not-committed';
     return {
       file,
       outcome: concl,
       via: 'ledger',
       error: err,
+      error_code,
       http,
       verification: { conclusion: concl, basis },
     };
@@ -993,17 +1324,18 @@ export async function bootstrapLedger(c) {
         file: 'az_init',
         outcome: 'not-committed',
         error: httpText(http),
+        error_code: httpCode(http),
         http,
         verification: {
           conclusion: 'rejected',
-          basis: 'HTTP 4xx 显式拒绝（单事务，按响应未提交；未另行核对）',
+          basis: S`HTTP 4xx 显式拒绝（单事务，按响应未提交；未另行核对）`,
         },
       };
   } catch (e) {
     if (e instanceof Refused && !(e instanceof Redirected)) throw e;
     http = postSendHttp({ error: e });
   }
-  const base = { file: 'az_init', error: httpText(http), http };
+  const base = { file: 'az_init', error: httpText(http), error_code: httpCode(http), http };
   try {
     const led = await ro(c, LEDGER_SQL, 'ledger', isArrOrNull);
     if (Array.isArray(led))
@@ -1013,7 +1345,7 @@ export async function bootstrapLedger(c) {
         via: 'ledger',
         verification: {
           conclusion: 'committed',
-          basis: 'az_init.applied 已存在（C0 时 az_init 不存在；B0 是单事务，表只能由本次 B0 提交）',
+          basis: S`az_init.applied 已存在（C0 时 az_init 不存在；B0 是单事务，表只能由本次 B0 提交）`,
         },
       };
     return {
@@ -1021,8 +1353,7 @@ export async function bootstrapLedger(c) {
       outcome: 'unknown',
       verification: {
         conclusion: 'unverifiable',
-        basis:
-          'az_init.applied 尚不存在，但 B0 事务没有运行标记，不能排除仍在运行 / 延迟提交——不能确认未提交',
+        basis: S`az_init.applied 尚不存在，但 B0 事务没有运行标记，不能排除仍在运行 / 延迟提交——不能确认未提交`,
       },
     };
   } catch (e) {
@@ -1076,14 +1407,19 @@ from auth.users u where u.email in (${SBTEST_EMAILS()})`;
  */
 export function adoptionProblems(a, runId) {
   const u = SYNTHETIC_USERS.find((x) => x.email === a?.email);
-  if (!u) return [`${a?.email ?? '（无邮箱）'} 不是合成账号`];
+  if (!u) return [S`${F.email(a?.email)} 不是合成账号`];
   const p = [];
-  if (a.run !== runId) p.push(`${a.email} 运行标记 ${a.run ?? '（无）'} ≠ 账本 run_id ${runId}`);
-  if (a.confirmed !== true) p.push(`${a.email} 邮箱未确认`);
+  const em = F.email(a.email);
+  // 第十四轮：运行标记 / 身份等服务器值只说「不符」，不回显
+  if (a.run !== runId)
+    p.push(
+      S`${em} 运行标记${a.run == null ? S`（无）` : S` ${F.runId(a.run)}`} ≠ 账本 run_id ${F.runId(runId)}`,
+    );
+  if (a.confirmed !== true) p.push(S`${em} 邮箱未确认`);
   if (JSON.stringify(a.providers) !== JSON.stringify(['email']))
-    p.push(`${a.email} 身份 ${JSON.stringify(a.providers)}（只允许 email）`);
-  if (a.name !== u.name) p.push(`${a.email} 名称元数据不符`);
-  if (!/^[0-9a-f-]{36}$/i.test(String(a.id ?? ''))) p.push(`${a.email} id 无效`);
+    p.push(S`${em} 身份不是只有 email（值已隐藏）`);
+  if (a.name !== u.name) p.push(S`${em} 名称元数据不符`);
+  if (!/^[0-9a-f-]{36}$/i.test(String(a.id ?? ''))) p.push(S`${em} id 无效`);
   return p;
 }
 
@@ -1183,10 +1519,10 @@ export async function acceptV1(c, { manifest, impact, runId, statusSql, files = 
       // 第八轮 B1：结果不确定 → 该项不通过，并把整次 V1 标为不确定（exit 3）；V1 只读，不会再写
       if (e instanceof Uncertain) {
         uncertain = true;
-        return add(id, false, { uncertain: true, detail: String(e.message).slice(0, 200) });
+        return add(id, false, { uncertain: true, detail: safeText(e.message) });
       }
       if (e instanceof Refused) throw e;
-      add(id, false, `核对失败：${String(e?.message ?? e).slice(0, 200)}`);
+      add(id, false, S`核对失败（${transportCode(e)}，${F.code(e)}）`);
     }
   };
   let accounts = [];
@@ -1200,7 +1536,7 @@ export async function acceptV1(c, { manifest, impact, runId, statusSql, files = 
     const definite =
       p.cron_extension === true || p.cron_schema === true || (isStrictCount(p.cron_jobs) && p.cron_jobs > 0);
     if (definite) return add('V1.cron', false, shape.length ? { ...detail, shape_problems: shape } : detail);
-    if (shape.length) throw new Uncertain(`V1.cron 形状不对：${shape.join('；')}`);
+    if (shape.length) throw new Uncertain(S`V1.cron 形状不对：${SJ(shape, '；')}`);
     add('V1.cron', p.cron_extension === false && p.cron_schema === false && p.cron_jobs === 0, detail);
   });
   await guard('V1.status', async () => {
@@ -1335,25 +1671,26 @@ export async function inventory(c) {
  * seed 只能在 0001–0019 全部之后；任何未知 / 不符的行 → 拒绝，交人工处理。
  */
 export function analyzeLedger(ledger, manifest) {
-  if (!Array.isArray(ledger)) throw new Refused('--resume：没有 az_init 账本，无从续跑（用全新执行）');
-  if (ledger.length === 0) throw new Refused('--resume：账本为空（B0 后未提交任何文件）——人工核对后再决定');
+  if (!Array.isArray(ledger)) throw new Refused(S`--resume：没有 az_init 账本，无从续跑（用全新执行）`);
+  if (ledger.length === 0) throw new Refused(S`--resume：账本为空（B0 后未提交任何文件）——人工核对后再决定`);
   const runIds = [...new Set(ledger.map((r) => r.run_id))];
   if (runIds.length !== 1)
-    throw new Refused(`--resume：账本有多个 run_id（${runIds.join(', ')}），需人工处理`);
+    throw new Refused(S`--resume：账本有多个 run_id（${SJ(runIds.map(F.runId), ', ')}），需人工处理`);
   const migs = ledger.filter((r) => r.file !== 'seed');
   const seedRows = ledger.filter((r) => r.file === 'seed');
   migs.forEach((r, i) => {
     const m = manifest.migrations[i];
     if (!m || m.name !== r.file)
       throw new Refused(
-        `--resume：账本第 ${i + 1} 行是 ${r.file}，清单期望 ${m?.name ?? '（无）'}——未知 / 乱序条目需人工处理`,
+        S`--resume：账本第 ${i + 1} 行是 ${F.file(r.file)}，清单期望 ${m?.name ? F.migName(m.name) : S`（无）`}——未知 / 乱序条目需人工处理`,
       );
-    if (m.sha256 !== r.sha256) throw new Refused(`--resume：${r.file} 的 sha256 与清单不符——需人工处理`);
+    if (m.sha256 !== r.sha256)
+      throw new Refused(S`--resume：${F.migName(r.file)} 的 sha256 与清单不符——需人工处理`);
   });
-  if (seedRows.length > 1) throw new Refused('--resume：seed 账本行重复');
+  if (seedRows.length > 1) throw new Refused(S`--resume：seed 账本行重复`);
   const seedDone = seedRows.length === 1;
   if (seedDone && migs.length !== manifest.migrations.length)
-    throw new Refused('--resume：seed 已提交但迁移不完整——状态矛盾，需人工处理');
+    throw new Refused(S`--resume：seed 已提交但迁移不完整——状态矛盾，需人工处理`);
   return { runId: runIds[0], next: migs.length, seedDone };
 }
 
@@ -1394,12 +1731,12 @@ const lexists = (p) => {
  */
 export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid = process.getuid?.() } = {}) {
   if (typeof file !== 'string' || !path.isAbsolute(file))
-    throw new Refused('交接文件必须是绝对路径（仓库外，例如 ~/.azsou-sbtest/<运行 id>.jsonl）');
+    throw new Refused(S`交接文件必须是绝对路径（仓库外，例如 ~/.azsou-sbtest/<运行 id>.jsonl）`);
   const abs = path.resolve(file);
   const lexRepo = path.resolve(repoRoot);
   const realRepo = realpathSync(lexRepo);
   if (inside(lexRepo, abs) || inside(realRepo, abs))
-    throw new Refused('交接文件不能放在仓库里（会被 git 追踪 / 上传）');
+    throw new Refused(S`交接文件不能放在仓库里（会被 git 追踪 / 上传）`);
   // 逐个分量解析符号链接（只读）：任何一个分量是指向仓库的符号链接 → 拒绝
   const segs = abs.split(path.sep).filter(Boolean);
   let cur = path.parse(abs).root;
@@ -1413,40 +1750,44 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
       try {
         target = realpathSync(next);
       } catch {
-        throw new Refused(`交接路径里有无法解析的符号链接：${next}`);
+        throw new Refused(S`交接路径里有无法解析的符号链接：${F.localPath(next)}`);
       }
       if (inside(realRepo, target))
-        throw new Refused(`交接路径的符号链接 ${next} 指向仓库（${target}）——拒绝`);
+        throw new Refused(
+          S`交接路径的符号链接 ${F.localPath(next)} 指向仓库（${F.localPath(target)}）——拒绝`,
+        );
       cur = target;
     } else cur = next;
   }
   const resolved = path.join(cur, ...segs.slice(i));
-  if (inside(realRepo, resolved)) throw new Refused(`交接文件解析后在仓库里（${resolved}）——拒绝`);
-  if (i >= segs.length) throw new Refused(`交接文件已存在（不覆盖）：${abs}`);
+  if (inside(realRepo, resolved))
+    throw new Refused(S`交接文件解析后在仓库里（${F.localPath(resolved)}）——拒绝`);
+  if (i >= segs.length) throw new Refused(S`交接文件已存在（不覆盖）：${F.localPath(abs)}`);
   const dir = path.dirname(resolved);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const realDir = realpathSync(dir);
-  if (inside(realRepo, realDir)) throw new Refused(`交接目录解析后在仓库里（${realDir}）——拒绝`);
+  if (inside(realRepo, realDir))
+    throw new Refused(S`交接目录解析后在仓库里（${F.localPath(realDir)}）——拒绝`);
   const ds = statSync(realDir);
   if ((ds.mode & 0o777) !== 0o700)
     throw new Refused(
-      `交接文件所在目录权限是 ${(ds.mode & 0o777).toString(8)}，必须正好 700（不替你改权限：换一个只有自己能读写的目录）`,
+      S`交接文件所在目录权限是 ${F.octal(ds.mode & 0o777)}，必须正好 700（不替你改权限：换一个只有自己能读写的目录）`,
     );
   if (expectUid !== undefined && ds.uid !== expectUid)
-    throw new Refused(`交接文件所在目录的属主 uid ${ds.uid} 不是当前用户 ${expectUid}——拒绝`);
+    throw new Refused(S`交接文件所在目录的属主 uid ${ds.uid} 不是当前用户 ${expectUid}——拒绝`);
   const real = path.join(realDir, path.basename(resolved));
   let fd;
   try {
     fd = openSync(real, FS.O_WRONLY | FS.O_CREAT | FS.O_EXCL | (FS.O_NOFOLLOW ?? 0), 0o600);
   } catch (e) {
-    throw new Refused(`交接文件无法独占创建（已存在 / 是链接）：${abs}（${e?.code ?? e}）`);
+    throw new Refused(S`交接文件无法独占创建（已存在 / 是链接）：${F.localPath(abs)}（${F.code(e)}）`);
   }
   try {
     fchmodSync(fd, 0o600);
     const fs = fstatSync(fd);
-    if ((fs.mode & 0o777) !== 0o600) throw new Refused(`交接文件权限 ${(fs.mode & 0o777).toString(8)} ≠ 600`);
+    if ((fs.mode & 0o777) !== 0o600) throw new Refused(S`交接文件权限 ${F.octal(fs.mode & 0o777)} ≠ 600`);
     if (expectUid !== undefined && fs.uid !== expectUid)
-      throw new Refused(`交接文件属主 uid ${fs.uid} 不是当前用户 ${expectUid}`);
+      throw new Refused(S`交接文件属主 uid ${fs.uid} 不是当前用户 ${expectUid}`);
   } finally {
     closeSync(fd);
   }
@@ -1461,8 +1802,8 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
       const runId = meta?.run_id;
       const att = meta?.attempt_id || attemptId;
       if (typeof runId !== 'string' || !runId)
-        throw new Refused('交接写入缺 run_id（必须是实际沿用的账本 run_id）');
-      if (typeof att !== 'string' || !att) throw new Refused('交接写入缺 attempt_id');
+        throw new Refused(S`交接写入缺 run_id（必须是实际沿用的账本 run_id）`);
+      if (typeof att !== 'string' || !att) throw new Refused(S`交接写入缺 attempt_id`);
       const line =
         JSON.stringify({
           email,
@@ -1479,7 +1820,7 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
         const want = Buffer.byteLength(line);
         const got = writeSync(wfd, line);
         if (got !== want)
-          throw Object.assign(new Error(`交接行只写入 ${got} / ${want} 字节（短写）`), {
+          throw Object.assign(new Error(S`交接行只写入 ${got} / ${want} 字节（短写）`), {
             code: 'ESHORTWRITE',
           });
       } finally {
@@ -1492,10 +1833,7 @@ export function fileHandoff(file, { repoRoot = ROOT, attemptId = '', expectUid =
 const canHandoff = (h) => !!h && typeof h === 'object' && typeof h.write === 'function';
 
 /** 文件系统 / 交接错误 → 短说明（只有错误码与消息，消息里只有路径，不含密码） */
-const fsErr = (e) => {
-  const m = String(e?.message ?? e);
-  return (e?.code && !m.startsWith(String(e.code)) ? `${e.code} ${m}` : m).slice(0, 160);
-};
+const fsErr = (e) => S`${F.code(e)}`; // 第十四轮：只给允许清单里的错误码（不认识 → other），不带异常消息 / 路径
 
 /** 第十二轮：只有 4xx 是服务器显式拒绝（按响应未生效）；其余非 2xx（3xx、5xx、0）在写请求已发出后一律是「结果未知」 */
 const isRejection = (status) => typeof status === 'number' && status >= 400 && status < 500;
@@ -1564,45 +1902,45 @@ export function handoffConclusion(handoff, evidence) {
   try {
     n = handoff.count();
   } catch (e) {
-    out.errors.push(`收尾错误：读取本次交接行数失败（${fsErr(e)}）——交接文件按原样保留，需人工核对`);
+    out.errors.push(S`收尾错误：读取本次交接行数失败（${fsErr(e)}）——交接文件按原样保留，需人工核对`);
     return out;
   }
   out.n = n;
-  const where = handoff.path ?? '（未知路径）';
-  const ref = '（ops/SBTEST-INIT.md §10.1）';
+  const where = handoff.path ? F.localPath(handoff.path) : S`（未知路径）`;
+  const ref = S`（ops/SBTEST-INIT.md §10.1）`;
   const ev =
     evidence && Array.isArray(evidence.trace) ? accountWriteEvidence(evidence.trace, evidence.results) : null;
   if (n > 0)
     out.notes.push(
-      `账号密码交接文件：${where}（0600，N = ${n} 条 = 本次成功写入交接文件的记录条数，不是云端建号 / 改密次数；内容不在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密${ref}`,
+      S`账号密码交接文件：${where}（0600，N = ${n} 条 = 本次成功写入交接文件的记录条数，不是云端建号 / 改密次数；内容不在本记录里）——文件写好 ≠ 交接完成：${n} 条全部存进 vault 才覆盖删除文件；部分失败保留文件并停下，不重跑、不改密${ref}`,
     );
   let keep = false;
   if (!ev) {
     keep = true;
     out.notes.push(
-      `本次执行证据不可用（没有请求记录）——不能断定是否发过 Auth Admin 建号 / 改密请求：账号状态未知，需人工核对；交接文件保留${ref}`,
+      S`本次执行证据不可用（没有请求记录）——不能断定是否发过 Auth Admin 建号 / 改密请求：账号状态未知，需人工核对；交接文件保留${ref}`,
     );
   } else {
     const unknownN = ev.unknownEmails.length + ev.extraUnknown;
     if (unknownN > 0) {
       keep = true;
-      const who = [
-        ...ev.unknownEmails,
-        ...(ev.extraUnknown ? [`另有 ${ev.extraUnknown} 个未归到账号的请求`] : []),
-      ].join('、');
+      const who = SJ([
+        ...ev.unknownEmails.map(F.email),
+        ...(ev.extraUnknown ? [S`另有 ${ev.extraUnknown} 个未归到账号的请求`] : []),
+      ]);
       out.notes.push(
-        `账号状态未知：${unknownN} 个 Auth Admin 建号 / 改密请求已发出但结果未知（响应丢失 / 超时 / 5xx 等）——${who}：账号可能已创建 / 密码可能已被改，状态未知，需人工核对（按运行标记与 auth.users 核对，见 ops/SBTEST-INIT.md §9）；执行器不自动重试建号 / 改密，也不为补交接改密`,
+        S`账号状态未知：${unknownN} 个 Auth Admin 建号 / 改密请求已发出但结果未知（响应丢失 / 超时 / 5xx 等）——${who}：账号可能已创建 / 密码可能已被改，状态未知，需人工核对（按运行标记与 auth.users 核对，见 ops/SBTEST-INIT.md §9）；执行器不自动重试建号 / 改密，也不为补交接改密`,
       );
     }
     const missing = ev.notHandedOff.length + ev.extraApplied;
     if (missing > 0) {
       keep = true;
-      const who = [
-        ...ev.notHandedOff.map((x) => `${x.email}${x.error ? `（${x.error}）` : ''}`),
-        ...(ev.extraApplied ? [`另有 ${ev.extraApplied} 个已生效但没有交接记录的请求`] : []),
-      ].join('、');
+      const who = SJ([
+        ...ev.notHandedOff.map((x) => S`${F.email(x.email)}${x.error ? S`（${x.error}）` : S``}`),
+        ...(ev.extraApplied ? [S`另有 ${ev.extraApplied} 个已生效但没有交接记录的请求`] : []),
+      ]);
       out.errors.push(
-        `交接错误：${missing} 个账号已创建 / 已改密（Auth Admin 返回 2xx），但密码未交接（交接文件写入失败）——${who}。这些账号的密码没有完整、可核对地写进交接文件，不能据此存进 vault；交接文件 ${where} 可能已部分写入（可能含密码片段），一律按敏感文件处理：保持 0600、只留在原机器上、不读出、不外传、不贴进任何记录 / 聊天，保留作证据，需人工处理：站长批准后才可经 --resume --rotate-passwords / --confirm-rotate 显式改密，执行器不自动重试、不自动改密${ref}`,
+        S`交接错误：${missing} 个账号已创建 / 已改密（Auth Admin 返回 2xx），但密码未交接（交接文件写入失败）——${who}。这些账号的密码没有完整、可核对地写进交接文件，不能据此存进 vault；交接文件 ${where} 可能已部分写入（可能含密码片段），一律按敏感文件处理：保持 0600、只留在原机器上、不读出、不外传、不贴进任何记录 / 聊天，保留作证据，需人工处理：站长批准后才可经 --resume --rotate-passwords / --confirm-rotate 显式改密，执行器不自动重试、不自动改密${ref}`,
       );
     }
   }
@@ -1611,31 +1949,31 @@ export function handoffConclusion(handoff, evidence) {
   const rejectedOnly = !!ev && ev.sent > 0 && ev.applied === 0 && ev.unknown === 0 && !keep;
   if (keep || !(noneSent || rejectedOnly)) {
     out.notes.push(
-      `账号密码交接：N = 0 只表示本次没有成功写入任何交接行，不表示没有建号 / 改密（见本节的状态未知 / 交接错误）；交接文件 ${where} 保留（本次 0 行），作为证据交人工核对，不删${ref}`,
+      S`账号密码交接：N = 0 只表示本次没有成功写入任何交接行，不表示没有建号 / 改密（见本节的状态未知 / 交接错误）；交接文件 ${where} 保留（本次 0 行），作为证据交人工核对，不删${ref}`,
     );
     return out;
   }
   const head = noneSent
-    ? '账号密码交接：N = 0（本次请求记录里没有发出任何 Auth Admin 建号 / 改密请求：本次没有新建账号，也没有改密；被接管账号沿用上次交接 / vault 里的密码）——不需要任何 save_login / vault 保存，不得为凑数改密'
-    : `账号密码交接：N = 0（本次发出的 ${ev.sent} 个 Auth Admin 建号 / 改密请求全部被 HTTP 4xx 拒绝，按响应未建号、未改密）——不需要任何 save_login / vault 保存，不得为凑数改密`;
+    ? S`账号密码交接：N = 0（本次请求记录里没有发出任何 Auth Admin 建号 / 改密请求：本次没有新建账号，也没有改密；被接管账号沿用上次交接 / vault 里的密码）——不需要任何 save_login / vault 保存，不得为凑数改密`
+    : S`账号密码交接：N = 0（本次发出的 ${ev.sent} 个 Auth Admin 建号 / 改密请求全部被 HTTP 4xx 拒绝，按响应未建号、未改密）——不需要任何 save_login / vault 保存，不得为凑数改密`;
   let st;
   try {
     st = handoff.path ? lstatSync(handoff.path) : undefined;
   } catch (e) {
     if (e?.code === 'ENOENT') {
-      out.notes.push(`${head}；交接文件不存在（无需删除）${ref}`);
+      out.notes.push(S`${head}；交接文件不存在（无需删除）${ref}`);
       return out;
     }
     out.notes.push(head);
     out.errors.push(
-      `收尾错误：交接文件 ${where} 无法核对（${fsErr(e)}）——保留，需人工核对；执行结论不变，不重试任何写操作${ref}`,
+      S`收尾错误：交接文件 ${where} 无法核对（${fsErr(e)}）——保留，需人工核对；执行结论不变，不重试任何写操作${ref}`,
     );
     return out;
   }
   if (!st || !st.isFile() || st.size !== 0) {
     out.notes.push(head);
     out.errors.push(
-      `收尾错误：交接文件 ${where} 不是空的普通文件（本次未写入任何行）——不删，保留并要求人工核对；执行结论不变${ref}`,
+      S`收尾错误：交接文件 ${where} 不是空的普通文件（本次未写入任何行）——不删，保留并要求人工核对；执行结论不变${ref}`,
     );
     return out;
   }
@@ -1644,12 +1982,12 @@ export function handoffConclusion(handoff, evidence) {
   } catch (e) {
     out.notes.push(head);
     out.errors.push(
-      `收尾错误：空交接文件 ${where} 删除失败（${fsErr(e)}）——文件保留（0 字节，不含密码），需人工删除；执行结论不变，不重试任何写操作${ref}`,
+      S`收尾错误：空交接文件 ${where} 删除失败（${fsErr(e)}）——文件保留（0 字节，不含密码），需人工删除；执行结论不变，不重试任何写操作${ref}`,
     );
     return out;
   }
   out.deleted = true;
-  out.notes.push(`${head}；空交接文件 ${where} 已核对为 0 字节并删除${ref}`);
+  out.notes.push(S`${head}；空交接文件 ${where} 已核对为 0 字节并删除${ref}`);
   return out;
 }
 
@@ -1673,10 +2011,14 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
     } catch (e) {
       // 第十二轮：写请求已发出后收到 3xx（不跟随）→ 服务器可能已建号 → 结果未知（exit 3），不是拒绝；401 等其他拒绝照旧
       if (e instanceof Refused && !(e instanceof Redirected)) throw e;
+      // 第十四轮：只记第 ① 层（状态码 / 受控传输短码）+ 受控错误码，不记异常消息
+      const http = postSendHttp({ error: e });
       results.push({
         file: `user:${u.email}`,
         outcome: 'unknown',
-        error: String(e?.message ?? e).slice(0, 160),
+        error: S`${httpText(http)}（建号请求已发出，结果未知：账号可能已创建）`,
+        error_code: httpCode(http),
+        http,
       });
       return { ids, outcome: 'unknown' };
     }
@@ -1686,7 +2028,9 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
         results.push({
           file: `user:${u.email}`,
           outcome: 'unknown',
-          error: `HTTP ${r.status}（建号请求已发出，结果未知：账号可能已创建）`,
+          error: S`HTTP ${r.status}（建号请求已发出，结果未知：账号可能已创建）`,
+          error_code: reg('http_status'),
+          http: { status: r.status },
         });
         return { ids, outcome: 'unknown' };
       }
@@ -1700,7 +2044,12 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
       /* 留空 */
     }
     if (!/^[0-9a-f-]{36}$/i.test(String(id ?? ''))) {
-      results.push({ file: `user:${u.email}`, outcome: 'unknown', error: '建号响应里没有有效 id' });
+      results.push({
+        file: `user:${u.email}`,
+        outcome: 'unknown',
+        error: S`建号响应里没有有效 id`,
+        error_code: reg('uncertain_shape'),
+      });
       return { ids, outcome: 'unknown' };
     }
     ids[u.key] = id;
@@ -1710,7 +2059,12 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
       try {
         await handoff.write(u.email, password, id, { run_id: runId, attempt_id: attemptId });
       } catch (e) {
-        results.push({ file: `user:${u.email}`, outcome: 'created-handoff-write-failed', error: fsErr(e) });
+        results.push({
+          file: `user:${u.email}`,
+          outcome: 'created-handoff-write-failed',
+          error: fsErr(e),
+          error_code: F.code(e),
+        });
         return { ids, outcome: 'unknown' };
       }
     }
@@ -1725,7 +2079,7 @@ export async function createUsers(c, missing, handoff, results, runId, attemptId
  */
 async function rotateAdopted(c, adopted, handoff, results, meta) {
   if (!adopted.length) return 'ok';
-  if (!canHandoff(handoff)) throw new Refused('显式改密需要交接文件（--handoff-file）');
+  if (!canHandoff(handoff)) throw new Refused(S`显式改密需要交接文件（--handoff-file）`);
   for (const a of adopted) {
     const password = genPassword();
     let r;
@@ -1734,10 +2088,13 @@ async function rotateAdopted(c, adopted, handoff, results, meta) {
     } catch (e) {
       // 第十二轮：PUT 已发出后收到 3xx（不跟随）→ 密码可能已被改 → 结果未知（exit 3）
       if (e instanceof Refused && !(e instanceof Redirected)) throw e;
+      const http = postSendHttp({ error: e });
       results.push({
         file: `user:${a.email}`,
         outcome: 'password-unknown',
-        error: String(e?.message ?? e).slice(0, 160),
+        error: S`${httpText(http)}（改密请求已发出，结果未知：密码可能已被改）`,
+        error_code: httpCode(http),
+        http,
       });
       return 'unknown';
     }
@@ -1746,7 +2103,9 @@ async function rotateAdopted(c, adopted, handoff, results, meta) {
         results.push({
           file: `user:${a.email}`,
           outcome: 'password-unknown',
-          error: `HTTP ${r.status}（改密请求已发出，结果未知：密码可能已被改）`,
+          error: S`HTTP ${r.status}（改密请求已发出，结果未知：密码可能已被改）`,
+          error_code: reg('http_status'),
+          http: { status: r.status },
         });
         return 'unknown';
       }
@@ -1760,6 +2119,7 @@ async function rotateAdopted(c, adopted, handoff, results, meta) {
         file: `user:${a.email}`,
         outcome: 'password-set-handoff-write-failed',
         error: fsErr(e),
+        error_code: F.code(e),
       });
       return 'unknown';
     }
@@ -1778,12 +2138,12 @@ export function rotationRequest(r) {
     [...new Set((l ?? []).map((x) => String(x).trim().toLowerCase()).filter(Boolean))].sort();
   const a = norm(r.accounts);
   const cf = norm(r.confirm);
-  if (!a.length) throw new Refused('--confirm-rotate 只能和 --rotate-passwords 一起用');
+  if (!a.length) throw new Refused(S`--confirm-rotate 只能和 --rotate-passwords 一起用`);
   if (JSON.stringify(a) !== JSON.stringify(cf))
-    throw new Refused('显式改密需要单独确认：--confirm-rotate 必须逐字列出与 --rotate-passwords 相同的账号');
+    throw new Refused(S`显式改密需要单独确认：--confirm-rotate 必须逐字列出与 --rotate-passwords 相同的账号`);
   const known = SYNTHETIC_USERS.map((u) => u.email);
   const bad = a.filter((e) => !known.includes(e));
-  if (bad.length) throw new Refused(`显式改密只能针对合成账号：${bad.join(', ')}`);
+  if (bad.length) throw new Refused(S`显式改密只能针对合成账号：${bad.length} 个不是合成账号（值已隐藏）`);
   return a;
 }
 
@@ -1804,7 +2164,8 @@ async function uploadFiles(c, userId, files, existing, results) {
       // 续跑：已存在 → 下载核对，内容不同就拒绝（不覆盖）
       const d = await c.download(p);
       const got = d.ok ? sha256(Buffer.from(await d.arrayBuffer())) : null;
-      if (got !== f.sha256) throw new Refused(`--resume：${f.name} 已存在但内容不符（不覆盖），需人工处理`);
+      if (got !== f.sha256)
+        throw new Refused(S`--resume：${F.file(f.name)} 已存在但内容不符（不覆盖），需人工处理`);
       results.push({ file: f.name, outcome: 'already-present', sha256: f.sha256 });
       continue;
     }
@@ -1815,11 +2176,12 @@ async function uploadFiles(c, userId, files, existing, results) {
       results.push({
         file: f.name,
         outcome: 'unknown',
-        error: `${httpText(http)}（上传请求已发出，结果未知：对象可能已存储）`,
+        error: S`${httpText(http)}（上传请求已发出，结果未知：对象可能已存储）`,
+        error_code: httpCode(http),
         http,
         verification: {
           conclusion: 'not-verified',
-          basis: 'Storage 写后不自动核对、不重传 / 覆盖 / 删除；见清点 storage_objects，需人工核对',
+          basis: S`Storage 写后不自动核对、不重传 / 覆盖 / 删除；见清点 storage_objects，需人工核对`,
         },
       });
       return 'unknown';
@@ -1842,7 +2204,7 @@ async function uploadFiles(c, userId, files, existing, results) {
         file: f.name,
         outcome: `HTTP ${r.status}`,
         http,
-        verification: { conclusion: 'rejected', basis: 'HTTP 4xx 显式拒绝（按响应未存储；未另行核对）' },
+        verification: { conclusion: 'rejected', basis: S`HTTP 4xx 显式拒绝（按响应未存储；未另行核对）` },
       });
       return 'failed';
     }
@@ -1905,7 +2267,7 @@ export async function execute(opts) {
     try {
       return await inventory(opts.c);
     } catch (e2) {
-      return { status: 'unknown', error: String(e2?.message ?? e2) };
+      return { status: 'unknown', error: describeError(e2), error_code: F.code(e2) };
     }
   };
   try {
@@ -1918,7 +2280,8 @@ export async function execute(opts) {
       inv.status = 'unknown';
       return {
         exit: EXIT.UNKNOWN,
-        error: String(e.message).slice(0, 300),
+        error: describeError(e),
+        error_code: F.code(e),
         stage: ctx.stage,
         results: ctx.results,
         runId: ctx.runId,
@@ -1930,7 +2293,7 @@ export async function execute(opts) {
     if (e instanceof Refused)
       return {
         exit: EXIT.REFUSED,
-        refused: e.message,
+        refused: describeError(e),
         stage: ctx.stage,
         results: ctx.results,
         runId: ctx.runId,
@@ -1942,7 +2305,8 @@ export async function execute(opts) {
     inv.status = 'unknown';
     return {
       exit: EXIT.UNKNOWN,
-      error: String(e?.message ?? e).slice(0, 300),
+      error: describeError(e),
+      error_code: F.code(e),
       stage: ctx.stage,
       results: ctx.results,
       runId: ctx.runId,
@@ -1971,15 +2335,15 @@ async function executeInner(
   const attemptId = ctx.attemptId;
   // 第八轮 B2：真实目标（injected / 非回环）不允许丢弃账号密码——正式初始化必须用交接文件；discard 只给本机假服务器 / 演练
   if (!canHandoff(handoff)) {
-    if (handoff !== undefined && handoff !== 'discard') throw new Refused(`未知交接方式 ${String(handoff)}`);
+    if (handoff !== undefined && handoff !== 'discard') throw new Refused(S`未知交接方式（值已隐藏）`);
     if (isRealTarget(c))
       throw new Refused(
-        '正式初始化（真实目标）不允许 --handoff discard / 不交接：必须用 --handoff-file <仓库外绝对路径>',
+        S`正式初始化（真实目标）不允许 --handoff discard / 不交接：必须用 --handoff-file <仓库外绝对路径>`,
       );
   }
   const rotateList = rotationRequest(rotate);
-  if (rotateList.length && !resume) throw new Refused('显式改密只用于 --resume 接管已有账号');
-  if (rotateList.length && !canHandoff(handoff)) throw new Refused('显式改密需要交接文件（--handoff-file）');
+  if (rotateList.length && !resume) throw new Refused(S`显式改密只用于 --resume 接管已有账号`);
+  if (rotateList.length && !canHandoff(handoff)) throw new Refused(S`显式改密需要交接文件（--handoff-file）`);
   let wrote = false;
   const phase = (p) => {
     ctx.stage = p;
@@ -1995,7 +2359,7 @@ async function executeInner(
       try {
         out.inventory = await inventory(c);
       } catch (e) {
-        out.inventory = { status: 'unknown', error: String(e?.message ?? e) };
+        out.inventory = { status: 'unknown', error: describeError(e), error_code: F.code(e) };
       }
       if (exit === EXIT.UNKNOWN) out.inventory.status = 'unknown';
     }
@@ -2005,9 +2369,9 @@ async function executeInner(
   ctx.stage = 'PS';
   // 第七轮 ①：项目服务准入必须在第一次写之前通过（全新执行与续跑都一样）
   if (!pre.service?.accepted)
-    throw new NotAdmitted(pre.service?.reason ?? '项目服务凭据不接受（not accepted）');
+    throw new NotAdmitted(pre.service?.reason ?? S`项目服务凭据不接受（not accepted）`);
   const shape = c0ShapeProblems(pre.c0);
-  if (shape.length) throw new Refused(`C0 无效（拒绝）：${shape.join('；')}`);
+  if (shape.length) throw new Refused(S`C0 无效（拒绝）：${SJ(shape, '；')}`);
   const statusSql = read('db/verify/status.sql').toString('utf8').replace(/;\s*$/, '');
   let start = 0;
   let seedDone = false;
@@ -2015,7 +2379,7 @@ async function executeInner(
   let adopted = [];
   if (!resume) {
     if (pre.c0_problems.length)
-      throw new Refused(`预检不通过（不清空、不覆盖）：${pre.c0_problems.join('；')}`);
+      throw new Refused(S`预检不通过（不清空、不覆盖）：${SJ(pre.c0_problems, '；')}`);
     phase('B0');
     markWrote();
     const b0 = await bootstrapLedger(c);
@@ -2025,12 +2389,12 @@ async function executeInner(
       if (b0.outcome !== 'committed') return finish(EXIT.UNKNOWN, { preflight: pre });
     }
   } else {
-    if (!pre.c0.az_init_schema) throw new Refused('--resume：az_init 不存在，没有可续跑的账本');
+    if (!pre.c0.az_init_schema) throw new Refused(S`--resume：az_init 不存在，没有可续跑的账本`);
     if (pre.c0.cron_extension || pre.c0.cron_schema)
-      throw new Refused('--resume：pg_cron 已启用，状态与执行器不符，需人工处理');
+      throw new Refused(S`--resume：pg_cron 已启用，状态与执行器不符，需人工处理`);
     // 第八轮 B1：n 必须是非负整数；缺失 / null / 非数字 → Uncertain（拒绝），不再经 Number(...) > 0 放行
     if (Number(await ro(c, RUNNING_SQL, 'n', isCount)) > 0)
-      throw new Refused('--resume：还有 az-init 会话在运行，先人工确认');
+      throw new Refused(S`--resume：还有 az-init 会话在运行，先人工确认`);
     const st = analyzeLedger(await ro(c, LEDGER_SQL, 'ledger', isArrOrNull), manifest);
     if (st.runId !== runId) runId = st.runId;
     ctx.runId = runId;
@@ -2039,25 +2403,25 @@ async function executeInner(
     const acc = await ro(c, ACCOUNTS_BARE_SQL(), 'accounts', isArr);
     if (acc.length && start < manifest.migrations.length)
       throw new Refused(
-        `--resume：迁移未完成（账本到第 ${start} 个）却已有 ${acc.length} 个合成账号——状态矛盾，需人工处理`,
+        S`--resume：迁移未完成（账本到第 ${start} 个）却已有 ${acc.length} 个合成账号——状态矛盾，需人工处理`,
       );
     const probs = acc.flatMap((a) => adoptionProblems(a, runId));
     if (probs.length)
       throw new Refused(
-        `--resume：已有合成账号不能接管（需人工核对，见 ops/SBTEST-INIT.md §9；不删除账号）：${probs.join('；')}`,
+        S`--resume：已有合成账号不能接管（需人工核对，见 ops/SBTEST-INIT.md §9；不删除账号）：${SJ(probs, '；')}`,
       );
     if (seedDone && acc.length !== SYNTHETIC_USERS.length)
-      throw new Refused(`--resume：种子已提交但合成账号只有 ${acc.length} 个——状态矛盾，需人工处理`);
+      throw new Refused(S`--resume：种子已提交但合成账号只有 ${acc.length} 个——状态矛盾，需人工处理`);
     if (seedDone) {
       const led = (await ro(c, LEDGER_SQL, 'ledger', isArrOrNull)) ?? [];
       const got = led.find((r) => r.file === 'seed')?.sha256;
       if (got !== expectedSeedSha(acc, runId))
-        throw new Refused('--resume：seed 账本哈希与本次种子的期望哈希不符——需人工处理（哈希不符）');
+        throw new Refused(S`--resume：seed 账本哈希与本次种子的期望哈希不符——需人工处理（哈希不符）`);
     }
     adopted = acc;
     const notAdopted = rotateList.filter((e) => !acc.some((a) => String(a.email).toLowerCase() === e));
     if (notAdopted.length)
-      throw new Refused(`显式改密列出的账号不在本次接管的账号里：${notAdopted.join(', ')}`);
+      throw new Refused(S`显式改密列出的账号不在本次接管的账号里：${SJ(notAdopted.map(F.email), ', ')}`);
     if (start > 0) {
       const step = manifest.migrations[start - 1].name.slice(0, 4);
       const rows = await ro(
@@ -2066,11 +2430,14 @@ async function executeInner(
         'rows',
         isRows,
       );
-      if (rows) throw new Refused(`--resume：账本到 ${step}，但 status.sql 该步及之前有未生效项——需人工处理`);
+      if (rows)
+        throw new Refused(
+          S`--resume：账本到 ${F.step(step)}，但 status.sql 该步及之前有未生效项——需人工处理`,
+        );
     }
     markWrote();
     log(
-      `续跑：run_id ${runId}，账本已有 ${start} 个迁移${seedDone ? ' + seed' : ''}，接管 ${adopted.length} 个已有合成账号`,
+      S`续跑：run_id ${F.runId(runId)}，账本已有 ${start} 个迁移${seedDone ? S` + seed` : S``}，接管 ${adopted.length} 个已有合成账号`,
     );
   }
   for (const m of manifest.migrations.slice(start)) {
@@ -2078,7 +2445,9 @@ async function executeInner(
     phase(step);
     const r = await applyOne(c, m, read(`db/migrations/${m.name}`), runId);
     results.push(r);
-    log(`${r.outcome.padEnd(13)} ${m.name}${r.error ? ` — ${r.error}` : ''}`);
+    log(
+      S`${reg(F.oneOf(r.outcome, TX_OUTCOMES).padEnd(13))} ${F.migName(m.name)}${r.error ? S` — ${r.error}` : S``}`,
+    );
     if (r.outcome === 'not-committed') return finish(EXIT.FAILED, { preflight: pre });
     if (r.outcome !== 'committed') return finish(EXIT.UNKNOWN, { preflight: pre });
     if (step !== '0001') {
@@ -2088,14 +2457,18 @@ async function executeInner(
         const s = await c.readOnly(
           `select json_agg(x) as rows from (${statusSql}) x where step <= '${step}' and not ok`,
         );
-        if (!s.ok) throw new Error(`status 查询 HTTP ${s.status}`);
+        if (!s.ok) {
+          await s.text().catch(() => undefined);
+          throw new HttpStatusError(S`status 查询 HTTP ${s.status}`, s.status);
+        }
         rows = parseChecked(await s.json(), 'rows', isRows, 'status 查询');
       } catch (e) {
         if (e instanceof Refused && !(e instanceof Uncertain)) throw e;
         results.push({
           file: m.name,
           outcome: 'status-check-unknown',
-          error: String(e?.message ?? e).slice(0, 200),
+          error: describeError(e),
+          error_code: F.code(e),
         });
         return finish(EXIT.UNKNOWN, { preflight: pre });
       }
@@ -2113,7 +2486,7 @@ async function executeInner(
     results.push({
       file: `user:${a.email}`,
       outcome: 'adopted',
-      password: willRotate ? 'rotate-requested' : 'unchanged（沿用上次交接文件里的密码）',
+      password: willRotate ? S`rotate-requested` : S`unchanged（沿用上次交接文件里的密码）`,
     });
   }
   phase('U1');
@@ -2144,7 +2517,7 @@ async function executeInner(
   if (f !== 'ok') return finish(f === 'unknown' ? EXIT.UNKNOWN : EXIT.FAILED, { preflight: pre });
   phase('V1');
   const v1 = await acceptV1(c, { manifest, impact, runId, statusSql, files });
-  for (const x of v1.checks) log(`${x.ok ? '✓' : '✗'} ${x.id}`);
+  for (const x of v1.checks) log(S`${x.ok ? S`✓` : S`✗`} ${F.oneOf(x.id, V1_IDS)}`);
   if (!v1.ok) return finish(v1.uncertain ? EXIT.UNKNOWN : EXIT.FAILED, { preflight: pre, v1 });
   return finish(EXIT.OK, { preflight: pre, v1 });
 }
@@ -2202,15 +2575,12 @@ export function redactText(v, secrets = [], max = 200) {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
-// ---- 第十三轮：兜底回执逐层白名单（字段名 + 类型）；不认识的字段一律丢弃，不转储
+// ---- 第十三轮：兜底回执逐层白名单（字段名 + 类型）；第十四轮：同一投影层也用于正常运行记录，所有叶子都是受控文本
 const isInt = (x) => typeof x === 'number' && Number.isInteger(x) && x >= 0;
-const SYNTH_EMAILS = new Set(SYNTHETIC_USERS.map((u) => u.email));
 const MASKED_ID = /^[0-9a-f]{4}…[0-9a-f-]{2}$/i;
-const SAFE_ID = /^[\w.:-]{1,80}$/;
-const FILE_RE = /^(az_init|seed|\d{4}_[\w.-]{1,80}\.sql|[\w.-]{1,80}\.png|user:[\w.+-]{1,64}@example\.com)$/;
 const OUTCOME_RE =
   /^(committed|not-committed|still-running|unknown|status-check-unknown|status-check-failed|created|password-set|created-handoff-write-failed|password-set-handoff-write-failed|password-unknown|adopted|uploaded|already-present|(password )?HTTP \d{3})$/;
-const CONCLUSIONS = new Set([
+const CONCLUSIONS = Object.freeze([
   'committed',
   'not-committed',
   'still-running',
@@ -2218,10 +2588,14 @@ const CONCLUSIONS = new Set([
   'not-verified',
   'rejected',
 ]);
-const TRANSPORT = new Set(['timeout', 'network']);
+const TRANSPORT = Object.freeze(['timeout', 'network']);
 const PHASE_RE = /^(P0|P1|PS|PJ|B0|\d{4}|U1|S1|F1|V1|INV|init)$/;
-const hidden = (what) => `[${what}格式不符，已隐藏]`;
-const pick = (v, ok, fallback) => (ok(v) ? v : fallback);
+/** @param {unknown} v */
+const phaseOf = (v) => (typeof v === 'string' && PHASE_RE.test(v) ? reg(v) : reg('unknown'));
+/** @param {string} what 只传源码字面量 */
+const hidden = (what) => reg(`[${what}格式不符，已隐藏]`);
+/** @param {unknown} v */
+const outcomeOf = (v) => (typeof v === 'string' && OUTCOME_RE.test(v) ? reg(v) : reg('other'));
 /** 第 ① 层：{ status, redirect_followed } 或 { error }；其余字段丢弃 */
 function projectHttp(h) {
   if (!isObj(h)) return undefined;
@@ -2229,189 +2603,306 @@ function projectHttp(h) {
   if (typeof h.status === 'number' && Number.isInteger(h.status) && h.status >= 100 && h.status <= 599)
     o.status = h.status;
   if (h.redirect_followed === false) o.redirect_followed = false;
-  if (TRANSPORT.has(h.error)) o.error = h.error;
+  if (TRANSPORT.includes(h.error)) o.error = reg(h.error);
   return Object.keys(o).length ? o : undefined;
 }
+/** @param {unknown} status */
+const statusClass = (status) =>
+  typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599
+    ? reg(`${Math.floor(status / 100)}xx`)
+    : reg('none');
 /** 逐项结果 → 阶段 / 端点（由文件种类推出，不取自由文本） */
-function itemPhase(file, outcome) {
-  if (file === 'az_init') return 'B0';
-  if (file === 'seed') return 'S1';
-  if (/^\d{4}_/.test(file)) return file.slice(0, 4);
-  if (file.startsWith('user:')) return 'U1';
-  if (/\.png$/.test(file)) return 'F1';
-  return outcome ? 'unknown' : 'unknown';
+function itemPhase(file) {
+  if (file === 'az_init') return reg('B0');
+  if (file === 'seed') return reg('S1');
+  if (/^\d{4}_/.test(file)) return reg(file.slice(0, 4));
+  if (file.startsWith('user:')) return reg('U1');
+  if (/\.png$/.test(file)) return reg('F1');
+  return reg('unknown');
 }
 /** @type {Record<string, string>} */
 const ENDPOINT = {
-  B0: 'POST /v1/projects/{ref}/database/query',
-  S1: 'POST /v1/projects/{ref}/database/query',
-  MIG: 'POST /v1/projects/{ref}/database/query',
-  F1: 'POST /storage/v1/object/ugc-images/{id}/{name}',
-  INV: 'POST /v1/projects/{ref}/database/query/read-only',
+  B0: reg('POST /v1/projects/{ref}/database/query'),
+  S1: reg('POST /v1/projects/{ref}/database/query'),
+  MIG: reg('POST /v1/projects/{ref}/database/query'),
+  F1: reg('POST /storage/v1/object/ugc-images/{id}/{name}'),
+  INV: reg('POST /v1/projects/{ref}/database/query/read-only'),
 };
 function itemEndpoint(file, outcome) {
   if (file.startsWith('user:'))
     return String(outcome).startsWith('password')
-      ? 'PUT /auth/v1/admin/users/{id}'
-      : 'POST /auth/v1/admin/users';
-  const ph = itemPhase(file, outcome);
-  return ENDPOINT[ph] ?? (/^\d{4}$/.test(ph) ? ENDPOINT.MIG : 'unknown');
+      ? reg('PUT /auth/v1/admin/users/{id}')
+      : reg('POST /auth/v1/admin/users');
+  const ph = itemPhase(file);
+  return ENDPOINT[ph] ?? (/^\d{4}$/.test(ph) ? ENDPOINT.MIG : reg('unknown'));
 }
 /**
- * 错误（任意文本 / 对象）→ 受控错误码 + 状态类别；从不返回原文。
- * code：http_status | redirect | timeout | network | uncertain_shape | unauthorized | E…（文件系统错误码）| other
+ * 第十四轮：错误 → 受控错误码 + 状态类别；从不返回原文，**从不解析任何文本**。
+ *   执行器自己的错误类：Redirected → redirect；Unauthorized → unauthorized；HttpStatusError → http_status；
+ *   Uncertain → uncertain_shape；ClientTimeout → timeout；其余 Refused → refused。
+ *   真实 Error 对象：只读 err.code（以及 undici「fetch failed」的 err.cause.code，cause 同样必须是 Error），
+ *   在 ERROR_CODES 允许清单内才返回该码；AbortError / TimeoutError → timeout。其余一律 other。
+ *   非 Error（字符串、普通对象、数字……）→ other——哪怕字符串里有「ENOSPC」或「HTTP 503」字样。
+ * @param {unknown} e
+ * @returns {{ code: string, status_class: string }}
  */
-export function errorCode(v) {
-  if (typeof v !== 'string') return { code: 'other', status_class: 'none' };
-  const st = v.match(/\bHTTP (\d)\d\d\b/);
-  const cls = st ? `${st[1]}xx` : 'none';
-  const fs = v.match(/\b(E[A-Z][A-Z0-9]{2,15})\b/);
-  if (/重定向|redirect/i.test(v)) return { code: 'redirect', status_class: st ? cls : '3xx' };
-  if (/\b401\b/.test(v) && /HTTP 401/.test(v)) return { code: 'unauthorized', status_class: '4xx' };
-  if (/client-timeout|AbortError|超时|timeout/i.test(v)) return { code: 'timeout', status_class: cls };
-  if (st) return { code: 'http_status', status_class: cls };
-  if (fs && !/^(ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/.test(fs[1]))
-    return { code: fs[1], status_class: 'none' };
-  if (
-    /fetch failed|socket|network|ECONN|EPIPE|ENOTFOUND|EAI_AGAIN|terminated|other side closed|连接断开|无响应|UND_ERR/i.test(
-      v,
-    )
-  )
-    return { code: 'network', status_class: 'none' };
-  if (/结果不确定|形状/.test(v)) return { code: 'uncertain_shape', status_class: 'none' };
-  return { code: 'other', status_class: 'none' };
+export function errorCode(e) {
+  const r = (code, cls = 'none') => ({ code: reg(code), status_class: reg(cls) });
+  if (e instanceof Redirected)
+    return r('redirect', Number.isInteger(e.status) && e.status ? statusClass(e.status) : '3xx');
+  if (e instanceof Unauthorized) return r('unauthorized', '4xx');
+  if (e instanceof HttpStatusError) return r('http_status', statusClass(e.status));
+  if (e instanceof Uncertain) return r('uncertain_shape');
+  if (e instanceof Refused) return r('refused');
+  if (e instanceof ClientTimeout) return r('timeout');
+  if (!(e instanceof Error)) return r('other');
+  const own = /** @type {any} */ (e).code;
+  if (typeof own === 'string' && ERROR_CODE_SET.has(own)) return r(own);
+  const cause = /** @type {any} */ (e).cause;
+  if (cause instanceof Error && typeof (/** @type {any} */ (cause).code) === 'string') {
+    const cc = /** @type {any} */ (cause).code;
+    if (ERROR_CODE_SET.has(cc)) return r(cc);
+  }
+  if (e.name === 'AbortError' || e.name === 'TimeoutError') return r('timeout');
+  return r('other');
 }
+/** 结果 / 回执里的错误码字段：只认允许清单内的**完整**码（枚举比较），否则 other @param {unknown} v */
+const codeOf = (v) =>
+  typeof v === 'string' && RESULT_ERROR_CODES.includes(v)
+    ? reg(v)
+    : v instanceof Error
+      ? errorCode(v).code
+      : reg('other');
 const RESULT_KEYS = ['file', 'outcome', 'http', 'verification', 'verify', 'error'];
-function projectResult(x, secrets) {
+/**
+ * 逐项结果 → 受控投影（运行记录与兜底回执共用）。error 只给 { code, status_class, phase, endpoint }：
+ * code 来自结果的 error_code（执行器写入时就是受控码）或第 ① 层 http；**不解析 error 文本**。
+ * @param {any} x
+ */
+export function projectResult(x) {
   if (!isObj(x)) return undefined;
-  const file = typeof x.file === 'string' && FILE_RE.test(x.file) ? x.file : hidden('文件名');
-  const outcome = typeof x.outcome === 'string' && OUTCOME_RE.test(x.outcome) ? x.outcome : 'other';
+  const file = isKnownFile(x.file) ? reg(x.file) : hidden('文件名');
+  const outcome = outcomeOf(x.outcome);
   /** @type {Record<string, any>} */
   const o = { file, outcome };
   const h = projectHttp(x.http);
   if (h) o.http = h;
   if (isObj(x.verification)) {
     o.verification = {
-      conclusion: pick(x.verification.conclusion, (c) => CONCLUSIONS.has(c), 'other'),
-      ...(x.verification.basis !== undefined
-        ? { basis: redactText(x.verification.basis, secrets, 160) }
-        : {}),
+      conclusion:
+        F.oneOf(x.verification.conclusion, CONCLUSIONS) === HIDDEN
+          ? reg('other')
+          : reg(x.verification.conclusion),
+      ...(x.verification.basis !== undefined ? { basis: safeText(x.verification.basis) } : {}),
     };
   }
-  if (x.verify !== undefined) o.verify = redactText(x.verify, secrets, 160);
-  if (x.error !== undefined)
+  if (x.verify !== undefined) o.verify = safeText(x.verify);
+  if (x.error !== undefined || x.error_code !== undefined)
     o.error = {
-      ...errorCode(x.error),
-      phase: itemPhase(file, outcome),
+      code: x.error_code !== undefined ? codeOf(x.error_code) : h ? httpCode(h) : reg('other'),
+      status_class: statusClass(h?.status),
+      phase: itemPhase(file),
       endpoint: itemEndpoint(file, outcome),
     };
   return Object.fromEntries(RESULT_KEYS.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
 }
-/** 清点逐项的投影规则：只认识这 5 项；每项要么 'unknown'（或无账本说明），要么按字段名 + 类型逐层投影 */
+/** 清点逐项的投影规则：只认识这 5 项；每项要么 'unknown'（或无账本说明），要么按字段名 + 类型 / 允许清单逐层投影 */
+const SYNTH_FILE_NAMES = () => syntheticFiles().map((f) => f.name);
 const INV_ITEMS = {
   ledger: (v) =>
     v === '（无 az_init）'
-      ? v
+      ? reg(v)
       : Array.isArray(v)
         ? v.filter(isObj).map((r) => ({
-            file: typeof r.file === 'string' && FILE_RE.test(r.file) ? r.file : hidden('文件名'),
-            run_id: pick(r.run_id, (x) => typeof x === 'string' && SAFE_ID.test(x), hidden('run_id')),
-            sha256: pick(
-              r.sha256,
-              (x) => typeof x === 'string' && /^([0-9a-f]{1,12}|n\/a)…$/.test(x),
-              hidden('哈希'),
-            ),
+            file: isKnownFile(r.file) ? reg(r.file) : hidden('文件名'),
+            run_id: F.runId(r.run_id) === HIDDEN ? hidden('run_id') : reg(r.run_id),
+            sha256:
+              typeof r.sha256 === 'string' && /^([0-9a-f]{1,12}|n\/a)…$/.test(r.sha256)
+                ? reg(r.sha256)
+                : hidden('哈希'),
           }))
         : undefined,
   accounts: (v) =>
     Array.isArray(v)
       ? v.filter(isObj).map((a) => ({
-          email: SYNTH_EMAILS.has(a.email) ? a.email : '[非合成邮箱，已隐藏]',
-          id: typeof a.id === 'string' && MASKED_ID.test(a.id) ? a.id : mask(a.id),
+          email: F.email(a.email),
+          id: typeof a.id === 'string' && MASKED_ID.test(a.id) ? reg(a.id) : F.maskedId(a.id),
         }))
       : undefined,
   counts: (v) =>
     isObj(v)
       ? Object.fromEntries(
-          Object.entries(v).filter(([k, n]) => /^[a-z_]{1,40}\.[a-z_]{1,60}$/.test(k) && isInt(n)),
+          Object.entries(v)
+            .filter(([k, n]) => SEED_TABLES.includes(k) && isInt(n))
+            .map(([k, n]) => [reg(k), n]),
         )
       : undefined,
   storage_objects: (v) =>
     Array.isArray(v)
-      ? v.filter(isObj).map((o) => ({
-          name:
-            typeof o.name === 'string' && /^[0-9a-f]{4}…[0-9a-f-]{2}\/[\w.-]{1,80}$/i.test(o.name)
-              ? o.name
-              : hidden('对象名'),
-          ...(isInt(o.size) ? { size: o.size } : {}),
-        }))
+      ? v.filter(isObj).map((o) => {
+          const m = typeof o.name === 'string' ? o.name.match(/^([0-9a-f]{4}…[0-9a-f-]{2})\/(.+)$/i) : null;
+          return {
+            name: m && SYNTH_FILE_NAMES().includes(m[2]) ? reg(o.name) : hidden('对象名'),
+            ...(isInt(o.size) ? { size: o.size } : {}),
+          };
+        })
       : undefined,
   running_sessions: (v) => (isInt(v) ? v : undefined),
 };
-function projectInventory(inv) {
+/** @param {any} inv */
+export function projectInventory(inv) {
   if (!isObj(inv)) return null;
-  const out = { status: inv.status === 'determined' ? 'determined' : 'unknown' };
+  /** @type {Record<string, any>} */
+  const res = { status: inv.status === 'determined' ? reg('determined') : reg('unknown') };
   if (isObj(inv.items)) {
+    /** @type {Record<string, any>} */
     const items = {};
     for (const [k, f] of Object.entries(INV_ITEMS)) {
       if (!(k in inv.items)) continue;
       const v = inv.items[k];
-      items[k] = v === 'unknown' ? 'unknown' : (f(v) ?? 'unknown');
+      items[k] = v === 'unknown' ? reg('unknown') : (f(v) ?? reg('unknown'));
     }
-    out.items = items;
+    res.items = items;
   }
-  if (inv.error !== undefined) out.error = { ...errorCode(inv.error), phase: 'INV', endpoint: ENDPOINT.INV };
-  return out;
+  if (inv.error !== undefined || inv.error_code !== undefined)
+    res.error = {
+      code: codeOf(inv.error_code),
+      status_class: reg('none'),
+      phase: reg('INV'),
+      endpoint: ENDPOINT.INV,
+    };
+  return res;
 }
+/** 请求记录的路径 → 允许清单内的路径形状（uuid 打码；ref 只能是 azsou-test 常量）；否则隐藏。只有路径，没有主机 / 查询串 @param {unknown} p */
+function pathOf(p) {
+  const m = maskPath(p);
+  const OK =
+    /^\/(v1\/projects(\/ovvfwkmqlejcpatmfqcd(\/database\/query(\/read-only)?)?)?|auth\/v1\/(settings|admin\/users(\/[0-9a-f]{4}…[0-9a-f-]{2})?)|storage\/v1\/(bucket|object\/(authenticated\/)?ugc-images\/[0-9a-f]{4}…[0-9a-f-]{2}\/[\w.-]{1,80}))$/;
+  return OK.test(m) ? reg(m) : hidden('路径');
+}
+const METHODS = Object.freeze(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']);
+/** @param {any} t */
+const traceStatus = (t) =>
+  typeof t?.status === 'number' && Number.isInteger(t.status)
+    ? t.status
+    : t?.status === 'ERR:timeout' || t?.status === 'ERR:network'
+      ? reg(t.status)
+      : reg('ERR:other');
+/** @param {any} t 请求记录一项 → 受控字段 */
+const projectCall = (t) => ({
+  phase: phaseOf(t?.phase),
+  method: F.oneOf(t?.method, METHODS) === HIDDEN ? reg('OTHER') : reg(t.method),
+  path: pathOf(t?.path),
+  status: traceStatus(t),
+});
 /**
- * 第十二轮 / 第十三轮：运行记录（审计记录）写入失败时的兜底回执——一行结构化 JSON，**逐层白名单**：
- * receipt / command / exit / run_id / attempt_id / phase / results（逐项只取 file、outcome、http（第 ① 层：原始 HTTP / 传输状态）、
- * verification（第 ② 层：账本 / 资源核对结论 + 依据）、verify、error（受控错误码 + 状态类别 + 阶段 + 端点，不含原文））/
- * confirmed_writes / unknown_writes（只有阶段、方法、打码路径、状态）/ inventory（按字段名 + 类型逐层投影的清点）/
- * record_write_failure（只有错误码）。任何不认识的字段（任意层）都丢弃，不转储；自由文本先替换已知秘密值再按关键字打码，最后截断。
- * 绝不包含密码、令牌、请求头、服务器原始正文、交接文件内容。
- * @param {{ command: string, exit: number, result?: any, trace?: any[], recordError: string, secrets?: string[] }} o
+ * 第十二轮 / 第十三轮 / 第十四轮：运行记录（审计记录）写入失败时的兜底回执——一行结构化 JSON，**逐层白名单**：
+ * receipt / command / exit / run_id / attempt_id / phase / results（projectResult：file、outcome、http（第 ① 层）、
+ * verification（第 ② 层）、verify、error（受控错误码 + 状态类别 + 阶段 + 端点））/ confirmed_writes / unknown_writes
+ * （阶段、方法、路径模板、状态）/ inventory（projectInventory）/ record_write_failure（只有错误码）。
+ * 每个字符串叶子都是受控文本（S`…` / F.* / 枚举），最后再经 controlled() 兜一层；不依赖已知秘密值替换（secrets 参数只为兼容保留，不再使用）。
+ * 绝不包含密码、令牌、请求头、服务器原始正文、异常消息、交接文件内容。
+ * @param {{ command: string, exit: number, result?: any, trace?: any[], recordError?: unknown, secrets?: string[] }} o
  */
-export function fallbackReceipt({ command, exit, result, trace, recordError, secrets = [] }) {
+export function fallbackReceipt({ command, exit, result, trace, recordError }) {
   const w = writeCalls(trace);
-  const call = (t) => ({
-    phase: pick(String(t.phase ?? ''), (x) => PHASE_RE.test(x), 'unknown'),
-    method: pick(String(t.method ?? ''), (x) => /^(GET|HEAD|POST|PUT|PATCH|DELETE)$/.test(x), 'OTHER'),
-    path: redactText(maskPath(t.path), secrets, 120),
-    status:
-      typeof t.status === 'number'
-        ? t.status
-        : pick(String(t.status ?? ''), (x) => /^ERR:[A-Za-z]{1,32}$/.test(x), 'ERR:other'),
-  });
-  const results = (Array.isArray(result?.results) ? result.results : [])
-    .map((x) => projectResult(x, secrets))
-    .filter(Boolean);
+  const results = (Array.isArray(result?.results) ? result.results : []).map(projectResult).filter(Boolean);
   const lastPhase = [...(trace ?? [])].reverse().find((t) => t?.phase)?.phase ?? null;
   const ph = result?.stage ?? lastPhase;
-  const rid = (v) =>
-    v === undefined || v === null
-      ? null
-      : pick(v, (x) => typeof x === 'string' && SAFE_ID.test(x), hidden('id'));
+  const rid = (v) => (v === undefined || v === null ? null : F.runId(v) === HIDDEN ? hidden('id') : reg(v));
+  return /** @type {any} */ (
+    controlled({
+      receipt: reg('sbtest-run-fallback/v1'),
+      command:
+        F.oneOf(command, ['preflight', 'execute', 'plan', 'manifest']) === HIDDEN
+          ? reg('other')
+          : reg(command),
+      exit: Number.isInteger(exit) && exit >= 0 && exit <= 4 ? exit : null,
+      run_id: rid(result?.runId),
+      attempt_id: rid(result?.attemptId),
+      phase: ph === null ? null : phaseOf(ph),
+      results,
+      confirmed_writes: w.confirmed.map(projectCall),
+      unknown_writes: w.unknown.map(projectCall),
+      inventory: projectInventory(result?.inventory),
+      record_write_failure: { error: codeOf(recordError) },
+    })
+  );
+}
+
+/** 只读身份核对 → 受控字段（未知值 → 标注已隐藏） */
+const KNOWN_DB_USERS = Object.freeze([
+  'supabase_read_only_user',
+  'postgres',
+  'supabase_admin',
+  'authenticator',
+  'service_role',
+]);
+/** @param {any} id */
+export function projectIdentity(id) {
+  if (!isObj(id)) return {};
+  const v = typeof id.version === 'string' ? id.version.match(/^PostgreSQL (\d{1,3}(\.\d{1,4}){0,3})/) : null;
+  // 幂等：preflight 已投影过一次（server_addr 已是「a.x.x.x」），记录再投影时保持不变
+  const ip =
+    typeof id.server_addr === 'string'
+      ? id.server_addr.match(/^(\d{1,3})\.(?:\d{1,3}\.\d{1,3}\.\d{1,3}|x\.x\.x)$/)
+      : null;
   return {
-    receipt: 'sbtest-run-fallback/v1',
-    command: pick(String(command), (x) => /^(preflight|execute|plan|manifest)$/.test(x), 'other'),
-    exit: pick(exit, (x) => Number.isInteger(x) && x >= 0 && x <= 4, null),
-    run_id: rid(result?.runId),
-    attempt_id: rid(result?.attemptId),
-    phase: ph === null ? null : pick(String(ph), (x) => PHASE_RE.test(x), 'unknown'),
-    results,
-    confirmed_writes: w.confirmed.map(call),
-    unknown_writes: w.unknown.map(call),
-    inventory: projectInventory(result?.inventory),
-    record_write_failure: { error: errorCode(String(recordError ?? '')).code },
+    current_database: id.current_database === 'postgres' ? S`postgres` : S`[非预期值，已隐藏]`,
+    current_user:
+      F.oneOf(id.current_user, KNOWN_DB_USERS) === HIDDEN ? S`[非预期值，已隐藏]` : reg(id.current_user),
+    version: v ? S`PostgreSQL ${reg(v[1])}` : S`[格式不符，已隐藏]`,
+    server_addr: ip ? S`${reg(ip[1])}.x.x.x` : id.server_addr ? S`[非 IPv4，已隐藏]` : S``,
+    server_port: isInt(id.server_port) ? id.server_port : S`[格式不符，已隐藏]`,
+    in_recovery: typeof id.in_recovery === 'boolean' ? id.in_recovery : S`[格式不符，已隐藏]`,
   };
 }
+/** 扩展名允许清单（C0 记录里只列这些；其余只计数） */
+const KNOWN_EXTENSIONS = Object.freeze([
+  'plpgsql',
+  'pgcrypto',
+  'uuid-ossp',
+  'pg_stat_statements',
+  'pg_graphql',
+  'supabase_vault',
+  'pgsodium',
+  'pgjwt',
+  'pg_trgm',
+  'pg_cron',
+  'pg_net',
+  'citext',
+  'pgaudit',
+  'postgis',
+  'vector',
+]);
+/** C0 → 受控字段（计数 / 布尔 / 版本 / 允许清单内的扩展名） @param {any} p */
+export function projectC0(p) {
+  if (!isObj(p)) return {};
+  /** @type {Record<string, any>} */
+  const o = { server_version: F.version(p.server_version) };
+  for (const k of C0_COUNTS) o[k] = isCount(p[k]) ? Number(p[k]) : S`[格式不符，已隐藏]`;
+  for (const k of C0_FLAGS) o[k] = isFlag(p[k]) ? p[k] : S`[格式不符，已隐藏]`;
+  if (Array.isArray(p.extensions)) {
+    const known = p.extensions.filter((x) => KNOWN_EXTENSIONS.includes(x));
+    const other = p.extensions.length - known.length;
+    o.extensions = S`${SJ(
+      known.map((x) => reg(x)),
+      ', ',
+    )}${other ? S`（另有 ${other} 个不在允许清单内，名称不记录）` : S``}`;
+  } else o.extensions = S`[格式不符，已隐藏]`;
+  return o;
+}
+/** 表格单元格：整数 / 布尔 / 受控文本 @param {unknown} v */
+const cell = (v) => (typeof v === 'number' || typeof v === 'boolean' ? S`${v}` : safeText(v));
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 
 /**
  * 运行记录（Markdown，已打码）：只含方法 / 路径 / 状态 / 耗时，不含任何请求头、正文、令牌。
  * 第十一轮：handoff（交接与收尾说明 / 错误）与 exitCode（最终退出码）可选，单独成节，不改写上面的执行结论。
  * 第十二轮：command（'preflight' / 'execute'）可选。「写端点未调用」只针对只读预检阶段（P0 / P1 / PS / PJ），并按请求记录核对；
  * execute 记录另起一节，按本次请求记录如实列出写端点调用（已确认 / 被拒 / 结果未知）。
+ * 第十四轮：每一行都由 S`…` 拼成；输入（pre、trace、notes、handoff）先经受控投影；最后每行再过一次 safeText，
+ * 漏网的未受控文本只会变成 [已隐藏]。
  * @param {{ title: string, when: string, mode: string, endpoints?: any, pre?: any, trace: any[], verdict: string,
  *   notes?: string[], handoff?: { notes?: string[], errors?: string[] }, exitCode?: number, command?: string }} o
  */
@@ -2428,119 +2919,145 @@ export function runRecordMarkdown({
   exitCode,
   command,
 }) {
-  const L = [`# ${title}`, ''];
+  const L = [S`# ${title}`, S``];
   const pfWrites = (trace ?? []).filter((t) => PREFLIGHT_PHASES.has(t?.phase) && isWriteCall(t)).length;
-  L.push(`- 时间：${when}`);
+  L.push(S`- 时间：${typeof when === 'string' && ISO_RE.test(when) ? reg(when) : HIDDEN}`);
   L.push(
-    `- 执行器：scripts/sbtest/init-executor.mjs（同一执行器，preflight 子命令 = execute 的 P0 + P1 + PS 段，只读）`,
+    S`- 执行器：scripts/sbtest/init-executor.mjs（同一执行器，preflight 子命令 = execute 的 P0 + P1 + PS 段，只读）`,
   );
-  L.push(`- 凭据模式：${mode}（执行器不带 Authorization / apikey 头；凭据由 vault 按主机名在线路上注入）`);
+  L.push(
+    S`- 凭据模式：${F.oneOf(mode, MODES)}（执行器不带 Authorization / apikey 头；凭据由 vault 按主机名在线路上注入）`,
+  );
   if (endpoints)
-    L.push(`- 端点：Management API ${endpoints.mgmtBase}（允许清单）；项目 ${endpoints.projectBase}`);
-  L.push(`- 结论：${verdict}`, '');
+    L.push(S`- 端点：Management API ${F.host(endpoints.mgmtBase)}；项目 ${F.host(endpoints.projectBase)}`);
+  L.push(S`- 结论：${verdict}`, S``);
   if (pre?.target) {
-    L.push('## 目标身份（GET /v1/projects/{ref}）', '', '| 项 | 值 |', '| --- | --- |');
-    for (const [k, v] of Object.entries(pre.target)) L.push(`| ${k} | ${v} |`);
-    L.push('');
+    L.push(S`## 目标身份（GET /v1/projects/{ref}）`, S``, S`| 项 | 值 |`, S`| --- | --- |`);
+    for (const [k, v] of Object.entries(pre.target)) L.push(S`| ${keyName(k)} | ${cell(v)} |`);
+    L.push(S``);
   }
   if (pre?.scope) {
-    L.push('## 令牌范围', '', `- GET /v1/projects → ${pre.scope.list_projects}：${pre.scope.verdict}`);
     L.push(
-      '- 能做：GET /v1/projects/{ref}、POST /v1/projects/{ref}/database/query/read-only（以 supabase_read_only_user 执行）',
+      S`## 令牌范围`,
+      S``,
+      S`- GET /v1/projects → ${isInt(pre.scope.list_projects) ? pre.scope.list_projects : HIDDEN}：${pre.scope.verdict}`,
     );
     L.push(
-      '- 不能 / 未尝试：列出账号下全部项目（403）',
+      S`- 能做：GET /v1/projects/{ref}、POST /v1/projects/{ref}/database/query/read-only（以 supabase_read_only_user 执行）`,
+    );
+    L.push(
+      S`- 不能 / 未尝试：列出账号下全部项目（403）`,
       pfWrites === 0
-        ? '- 只读预检阶段（P0 / P1 / PS）：按本次请求记录，写端点调用 0 次（database/query、Auth Admin、Storage 写在只读预检阶段一律未调用；只读预检之后的写见「写端点调用」一节）'
-        : `- **只读预检阶段（P0 / P1 / PS）：按本次请求记录出现 ${pfWrites} 次写端点调用——与只读预检不符，需人工核对**`,
-      '- 注意：GET /v1/projects 返回 403 不能证明令牌范围；范围只以站长提供的令牌配置记录为准',
-      '',
+        ? S`- 只读预检阶段（P0 / P1 / PS）：按本次请求记录，写端点调用 0 次（database/query、Auth Admin、Storage 写在只读预检阶段一律未调用；只读预检之后的写见「写端点调用」一节）`
+        : S`- **只读预检阶段（P0 / P1 / PS）：按本次请求记录出现 ${pfWrites} 次写端点调用——与只读预检不符，需人工核对**`,
+      S`- 注意：GET /v1/projects 返回 403 不能证明令牌范围；范围只以站长提供的令牌配置记录为准`,
+      S``,
     );
   }
   if (pre?.service) {
-    L.push('## 项目服务准入（第一次写之前，只读）', '');
-    L.push(
-      `- 端点：${pre.service.endpoint}（需要 service_role；Auth settings / Storage 列桶成功都不算准入）`,
-    );
+    L.push(S`## 项目服务准入（第一次写之前，只读）`, S``);
+    L.push(S`- 端点：${ADMIN_PROBE}（需要 service_role；Auth settings / Storage 列桶成功都不算准入）`);
     L.push(
       pre.service.accepted
-        ? `- 结果：接受（HTTP 200，形状 ${pre.service.shape}，返回 ${pre.service.users_returned} 条；不记录用户数据）`
-        : `- 结果：**不接受**——${pre.service.reason}`,
-      '',
+        ? S`- 结果：接受（HTTP 200，形状 {users:[…]}，返回 ${isInt(pre.service.users_returned) ? pre.service.users_returned : HIDDEN} 条；不记录用户数据）`
+        : S`- 结果：**不接受**——${pre.service.reason}`,
+      S``,
     );
   }
   if (pre?.identity) {
-    L.push('## 只读身份核对', '', '| 项 | 值 |', '| --- | --- |');
-    for (const [k, v] of Object.entries(pre.identity)) L.push(`| ${k} | ${v} |`);
-    L.push('');
+    L.push(S`## 只读身份核对`, S``, S`| 项 | 值 |`, S`| --- | --- |`);
+    for (const [k, v] of Object.entries(projectIdentity(pre.identity) ?? {}))
+      L.push(S`| ${keyName(k)} | ${cell(v)} |`);
+    L.push(S``);
   }
   if (pre?.c0) {
-    L.push('## C0 空库核对', '', '| 项 | 值 |', '| --- | --- |');
-    for (const [k, v] of Object.entries(pre.c0)) L.push(`| ${k} | ${Array.isArray(v) ? v.join(', ') : v} |`);
-    L.push('', `C0 问题：${pre.c0_problems?.length ? pre.c0_problems.join('；') : '无（空库）'}`, '');
+    L.push(S`## C0 空库核对`, S``, S`| 项 | 值 |`, S`| --- | --- |`);
+    for (const [k, v] of Object.entries(projectC0(pre.c0))) L.push(S`| ${keyName(k)} | ${cell(v)} |`);
+    L.push(S``, S`C0 问题：${pre.c0_problems?.length ? SJ(pre.c0_problems, '；') : S`无（空库）`}`, S``);
   }
   L.push(
-    '## 请求记录（只有方法 / 路径 / 状态 / 耗时）',
-    '',
-    '| # | 阶段 | 方法 | 路径 | 状态 | 耗时 ms |',
-    '| --- | --- | --- | --- | --- | --- |',
+    S`## 请求记录（只有方法 / 路径 / 状态 / 耗时）`,
+    S``,
+    S`| # | 阶段 | 方法 | 路径 | 状态 | 耗时 ms |`,
+    S`| --- | --- | --- | --- | --- | --- |`,
   );
-  trace.forEach((t, i) =>
-    L.push(`| ${i + 1} | ${t.phase} | ${t.method} | ${t.path} | ${t.status} | ${t.ms} |`),
-  );
+  (trace ?? []).forEach((t, i) => {
+    const p = projectCall(t);
+    L.push(
+      S`| ${i + 1} | ${p.phase} | ${p.method} | ${p.path} | ${p.status} | ${isInt(t?.ms) ? t.ms : HIDDEN} |`,
+    );
+  });
   if (command === 'execute') {
     // 第十二轮：按本次请求记录如实描述写端点调用，不沿用只读预检的措辞
     const w = writeCalls(trace);
-    L.push('', '## 写端点调用（按本次请求记录）', '');
-    if (!w.all.length) L.push('- 本次执行按请求记录没有发出任何写请求');
+    L.push(S``, S`## 写端点调用（按本次请求记录）`, S``);
+    if (!w.all.length) L.push(S`- 本次执行按请求记录没有发出任何写请求`);
     else {
       L.push(
-        `- 共 ${w.all.length} 次：已确认 ${w.confirmed.length}（2xx）；被拒 ${w.rejected.length}（4xx，按响应未生效）；结果未知 ${w.unknown.length}（无响应 / 超时 / 3xx / 5xx：可能已生效，需人工核对）`,
+        S`- 共 ${w.all.length} 次：已确认 ${w.confirmed.length}（2xx）；被拒 ${w.rejected.length}（4xx，按响应未生效）；结果未知 ${w.unknown.length}（无响应 / 超时 / 3xx / 5xx：可能已生效，需人工核对）`,
       );
-      for (const t of w.unknown)
-        L.push(
-          `- 结果未知：${t.phase} ${t.method} ${maskPath(t.path)} → ${t.status}（不重试、不跟随重定向）`,
-        );
+      for (const t of w.unknown) {
+        const p = projectCall(t);
+        L.push(S`- 结果未知：${p.phase} ${p.method} ${p.path} → ${p.status}（不重试、不跟随重定向）`);
+      }
     }
   }
-  if (notes.length) L.push('', '## 备注', '', ...notes.map((n) => `- ${n}`));
+  if (notes.length) L.push(S``, S`## 备注`, S``, ...notes.map((n) => S`- ${n}`));
   // 第十一轮：交接 / 清理收尾与执行结论分开记录——收尾错误不改写上面的结论、阶段、逐项结果与清点
   if (handoff && (handoff.notes?.length || handoff.errors?.length || exitCode !== undefined)) {
-    L.push('', '## 交接与收尾（与执行结论分开记录，不改变上面的执行结论）', '');
-    for (const n of handoff.notes ?? []) L.push(`- ${n}`);
-    for (const e of handoff.errors ?? []) L.push(`- **${e}**`);
-    if (!handoff.errors?.length) L.push('- 收尾错误：无');
+    L.push(S``, S`## 交接与收尾（与执行结论分开记录，不改变上面的执行结论）`, S``);
+    for (const n of handoff.notes ?? []) L.push(S`- ${n}`);
+    for (const e of handoff.errors ?? []) L.push(S`- **${e}**`);
+    if (!handoff.errors?.length) L.push(S`- 收尾错误：无`);
   }
-  if (exitCode !== undefined) L.push('', `- 退出码 ${exitCode}：${EXIT_MEANING[exitCode] ?? '（未定义）'}`);
-  return L.join('\n') + '\n';
+  if (exitCode !== undefined)
+    L.push(
+      S``,
+      S`- 退出码 ${exitCode}：${EXIT_MEANING[/** @type {0|1|2|3|4} */ (exitCode)] ?? S`（未定义）`}`,
+    );
+  return reg(L.map(safeText).join('\n') + '\n');
 }
 
 /** 退出码含义（运行记录 / 输出用；ops/SBTEST-INIT.md §10.1 同表） */
 export const EXIT_MEANING = Object.freeze({
-  0: '成功（V1 全部通过，交接 / 收尾无错误）',
-  1: '失败（已停，原执行结论；收尾错误不改变退出码）',
-  2: '拒绝（原执行结论；收尾错误不改变退出码）',
-  3: '不确定（原执行结论，不重试，人工核对；收尾错误不改变退出码，绝不降成 1 或 0）',
-  4: '原结论成功（execute：V1 全部通过；preflight：预检通过）但必需的交接 / 清理 / 运行记录收尾未完成——不是「完全完成」；云端写操作不需要、也不得重跑，只按收尾错误（运行记录写入失败时按兜底回执）人工处理',
+  0: S`成功（V1 全部通过，交接 / 收尾无错误）`,
+  1: S`失败（已停，原执行结论；收尾错误不改变退出码）`,
+  2: S`拒绝（原执行结论；收尾错误不改变退出码）`,
+  3: S`不确定（原执行结论，不重试，人工核对；收尾错误不改变退出码，绝不降成 1 或 0）`,
+  4: S`原结论成功（execute：V1 全部通过；preflight：预检通过）但必需的交接 / 清理 / 运行记录收尾未完成——不是「完全完成」；云端写操作不需要、也不得重跑，只按收尾错误（运行记录写入失败时按兜底回执）人工处理`,
 });
 
-/** execute 结果 → 运行记录备注：阶段、逐项结果（文件 / 结果，不含正文与密码）、V1、清点 */
+/**
+ * execute 结果 → 运行记录备注：阶段、逐项结果（文件 / 结果，不含正文与密码）、V1、清点。
+ * 第十四轮：与兜底回执共用 projectResult / projectInventory；每行由 S`…` 拼成。
+ * @param {any} r
+ */
 export function executeNotes(r) {
+  const rid = (v) => (v == null ? S`（无）` : F.runId(v) === HIDDEN ? hidden('id') : reg(v));
   return [
-    `run_id ${r.runId}`,
-    `attempt_id ${r.attemptId ?? '（无）'}`,
-    `阶段：${r.stage ?? '（无）'}`,
-    ...(r.refused ? [`拒绝原因：${r.refused}`] : []),
-    ...(r.error ? [`意外错误：${r.error}`] : []),
-    ...(r.results ?? []).map((x) => {
+    S`run_id ${rid(r.runId)}`,
+    S`attempt_id ${rid(r.attemptId)}`,
+    S`阶段：${r.stage ? phaseOf(r.stage) : S`（无）`}`,
+    ...(r.refused ? [S`拒绝原因：${safeText(r.refused)}`] : []),
+    ...(r.error ? [S`意外错误：${safeText(r.error)}`] : []),
+    ...(r.results ?? []).map((raw) => {
+      const x = projectResult(raw) ?? {};
       // 第十三轮：两层——①（原始 HTTP / 传输状态）；核对：②（账本 / 资源核对结论，依据）；业务结论 = outcome
       const layers = x.verification
-        ? `（${x.http ? httpText(x.http) : '无 HTTP 响应'}；核对：${x.verification.conclusion}${x.verification.basis ? `，${x.verification.basis}` : ''}）`
-        : '';
-      return `结果 ${x.file} ${x.outcome}${layers}${x.password ? `（密码 ${x.password}）` : ''}${x.verify ? `（核对：${x.verify}）` : ''}${x.error && !x.verification ? `（${String(x.error).slice(0, 120)}）` : ''}`;
+        ? S`（${x.http ? httpText(x.http) : S`无 HTTP 响应`}；核对：${x.verification.conclusion}${x.verification.basis ? S`，${x.verification.basis}` : S``}）`
+        : S``;
+      const pw = raw?.password ? S`（密码 ${safeText(raw.password)}）` : S``;
+      const verify = x.verify ? S`（核对：${x.verify}）` : S``;
+      const err = raw?.error !== undefined && !x.verification ? S`（${safeText(raw.error)}）` : S``;
+      return S`结果 ${x.file} ${x.outcome}${layers}${pw}${verify}${err}`;
     }),
-    ...(r.v1 ? r.v1.checks.map((x) => `${x.ok ? '✓' : '✗'} ${x.id}`) : []),
-    ...(r.inventory ? [`清点（${r.inventory.status}）：${JSON.stringify(r.inventory.items ?? {})}`] : []),
+    ...(r.v1 ? r.v1.checks.map((x) => S`${x.ok ? S`✓` : S`✗`} ${F.oneOf(x.id, V1_IDS)}`) : []),
+    ...(r.inventory
+      ? (() => {
+          const inv = projectInventory(r.inventory) ?? {};
+          return [S`清点（${inv.status ?? reg('unknown')}）：${safeJSON(inv.items ?? {})}`];
+        })()
+      : []),
   ];
 }
 
@@ -2646,7 +3163,7 @@ export function clientFromEnv(argv, env, fetchImpl = fetch) {
   const mode = arg(argv, 'mode') ?? env.SBTEST_CRED_MODE ?? 'injected';
   if (mode === 'injected' && (env.SBTEST_MGMT_TOKEN || env.SBTEST_SERVICE_KEY))
     throw new Refused(
-      'injected 模式：请从环境中移除 SBTEST_MGMT_TOKEN / SBTEST_SERVICE_KEY（凭据只走线路注入）',
+      S`injected 模式：请从环境中移除 SBTEST_MGMT_TOKEN / SBTEST_SERVICE_KEY（凭据只走线路注入）`,
     );
   return client({
     mode,
@@ -2669,7 +3186,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       out,
       runRecordMarkdown({
         command: cmd,
-        title: `azsou-test ${cmd} 运行记录（已打码）`,
+        title: S`azsou-test ${F.oneOf(cmd, ['preflight', 'execute'])} 运行记录（已打码）`,
         when: new Date().toISOString(),
         mode: c.mode,
         endpoints: c.endpoints,
@@ -2682,13 +3199,13 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       }),
     );
   };
-  /** 第十一轮：写运行记录失败只作为收尾错误返回，不掩盖执行结果（第十二轮：preflight 也走这里） */
+  /** 第十一轮：写运行记录失败只作为收尾错误返回，不掩盖执行结果（第十二轮：preflight 也走这里）。第十四轮：返回异常对象本身，输出时只取允许清单错误码 */
   const safeRecord = (...a) => {
     try {
       record(...a);
       return undefined;
     } catch (e) {
-      return fsErr(e);
+      return { err: e };
     }
   };
   /**
@@ -2698,23 +3215,22 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
   const recordFailed = (recErr, exit, result) => {
     const fin = exit === EXIT.OK ? EXIT.INCOMPLETE : exit;
     console.error(
-      `✗ 收尾错误：运行记录写入失败（${recErr}）——原结论不变；下一行是打码的兜底回执（白名单字段，不含密码 / 令牌 / 请求头 / 原始响应 / 交接内容）`,
+      S`✗ 收尾错误：运行记录写入失败（${F.code(recErr?.err)}）——原结论不变；下一行是受控的兜底回执（白名单字段，不含密码 / 令牌 / 请求头 / 原始响应 / 异常消息 / 交接内容）`,
     );
     try {
       console.error(
-        JSON.stringify(
+        safeJSON(
           fallbackReceipt({
             command: cmd,
             exit: fin,
             result,
             trace: c?.trace ?? [],
-            recordError: recErr,
-            secrets: [env.SBTEST_MGMT_TOKEN, env.SBTEST_SERVICE_KEY].filter(Boolean),
+            recordError: recErr?.err,
           }),
         ),
       );
     } catch (e) {
-      console.error(`✗ 兜底回执生成失败（${fsErr(e)}）——原结论不变`);
+      console.error(S`✗ 兜底回执生成失败（${fsErr(e)}）——原结论不变`);
     }
     return fin;
   };
@@ -2726,14 +3242,14 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       return {
         n: 0,
         notes: [],
-        errors: [`收尾错误：交接结论生成失败（${fsErr(e)}）——交接文件按原样保留，需人工核对`],
+        errors: [S`收尾错误：交接结论生成失败（${fsErr(e)}）——交接文件按原样保留，需人工核对`],
         deleted: false,
       };
     }
   };
   const printHandoff = (hc) => {
-    for (const l of hc.notes) console.log(l);
-    for (const l of hc.errors) console.error(`✗ ${l}`);
+    for (const l of hc.notes) console.log(safeText(l));
+    for (const l of hc.errors) console.error(S`✗ ${l}`);
   };
   try {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
@@ -2751,7 +3267,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       try {
         pre = await preflight(c);
       } catch (e) {
-        const re = safeRecord(null, `拒绝：${e.message}`);
+        const re = safeRecord(null, S`拒绝：${describeError(e)}`);
         if (re) recordFailed(re, e instanceof Refused ? EXIT.REFUSED : EXIT.FAILED, undefined);
         throw e;
       }
@@ -2760,29 +3276,34 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       const notes = [];
       if (argv.includes('--probe-project')) {
         const pj = await probeProject(c);
-        for (const [k, v] of Object.entries(pj)) notes.push(`项目主机探测 ${k} → ${v}`);
-        console.log(JSON.stringify({ project_probe: pj }, null, 2));
+        for (const [k, v] of Object.entries(pj)) notes.push(S`项目主机探测 ${safeText(k)} → ${v}`);
+        console.log(
+          safeJSON(
+            { project_probe: Object.fromEntries(Object.entries(pj).map(([k, v]) => [safeText(k), v])) },
+            2,
+          ),
+        );
       }
       const verdicts = [];
-      if (!empty) verdicts.push(`C0 不通过：${pre.c0_problems.join('；')}`);
-      if (!admitted) verdicts.push(`项目服务准入不接受：${pre.service?.reason ?? '未知'}`);
+      if (!empty) verdicts.push(S`C0 不通过：${SJ(pre.c0_problems, '；')}`);
+      if (!admitted) verdicts.push(S`项目服务准入不接受：${pre.service?.reason ?? S`未知`}`);
       const pfRe = safeRecord(
         pre,
         verdicts.length
-          ? `拒绝（未发任何写请求）——${verdicts.join('；')}`
-          : '通过：目标身份一致，C0 空库，项目服务准入接受（未发任何写请求）',
+          ? S`拒绝（未发任何写请求）——${SJ(verdicts, '；')}`
+          : S`通过：目标身份一致，C0 空库，项目服务准入接受（未发任何写请求）`,
         notes,
       );
+      // 第十四轮：stdout 只输出受控投影（身份字段按允许清单 / 格式校验，服务器原值不直出）
       console.log(
-        JSON.stringify(
+        safeJSON(
           {
             target: pre.target,
             scope: pre.scope,
-            identity: pre.identity,
+            identity: projectIdentity(pre.identity),
             c0_problems: pre.c0_problems,
             service: pre.service,
           },
-          null,
           2,
         ),
       );
@@ -2805,10 +3326,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       return EXIT.OK;
     }
     if (cmd === 'execute') {
-      if (!argv.includes('--execute')) throw new Refused('execute 需要显式 --execute');
+      if (!argv.includes('--execute')) throw new Refused(S`execute 需要显式 --execute`);
       assertRef(arg(argv, 'confirm-ref') ?? '');
       if (!env.SBTEST_OWNER_APPROVAL)
-        throw new Refused('缺 SBTEST_OWNER_APPROVAL（站长批准记录）：初始化必须站长单独批准');
+        throw new Refused(S`缺 SBTEST_OWNER_APPROVAL（站长批准记录）：初始化必须站长单独批准`);
       // 第八轮 B2：attempt_id 每次调用新生成；全新执行的 run_id = attempt_id，续跑沿用账本里的 run_id（交接文件按实际沿用的写）
       const attemptId = newAttemptId();
       const runId = attemptId;
@@ -2823,20 +3344,20 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
         confirm: list(arg(argv, 'confirm-rotate')),
       };
       const rotateList = rotationRequest(rotate);
-      if (rotateList.length && !resume) throw new Refused('--rotate-passwords 只用于 --resume');
-      if (rotateList.length && !hf) throw new Refused('--rotate-passwords 需要 --handoff-file');
+      if (rotateList.length && !resume) throw new Refused(S`--rotate-passwords 只用于 --resume`);
+      if (rotateList.length && !hf) throw new Refused(S`--rotate-passwords 需要 --handoff-file`);
       let handoff;
-      if (hf && hm) throw new Refused('--handoff-file 与 --handoff 只能二选一');
+      if (hf && hm) throw new Refused(S`--handoff-file 与 --handoff 只能二选一`);
       if (hf) handoff = fileHandoff(hf, { attemptId });
       else if (hm === 'discard') {
         if (isRealTarget(cc))
           throw new Refused(
-            '正式初始化（真实目标）不允许 --handoff discard：必须用 --handoff-file <仓库外绝对路径>（discard 只给本机假服务器 / 演练）',
+            S`正式初始化（真实目标）不允许 --handoff discard：必须用 --handoff-file <仓库外绝对路径>（discard 只给本机假服务器 / 演练）`,
           );
         handoff = 'discard';
       } else
         throw new Refused(
-          'execute 必须显式选择账号密码交接：--handoff-file <仓库外绝对路径>（0600；文件里每一行都存进 vault 后才覆盖删除，才算交接完成）',
+          S`execute 必须显式选择账号密码交接：--handoff-file <仓库外绝对路径>（0600；文件里每一行都存进 vault 后才覆盖删除，才算交接完成）`,
         );
       c = cc;
       const impact = JSON.parse(readFileSync(path.join(ROOT, 'ops/sbtest/init-impact.json'), 'utf8'));
@@ -2849,8 +3370,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
         printHandoff(hc);
         const re = safeRecord(
           null,
-          `拒绝（写之前，未发任何写请求）：${e.message}`,
-          [`attempt_id ${attemptId}`],
+          S`拒绝（写之前，未发任何写请求）：${describeError(e)}`,
+          [S`attempt_id ${F.runId(attemptId)}`],
           hc,
         );
         if (re)
@@ -2861,7 +3382,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
           });
         throw e;
       }
-      const verdict = ['成功（V1 全部通过）', '失败（已停）', '拒绝', '不确定（不重试，人工核对）'][r.exit];
+      const verdict = [S`成功（V1 全部通过）`, S`失败（已停）`, S`拒绝`, S`不确定（不重试，人工核对）`][
+        r.exit
+      ];
       // 第十一轮：交接结论按执行证据（请求记录 + 逐项结果）下；交接 / 清理错误单列，不掩盖原执行结果。
       // 原退出码非 0（1 / 2 / 3）一律原样保留；原成功 + 必需收尾失败 → 4（INCOMPLETE）。收尾失败不重试任何写操作。
       const hc = conclude(handoff, { trace: c.trace, results: r.results });
@@ -2870,13 +3393,13 @@ export async function main(argv = process.argv.slice(2), env = process.env, fetc
       const re = safeRecord(r.preflight, verdict, executeNotes(r), hc, exit);
       printHandoff(hc);
       if (re) exit = recordFailed(re, exit, r);
-      console.log(`结果：${verdict}`);
-      if (exit !== r.exit) console.error(`✗ 退出码 ${exit}：${EXIT_MEANING[exit]}`);
+      console.log(S`结果：${verdict}`);
+      if (exit !== r.exit) console.error(S`✗ 退出码 ${exit}：${EXIT_MEANING[exit]}`);
       return exit;
     }
-    throw new Refused(`未知子命令 ${cmd}`);
+    throw new Refused(S`未知子命令（值已隐藏；只有 plan / manifest / preflight / execute）`);
   } catch (e) {
-    console.error(`✗ ${e.message}`);
+    console.error(S`✗ ${describeError(e)}`);
     return e instanceof Refused ? EXIT.REFUSED : EXIT.FAILED;
   }
 }

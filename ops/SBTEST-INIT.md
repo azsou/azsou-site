@@ -227,6 +227,15 @@ N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续
 `error` 只输出**受控错误码**（`http_status` / `redirect` / `timeout` / `network` / `unauthorized` / `uncertain_shape` / 文件系统码如 `ENOSPC` / `other`）+ 状态类别（`5xx`、`3xx`、`none`……）+ 阶段 + 端点，**不输出服务器原始正文**；
 `inventory.items` 只认 `ledger`（file / run_id / 哈希前缀）、`accounts`（合成邮箱 + 打码 id；非合成邮箱隐藏）、`counts`（表名 → 非负整数）、`storage_objects`（打码对象名 + 大小）、`running_sessions`；`inventory.error` 同样只给错误码；
 `record_write_failure` 只给错误码。仅剩的自由文本（核对依据）**先**替换已知秘密值（含 URL 编码形式），再按关键字打码（`password: v`、`"password" : "x"`、`token=…`、引号里带空格的值、Bearer、JWT、sb_ 密钥），**最后**才截断——秘密跨截断点也不留前缀。
+**第十四轮：执行器统一受控输出（按构造的允许清单）。** 不只是回执——stdout / stderr、正常运行记录、兜底回执、执行器自己的异常消息，所有用户可见文本都只由两类东西拼成：
+① 执行器源码字面量（`` S`…` `` 标签模板）；② 受控字段——整数、布尔值，或经 `F.*` 校验器放行的值：阶段、run / attempt id（只认 `YYYYMMDDTHHMMSS-6 位十六进制`）、
+文件名（az_init / seed / 本进程钉住清单里的迁移名 / 合成 PNG / 合成账号）、合成邮箱、HTTP 状态、错误码、核对结论、清点计数、主机类别（「Management API（允许清单）」「azsou-test 项目主机」「本机回环地址」「允许清单外的主机」，**不输出完整 URL、主机名、凭据**）、本机交接 / 记录路径。
+未经校验器的字符串（服务器正文、任意异常消息 / 对象、Location 主机、请求头……）插进去只会变成 `[已隐藏]`；`Refused` / `Uncertain` 等执行器异常的消息、`safeText()` / `safeJSON()` 输出口都只放行登记过的受控文本。
+形状错误只说字段名、类型、行数（例如「identity 的值不确定（类型 string）」）；401 只给分类（no_api_key / invalid_api_key / other）+ 固定说明；只读查询非 2xx 只给状态码；3xx 只给状态码 + 同主机 / 跨主机。
+正常运行记录与兜底回执共用同一投影层（`projectResult` / `projectInventory` / 请求记录的路径形状），身份核对与 C0 也按允许清单投影（版本只取数字部分、地址只留第一段、扩展名只列允许清单内的、其余只计数）。
+**错误码**（`errorCode`）只从真实 `Error` 对象的 `err.code` 读（undici「fetch failed」再看一层 `cause.code`，同样要求是 `Error`），在允许清单（ENOENT、EACCES、EPERM、ENOSPC、EEXIST、EISDIR、ENOTDIR、EROFS、EMFILE、ECONNRESET、ECONNREFUSED、ETIMEDOUT、EPIPE、ENOTFOUND、EAI_AGAIN……，见 `ERROR_CODES`）内才返回，否则 `other`；
+**从不**从消息 / 正文里正则抽取像错误码的文本。结果里的 `error_code` 字段由执行器写入时就是受控码，回执只认它（或第 ① 层 `http`），不解析 `error` 文本。安全性不依赖已知秘密值替换（injected 模式进程里根本没有秘密值），也不靠截断；`redactText` 只作兼容保留，输出路径不再使用。
+plan / manifest 两个子命令零网络、只打印本地钉住清单与计划，不在本轮范围内。
 **绝不**包含密码、令牌、请求头、完整原始响应、交接文件内容。preflight 与 execute（包括写之前就被拒绝）都一样。这一行就是本次运行的审计依据，保存它，交站长核对；不因此重跑任何写操作。退出码：
 
 | 原执行结果            | 收尾无错误 | 收尾有错误                                                                                                                                                                                                               |
@@ -235,7 +244,7 @@ N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续
 | 失败（1） / 拒绝（2） | 1 / 2      | 1 / 2（不变）                                                                                                                                                                                                            |
 | 不确定（3）           | 3          | 3（**绝不**降成 1 或 0）                                                                                                                                                                                                 |
 
-收尾失败从不自动重试建号、改密或任何其他写操作。回归：`tests/unit/sbtest-init-r11.test.ts`（真实本机 CLI 子进程 + 回环假服务器 + 合成数据：建号响应丢失、建号后交接写入失败、原成功 / 原不确定 + 空文件删除失败）；`tests/unit/sbtest-init-r12.test.ts`（发出后 3xx / 5xx → 3、4xx 不变；运行记录写入失败 → 兜底回执、原 1 / 2 / 3 不变、原成功 → 4）；`tests/unit/sbtest-init-r13.test.ts`（回执逐层白名单 / 受控错误码 / 先打码后截断；B0、迁移 / 种子、Storage 写后不确定性与两层结果）。
+收尾失败从不自动重试建号、改密或任何其他写操作。回归：`tests/unit/sbtest-init-r11.test.ts`（真实本机 CLI 子进程 + 回环假服务器 + 合成数据：建号响应丢失、建号后交接写入失败、原成功 / 原不确定 + 空文件删除失败）；`tests/unit/sbtest-init-r12.test.ts`（发出后 3xx / 5xx → 3、4xx 不变；运行记录写入失败 → 兜底回执、原 1 / 2 / 3 不变、原成功 → 4）；`tests/unit/sbtest-init-r13.test.ts`（回执逐层白名单 / 受控错误码 / 先打码后截断；B0、迁移 / 种子、Storage 写后不确定性与两层结果）；`tests/unit/sbtest-init-r14.test.ts`（统一受控输出：正常记录 / stdout / stderr / 回执都不含服务器正文、异常消息、合成「错误码」ESECRETDEMO42；错误码允许清单）。
 
 1. 执行器结束后，先读本次运行记录「交接与收尾」一节（运行记录没写成 → 读 stderr 里的兜底回执，按「收尾错误」停下交站长，不存、不删、不重跑）：写的是「N = 0（本次请求记录里没有发出任何 Auth Admin 建号 / 改密请求…）」或「…全部被 HTTP 4xx 拒绝…」且没有收尾错误 → 核对文件确实已不存在，到此结束，下面 2–5 步都不做；有「账号状态未知」「交接错误」或「收尾错误」→ 停下交站长人工核对（按上表），不存、不删、不重跑、不改密。N > 0 → Hark 在沙箱里读这个 0600 文件，先核对：行数 = 运行记录里的 N；每行 `project_ref` = `ovvfwkmqlejcpatmfqcd`、`run_id` = 账本 run_id、邮箱在合成清单里且不重复。任何一项不符 → 停下，不存、不删除文件。
 2. **对每一行调用一次 Hark 的 `save_login`**（vault 工具），参数只有三项：
@@ -259,11 +268,12 @@ N 可以是 0–4 中任何一个数（全新执行通常是 4，部分账号续
 ## 11. 测试
 
 - `tests/unit/sbtest-init-r9.test.ts`（第九轮：V1.cron 严格类型——缺字段 / null / 字符串 "0" / NaN / Infinity / 负数 / 小数 / 数组 / 对象 → 不确定；false/false/0 通过；true 或 > 0 → 不通过；初始化后的非空库不影响）。
-  超时：纯逻辑用例用 vitest 默认 5s；只有经 CLI `main` 大量起 git 子进程（每个 42–128 次）的 CLI 用例单独 30s（`SPAWN_TIMEOUT`，第十轮共 10 个：第九轮的 9 个 + 第十轮 N = 0 CLI 用例；第十一轮再加 4 个起 CLI 子进程的用例，共 14 个；第十二轮再加 6 个，共 20 个；第十三轮再加 6 个，共 26 个）。
+  超时：纯逻辑用例用 vitest 默认 5s；只有经 CLI `main` 大量起 git 子进程（每个 42–128 次）的 CLI 用例单独 30s（`SPAWN_TIMEOUT`，第十轮共 10 个：第九轮的 9 个 + 第十轮 N = 0 CLI 用例；第十一轮再加 4 个起 CLI 子进程的用例，共 14 个；第十二轮再加 6 个，共 20 个；第十三轮再加 6 个，共 26 个；第十四轮再加 6 个，共 32 个）。
   「钉住的提交不在本地」只起 2 次 git（单实例、非空闲 37–61 ms），第十轮起回到默认 5s。耗时均为单实例、非空闲（共享 `HEAVY.lock` 下，load1 约 4–6，2 vCPU）实测，不是空闲机器。
 - `tests/unit/sbtest-init-r11.test.ts`（第十一轮：N = 0 只表示本次没有成功写入交接行——纯逻辑 5 个用例按默认 5s；4 个用例起真实 CLI 子进程 `node scripts/sbtest/init-executor.mjs execute`（env-token 模式只连本测试进程里的回环 HTTP 假服务器 = 共用 fakeApi 合成状态；文件系统故障用 `tests/fixtures/sbtest/fs-fault.mjs` 预加载注入）：建号响应丢失 → exit 3、写可能已创建 / 状态未知；建号后交接写入失败（ENOSPC）→ exit 3、交接错误列账号、保留文件；原成功 + 空文件删除失败（EACCES）→ exit 4；原不确定 + 删除失败 → 仍 exit 3。这 4 个 CLI 用例各自 30s（`SPAWN_TIMEOUT`）：每个起一个 node 子进程、经 CLI main 读钉住的 19 个迁移（再起 git 子进程）并走回环 HTTP 跑完整执行 / 续跑；单实例、非空闲实测见 docs/audits/evidence/sbtest/round11-2026-10-29.md）。
 - `tests/unit/sbtest-init-r12.test.ts`（第十二轮：纯逻辑 5 个用例按默认 5s——进程内假 fetch 下建号 POST 发出后 302 / 307 / 500 / 503 → exit 3、422 → 1、401 → 2；显式改密 PUT 发出后 307 / 503 → 3、403 → 1；兜底回执只含白名单字段、无秘密；运行记录「写端点未调用」只限只读预检阶段；N / 敏感文件措辞。6 个用例起真实 CLI 子进程（各 30s）：建号 POST 发出后 302（Location 指向另一个回环端口，目标收到 0 次请求）→ 3；建号后 503 → 3；改密 PUT 后 307 → 3；原成功 + 运行记录写入失败（ENOSPC 预加载注入）→ 4 + 兜底回执；原不确定 + 记录失败 → 3 + 回执、不含交接文件里的密码；preflight 通过 / 拒绝 + 记录失败 → 4 / 2 + 回执）。
 - `tests/unit/sbtest-init-r13.test.ts`（第十三轮：纯逻辑 7 个用例按默认 5s——兜底回执逐层白名单（未知嵌套字段丢弃、非合成邮箱 / 未打码 id 不原样输出、清点仍有用）；错误 → 受控错误码 + 阶段 + 端点 + 状态类别、无服务器正文；redactText 先打码后截断（秘密跨截断点不留 ≥4 字符前缀）、`password: v` / `"password" : "x"` / 带空格引号值 / 无关键字的已知秘密值；B0 发出后 503 / 307 / 断线 × 已提交 / 未提交 → 0 / 3、400 → 1；迁移 / 种子发出后 503 / 307 / 502 × 已提交 / 未提交 → 0 / 1，仍在运行 / 核对请求 307 → 3；Storage 发出后 503 / 307 / 302 / 断线 → 3、409 / 413 → 1，只 1 次上传、不删除；回执两层。全部只用合成秘密（SYNTH-…）。6 个用例起真实 CLI 子进程（各 30s）：B0 已提交 / 未提交 + 503 → 0 / 3；迁移 0007 已提交 + 307（Location 指向另一回环端口，0 次请求）→ 0、未提交 + 503 → 1；Storage 已存储 + 503 → 3；Storage 302 不跟随 → 3；种子已提交 + 502 → 0、断线未提交 → 1；运行记录写入失败 + 迁移 503 已提交 + Storage 503 → 3 + 两层兜底回执）。
+- `tests/unit/sbtest-init-r14.test.ts`（第十四轮：纯逻辑 7 个用例按默认 5s——errorCode 允许清单（只读真实 Error 的 err.code / undici cause.code；字符串、普通对象、清单外的码 → other）；形状错误 / 401 分类 / C0 / 账号核对消息不回显服务器值；写后形状错误 / 意外异常 → exit 3 不变、备注只给「意外错误（码）」；通用 401 正文不进准入原因 / 探测结果；回执与正常记录不解析错误文本、只出受控值；按构造：S 插值 / Refused 原始字符串 / controlled() / 源码扫描。6 个用例起真实 CLI 子进程（各 30s）：preflight 通用 401 → 2；preflight 身份形状错误 → 2；0005 503 已提交 + status 形状错误、正常记录写成功 → 3；同场景 + 记录写入失败（清单外码 ESECRETDEMO42）→ 3 + 回执 other；记录 ENOSPC + 种子断线未提交 → 1 + 回执 ENOSPC；交接写入 ENOSPC → 3。四处（stdout / stderr / 记录 / 回执）扫描合成标记。合成值不作为 secrets 传给执行器）。
 - `tests/unit/sbtest-init-r10.test.ts`（第十轮：交接 N = 0——种子已提交 + 只补文件、不改密时不建号 / 不改密 / 交接 0 行；运行记录与输出写 N = 0、不需要 save_login；空文件核对后删除；0 行但文件非空 → 保留人工核对；N > 0 文件保留）。
 - `tests/unit/sbtest-init-r8.test.ts`（第八轮：共享解析器 / V1.status `[{}]` `[]` / 续跑运行中会话 n 缺失 / status 核对缺字段；交接 run_id = 账本 run_id + attempt_id、符号链接 / 0700 / 0600 / 属主、不隐式改密、显式改密双列表、真实目标禁止 discard；401 分类、403 措辞）。
 - `tests/unit/sbtest-init-executor.test.ts`（第五 / 六轮）+ `tests/unit/sbtest-init-r7.test.ts`（第七轮：准入 401/403/5xx/形状、重定向、C0 收紧、超时核对形状、写后意外 → 阶段 / 清点 / 运行记录、种子哈希、种子运行标记、交接文件、续跑接管、矩阵与文档一致、影响清单分组）。

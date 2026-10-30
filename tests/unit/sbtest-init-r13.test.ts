@@ -107,7 +107,7 @@ describe('第十三轮 A：兜底回执分层白名单 / 受控错误 / 先打�
       command: 'execute',
       exit: 3,
       result: {
-        runId: 'run-1',
+        runId: '20261030T010203-0a0b0c',
         attemptId: '20261030T010203-abc123',
         stage: 'F1',
         results: [{ file: '0005_m.sql', outcome: 'committed' }],
@@ -116,8 +116,18 @@ describe('第十三轮 A：兜底回执分层白名单 / 受控错误 / 先打�
           raw_response: 'SYNTH-raw-response',
           items: {
             ledger: [
-              { file: '0001_m.sql', run_id: 'run-1', sha256: 'abcdef012345…', body: 'SYNTH-ledger-body' },
-              { file: 'seed', run_id: 'run-1', sha256: 'n/a…', extra: { token: 'SYNTH-ledger-nested' } },
+              {
+                file: '0001_m.sql',
+                run_id: '20261030T010203-0a0b0c',
+                sha256: 'abcdef012345…',
+                body: 'SYNTH-ledger-body',
+              },
+              {
+                file: 'seed',
+                run_id: '20261030T010203-0a0b0c',
+                sha256: 'n/a…',
+                extra: { token: 'SYNTH-ledger-nested' },
+              },
             ],
             accounts: [
               {
@@ -152,8 +162,8 @@ describe('第十三轮 A：兜底回执分层白名单 / 受控错误 / 先打�
       ['accounts', 'counts', 'ledger', 'running_sessions', 'storage_objects'].sort(),
     );
     expect(it.ledger).toEqual([
-      { file: '0001_m.sql', run_id: 'run-1', sha256: 'abcdef012345…' },
-      { file: 'seed', run_id: 'run-1', sha256: 'n/a…' },
+      { file: '0001_m.sql', run_id: '20261030T010203-0a0b0c', sha256: 'abcdef012345…' },
+      { file: 'seed', run_id: '20261030T010203-0a0b0c', sha256: 'n/a…' },
     ]);
     expect(it.accounts[0]).toEqual({ email: synth('admin').email, id: 'abcd…ef' });
     expect(Object.keys(it.accounts[1]).sort()).toEqual(['email', 'id']);
@@ -164,7 +174,7 @@ describe('第十三轮 A：兜底回执分层白名单 / 受控错误 / 先打�
     expect(Object.keys(r.inventory).sort()).toEqual(['items', 'status']);
     // 仍然有用：阶段、逐项结果、run / attempt id 都在
     expect(r.phase).toBe('F1');
-    expect(r.run_id).toBe('run-1');
+    expect(r.run_id).toBe('20261030T010203-0a0b0c');
     expect(r.results).toEqual([{ file: '0005_m.sql', outcome: 'committed' }]);
   });
   it('错误 / 核对 → 受控错误码 + 阶段 + 端点 + 状态类别；服务器原始正文、路径、合成秘密都不出现', () => {
@@ -176,21 +186,58 @@ describe('第十三轮 A：兜底回执分层白名单 / 受控错误 / 先打�
         attemptId: 'a1',
         stage: 'F1',
         results: [
-          { file: '0005_m.sql', outcome: 'unknown', error: `HTTP 503 ${SRV_BODY}` },
+          // 第十四轮：错误码只来自执行器写入的结构化字段（error_code / http），不再从 error 文本里解析
+          {
+            file: '0005_m.sql',
+            outcome: 'unknown',
+            error: `HTTP 503 ${SRV_BODY}`,
+            error_code: 'http_status',
+            http: { status: 503 },
+          },
           {
             file: `user:${synth('admin').email}`,
             outcome: 'unknown',
             error: 'Auth Admin 建账号：HTTP 302 重定向被拒（不自动跟随；跨主机 a.example → b.example）',
+            error_code: 'redirect',
+            http: { status: 302, redirect_followed: false },
           },
-          { file: `user:${synth('user').email}`, outcome: 'password-unknown', error: 'other side closed' },
-          { file: '202610-sbtest-a-1x1.png', outcome: 'unknown', error: 'fetch failed SYNTH-net' },
-          { file: 'az_init', outcome: 'unknown', error: 'client-timeout' },
+          {
+            file: `user:${synth('user').email}`,
+            outcome: 'password-unknown',
+            error: 'other side closed',
+            error_code: 'network',
+            http: { error: 'network' },
+          },
+          {
+            file: '202610-sbtest-a-1x1.png',
+            outcome: 'unknown',
+            error: 'fetch failed SYNTH-net',
+            error_code: 'network',
+            http: { error: 'network' },
+          },
+          {
+            file: 'az_init',
+            outcome: 'unknown',
+            error: 'client-timeout',
+            error_code: 'timeout',
+            http: { error: 'timeout' },
+          },
           { file: 'SYNTH-weird-file', outcome: 'SYNTH weird outcome', error: { nested: 'SYNTH-obj' } },
         ],
-        inventory: { status: 'unknown', error: 'read-only HTTP 504 <html>SYNTH-gateway</html>' },
+        inventory: {
+          status: 'unknown',
+          error: 'read-only HTTP 504 <html>SYNTH-gateway</html>',
+          error_code: 'http_status',
+        },
       },
       trace: [],
-      recordError: "ENOSPC: no space left on device, open '/home/SYNTH-user/rec.md'",
+      // 第十四轮：记录写入失败传异常对象本身，只读允许清单里的 err.code
+      recordError: Object.assign(
+        new Error("ENOSPC: no space left on device, open '/home/SYNTH-user/rec.md'"),
+        {
+          code: 'ENOSPC',
+        },
+      ),
     });
     const s = JSON.stringify(r);
     expect(s).not.toMatch(/SYNTH|exploded|<html>|\/home\//);
@@ -220,7 +267,7 @@ describe('第十三轮 A：兜底回执分层白名单 / 受控错误 / 先打�
     expect(r.results[5].file).not.toMatch(/SYNTH/);
     expect(r.inventory.error).toEqual({
       code: 'http_status',
-      status_class: '5xx',
+      status_class: 'none',
       phase: 'INV',
       endpoint: 'POST /v1/projects/{ref}/database/query/read-only',
     });
