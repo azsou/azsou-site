@@ -5,7 +5,7 @@
 
 | 项目     | 内容                                                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 申请日期 | 2026-10-27                                                                                                                                           |
+| 申请日期 | 2026-10-27（2026-10-28 第三轮更新）                                                                                                                  |
 | 对象     | 生产 Supabase 库：启用 `pg_cron` 扩展，新建 2 个（可选第 3 个）cron 任务                                                                             |
 | 现状     | 定时发布只在版主打开后台时补偿执行（`mod_workflow_tick()`），不是无人值守                                                                            |
 | 承诺     | 到期内容 2 分钟内公开；同一条只发布一次（双 worker、`SKIP LOCKED`）；隐藏中的内容不会被调度公开（锁内复核）；调度停摆 > 2 分钟（心跳 > 2× 间隔）告警 |
@@ -24,15 +24,17 @@ select target_type, target_id, scheduled_at from public.content_workflow
 ```
 
 - [ ] **已到期但未发布的积压**：开启后第一分钟会全部发布。若不希望，先在后台改期或取消对应排程。
+- [ ] 执行的代码是申请 ① 记录的**同一个统一候选 SHA**：`<统一候选 SHA，候选重建后填写>`。
+- [ ] 真实 azsou-test 项目上的调度演练（tick / 心跳告警 / 停用）已完成并附证据（目前：**待执行**；证据路径：`__________`）。
 - [ ] Supabase 套餐允许 `pg_cron`（免费档可用；以 Dashboard → Database → Extensions 显示为准）。
 
 ## 2. 备份
 
-调度只改内容的公开状态，但首次开启会批量发布积压，因此执行前：
+调度只改内容的公开状态，但首次开启会批量发布积压，因此执行前按 `ops/BACKUP-OPS.md` 再备份一次（与申请 ① §2 相同：#8 受保护手动工作流，只在 `main`）：
 
 ```bash
-# Actions → DB backup → Run workflow（v2/astro 或合并后的 main）→ 绿色；记录 run id：________
-# 下载产物并在本机验证（与申请 ① §2 相同）：
+# Actions → DB backup → Run workflow → 分支 main → confirm_project_ref 填生产 ref → 环境 backup-production 审批人批准 → 绿色；记录 run id：________
+# 产物 db-backup-<run id>（只有 .gpg，保留 30 天）下载到本机并验证：
 BACKUP_PASSPHRASE='<口令>' bash scripts/db-verify-backup.sh backups/pre-cron --restore postgres://postgres:postgres@127.0.0.1:54529/azsou_precron_restore
 ```
 
@@ -85,7 +87,7 @@ select cron.unschedule('az-workflow-health');
 - 停用后后台打开时的补偿 tick 仍然有效（回到开启前的行为），数据不需要回滚。
 - 心跳表会保留最后一次心跳；停用后 `heartbeat_stale` 会变 true 并在版主打开后台时告警一次（1 小时去重）。
   确认是有意停用时：`delete from public.workflow_scheduler_heartbeat where source = 'pg_cron';`（回到「未配置调度」，不再告警）。
-- 若调度误发布了内容：后台按审计 `content.workflow.scheduled`（含 `run_id`）逐条隐藏；必要时用 §2 备份恢复到新项目核对。
+- 若调度误发布了内容：后台按审计 `content.workflow.scheduled`（含 `run_id`）逐条隐藏；必要时用 §2 备份**精确恢复**到新的空项目核对：`scripts/db-restore.sh <新库> backups/pre-cron --storage-api`（或 `--storage-metadata-only`），不执行迁移；升级另用 `scripts/db-upgrade.sh`（见申请 ① §6）。
 
 ## 6. 观察（开启后 24 小时）
 
@@ -104,13 +106,14 @@ select cron.schedule('az-content-versions-prune', '20 19 * * 0', $$select public
 -- 回滚：select cron.unschedule('az-content-versions-prune');
 ```
 
-注意：0017 另有「每条内容最多保留 50 个版本」上限，与 90 天先到为准；若站长希望 90 天内一个不删，需要另改 0017 的上限（未做）。
+说明：0019 已修复站长第二轮要求——0017 的 50 条上限只裁剪早于 90 天的版本，90 天内的版本一条不删（51 / 100 次编辑测试覆盖）；本任务也只删除早于 90 天的版本。
 
 ## 8. 站长签字
 
 - [ ] 我确认申请 ① 已完成并观察 ≥ 24 小时，批准在 `____年__月__日 __:__`（北京时间）开启 `az-workflow-tick` 与 `az-workflow-health`。
 - [ ] 我已看过 §1 的排程 / 积压清单，接受开启后立即发布已到期条目（或已先处理）。
 - [ ] §7 内容版本清理：批准 / 不批准（圈选）。
+- [ ] PITR 与 Storage 文件同步 / 恢复：按申请 ① §7 的单独签字执行（本申请不改变它们）。签字：________
 - [ ] Webhook 站外告警：不启用 / 启用（地址由站长另行提供，不写进仓库）。
 - [ ] 执行人：________　复核人：________　签字：________
 - [ ] 执行结果（§4 全部勾选）：通过 / 失败（附原因）________

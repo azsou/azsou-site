@@ -84,7 +84,7 @@ echo "== 3. 精确恢复到新的空目标（Postgres + 真实 storage-api :$PB�
 newdb $DST
 start_api $DST $PB
 STORAGE_URL="http://127.0.0.1:$PB" STORAGE_SERVICE_KEY=$KEY BACKUP_PASSPHRASE=$PASS \
-  bash scripts/db-restore.sh "$(url $DST)" "$W/bk" --storage-api --drop-target-on-failure | sed 's/^/  /'
+  bash scripts/db-restore.sh "$(url $DST)" "$W/bk" --storage-api | sed 's/^/  /'
 for f in a b; do
   name=$(psql "$(url $DST)" -XAt -c "select name from storage.objects where bucket_id = 'ugc-images' and name like '%-$( [ $f = a ] && echo aaaaaa || echo bbbbbb)-%'")
   curl -sS --noproxy '*' "http://127.0.0.1:$PB/object/public/ugc-images/$name" -o "$W/out-$f.png"
@@ -99,7 +99,7 @@ p=$(psql "$(url $DST)" -XAt -c "select count(*) from pg_policies where schemanam
 cc=$(curl -sS --noproxy '*' -D - -o /dev/null "http://127.0.0.1:$PB/object/public/ugc-images/$(psql "$(url $DST)" -XAt -c "select name from storage.objects where name like '%aaaaaa%'")" | tr -d '\r' | sed -n 's/^cache-control: //Ip')
 [ "$cc" = "max-age=3600" ] && ok "cache-control 保留（$cc）" || bad "cache-control 变成了「$cc」"
 
-echo "== 4. 负面：目标桶已存在 / 归档被改 / 快照之后对象被删"
+echo "== 4. 负面：目标桶已存在 / 归档被改 / 快照之后对象被删 / 快照之后同尺寸改写"
 rc=0
 STORAGE_URL="http://127.0.0.1:$PB" STORAGE_SERVICE_KEY=$KEY BACKUP_PASSPHRASE=$PASS \
   bash scripts/db-restore.sh "$(url $DST)" "$W/bk" --storage-api >"$W/neg1.txt" 2>&1 || rc=$?
@@ -111,11 +111,19 @@ awk -F'\t' 'BEGIN{OFS="\t"} NR == 3 {$4 = "0000000000000000000000000000000000000
 (cd "$W/tamper" && rm -f azsou-SHA256SUMS-*.txt && ts=$(ls azsou-public-*.dump | sed -E 's/.*-([0-9TZ]+)\.dump/\1/') && sha256sum azsou-*"$ts"* >"azsou-SHA256SUMS-$ts.txt")
 newdb $DST2
 start_api $DST2 $PC
+# 预置一个「别人的」桶（不在备份里）：失败清理不能碰它
+api -X POST -H 'content-type: application/json' -d '{"id":"pre-existing","name":"pre-existing","public":false}' "http://127.0.0.1:$PC/bucket" >/dev/null
+api -X POST -H 'content-type: text/plain' --data-binary 'not mine' "http://127.0.0.1:$PC/object/pre-existing/keep.txt" >/dev/null
 rc=0
 STORAGE_URL="http://127.0.0.1:$PC" STORAGE_SERVICE_KEY=$KEY \
-  bash scripts/db-restore.sh "$(url $DST2)" "$W/tamper" --storage-api --drop-target-on-failure >"$W/neg2.txt" 2>&1 || rc=$?
-gone=$(psql "$DATABASE_URL" -XAt -c "select count(*) from pg_database where datname = '$DST2'")
-[ $rc != 0 ] && [ "$gone" = 0 ] && ok "S2 归档文件与逐对象 sha256 不符：恢复失败并删除了新目标库" || bad "S2 退出码 $rc，目标库剩 $gone：$(tail -2 "$W/neg2.txt")"
+  bash scripts/db-restore.sh "$(url $DST2)" "$W/tamper" --storage-api >"$W/neg2.txt" 2>&1 || rc=$?
+still=$(psql "$DATABASE_URL" -XAt -c "select count(*) from pg_database where datname = '$DST2'")
+buckets=$(api "http://127.0.0.1:$PC/bucket" | python3 -c 'import json,sys;print(",".join(sorted(b["id"] for b in json.load(sys.stdin))))')
+keep=$(api "http://127.0.0.1:$PC/object/pre-existing/keep.txt")
+# 第五轮：目标库是测试预先建好的（storage-api 挂在上面）→ 失败清理不删它；只撤销本次新建的桶 / 上传的对象，预先存在的桶和对象不动
+[ $rc != 0 ] && [ "$still" = 1 ] && [ "$buckets" = pre-existing ] && [ "$keep" = 'not mine' ] \
+  && ok "S2 归档文件与逐对象 sha256 不符：恢复失败；预先存在的目标库保留；本次新建的桶 / 上传的对象已撤销，预先存在的桶和对象不变" \
+  || bad "S2 退出码 $rc，目标库 $still，桶 [$buckets]，keep.txt [$keep]：$(tail -3 "$W/neg2.txt" | tr '\n' ' ')"
 mkdir -p "$W/hold"
 victim=$(psql "$(url $SRC)" -XAt -c "select name from storage.objects where name like 'deep/%'")
 ( for _ in $(seq 1 120); do [ -e "$W/hold/ready" ] && break; sleep 0.25; done
@@ -126,5 +134,28 @@ BACKUP_TEST_HOLD_DIR="$W/hold" STORAGE_URL="http://127.0.0.1:$PA" STORAGE_SERVIC
 wait || true
 [ $rc != 0 ] && [ -z "$(ls -A "$W/bk-gone" 2>/dev/null)" ] && grep -q '快照之后被删除' "$W/neg3.txt" \
   && ok "S3 快照之后对象被删：备份失败、不留产物（不会产出缺文件的备份）" || bad "S3 退出码 $rc：$(tail -2 "$W/neg3.txt")"
+
+# S4（站长 2026-10-28 第五轮 ②）：快照之后对象被**同尺寸**改写（大小不变、内容不同）→ 备份必须失败。
+# 只比大小发现不了；要与快照清单里的 eTag / 内容 md5 / updated_at 比对。
+mkdir -p "$W/hold4"
+victim4=$(psql "$(url $SRC)" -XAt -c "select name from storage.objects where bucket_id = 'ugc-images' and name like '%aaaaaa%'")
+python3 - "$W/in/a.png" "$W/in/a-same-size.png" <<'PY'
+import sys
+b = bytearray(open(sys.argv[1], 'rb').read())
+b[-20] ^= 0xff  # 改 IDAT 里的一个字节：大小完全相同，内容不同
+open(sys.argv[2], 'wb').write(bytes(b))
+PY
+[ "$(stat -c %s "$W/in/a.png")" = "$(stat -c %s "$W/in/a-same-size.png")" ] || { echo "S4 夹具大小不同" >&2; exit 1; }
+( for _ in $(seq 1 120); do [ -e "$W/hold4/ready" ] && break; sleep 0.25; done
+  api -X PUT -H 'content-type: image/png' -H 'x-upsert: true' --data-binary "@$W/in/a-same-size.png" "http://127.0.0.1:$PA/object/ugc-images/$victim4" >"$W/s4-put.txt"
+  touch "$W/hold4/go" ) &
+rc=0
+BACKUP_TEST_HOLD_DIR="$W/hold4" STORAGE_URL="http://127.0.0.1:$PA" STORAGE_SERVICE_KEY=$KEY BACKUP_PASSPHRASE=$PASS \
+  bash scripts/db-backup.sh "$(url $SRC)" "$W/bk-same-size" >"$W/neg4.txt" 2>&1 || rc=$?
+wait || true
+grep -q '"Key"' "$W/s4-put.txt" || bad "S4 夹具：同尺寸改写没有成功：$(cat "$W/s4-put.txt")"
+[ $rc != 0 ] && [ -z "$(ls -A "$W/bk-same-size" 2>/dev/null)" ] && grep -q '快照之后被改写' "$W/neg4.txt" \
+  && ok "S4 快照之后对象被同尺寸改写：备份失败、不留产物（$(grep -o '快照之后被改写[^—]*' "$W/neg4.txt" | head -1)）" \
+  || bad "S4 同尺寸改写没有被发现：退出码 $rc：$(tail -2 "$W/neg4.txt" | tr '\n' ' ')"
 
 [ $fail = 0 ] && echo "✓ Storage 往返本地集成测试通过（真实 storage-api 本地实例；不是 Supabase 托管项目上的真实验收）" || { echo "✗ Storage 往返测试失败"; exit 1; }

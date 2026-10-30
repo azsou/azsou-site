@@ -1,0 +1,16 @@
+== 0. 准备：一份真实的加密备份（源库 shim + 全部迁移 + 演练数据）
+== 1. db-restore.sh：预先存在、有数据的目标 + --drop-target-on-failure（目标非空 → 失败）
+  ✗ C1 退出码 3；之前 [41193 db6b5b168dac7344d2ba531238ec7e0c4df9bb4b358f59b42acd10b327b647d0] 之后 [gone]：✗ 目标不是空的，精确恢复只进空目标： public 已有 1 个表 / 视图 / 序列; auth.users 已有 1 行; 已中止：目标库 azsou_cs_pre_6ae99e 已删除 
+== 2. db-restore.sh --fresh-db <已存在的库名>（有数据）
+  ✗ C2 退出码 0；之前 [41193 db6b5b168dac7344d2ba531238ec7e0c4df9bb4b358f59b42acd10b327b647d0] 之后 [41311 3f3ec7cb8354e39b9fd5021f563e0ac9cbfc2a9860a28afeabfbb6b850cb14db]
+== 3. db-restore.sh --fresh-db <新库名> + 事务内注入失败（行数清单被改、校验和重算）→ 新库被删除
+  ✓ C3 恢复核对失败（退出码 1），本次新建的 azsou_cs_fresh_6ae99e 已删除
+  ✗ C3 期间预先存在库变了
+== 4. 所有权核对（backup-lib.sh）：同名库被别人重建 / 不在清单里 → 不删
+  ✗ C4 backup-lib.sh 没有所有权函数（az_create_owned_db / az_drop_owned_db）
+== 5. restore-drill.sh：预先存在的同名演练库（旧的固定库名）+ 注入失败 → 不碰；本次新建的库全部删除
+  ✗ C5 退出码 0；之前 [43237 08914dec86fe3735e2243b02e253e09c360562e242a9c83911358a2264bd6f2d
+43355 7a572514f83b38d25541fe1bafe416079ea6cbb36ebcc858b497279d6b4d3c3d] 之后 [gone
+gone]
+  ✗ C5 演练后多出 / 少了库：前 [azsou_cs_pre_6ae99e,azsou_drill_full,azsou_drill_src,azsou_st_dbg,postgres,template0,template1] 后 [azsou_cs_pre_6ae99e,azsou_st_dbg,postgres,template0,template1]
+✗ 失败清理安全回归失败

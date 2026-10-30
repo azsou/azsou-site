@@ -10,6 +10,7 @@ import '@/styles/store.css';
 import '@/styles/detail.css';
 import { formatDate } from '@/lib/dates';
 import { detailMetrics, type StoreEntry } from '@/lib/store';
+import { DETAIL_HERO_END_ID } from '@/lib/render-block';
 
 interface Props {
   entry: StoreEntry;
@@ -62,4 +63,6 @@ const metrics = detailMetrics(entry, (d) => formatDate(d));
       <slot name="links" />
     </div>
   )}
+  {/* 头部结束标记：必须是最后一个子元素（之后才解除首帧渲染阻塞，见 src/lib/render-block.ts）；hidden 不参与布局 */}
+  <span id={DETAIL_HERO_END_ID} hidden></span>
 </header>

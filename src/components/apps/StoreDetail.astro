@@ -100,7 +100,7 @@ const hint = usable.length
       {app && <Status cls={app.statusClass} text={app.status} />}
     </Fragment>
     <Fragment slot="actions">
-      <div class="app-downloads detail-actions" data-downloads data-pagefind-ignore>
+      <div class="app-downloads detail-actions" data-downloads data-dl-init data-pagefind-ignore>
         {usable.map((p) => (
           <a
             class:list={['btn', 'dl-btn', { 'btn--primary': p.os === usable[0]?.os }]}

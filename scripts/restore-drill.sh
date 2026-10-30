@@ -18,23 +18,39 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ADMIN=${DATABASE_URL:?需要 DATABASE_URL（超级用户）}
 db_url() { node -e 'const u=new URL(process.argv[1]);u.pathname="/"+process.argv[2];console.log(u.toString())' "$ADMIN" "$1"; }
-SRC=azsou_drill_src
-FULL=azsou_drill_full
-OLD=azsou_drill_old
-UPG=azsou_drill_upg
+# shellcheck source=ops/backup-lib.sh
+. scripts/ops/backup-lib.sh
+# 第五轮：库名带本次运行的随机后缀，只建新库（同名已存在 → 失败，不接管、不删除）；失败 / 结束时只删本次新建、
+# 且 OID 与创建标记都对得上的库（scripts/ops/backup-lib.sh）。旧版开头的 drop_all 会删掉同名的预先存在库（tests/ops/cleanup-safety.sh C5）。
 OUT=$(mktemp -d)
-drop_all() { for d in $SRC $FULL $OLD $UPG azsou_drill_tpl; do psql "$ADMIN" -Xq -c "drop database if exists $d with (force)" >/dev/null 2>&1 || true; done; }
-trap 'rm -rf "$OUT"' EXIT
-
-recreate() { psql "$ADMIN" -XqAt -v ON_ERROR_STOP=1 -c "drop database if exists $1 with (force)" -c "create database $1"; }
+AZ_OWNED_LEDGER="$OUT/owned.tsv"
+export AZ_OWNED_LEDGER
+az_run_id >/dev/null
+RID=$(printf %s "$AZ_RUN_ID" | tr -dc 'a-z0-9' | tail -c 10)
+SRC=azsou_drill_src_$RID
+FULL=azsou_drill_full_$RID
+OLD=azsou_drill_old_$RID
+UPG=azsou_drill_upg_$RID
+TPL=azsou_drill_tpl_$RID
+on_exit() {
+  rc=$?
+  az_drop_all_owned "$ADMIN" || echo "注意：有本次新建的演练库没有删除（见上），请人工确认" >&2
+  rm -rf "$OUT"
+  exit $rc
+}
+trap on_exit EXIT
+newdb() { az_create_owned_db "$ADMIN" "$1"; }
 run_sql() { psql "$(db_url "$1")" -Xq -v ON_ERROR_STOP=1 -c 'set client_min_messages = warning' -f "$2" >/dev/null; }
-drop_all
+# 故障注入（只给 tests/ops/cleanup-safety.sh 用）：第 N 步结束后以失败退出，验证失败清理只删本次新建的库
+fault_after() { if [ "${AZ_FAIL_AFTER_STEP:-}" = "$1" ]; then echo "✗ 故障注入：第 $1 步后中止（AZ_FAIL_AFTER_STEP）" >&2; exit 1; fi; }
 
 echo "== 1. 源库：shim + 迁移 + 示例数据"
-recreate $SRC
+newdb $SRC
 run_sql $SRC db/shim/plain.sql
 for f in db/migrations/*.sql; do run_sql $SRC "$f"; done
 run_sql $SRC db/restore/drill-seed.sql
+
+fault_after 1
 
 echo "== 2. 备份（统一快照 + 强制加密：与生产工作流同一路径）"
 PASS=$(head -c 24 /dev/urandom | base64)
@@ -51,10 +67,12 @@ grep -q '"id": "[0-9A-F]*-[0-9A-F]*-[0-9]*"' "$OUT"/plain/azsou-manifest-*.json 
 echo "   校验和 OK，manifest 快照 $(python3 -c 'import json,sys;m=json.load(open(sys.argv[1]));print(m["snapshot"]["id"], m["snapshot"]["lsn"], "schema", m["schema_version"])' "$OUT"/plain/azsou-manifest-*.json)"
 
 echo "== 3A. 精确恢复（scripts/db-restore.sh --fresh-db：单事务 + 事务内核对）"
-BACKUP_PASSPHRASE=$PASS bash scripts/db-restore.sh "$ADMIN" "$OUT/enc" --fresh-db $FULL --storage-metadata-only | sed 's/^/   /'
+AZ_RUN_ID=$AZ_RUN_ID BACKUP_PASSPHRASE=$PASS bash scripts/db-restore.sh "$ADMIN" "$OUT/enc" --fresh-db $FULL --storage-metadata-only | sed 's/^/   /'
+# db-restore.sh 用自己的所有权清单建了 $FULL（同一个 AZ_RUN_ID 标记）：成功后登记到本脚本的清单，结束时一起清理
+az_adopt_owned_db "$ADMIN" "$FULL"
 
 echo "== 3B. 旧版本备份：精确恢复（不升级）→ 显式升级"
-recreate $OLD
+newdb $OLD
 run_sql $OLD db/shim/plain.sql
 for f in db/migrations/*.sql; do
   case "$(basename "$f")" in 0018_* | 0019_*) continue ;; esac
@@ -66,7 +84,8 @@ rc=0
 BACKUP_PASSPHRASE=$PASS bash scripts/db-restore.sh "$ADMIN" "$OUT/old" --fresh-db $UPG --storage-metadata-only >"$OUT/refuse.txt" 2>&1 || rc=$?
 [ $rc = 4 ] || { echo "✗ 0017 备份不带确认应被拒（退出码 4），实际 $rc：$(tail -2 "$OUT/refuse.txt")" >&2; exit 1; }
 echo "   不带 --accept-backup-version：已拒绝（退出码 4）"
-BACKUP_PASSPHRASE=$PASS bash scripts/db-restore.sh "$ADMIN" "$OUT/old" --fresh-db $UPG --storage-metadata-only --accept-backup-version 0017 | tail -1 | sed 's/^/   /'
+AZ_RUN_ID=$AZ_RUN_ID BACKUP_PASSPHRASE=$PASS bash scripts/db-restore.sh "$ADMIN" "$OUT/old" --fresh-db $UPG --storage-metadata-only --accept-backup-version 0017 | tail -1 | sed 's/^/   /'
+az_adopt_owned_db "$ADMIN" "$UPG"
 v=$(psql "$(db_url $UPG)" -XAt -F '|' -v ON_ERROR_STOP=1 -f db/verify/status.sql | bash -c '. scripts/ops/backup-lib.sh; schema_version_from_status')
 [ "$v" = 0017 ] || { echo "✗ 精确恢复后版本应仍为 0017，实际 $v（恢复脚本不得隐式迁移）" >&2; exit 1; }
 echo "   精确恢复后 schema 版本仍为 0017（未执行迁移）"
@@ -146,8 +165,7 @@ psql "$(db_url $FULL)" -Xq -v ON_ERROR_STOP=1 -c "delete from auth.users where e
 [ $fail = 0 ] || exit 1
 
 echo "== 5. 以精确恢复的库（去掉演练数据，保留恢复出的结构 / 策略 / 授权）为模板跑 RLS 角色矩阵 / 后台 RPC / 回归 / P5 / P6 测试"
-TPL=azsou_drill_tpl
-psql "$ADMIN" -Xq -v ON_ERROR_STOP=1 -c "drop database if exists $TPL with (force)" -c "create database $TPL template $FULL"
+az_create_owned_db "$ADMIN" "$TPL" "$FULL"
 psql "$(db_url $TPL)" -Xq -v ON_ERROR_STOP=1 <<'SQL'
 delete from public.forum_replies where author in (select id from auth.users where email like 'drill-%');
 delete from public.forum_threads where author in (select id from auth.users where email like 'drill-%');
@@ -165,5 +183,4 @@ SQL
 DB_TEST_TEMPLATE=$TPL npx vitest run -c vitest.db.config.ts \
   tests/db/rls-matrix.test.ts tests/db/admin.test.ts tests/db/regression.test.ts tests/db/p5.test.ts tests/db/p6.test.ts
 
-drop_all
 echo "✓ 恢复演练通过"

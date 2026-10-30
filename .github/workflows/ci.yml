@@ -24,6 +24,14 @@ defaults:
   run:
     shell: bash
 
+# Supabase 连接必须显式配置（scripts/supabase-env.mjs：没有默认值，非生产只允许测试项目 / 本机栈）。
+# CI 的构建、单元、E2E、设计、设备、Lighthouse 一律指向本机栈占位地址：E2E 的 /rest/v1、/auth/v1、/storage/v1 由用例转发到本地
+# PostgREST 或桩；没被转发的请求连 127.0.0.1:54321 直接被拒，绝不会落到生产库（以前回退生产默认值时会）。scripts/serve.mjs 只给这个
+# loopback 源放行 CSP。publishable 占位值不是任何真实项目的 key。
+env:
+  PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  PUBLIC_SUPABASE_KEY: sb_publishable_local-e2e-not-a-secret
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -36,7 +44,9 @@ jobs:
       # 加载 src/content/apps/_e2e/ 的测试夹具应用（下载中转 / 平台识别 E2E 用）；Vercel 的构建不设，线上没有夹具
       AZ_E2E_FIXTURES: '1'
     steps:
+      # 完整历史：sbtest 初始化执行器的单测从 git 对象库读钉住的源提交（ops/sbtest/init-manifest.json 的 source_sha），浅克隆里没有
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -111,6 +121,8 @@ jobs:
         run: bash tests/ops/drill-negative.sh
       - name: 统一快照一致性（备份期间并发跨范围写入；对照组：逐个 pg_dump 必须被检测出不一致）
         run: bash tests/ops/backup-consistency.sh
+      - name: 失败清理安全（只删本次运行新建、OID 与创建标记都对得上的库；预先存在的库 / 演练库永远不动）
+        run: bash tests/ops/cleanup-safety.sh
       - name: 备份恢复演练（统一快照加密备份 → 精确恢复 → 旧版本备份显式确认 + 显式升级 → 核对 → RLS 测试）
         run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
