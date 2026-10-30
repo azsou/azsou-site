@@ -1,7 +1,7 @@
 name: CI
 # 全部任务阻断（无 continue-on-error）。每个 PR 与非 main 分支推送：lint（含 stylelint error）→ 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
 # 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ 设计门禁 + 视觉回归 → 设备矩阵 → Lighthouse（移动 + 桌面，四项 ≥ 95）
-# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
+# 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练（含负面用例 / 统一快照一致性）
 # 安装（浏览器 / apt）与测试分开：各自 timeout-minutes，安装失败注解「安装超时（基础设施）」；
 # 重试通过的用例注解「首跑失败（flaky）」并写入任务摘要 + 产物 flaky-*（策略见 docs/CI.md）
 on:
@@ -14,6 +14,15 @@ on:
         description: '重新生成视觉回归基线（产物 visual-baseline-*，审阅后提交）'
         type: boolean
         default: false
+      backup_run_id:
+        description: '（批次 2 跟进 8）DB backup 工作流的 run id：下载该次备份产物、恢复到 CI 的临时 Postgres 并报告行数（对生产只读）'
+        type: string
+        default: ''
+
+# bash -eo pipefail：管道里任何一段失败都让步骤失败（默认 shell 只有 -e）
+defaults:
+  run:
+    shell: bash
 
 # Supabase 连接必须显式配置（scripts/supabase-env.mjs：没有默认值，非生产只允许测试项目 / 本机栈）。
 # CI 的构建、单元、E2E、设计、设备、Lighthouse 一律指向本机栈占位地址：E2E 的 /rest/v1、/auth/v1、/storage/v1 由用例转发到本地
@@ -35,7 +44,9 @@ jobs:
       # 加载 src/content/apps/_e2e/ 的测试夹具应用（下载中转 / 平台识别 E2E 用）；Vercel 的构建不设，线上没有夹具
       AZ_E2E_FIXTURES: '1'
     steps:
+      # 完整历史：sbtest 初始化执行器的单测从 git 对象库读钉住的源提交（ops/sbtest/init-manifest.json 的 source_sha），浅克隆里没有
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -106,11 +117,71 @@ jobs:
         run: |
           echo "::error title=安装超时（基础设施）::db：PostgreSQL 17 客户端安装失败或超过 10 分钟，恢复演练没有运行。按 docs/CI.md 重跑一次。"
           exit 1
-      - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
+      - name: 备份 / 恢复脚本负面用例（每种故障都必须非 0 退出，另有正向对照）
+        run: bash tests/ops/drill-negative.sh
+      - name: 统一快照一致性（备份期间并发跨范围写入；对照组：逐个 pg_dump 必须被检测出不一致）
+        run: bash tests/ops/backup-consistency.sh
+      - name: 失败清理安全（只删本次运行新建、OID 与创建标记都对得上的库；预先存在的库 / 演练库永远不动）
+        run: bash tests/ops/cleanup-safety.sh
+      - name: 备份恢复演练（统一快照加密备份 → 精确恢复 → 旧版本备份显式确认 + 显式升级 → 核对 → RLS 测试）
         run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
+
+  # 站长第三轮 ④：Storage 文件本体备份 → 精确恢复往返。**本地集成测试**：真实 supabase/storage（v1.19.0 源码构建，file 后端）
+  # 挂在 CI 的临时 Postgres 上；不是 Supabase 托管项目上的真实验收（那需要隔离测试项目，见 docs/BACKUP.md §2B）。
+  storage-roundtrip:
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      STORAGE_API_DIR: ${{ github.workspace }}/.storage-api
+      STORAGE_API_REF: v1.19.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: PostgreSQL 17 客户端（基础设施）
+        id: install
+        timeout-minutes: 10
+        run: |
+          echo 'Acquire::Retries "3"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: .storage-api
+          key: storage-api-${{ env.STORAGE_API_REF }}-node22-${{ runner.os }}-${{ runner.arch }}
+      - name: 构建 supabase/storage ${{ env.STORAGE_API_REF }}（官方源码，未改动）
+        run: |
+          if [ ! -f .storage-api/dist/start/server.js ]; then
+            rm -rf .storage-api
+            git clone -q --depth 1 --branch "$STORAGE_API_REF" https://github.com/supabase/storage.git .storage-api
+            cd .storage-api
+            npm ci --no-audit --no-fund --ignore-scripts
+            npm rebuild fs-xattr
+            node build.js
+            npx resolve-tspaths
+          fi
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
+        run: |
+          echo "::error title=安装超时（基础设施）::storage-roundtrip：PostgreSQL 17 客户端安装失败或超过 10 分钟，往返测试没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
+      - name: Storage 往返（备份经 API 下载 → 加密归档 → 精确恢复经 API 上传 → sha256 / 清单 / owner / 策略核对 + 负面用例）
+        run: bash tests/ops/storage-roundtrip.sh
 
   e2e:
     # 各步骤自带 timeout-minutes（安装 ≤ 25、测试 ≤ 45），任务上限只兜底；安装卡住不再吃掉测试时间（docs/CI.md）
@@ -341,3 +412,63 @@ jobs:
             .lighthouseci-desktop
           retention-days: 7
           include-hidden-files: true
+
+  # 批次 2 跟进 8：真实备份恢复验收（只在手动触发且给了 backup_run_id 时运行）。
+  # 下载 DB backup 产物 → 解密 → scripts/db-verify-backup.sh --restore 恢复到本任务的 Postgres 服务容器 → 行数与清单核对。
+  # 对生产只读（不连接生产库）；摘要里只写表名与行数，不输出任何数据或密钥。
+  backup-restore:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_run_id != '' }}
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL 17 客户端
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 下载备份产物
+        uses: actions/download-artifact@v4
+        with:
+          name: db-backup-${{ inputs.backup_run_id }}
+          run-id: ${{ inputs.backup_run_id }}
+          github-token: ${{ github.token }}
+          path: backup
+      - name: 恢复到临时库并核对
+        run: |
+          psql "$DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -c "create database azsou_backup_check"
+          T=postgres://postgres:postgres@localhost:5432/azsou_backup_check
+          psql "$DATABASE_URL" -Xq -v ON_ERROR_STOP=1 -c "do \$\$ begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin noinherit bypassrls; end if;
+            end \$\$"
+          psql "$T" -Xq -v ON_ERROR_STOP=1 -f db/shim/plain.sql >/dev/null
+          start=$(date +%s)
+          bash scripts/db-verify-backup.sh backup --restore "$T" | tee verify.txt
+          echo "恢复耗时：$(( $(date +%s) - start )) 秒" | tee -a verify.txt
+          {
+            echo "### 真实备份恢复验收（run ${{ inputs.backup_run_id }}）"
+            cat verify.txt
+            echo
+            echo '| 表 | 行数 |'
+            echo '| --- | --- |'
+            psql "$T" -XAt -F ' | ' -v ON_ERROR_STOP=1 -c "select c.relname, (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', c.relname), false, true, '')))[1]::text from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' order by 1" | sed 's/^/| /; s/$/ |/'
+            psql "$T" -XAt -v ON_ERROR_STOP=1 -f db/verify/status.sql | awk -F'|' '{print $1, $3}' | sort | uniq -c | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"

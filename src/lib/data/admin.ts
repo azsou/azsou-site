@@ -27,7 +27,70 @@ export interface Listed<T> {
    * 这里说明哪项功能不可用、需要哪个迁移；UI 显示提示，而不是整页报错。
    */
   degraded?: { feature: string; migration: string };
+  /** A09（0018）：请求的页超出末页（items 为空但 total > 0）；lastOffset = 最后一页的 offset */
+  outOfRange?: boolean;
+  lastOffset?: number;
 }
+
+/** A08（0018）：批量操作逐项结果。result：ok / unchanged / not_found / conflict / denied / failed */
+export type BatchItemResult = 'ok' | 'unchanged' | 'not_found' | 'conflict' | 'denied' | 'failed';
+export interface BatchResult {
+  requested: number;
+  unique: number;
+  duplicates: number;
+  ok: number;
+  failed: number;
+  replayed: boolean;
+  results: { id: string; result: BatchItemResult; message?: string }[];
+  /** 库里没有 0018 时退回旧接口：没有逐项结果与状态同步 */
+  degraded?: { feature: string; migration: string };
+}
+export const BATCH_MIGRATION = '0018';
+export function toBatchResult(r: Record<string, unknown> | null | undefined): BatchResult {
+  const results = Array.isArray(r?.results) ? (r!.results as Record<string, unknown>[]) : [];
+  return {
+    requested: Number(r?.requested) || 0,
+    unique: Number(r?.unique) || 0,
+    duplicates: Number(r?.duplicates) || 0,
+    ok: Number(r?.ok) || 0,
+    failed: Number(r?.failed) || 0,
+    replayed: r?.replayed === true,
+    results: results.map((x) => ({
+      id: String(x.id),
+      result: String(x.result) as BatchItemResult,
+      ...(x.message ? { message: String(x.message) } : {}),
+    })),
+  };
+}
+/** 旧接口（PATCH 返回受影响行）→ 逐项结果：返回的行 = ok，其余 = not_found */
+export function batchFromRows(
+  ids: string[],
+  touched: string[],
+  degraded?: BatchResult['degraded'],
+): BatchResult {
+  const uniq = [...new Set(ids)];
+  const hit = new Set(touched);
+  const results = uniq.map((id) => ({ id, result: (hit.has(id) ? 'ok' : 'not_found') as BatchItemResult }));
+  return {
+    requested: ids.length,
+    unique: uniq.length,
+    duplicates: ids.length - uniq.length,
+    ok: hit.size,
+    failed: 0,
+    replayed: false,
+    results,
+    degraded,
+  };
+}
+/** A09：越界页的总数与最后有效页 offset */
+export function pageInfo(total: number, limit: number) {
+  const lim = Math.max(1, limit || 25);
+  return { total, outOfRange: total > 0, lastOffset: total > 0 ? Math.floor((total - 1) / lim) * lim : 0 };
+}
+/** 每次用户操作一个幂等键；同一操作的网络重试复用它 */
+export const newIdemKey = () =>
+  globalThis.crypto?.randomUUID?.() ??
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export interface AdminStats {
   users: number;
@@ -210,8 +273,16 @@ export const EXPORT_COLUMNS: Record<ExportTable, string> = {
 export interface AdminRepo {
   stats(): Promise<AdminStats>;
   listContent(q: ContentQuery): Promise<Listed<ContentRow>>;
-  /** 批量隐藏 / 恢复；返回受影响行数 */
-  setPublished(type: ContentType, ids: string[], published: boolean): Promise<number>;
+  /**
+   * 批量隐藏 / 恢复（A01 / A08：0018 的 mod_set_visibility，逐项结果；同一 idemKey 重试不重复执行）。
+   * 0019 起「恢复」= 回到待审（不公开）；公开用 publish()。
+   */
+  setPublished(type: ContentType, ids: string[], published: boolean, idemKey?: string): Promise<BatchResult>;
+  /**
+   * 显式发布（0019 mod_publish_content；站长 2026-10-27 21:06：「恢复」只回到待审，公开必须走这里）。
+   * 逐项结果 + 幂等键；库里没有 0019 时抛 SchemaMissingError（不退回 PATCH，避免绕过「恢复 → 待审」）。
+   */
+  publish(type: ContentType, ids: string[], idemKey?: string): Promise<BatchResult>;
   setThreadFlags(ids: string[], flags: Omit<ThreadFlags, 'published'>): Promise<number>;
   deleteContent(type: ContentType, ids: string[]): Promise<number>;
   listReports(q?: ReportQuery): Promise<Listed<Report>>;
@@ -417,28 +488,63 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
       return toStats(await rpc<Record<string, unknown>>('admin_stats'));
     },
     async listContent(q) {
-      const { rows, degraded } = await rpcSorted(
-        'mod_list_content',
-        {
-          p_type: q.type,
-          p_q: q.q?.trim() || null,
-          p_cat: q.category ? categoryName(q.category) : null,
-          p_hidden: q.hidden ?? null,
-          p_reported: q.reported ?? null,
-          p_author: q.author && UUID.test(q.author) ? q.author : null,
-          p_limit: clamp(q.limit, 25),
-          p_offset: off(q.offset),
-        },
+      const base = {
+        p_type: q.type,
+        p_q: q.q?.trim() || null,
+        p_cat: q.category ? categoryName(q.category) : null,
+        p_hidden: q.hidden ?? null,
+        p_reported: q.reported ?? null,
+        p_author: q.author && UUID.test(q.author) ? q.author : null,
+        p_limit: clamp(q.limit, 25),
+        p_offset: off(q.offset),
+      };
+      const sort =
         q.sort && CONTENT_SORT.includes(q.sort)
           ? { p_sort: q.sort, p_dir: q.dir === 'asc' ? 'asc' : 'desc' }
-          : {},
-      );
-      return { items: (rows ?? []).map(toContentRow), total: num(rows?.[0]?.total), degraded };
+          : {};
+      const { rows, degraded } = await rpcSorted('mod_list_content', base, sort);
+      const items = (rows ?? []).map(toContentRow);
+      if (items.length || !base.p_offset) return { items, total: num(rows?.[0]?.total), degraded };
+      // A09：越界页（offset ≥ total，常见于并发删除末页 / 筛选后页码未纠正）窗口函数拿不到 total，
+      // 用同一条件再读第一页的 1 行取真实总数，并给出最后有效页（不依赖 0018，旧库同样适用）
+      const probe = await rpc<Row[]>('mod_list_content', { ...base, p_limit: 1, p_offset: 0 });
+      return { items, degraded, ...pageInfo(num(probe?.[0]?.total), base.p_limit) };
     },
-    async setPublished(type, ids, published) {
+    async setPublished(type, ids, published, idemKey) {
       const list = uuidList(ids);
-      if (!list.length) return 0;
-      return bulk(`${TABLE[type]}?id=in.(${list.join(',')})&select=id`, 'PATCH', { published });
+      if (!list.length) return batchFromRows([], []);
+      try {
+        const r = await rpc<Record<string, unknown>>('mod_set_visibility', {
+          p_type: type,
+          p_ids: list,
+          p_published: published,
+          p_idem_key: idemKey ?? null,
+        });
+        return toBatchResult(r);
+      } catch (e) {
+        if (!(e instanceof SchemaMissingError) || e.object !== 'mod_set_visibility') throw e;
+        const rows = await rest<Row[]>(`${TABLE[type]}?id=in.(${list.join(',')})&select=id`, {
+          method: 'PATCH',
+          body: { published },
+          prefer: 'return=representation',
+          requireAuth: true,
+        });
+        return batchFromRows(
+          list,
+          (rows ?? []).map((x) => String(x.id)),
+          { feature: '逐项结果与流程状态同步', migration: BATCH_MIGRATION },
+        );
+      }
+    },
+    async publish(type, ids, idemKey) {
+      const list = uuidList(ids);
+      if (!list.length) return batchFromRows([], []);
+      const r = await rpc<Record<string, unknown>>('mod_publish_content', {
+        p_type: type,
+        p_ids: list,
+        p_idem_key: idemKey ?? null,
+      });
+      return toBatchResult(r);
     },
     async setThreadFlags(ids, flags) {
       const list = uuidList(ids);
@@ -588,20 +694,22 @@ export function createAdminApi({ rest, restCount }: AdminRest): AdminRepo {
       return num(n);
     },
     async listUsers(q = {}) {
-      const { rows, degraded } = await rpcSorted(
-        'mod_list_users',
-        {
-          p_q: q.q?.trim() || null,
-          p_role: q.role ?? null,
-          p_banned: q.banned ?? null,
-          p_limit: clamp(q.limit, 25),
-          p_offset: off(q.offset),
-        },
+      const base = {
+        p_q: q.q?.trim() || null,
+        p_role: q.role ?? null,
+        p_banned: q.banned ?? null,
+        p_limit: clamp(q.limit, 25),
+        p_offset: off(q.offset),
+      };
+      const sort =
         q.sort && USER_SORT.includes(q.sort)
           ? { p_sort: q.sort, p_dir: q.dir === 'asc' ? 'asc' : 'desc' }
-          : {},
-      );
-      return { items: (rows ?? []).map(toAdminUser), total: num(rows?.[0]?.total), degraded };
+          : {};
+      const { rows, degraded } = await rpcSorted('mod_list_users', base, sort);
+      const items = (rows ?? []).map(toAdminUser);
+      if (items.length || !base.p_offset) return { items, total: num(rows?.[0]?.total), degraded };
+      const probe = await rpc<Row[]>('mod_list_users', { ...base, p_limit: 1, p_offset: 0 });
+      return { items, degraded, ...pageInfo(num(probe?.[0]?.total), base.p_limit) };
     },
     async getUser(id) {
       if (!UUID.test(id)) return null;
