@@ -4,6 +4,11 @@
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
   "trailingSlash": true,
+  "git": {
+    "deploymentEnabled": {
+      "ci-verify/r14-e5f1103-20261030": false
+    }
+  },
   "headers": [
     {
       "source": "/(sw|az-sw)\\.js",
