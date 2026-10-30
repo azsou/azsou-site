@@ -168,11 +168,14 @@ test.describe('后台外壳与状态（夹具）', () => {
     }
   });
 
-  for (const scheme of ['light', 'dark'] as const)
-    test(`axe 0（${scheme}）：概览、内容表（有数据 / 空 / 错）、菜单展开`, async ({ page }) => {
-      await emulateColorScheme(page, scheme);
-      const mock = await mockAdmin(page);
-      for (const state of ['data', 'empty', 'error'] as const) {
+  // axe 0：原来每个配色 1 个用例里串行 7 次导航 + 7 次 axe 扫描（≈ 28–34 s，贴着 30 s 默认时限）。
+  // 拆成 配色 × 状态（概览 + 内容表 两次扫描）+ 配色 × 菜单展开（一次扫描），检查点仍是 14 个 / 项目：
+  // 2 配色 × (3 状态 × 2 页 + 菜单)。WCAG 标签、零违规断言、页面、夹具状态都不变；不加时限、不加重试。
+  for (const scheme of ['light', 'dark'] as const) {
+    for (const state of ['data', 'empty', 'error'] as const)
+      test(`axe 0（${scheme} / ${state}）：概览、内容表`, async ({ page }) => {
+        await emulateColorScheme(page, scheme);
+        const mock = await mockAdmin(page);
         mock.set({ state });
         for (const path of ['/admin/', '/admin/content/']) {
           await page.goto(path);
@@ -180,11 +183,15 @@ test.describe('后台外壳与状态（夹具）', () => {
           await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
           expect(await axe(page), `${path} ${state}`).toEqual([]);
         }
-      }
+      });
+    test(`axe 0（${scheme} / 菜单展开）：内容表「⋯」菜单`, async ({ page }) => {
+      await emulateColorScheme(page, scheme);
+      const mock = await mockAdmin(page);
       mock.set({ state: 'data' });
       await page.goto('/admin/content/');
       await rows(page).first().getByRole('button', { name: '更多操作' }).click();
       await expect(page.getByRole('menu')).toBeVisible();
       expect(await axe(page), 'menu').toEqual([]);
     });
+  }
 });

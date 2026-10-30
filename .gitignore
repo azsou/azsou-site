@@ -18,3 +18,4 @@ coverage/
 dist-ads/
 dist-ads.vercel.json
 reports/
+lhci-out/

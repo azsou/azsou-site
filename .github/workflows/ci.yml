@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       update_visual:
-        description: '重新生成视觉回归基线（产物 visual-baseline-*，审阅后提交）'
+        description: '另跑 visual-candidate 任务生成「候选」视觉基线（产物 visual-candidate-baseline，未比较、不算通过，审阅后才可提交）；design 任务照常比较'
         type: boolean
         default: false
       backup_run_id:
@@ -270,7 +270,8 @@ jobs:
           retention-days: 14
 
   # P9 设计门禁（T9.2）：Q5 / Q8 / Q11 / Q12 / Q18 断言 + Q2 视觉回归（Chromium + Noto CJK，2 片并行）。
-  # 没有基线（首次）或手动触发 update_visual 时写出基线并上传为产物，审阅后提交到 tests/visual/__screenshots__/。
+  # 视觉基线门禁（r13）：基线目录缺失 / 为空 / 缺任何必需快照 → 失败（scripts/ci/visual-baseline-gate.mjs），不再自动 --update-snapshots=all；
+  # 比较一律 --update-snapshots=none（缺快照只失败、不写入）。候选基线只由下面的 visual-candidate 任务（手动 update_visual）生成。
   design:
     timeout-minutes: 55
     needs: build
@@ -305,13 +306,18 @@ jobs:
         run: |
           echo "::error title=安装超时（基础设施）::设计门禁第 ${{ matrix.shard }} 片：Chromium / 字体安装失败或超过 25 分钟，测试没有运行。按 docs/CI.md 重跑一次。"
           exit 1
+      - name: 视觉基线门禁（缺目录 / 空目录 / 缺快照 → 失败）
+        id: baseline
+        run: |
+          mkdir -p reports
+          PLAYWRIGHT_JSON_OUTPUT_FILE=reports/visual-list.json \
+            npx playwright test -c playwright.design.config.ts --project=visual --list --reporter=json > /dev/null
+          node scripts/ci/visual-baseline-gate.mjs --list reports/visual-list.json \
+            --dir tests/visual/__screenshots__ --out reports/visual-gate.json
       - name: 设计门禁 + 视觉回归
         id: test
         timeout-minutes: 25
-        run: |
-          UPDATE=""
-          if [ "${{ inputs.update_visual }}" = "true" ] || [ -z "$(ls tests/visual/__screenshots__ 2>/dev/null)" ]; then UPDATE="--update-snapshots=all"; fi
-          npx playwright test -c playwright.design.config.ts --shard=${{ matrix.shard }}/2 $UPDATE
+        run: npx playwright test -c playwright.design.config.ts --shard=${{ matrix.shard }}/2 --update-snapshots=none
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
@@ -323,9 +329,52 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: design-report-${{ matrix.shard }}
-          path: playwright-report-design
+          path: |
+            playwright-report-design
+            reports/visual-gate.json
           retention-days: 7
           if-no-files-found: ignore
+
+  # 候选视觉基线（只在 workflow_dispatch 勾选 update_visual 时运行）：--update-snapshots=all 写出整套截图，
+  # 上传为 visual-candidate-baseline。它不做任何比较，任务成功只表示「生成完了」，不计入视觉门禁、不算验收；人工审阅后才可提交。
+  visual-candidate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_visual }}
+    timeout-minutes: 45
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-chromium
+      - name: 安装 Chromium + 中文字体（基础设施）
+        timeout-minutes: 25
+        run: bash scripts/ci/pw-install.sh chromium fonts-noto-cjk
+      - name: 生成候选基线（不比较、不计入门禁）
+        timeout-minutes: 25
+        run: |
+          npx playwright test -c playwright.design.config.ts --project=visual --update-snapshots=all
+          {
+            echo '### 候选视觉基线（未比较）'
+            echo ''
+            echo '本任务用 --update-snapshots=all 重写了全部截图，没有和已提交基线比较。产物 visual-candidate-baseline 仅供人工审阅，不代表视觉回归通过。'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-candidate-baseline
+          path: tests/visual/__screenshots__
+          retention-days: 7
+          if-no-files-found: error
 
   # T9.19 设备 / 浏览器矩阵（Playwright 设备模拟：iPhone SE / 15、Pixel 7、iPad 竖横、1024 / 1440 / 1920 × 三引擎），阻断。
   # 首屏截图 + 每格结果（test-results/devices/<引擎>.jsonl）上传为产物 device-matrix-<引擎>，汇总见 docs/DEVICE-MATRIX.md。
@@ -398,20 +447,47 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
+      # r13：两档各自 collect → assert → upload，原始 LHR、assertion-results、报告、摘要、清单分别存在 lhci-out/mobile 与 lhci-out/desktop，
+      # 后跑的档不能覆盖先跑的档（scripts/ci/lhci-tier.sh 拒绝已存在的输出目录与残留工作目录）；产物失败也上传；
+      # 每档退出码原样保留，最后一步 lhci-gate.sh 汇总：任一档失败 / 缺档 / 归档被改动 / 证据不完整 → 任务失败。
       - name: Lighthouse 移动档（32 页 × 3 次中位数）
-        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
+        id: lh_mobile
+        run: bash scripts/ci/lhci-tier.sh mobile lighthouserc.cjs lhci-out 32x3
       - name: Lighthouse 桌面档（12 页，T9.21）
+        id: lh_desktop
         if: ${{ !cancelled() }}
-        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.desktop.cjs
-      - if: ${{ !cancelled() }}
+        run: bash scripts/ci/lhci-tier.sh desktop lighthouserc.desktop.cjs lhci-out 12x1
+      - name: 上传 Lighthouse 移动档
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse
-          path: |
-            .lighthouseci
-            .lighthouseci-desktop
+          name: lighthouse-mobile
+          path: lhci-out/mobile
           retention-days: 7
+          if-no-files-found: warn
+      - name: 上传 Lighthouse 桌面档
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-desktop
+          path: lhci-out/desktop
+          retention-days: 7
+          if-no-files-found: warn
+      # r14：某档归档失败时 .lighthouseci 按规则原样保留（不删未归档的原始数据），这里把它单独上传，便于事后核对
+      - name: 上传未归档的 Lighthouse 工作目录（只有归档失败时才存在）
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-unarchived-workdir
+          path: .lighthouseci
           include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: ignore
+      # r14：gate 按「档名=配置:页数x每页次数」核对证据完整性（assertion-results 存在且可解析、页面集合、每页样本数、
+      # runtimeError、必需指标、清单正好覆盖全部文件），不只是哈希；预算与中位数聚合不变（仍由 lighthouserc*.cjs 决定）
+      - name: Lighthouse 结论（任一档失败或证据不完整 → 失败）
+        if: ${{ always() }}
+        run: bash scripts/ci/lhci-gate.sh lhci-out mobile=lighthouserc.cjs:32x3 desktop=lighthouserc.desktop.cjs:12x1
 
   # 批次 2 跟进 8：真实备份恢复验收（只在手动触发且给了 backup_run_id 时运行）。
   # 下载 DB backup 产物 → 解密 → scripts/db-verify-backup.sh --restore 恢复到本任务的 Postgres 服务容器 → 行数与清单核对。
