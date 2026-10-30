@@ -1,0 +1,114 @@
+# 只读诊断（r16）：原运行 40909490215 的桌面 Lighthouse /search/ CLS 0.0827（门槛 0.02）。
+# 这不是修复、不是验收、不是部署。只在本分支第一次推送时跑一次，固定 3 个样本，不重试、不重建、不丢弃预热。
+#   - 被测产物：原运行的 dist 产物（id 12913960381），先查元数据（未过期、属于原运行、digest 一致），再真正下载并核对 zip sha256 与内容清单，不符就停；
+#     元数据 expired=false 不等于能下载：这里以实际下载 + 核对为准；
+#   - 服务器与配置：检出 17c494c5655054e3345de190cb5f7447fb782cef 并核对树 e8cdd8f0ab823dee303728ec214de30d2c96e3d7（= 原运行实际检出的树），不符就停；
+#   - 参数：与原运行 lighthouserc.desktop.cjs 的 collect.settings 相同（preset desktop、--no-sandbox --headless=new、屏蔽 *supabase.co*、不截整页），
+#     只测固定目标 DIAG_TARGET_URL；与原运行的差异（页面顺序、没有先跑移动档、Chrome / runner / 字体）见申请书；
+#   - 解析口径见 diag/shifts.mjs 与 diag/target.mjs（两个目标共用同一份脚本，blob 相同）；任务成功只代表采集 / 整理完成，不代表 CLS 达标。
+name: diag-search-cls
+on:
+  push:
+    branches: ['diag/r16-search-cls-0b26e92']
+permissions:
+  contents: read
+  actions: read # 只为读原运行产物元数据与下载原 dist 产物
+concurrency:
+  group: diag-search-cls
+  cancel-in-progress: false
+env:
+  # 与原 ci.yml 顶层相同的本机占位值（不是任何真实项目的 key）；serve.mjs → local-csp → supabase-env 需要
+  PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  PUBLIC_SUPABASE_KEY: sb_publishable_local-e2e-not-a-secret
+  DIAG_TARGET_URL: 'http://127.0.0.1:4324/search/'
+  ORIG_RUN_ID: '40909490215'
+  ORIG_ARTIFACT_ID: '12913960381'
+  ORIG_ARTIFACT_ZIP_SHA256: df5ecf004da244fd58c8514d611f4052a4a22fcc966eb0493ece8c21d6633da0
+  ORIG_DIST_MANIFEST_SHA256: 0338aa5c1338d0fdb59eae24dab70d0e928c9619584fa75cf9b496dc3233c7af
+  ORIG_TREE: e8cdd8f0ab823dee303728ec214de30d2c96e3d7
+  SRC_COMMIT: 17c494c5655054e3345de190cb5f7447fb782cef
+  LIGHTHOUSE_VERSION: 12.6.1
+  SAMPLES: '3' # 固定计划；run.sh 拒绝其他值
+jobs:
+  cls:
+    # 只在第 1 次尝试时运行：手动「Re-run」不会产生额外样本
+    if: ${{ github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出本诊断分支（只含本工作流与脚本）
+        uses: actions/checkout@v4
+        with: { path: diag, persist-credentials: false }
+      - name: 准备证据目录
+        run: mkdir -p out
+      - name: 检出与原运行同树的源码（17c494c）
+        uses: actions/checkout@v4
+        with: { ref: '${{ env.SRC_COMMIT }}', path: orig, persist-credentials: false }
+      - name: 核对源码树 = e8cdd8f0
+        id: tree
+        run: |
+          t=$(git -C orig rev-parse 'HEAD^{tree}')
+          echo "tree=$t" | tee out/tree.txt
+          [ "$t" = "$ORIG_TREE" ] || { echo "::error::树 $t ≠ 原运行 $ORIG_TREE，停止（不测量）"; exit 1; }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: 原 dist 产物：元数据核对 + 实际下载 + zip 哈希 + 内容清单（不重建）
+        id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIG_ARTIFACT_ID}"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -o out/artifact-meta.json "$api"
+          node -e '
+            const m=require("./out/artifact-meta.json"), e=process.env;
+            const bad=[];
+            if (m.expired!==false) bad.push("expired="+m.expired);
+            if (String(m.workflow_run?.id)!==e.ORIG_RUN_ID) bad.push("workflow_run.id="+m.workflow_run?.id);
+            if (m.digest!=="sha256:"+e.ORIG_ARTIFACT_ZIP_SHA256) bad.push("digest="+m.digest);
+            console.log("artifact meta: name="+m.name+" size="+m.size_in_bytes+" expires_at="+m.expires_at+" expired="+m.expired);
+            if (bad.length) { console.log("::error::产物元数据不符："+bad.join("，")+"，停止（不测量）"); process.exit(1); }' | tee out/artifact.txt
+          # 元数据 expired=false 不等于能下载：下面实际下载，下载失败（例如已过期 410）就停
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -o dist.zip "$api/zip"
+          z=$(sha256sum dist.zip | cut -d' ' -f1); echo "zip sha256=$z" | tee -a out/artifact.txt
+          [ "$z" = "$ORIG_ARTIFACT_ZIP_SHA256" ] || { echo "::error::产物 zip 哈希不符，停止（不测量）"; exit 1; }
+          mkdir -p orig/dist && unzip -q dist.zip -d orig/dist
+          ( cd orig/dist && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum ) > out/dist.manifest
+          m=$(sha256sum out/dist.manifest | cut -d' ' -f1); echo "dist manifest sha256=$m ($(wc -l < out/dist.manifest) 行)" | tee -a out/artifact.txt
+          [ "$m" = "$ORIG_DIST_MANIFEST_SHA256" ] || { echo "::error::dist 内容清单不符，停止（不测量）"; exit 1; }
+      - name: 安装 Lighthouse（固定版本，与原 @lhci/cli 0.15.1 依赖的 lighthouse 相同）
+        id: install
+        run: npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/lh" "lighthouse@${LIGHTHOUSE_VERSION}"
+      - name: 记录环境（runner、架构、Chrome、字体）
+        id: env
+        run: |
+          set -o pipefail
+          bash diag/diag/env.sh | tee out/env.txt
+      - name: 采样 /search/（固定 3 次，不重试、不丢弃）
+        id: collect
+        run: bash diag/diag/run.sh
+      - name: 逐样本解析（目标绑定 + CLS 数值 + 定位证据）
+        id: parse
+        if: ${{ always() }}
+        run: node diag/diag/shifts.mjs out
+      - name: 汇总最终状态（写 status.json）
+        if: ${{ always() }}
+        env:
+          STEP_TREE: ${{ steps.tree.outcome }}
+          STEP_ARTIFACT: ${{ steps.artifact.outcome }}
+          STEP_INSTALL: ${{ steps.install.outcome }}
+          STEP_ENV: ${{ steps.env.outcome }}
+          STEP_COLLECT: ${{ steps.collect.outcome }}
+          STEP_PARSE: ${{ steps.parse.outcome }}
+        run: node diag/diag/status.mjs out --write
+      - name: 上传诊断证据（失败也保留）
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-search-cls
+          path: out
+          retention-days: 14
+          if-no-files-found: error
+      - name: 最终判定（上传之后；只看采集 / 整理完整性，不看 CLS 是否达标）
+        if: ${{ always() }}
+        run: node diag/diag/status.mjs out --enforce
