@@ -378,14 +378,14 @@ jobs:
         with: { name: dist, path: dist }
       # r13：两档各自 collect → assert → upload，原始 LHR、assertion-results、报告、摘要、清单分别存在 lhci-out/mobile 与 lhci-out/desktop，
       # 后跑的档不能覆盖先跑的档（scripts/ci/lhci-tier.sh 拒绝已存在的输出目录与残留工作目录）；产物失败也上传；
-      # 每档退出码原样保留，最后一步 lhci-gate.sh 汇总：任一档失败 / 缺档 / 归档被改动 → 任务失败。
+      # 每档退出码原样保留，最后一步 lhci-gate.sh 汇总：任一档失败 / 缺档 / 归档被改动 / 证据不完整 → 任务失败。
       - name: Lighthouse 移动档（32 页 × 3 次中位数）
         id: lh_mobile
-        run: bash scripts/ci/lhci-tier.sh mobile lighthouserc.cjs
+        run: bash scripts/ci/lhci-tier.sh mobile lighthouserc.cjs lhci-out 32x3
       - name: Lighthouse 桌面档（12 页，T9.21）
         id: lh_desktop
         if: ${{ !cancelled() }}
-        run: bash scripts/ci/lhci-tier.sh desktop lighthouserc.desktop.cjs
+        run: bash scripts/ci/lhci-tier.sh desktop lighthouserc.desktop.cjs lhci-out 12x1
       - name: 上传 Lighthouse 移动档
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -402,6 +402,18 @@ jobs:
           path: lhci-out/desktop
           retention-days: 7
           if-no-files-found: warn
-      - name: Lighthouse 结论（任一档失败 → 失败）
+      # r14：某档归档失败时 .lighthouseci 按规则原样保留（不删未归档的原始数据），这里把它单独上传，便于事后核对
+      - name: 上传未归档的 Lighthouse 工作目录（只有归档失败时才存在）
         if: ${{ always() }}
-        run: bash scripts/ci/lhci-gate.sh lhci-out mobile desktop
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-unarchived-workdir
+          path: .lighthouseci
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: ignore
+      # r14：gate 按「档名=配置:页数x每页次数」核对证据完整性（assertion-results 存在且可解析、页面集合、每页样本数、
+      # runtimeError、必需指标、清单正好覆盖全部文件），不只是哈希；预算与中位数聚合不变（仍由 lighthouserc*.cjs 决定）
+      - name: Lighthouse 结论（任一档失败或证据不完整 → 失败）
+        if: ${{ always() }}
+        run: bash scripts/ci/lhci-gate.sh lhci-out mobile=lighthouserc.cjs:32x3 desktop=lighthouserc.desktop.cjs:12x1

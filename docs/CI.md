@@ -55,3 +55,11 @@
 - **视觉基线门禁**（design 任务，`scripts/ci/visual-baseline-gate.mjs`）：push / PR 时基线目录缺失、为空（0 个 .png）、缺任何必需快照（按 visual 项目用例标题推出）、或出现推不出快照名的新标题 → **失败**。不再在空目录时自动 `--update-snapshots=all`；比较一律 `--update-snapshots=none`（缺快照只失败、不写入）。门禁结果 `reports/visual-gate.json` 随 `design-report-*` 上传。
 - **候选基线**：只有手动 `workflow_dispatch` 勾选 `update_visual` 才会另跑 `visual-candidate` 任务，产物 `visual-candidate-baseline`。它**没有和任何基线比较**，任务成功只表示生成完毕，不算视觉门禁通过、不算验收；人工审阅后才可提交。同一次运行里 design 任务照常比较已提交的基线。
 - **Lighthouse 两档分开存证**（`scripts/ci/lhci-tier.sh`）：移动档 → `lhci-out/mobile`（产物 `lighthouse-mobile`），桌面档 → `lhci-out/desktop`（产物 `lighthouse-desktop`）。每档含 `raw/`（原始 lhr-*.json + assertion-results.json）、`reports/`、`summary.json` / `summary.md`、`exit-codes.json`、`manifest.sha256`。输出目录已存在或 `.lighthouseci` 有残留就拒绝运行，后跑的档不能覆盖先跑的档；两个产物都 `if: always()` 上传；最后一步 `lhci-gate.sh` 复核两档清单，任一档失败 / 缺档 / 归档被改动 → 任务失败。
+
+## 5. Lighthouse 归档完整性（r14）
+
+- **每个文件操作都检查**（`lhci-tier.sh`）：建目录、归档复制（`.lighthouseci` → `raw/`，复制后逐文件 sha256 比对）、upload、清理、摘要、证据核对、`exit-codes.json`、`manifest.sha256`（先写临时文件再改名）任一失败 → 记录（`::error` + `exit-codes.json` 能写就写）并非 0。最终退出码：0 通过；1 测量 / 断言 / 证据不完整；2 拒绝运行；3 本档文件操作失败。`exit-codes.json` 的 `status` 与退出码一致。
+- **归档核对通过之前绝不删除 `.lighthouseci`**。归档失败就原样留下：后一档因此拒绝启动（只写一份 `status: refused` 记录），但绝不读、删、覆盖先前档的任何证据；留下的工作目录由 `lighthouse-unarchived-workdir` 产物单独上传。
+- **证据完整性不只是哈希**（`lhci-verify.mjs`，`lhci-tier.sh` 写清单前跑一次，`lhci-gate.sh` 按自己的期望再跑一次）：`raw/assertion-results.json` 必须存在且是可解析的数组（合法 `[]` = 没有未通过的断言；缺失 / 解析失败 / 不是数组 → 失败，分开记录）；配置的页面清单与期望页数一致、`numberOfRuns` 与期望次数一致（移动 `32x3`、桌面 `12x1`，写在 ci.yml 的 gate 参数里）；每页样本数正好等于期望；任何 `runtimeError`、缺失或非有限数的必需指标（LCP、CLS、TBT、四项分数、脚本 / 整页体积）→ 失败，绝不过滤掉再按剩下的样本判断；报告清单条目数与摘要 `lhrCount` 一致；`manifest.sha256` 必须正好覆盖目录里的全部文件。
+- **预算与聚合方式不变**：仍由 `lighthouserc.cjs` / `lighthouserc.desktop.cjs` 决定（中位数聚合）。
+- **命名**：LHCI 的 `assertion-results.json` 只列未通过（含 warn 级）的断言，所以 `summary.json` 里的字段叫 `failedOrWarnAssertionEntries`（条目数），不代表执行过的断言总数；`assertionResults` 记录文件状态（`missing` / `unparseable` / `not-array` / `present-empty` / `present`）。
