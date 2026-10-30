@@ -1,0 +1,8 @@
+{
+  "name": "az-lhci-pin",
+  "private": true,
+  "description": "Pinned Lighthouse CI for the lighthouse job (r18). @lhci/cli 0.15.1 depends on lighthouse 12.6.1 exactly.",
+  "dependencies": {
+    "@lhci/cli": "0.15.1"
+  }
+}
