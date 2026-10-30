@@ -2,6 +2,8 @@ name: CI
 # 全部任务阻断（无 continue-on-error）。每个 PR 与非 main 分支推送：lint（含 stylelint error）→ 类型检查 → 单元 → 构建 → 死链 / HTML / 结构化数据 / 体积 / CSP 哈希 → E2E（3 引擎 × 4 视口 + axe；
 # 社区流程、角色矩阵、图片上传连真实 Postgres + PostgREST；每个引擎分 2 片并行）→ 设计门禁 + 视觉回归 → 设备矩阵 → Lighthouse（移动 + 桌面，四项 ≥ 95）
 # 另有 db：Postgres 17 服务容器上跑迁移 + RLS 角色矩阵 + Storage RLS + PostgREST 14 重放 V72 请求 + 备份恢复演练
+# 安装（浏览器 / apt）与测试分开：各自 timeout-minutes，安装失败注解「安装超时（基础设施）」；
+# 重试通过的用例注解「首跑失败（flaky）」并写入任务摘要 + 产物 flaky-*（策略见 docs/CI.md）
 on:
   pull_request:
   push:
@@ -9,9 +11,17 @@ on:
   workflow_dispatch:
     inputs:
       update_visual:
-        description: '重新生成视觉回归基线（产物 visual-baseline-*，审阅后提交）'
+        description: '另跑 visual-candidate 任务生成「候选」视觉基线（产物 visual-candidate-baseline，未比较、不算通过，审阅后才可提交）；design 任务照常比较'
         type: boolean
         default: false
+
+# Supabase 连接必须显式配置（scripts/supabase-env.mjs：没有默认值，非生产只允许测试项目 / 本机栈）。
+# CI 的构建、单元、E2E、设计、设备、Lighthouse 一律指向本机栈占位地址：E2E 的 /rest/v1、/auth/v1、/storage/v1 由用例转发到本地
+# PostgREST 或桩；没被转发的请求连 127.0.0.1:54321 直接被拒，绝不会落到生产库（以前回退生产默认值时会）。scripts/serve.mjs 只给这个
+# loopback 源放行 CSP。publishable 占位值不是任何真实项目的 key。
+env:
+  PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  PUBLIC_SUPABASE_KEY: sb_publishable_local-e2e-not-a-secret
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -81,13 +91,21 @@ jobs:
           curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
           .bin/postgrest --version
       - run: npm run test:db
-      - name: PostgreSQL 17 客户端（恢复演练用 pg_dump / pg_restore）
+      - name: PostgreSQL 17 客户端（恢复演练用 pg_dump / pg_restore；基础设施）
+        id: install
+        timeout-minutes: 10
         run: |
+          echo 'Acquire::Retries "3"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -qq postgresql-client-17
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
+        run: |
+          echo "::error title=安装超时（基础设施）::db：PostgreSQL 17 客户端安装失败或超过 10 分钟，恢复演练没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
       - name: 备份恢复演练（dump → 整库恢复 / 换库恢复 → 核对 → RLS 测试）
         run: bash scripts/restore-drill.sh
       - if: ${{ !cancelled() }}
@@ -95,7 +113,8 @@ jobs:
         with: { name: rls-matrix, path: test-results/rls-matrix.md, retention-days: 14 }
 
   e2e:
-    timeout-minutes: 50
+    # 各步骤自带 timeout-minutes（安装 ≤ 25、测试 ≤ 45），任务上限只兜底；安装卡住不再吃掉测试时间（docs/CI.md）
+    timeout-minutes: 85
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -126,25 +145,64 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: dist-ads, path: . }
       - name: PostgREST 14
+        timeout-minutes: 5
         run: |
           mkdir -p .bin
-          curl -fsSL https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
-      - name: 浏览器（安装偶发卡住：10 分钟超时 + 清理 apt 锁 + 最多 3 次）
+          curl -fsSL --retry 3 --retry-delay 5 https://github.com/PostgREST/postgrest/releases/download/v14.18/postgrest-v14.18-linux-static-x86-64.tar.xz | tar -xJ -C .bin
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-${{ matrix.browser }}
+      - name: 安装浏览器与系统依赖（基础设施）
+        id: install
+        timeout-minutes: 25
         run: bash scripts/ci/pw-install.sh ${{ matrix.browser }}
-      - run: npx playwright test --shard=${{ matrix.shard }}/2
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
+        run: |
+          echo "::error title=安装超时（基础设施）::${{ matrix.browser }} 第 ${{ matrix.shard }} 片：浏览器 / 系统依赖安装失败或超过 25 分钟，测试没有运行。这不是测试失败——按 docs/CI.md 重跑一次该任务。"
+          echo "### 安装超时（基础设施）：${{ matrix.browser }} 第 ${{ matrix.shard }} 片，测试未运行" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: E2E 测试
+        id: test
+        timeout-minutes: 45
+        run: npx playwright test --shard=${{ matrix.shard }}/2
         env:
           PW_BROWSERS: ${{ matrix.browser }}
-      - if: ${{ !cancelled() }}
+      - name: 测试超时
+        if: ${{ failure() && steps.test.outcome == 'failure' && hashFiles('reports/e2e-results.json') == '' }}
+        run: |
+          echo "::error title=测试超时::${{ matrix.browser }} 第 ${{ matrix.shard }} 片：测试步骤超过 45 分钟或异常退出、没有写出报告（不是安装问题）。"
+          exit 1
+      - name: 首跑失败（flaky）与失败清单
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        run: node scripts/ci/flaky-report.mjs reports/e2e-results.json reports/flaky.json
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+          PW_SHARD: ${{ matrix.shard }}
+      - if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-e2e-${{ matrix.browser }}-${{ matrix.shard }}
+          path: reports/flaky.json
+          retention-days: 30
+          if-no-files-found: ignore
+      # 首跑失败的 trace（retain-on-failure）在 html 报告里：重试通过也保留，可直接下载分析
+      - if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
           path: playwright-report
-          retention-days: 7
+          retention-days: 14
 
   # P9 设计门禁（T9.2）：Q5 / Q8 / Q11 / Q12 / Q18 断言 + Q2 视觉回归（Chromium + Noto CJK，2 片并行）。
-  # 没有基线（首次）或手动触发 update_visual 时写出基线并上传为产物，审阅后提交到 tests/visual/__screenshots__/。
+  # 视觉基线门禁（r13）：基线目录缺失 / 为空 / 缺任何必需快照 → 失败（scripts/ci/visual-baseline-gate.mjs），不再自动 --update-snapshots=all；
+  # 比较一律 --update-snapshots=none（缺快照只失败、不写入）。候选基线只由下面的 visual-candidate 任务（手动 update_visual）生成。
   design:
-    timeout-minutes: 35
+    timeout-minutes: 55
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -161,16 +219,34 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
-      - name: Chromium + 中文字体
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-chromium
+      - name: 安装 Chromium + 中文字体（基础设施）
+        id: install
+        timeout-minutes: 25
+        run: bash scripts/ci/pw-install.sh chromium fonts-noto-cjk
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk
-          bash scripts/ci/pw-install.sh chromium
+          echo "::error title=安装超时（基础设施）::设计门禁第 ${{ matrix.shard }} 片：Chromium / 字体安装失败或超过 25 分钟，测试没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
+      - name: 视觉基线门禁（缺目录 / 空目录 / 缺快照 → 失败）
+        id: baseline
+        run: |
+          mkdir -p reports
+          PLAYWRIGHT_JSON_OUTPUT_FILE=reports/visual-list.json \
+            npx playwright test -c playwright.design.config.ts --project=visual --list --reporter=json > /dev/null
+          node scripts/ci/visual-baseline-gate.mjs --list reports/visual-list.json \
+            --dir tests/visual/__screenshots__ --out reports/visual-gate.json
       - name: 设计门禁 + 视觉回归
-        run: |
-          UPDATE=""
-          if [ "${{ inputs.update_visual }}" = "true" ] || [ -z "$(ls tests/visual/__screenshots__ 2>/dev/null)" ]; then UPDATE="--update-snapshots=all"; fi
-          npx playwright test -c playwright.design.config.ts --shard=${{ matrix.shard }}/2 $UPDATE
+        id: test
+        timeout-minutes: 25
+        run: npx playwright test -c playwright.design.config.ts --shard=${{ matrix.shard }}/2 --update-snapshots=none
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
@@ -182,14 +258,57 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: design-report-${{ matrix.shard }}
-          path: playwright-report-design
+          path: |
+            playwright-report-design
+            reports/visual-gate.json
           retention-days: 7
           if-no-files-found: ignore
+
+  # 候选视觉基线（只在 workflow_dispatch 勾选 update_visual 时运行）：--update-snapshots=all 写出整套截图，
+  # 上传为 visual-candidate-baseline。它不做任何比较，任务成功只表示「生成完了」，不计入视觉门禁、不算验收；人工审阅后才可提交。
+  visual-candidate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_visual }}
+    timeout-minutes: 45
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-chromium
+      - name: 安装 Chromium + 中文字体（基础设施）
+        timeout-minutes: 25
+        run: bash scripts/ci/pw-install.sh chromium fonts-noto-cjk
+      - name: 生成候选基线（不比较、不计入门禁）
+        timeout-minutes: 25
+        run: |
+          npx playwright test -c playwright.design.config.ts --project=visual --update-snapshots=all
+          {
+            echo '### 候选视觉基线（未比较）'
+            echo ''
+            echo '本任务用 --update-snapshots=all 重写了全部截图，没有和已提交基线比较。产物 visual-candidate-baseline 仅供人工审阅，不代表视觉回归通过。'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-candidate-baseline
+          path: tests/visual/__screenshots__
+          retention-days: 7
+          if-no-files-found: error
 
   # T9.19 设备 / 浏览器矩阵（Playwright 设备模拟：iPhone SE / 15、Pixel 7、iPad 竖横、1024 / 1440 / 1920 × 三引擎），阻断。
   # 首屏截图 + 每格结果（test-results/devices/<引擎>.jsonl）上传为产物 device-matrix-<引擎>，汇总见 docs/DEVICE-MATRIX.md。
   devices:
-    timeout-minutes: 20
+    timeout-minutes: 50
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -203,14 +322,41 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
-      - name: 浏览器 + 中文字体
+      - id: pwv
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright 浏览器缓存（按 Playwright 版本）
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pwv.outputs.version }}-${{ matrix.browser }}
+      - name: 安装浏览器 + 中文字体（基础设施）
+        id: install
+        timeout-minutes: 25
+        run: bash scripts/ci/pw-install.sh ${{ matrix.browser }} fonts-noto-cjk
+      - name: 安装超时（基础设施）
+        if: ${{ failure() && steps.install.outcome == 'failure' }}
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk
-          bash scripts/ci/pw-install.sh ${{ matrix.browser }}
-      - run: npx playwright test -c playwright.devices.config.ts
+          echo "::error title=安装超时（基础设施）::设备矩阵 ${{ matrix.browser }}：浏览器 / 字体安装失败或超过 25 分钟，测试没有运行。按 docs/CI.md 重跑一次。"
+          exit 1
+      - name: 设备矩阵测试
+        id: test
+        timeout-minutes: 15
+        run: npx playwright test -c playwright.devices.config.ts
         env:
           PW_BROWSERS: ${{ matrix.browser }}
+      - name: 首跑失败（flaky）与失败清单
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        run: node scripts/ci/flaky-report.mjs reports/devices-results.json reports/flaky.json
+        env:
+          PW_BROWSERS: ${{ matrix.browser }}
+          PW_TESTDIR: tests/devices
+      - if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-devices-${{ matrix.browser }}
+          path: reports/flaky.json
+          retention-days: 30
+          if-no-files-found: ignore
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
@@ -230,17 +376,44 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
+      # r13：两档各自 collect → assert → upload，原始 LHR、assertion-results、报告、摘要、清单分别存在 lhci-out/mobile 与 lhci-out/desktop，
+      # 后跑的档不能覆盖先跑的档（scripts/ci/lhci-tier.sh 拒绝已存在的输出目录与残留工作目录）；产物失败也上传；
+      # 每档退出码原样保留，最后一步 lhci-gate.sh 汇总：任一档失败 / 缺档 / 归档被改动 / 证据不完整 → 任务失败。
       - name: Lighthouse 移动档（32 页 × 3 次中位数）
-        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.cjs
+        id: lh_mobile
+        run: bash scripts/ci/lhci-tier.sh mobile lighthouserc.cjs lhci-out 32x3
       - name: Lighthouse 桌面档（12 页，T9.21）
+        id: lh_desktop
         if: ${{ !cancelled() }}
-        run: npx --yes @lhci/cli@0.15.x autorun --config=lighthouserc.desktop.cjs
-      - if: ${{ !cancelled() }}
+        run: bash scripts/ci/lhci-tier.sh desktop lighthouserc.desktop.cjs lhci-out 12x1
+      - name: 上传 Lighthouse 移动档
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: lighthouse
-          path: |
-            .lighthouseci
-            .lighthouseci-desktop
+          name: lighthouse-mobile
+          path: lhci-out/mobile
           retention-days: 7
+          if-no-files-found: warn
+      - name: 上传 Lighthouse 桌面档
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-desktop
+          path: lhci-out/desktop
+          retention-days: 7
+          if-no-files-found: warn
+      # r14：某档归档失败时 .lighthouseci 按规则原样保留（不删未归档的原始数据），这里把它单独上传，便于事后核对
+      - name: 上传未归档的 Lighthouse 工作目录（只有归档失败时才存在）
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-unarchived-workdir
+          path: .lighthouseci
           include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: ignore
+      # r14：gate 按「档名=配置:页数x每页次数」核对证据完整性（assertion-results 存在且可解析、页面集合、每页样本数、
+      # runtimeError、必需指标、清单正好覆盖全部文件），不只是哈希；预算与中位数聚合不变（仍由 lighthouserc*.cjs 决定）
+      - name: Lighthouse 结论（任一档失败或证据不完整 → 失败）
+        if: ${{ always() }}
+        run: bash scripts/ci/lhci-gate.sh lhci-out mobile=lighthouserc.cjs:32x3 desktop=lighthouserc.desktop.cjs:12x1

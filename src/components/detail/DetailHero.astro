@@ -10,6 +10,7 @@ import '@/styles/store.css';
 import '@/styles/detail.css';
 import { formatDate } from '@/lib/dates';
 import { detailMetrics, type StoreEntry } from '@/lib/store';
+import { DETAIL_HERO_END_ID } from '@/lib/render-block';
 
 interface Props {
   entry: StoreEntry;
@@ -30,7 +31,7 @@ const metrics = detailMetrics(entry, (d) => formatDate(d));
   <div class="app-hero__main detail-hero__main">
     <h1 class="app-hero__title">{title}</h1>
     {subtitle && <p class="app-hero__subtitle">{subtitle}</p>}
-    <p class="app-hero__dev">
+    <p class="app-hero__dev" data-pagefind-ignore>
       {developer &&
         (developer.url ? <a href={developer.url}>{developer.name}</a> : <span>{developer.name}</span>)}
       <span class={`entry__type entry__type--${entry.type}`} data-type-badge>
@@ -45,7 +46,7 @@ const metrics = detailMetrics(entry, (d) => formatDate(d));
     </p>
   </div>
   {metrics.length > 0 && (
-    <dl class="detail-metrics" data-detail-metrics>
+    <dl class="detail-metrics" data-detail-metrics data-pagefind-ignore>
       {metrics.map((m) => (
         <div class="detail-metric" data-metric={m.key}>
           <dt>{m.label}</dt>
@@ -62,4 +63,6 @@ const metrics = detailMetrics(entry, (d) => formatDate(d));
       <slot name="links" />
     </div>
   )}
+  {/* 头部结束标记：必须是最后一个子元素（之后才解除首帧渲染阻塞，见 src/lib/render-block.ts）；hidden 不参与布局 */}
+  <span id={DETAIL_HERO_END_ID} hidden></span>
 </header>

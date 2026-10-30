@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { test, expect, forwardRest, seedReply, seedThread, uniq } from './community-fixtures';
+import { test, expect, forwardRest, publishThread, seedReply, seedThread, uniq } from './community-fixtures';
 
 /**
  * P3 社区流程（真实 Postgres + PostgREST + RLS + 触发器）：
@@ -58,8 +58,7 @@ test.describe('发帖', () => {
     const preview = page.getByRole('region', { name: '预览' });
     await expect(preview.locator('strong')).toHaveText('加粗文字');
     await expect(preview.locator('img')).toHaveCount(0);
-    await page.getByRole('button', { name: '发布主题' }).click();
-    await expect(page).toHaveURL(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+    await publishThread(page);
     await expect(page.locator('h1')).toHaveText(title);
     await expect(page.locator('[data-body] strong')).toHaveText('加粗文字');
     await expect(page.locator('[data-body] img')).toHaveCount(0);

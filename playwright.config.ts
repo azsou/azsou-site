@@ -10,6 +10,8 @@ import { defineConfig, devices, type Project } from '@playwright/test';
 // 本地测试服务器不走代理（沙箱/公司网络常设 HTTP_PROXY）
 process.env.NO_PROXY = [process.env.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(',');
 process.env.no_proxy = process.env.NO_PROXY;
+// 本地并行多套工作区时可换端口（默认 4321，CI 不设）
+const PORT = process.env.PW_PORT ?? '4321';
 
 const VIEWPORTS = {
   desktop: { viewport: { width: 1440, height: 900 }, mobile: false },
@@ -55,11 +57,20 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : process.env.CI ? 2 : undefined,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
+  // CI 也加 list：日志里逐条列出跑了哪些用例（例如确认 admin-faults 真的执行而非跳过）。
+  // json：scripts/ci/flaky-report.mjs 据此把「首跑失败、重试通过」单独注解 + 写入任务摘要（docs/CI.md）
+  reporter: process.env.CI
+    ? [
+        ['github'],
+        ['list'],
+        ['html', { open: 'never' }],
+        ['json', { outputFile: process.env.PW_JSON_REPORT ?? 'reports/e2e-results.json' }],
+      ]
+    : [['list']],
   timeout: 30_000,
   expect: { timeout: 7_000 },
   use: {
-    baseURL: 'http://127.0.0.1:4321',
+    baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
     trace: 'retain-on-failure',
@@ -68,8 +79,8 @@ export default defineConfig({
   },
   projects,
   webServer: {
-    command: 'node scripts/serve.mjs 4321 dist/client',
-    url: 'http://127.0.0.1:4321/',
+    command: `node scripts/serve.mjs ${PORT} dist/client`,
+    url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

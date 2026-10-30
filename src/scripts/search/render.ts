@@ -45,8 +45,9 @@ export function hitRow(hit: SearchHit, opts: { id?: string; option?: boolean } =
   return a;
 }
 
-/** 结果行的类型图标（Lucide 路径，与 Icon.astro 同一套：24 网格、描边 1.75） */
-const TYPE_ICON: Record<string, string> = {
+/** 结果行的类型图标（Lucide 路径，与 Icon.astro 同一套：24 网格、描边 1.75）。
+ *  为控制搜索脚本体积不整表引入 LUCIDE；tests/unit/icons.test.ts 校验每一项与 src/lib/lucide.ts 逐字一致（D04 单一来源） */
+export const TYPE_ICON: Record<string, string> = {
   app: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   tool: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
   video: '<polygon points="6 3 20 12 6 21 6 3"/>',

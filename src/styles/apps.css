@@ -563,9 +563,6 @@
     align-items: end;
     min-width: min(100%, 380px);
   }
-  .catalog-filter .field:last-child {
-    grid-column: 1 / -1;
-  }
   .catalog-filter .field {
     margin: 0;
   }

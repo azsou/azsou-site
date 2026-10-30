@@ -9,6 +9,7 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isSupabaseOrThirdParty } from '../supabase-route';
 
 export const MATRIX_PAGES = [
   { name: 'home', path: '/' },
@@ -28,9 +29,7 @@ for (const p of MATRIX_PAGES) {
   test(`device ${p.name}`, async ({ page, browserName }, info) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.route(/supabase\.co|challenges\.cloudflare\.com|googlesyndication|googletagmanager/, (r) =>
-      r.abort(),
-    );
+    await page.route(isSupabaseOrThirdParty, (r) => r.abort());
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const t0 = Date.now();
     await page.goto(p.path, { waitUntil: 'load' });
