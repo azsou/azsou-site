@@ -1,0 +1,245 @@
+# r25（本地申请，未批准；取代未批准的 r24 d9fe3ff3，r24 提交原样保留不用）：在 r24 逐样本调度之上只做有限修改——
+#   (1) 每个样本结束后、下一个样本开始前核对该样本的实际产物（LHR / trace / devtools 归属于计划页面、已留存、能解析；与整档对应表
+#       同一套检查）：可确认的正常测量失败（如真实 NO_NAVSTART）记录后继续下一个独立样本；产物属于别的页面、留存写入失败、证据解析不了
+#       或归属不了、无法分类的异常 → 停止后续样本、不交接；
+#   (2) 收尾文件（summary / verify / evidence-map / exit-codes / manifest）全部生成且可核对、没有文件操作失败，才写交接记录；
+#   (3) lhci-summary.mjs 只改不完整样本的显示与计数（按计划样本 ↔ 证据对应表；不完整页标「不完整，不满足原定聚合条件」，不给中位数），
+#       因此从「保持原 blob」清单移到覆盖清单（覆盖文件 9 → 10 个）；
+#   (4) 超时：移动档步骤 25 → 40 分钟，任务 85 → 100 分钟，其余不变。移动 32×3、桌面 12×1、页序、预算、断言、分母不变；
+#       每个样本最多一次真实测量，不重试、不补测、不替补。每个样本仍重启一次静态服务器和 LHCI 进程，条件与旧流程不完全相同；
+#       这不是 NO_NAVSTART 的修复。未归档目录只说明文件当时在 runner 本地，超时 / runner 回收后不保证能取回。
+#   触发分支与 vercel.json 键改为 diag/r25-lhci-slots-aaf06ec。
+# 以下为 r24 说明（除上面四点外仍适用）：
+# r24（本地申请，未批准；取代 r23 已用过的 2ae3d587 运行配置）：唯一的行为变化是 Lighthouse 两档改为「逐样本调度」——
+#   lhci-tier.sh 按原顺序为每个计划样本单独调用一次 collect（--additive --url=<该样本> --numberOfRuns=1，配置文件不改），
+#   样本采集失败（如 NO_NAVSTART）原样记录、不重试、不替补，继续下一个计划样本；台账 lhci-out/<档>/slots.jsonl 记录每个样本
+#   的身份（档 / pageIndex / runIndex）与结果；台账 / 写盘 / 样本归属 / 前提出问题即停止且不交接。分母仍是 96 + 12，任一样本失败
+#   或缺失本档即失败、不跑断言。覆盖文件由 8 个变为 9 个（新增 scripts/ci/lhci-slots.mjs；lhci-tier.sh、钩子、证据对应表脚本
+#   换成本地补丁提交 c610656f 的版本）。触发分支与 vercel.json 键改为 diag/r24-lhci-slots-aaf06ec。其余（检出 aaf06ec / 树 f60656fe、
+#   原 dist 产物 12949483173 核对、配置与页序、npm ci、run_attempt=1、各超时、上传、gate）与 2ae3d587 相同。
+#   这不是 NO_NAVSTART 的修复；每个样本多一次 LHCI 进程启动与静态服务器起停，条件与原运行不完全相同。
+# 以下为 r20 原说明（仍适用）：
+# 只读诊断（r20 申请；取代作废的 r19 94a5f26c 与 r18 c27a84c7）：在原运行 40991913875 的条件下，用证据留存版 Lighthouse 任务重跑一次「移动 32×3 → 桌面 12×1」，
+# 为每个样本留下 trace / devtools 日志，看原 /apps/ 桌面 CLS 0.072 那类超标在原顺序下是否出现、出现时动了什么。
+# 这不是修复、不是验收、不是部署。只在本分支第一次推送时跑一次（run_attempt 必须 = 1），不重试、不重建、不加样本。
+#   - 被测产物：原运行的 dist 产物 12949483173（先查元数据：未过期、属于原运行、digest 一致；再实际下载并核对 zip sha256 与内容清单，
+#     任一不符或下载失败就停，不测量；元数据 expired=false 不等于能下载）；
+#   - 源码 / 服务器 / 配置：检出 aaf06ec 并核对树 f60656fe（= 原运行实际检出的树）；lighthouserc.cjs、lighthouserc.desktop.cjs、
+#     scripts/serve.mjs 等保持原 blob（下面逐个核对）。只覆盖 9 个证据留存文件（r24：blob 与本地补丁提交 c610656f 相同，逐个核对；r20 时为 aa95c458 的 8 个）；
+#     包含 aaf06ec 原配置中的 /search/（桌面档 12 页之一），不新增历史版本 /search/ 单页诊断；
+#   - 顺序、参数与原 lighthouse 任务相同：npm ci → 移动档 32×3（lighthouserc.cjs）→ 桌面档 12×1（lighthouserc.desktop.cjs）
+#     → 上传（always，尽力而为）→ gate（always）。r20：桌面档除 !cancelled() 外还要求移动档「正常走完」的交接记录
+#     lhci-out/mobile.handoff.json 有效（lhci-tier.sh 在 summary / verify / evidence-map / exit-codes / manifest 之后最后才写），
+#     且移动档步骤自己记下的退出码与交接记录一致；不要求移动档通过（性能断言失败照样交接、桌面档照常测量）。
+#     移动档在任何阶段被中断 / 超时 / 被杀（包括已归档、已删 .lighthouseci 之后的 summary 等收尾阶段）→ 没有交接 → 桌面档不测量。与原任务的差异：不依赖 build 任务（dist 来自原产物）、@lhci/cli 固定 0.15.1 而非运行时解析
+#     0.15.x、saveAssets + 逐次尝试留存 + 阻止 LHCI 内部重试、产物名与保留天数、任务超时 85 分钟（原 30）。
+#   - 超时余量（r20 更正）：每个步骤都有自己的 timeout-minutes；上传之前所有步骤上限之和 62 分钟 + 收尾 / 上传 / 结论上限之和 16 分钟
+#     = 78 < 任务 85。这只是**时间上的余量**，不是上传保证：always() 步骤只是尽力而为的收尾，上传本身可能失败、超时，
+#     手动取消、runner 丢失 / 被硬杀时可能根本不执行，已写盘的证据可能拿不到。
+#     某档被中断时证据停在什么状态取决于中断时的阶段：归档前被中断 → 原始数据在未归档的 .lighthouseci（单独上传）；
+#     归档并删除 .lighthouseci 之后被中断 → 原始数据已在 lhci-out/<档>/raw，没有 .lighthouseci，但缺 exit-codes / manifest / 交接记录。
+name: lhci-evidence-run
+on:
+  push:
+    branches: ['diag/r25-lhci-slots-aaf06ec']
+permissions:
+  contents: read
+  actions: read # 只为读原运行产物元数据与下载原 dist 产物
+concurrency:
+  group: lhci-evidence-run
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  # 与原 ci.yml 顶层相同的本机占位值（不是任何真实项目的 key）
+  PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  PUBLIC_SUPABASE_KEY: sb_publishable_local-e2e-not-a-secret
+  ORIG_RUN_ID: '40991913875'
+  ORIG_ARTIFACT_ID: '12949483173'
+  ORIG_ARTIFACT_ZIP_SHA256: 40ac34894d54f3805659be356615b1dba968e1cf2859fb0c39d2c9e5fb4ee381
+  ORIG_DIST_MANIFEST_SHA256: 1ebbb623632838199b2c842a03babe42b6f4f97cd0566791fbc553e8822d2b2e
+  ORIG_TREE: f60656fe0d127d2a2367a9ff1166fb9473bb2cf6
+  SRC_COMMIT: aaf06ec11be587c3a4a231d480c0065188d75415
+  LH_EVIDENCE: '1'
+jobs:
+  lighthouse:
+    # 只在第 1 次尝试时运行：手动「Re-run」不会产生额外样本
+    if: ${{ github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    # r25：85 → 100（移动档步骤上限 25 → 40；上传之前步骤上限之和 77 + 收尾 / 上传 / 结论 16 = 93 < 100）
+    timeout-minutes: 100
+    steps:
+      - name: 检出本分支（工作流 + 证据留存覆盖文件）
+        timeout-minutes: 3
+        uses: actions/checkout@v4
+        with: { path: run, persist-credentials: false }
+      - name: 检出与原运行同树的源码（aaf06ec）
+        timeout-minutes: 3
+        uses: actions/checkout@v4
+        with: { ref: '${{ env.SRC_COMMIT }}', path: orig, persist-credentials: false }
+      - name: 核对源码树 = f60656fe，覆盖 10 个证据留存文件并逐个核对 blob
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          mkdir -p meta
+          t=$(git -C orig rev-parse 'HEAD^{tree}')
+          echo "tree=$t" | tee meta/tree.txt
+          [ "$t" = "$ORIG_TREE" ] || { echo "::error::树 $t ≠ 原运行 $ORIG_TREE，停止（不测量）"; exit 1; }
+          # 原样保留、必须与 aaf06ec 相同的文件（配置 / 服务器 / 核对脚本 / 依赖锁）；r25：lhci-summary.mjs 移到覆盖清单
+          while read -r blob f; do
+            got=$(git -C orig hash-object "$f"); echo "keep $f $got" | tee -a meta/tree.txt
+            [ "$got" = "$blob" ] || { echo "::error::$f blob $got ≠ $blob，停止"; exit 1; }
+          done <<'EOF'
+          4ab0d65a974da078e7fd85986ace7a91190547b4 lighthouserc.cjs
+          d907906466453a9e2c6ecfab416dc8789c5b06d0 lighthouserc.desktop.cjs
+          53c3aa9423b39c7a8ec37e64ea430672011cf445 scripts/serve.mjs
+          7415e8de9f4f525b93b9fa839ebe076d09cc5dff scripts/lib/slash-redirect.mjs
+          a751b81e034a8574b0a98f4c7a4348011bae1dbd scripts/lib/local-csp.mjs
+          97c4f9b456d89e3d086ea6d6ede4c98372fad978 scripts/ci/lhci-verify.mjs
+          e59d4c25622cad905cb33a797b121fcec63fd54f package.json
+          4f0384ce40fba58d0534406937fceaac3b8a9f35 package-lock.json
+          EOF
+          mkdir -p orig/tools/lhci
+          while read -r blob f; do
+            cp "run/overlay/$f" "orig/$f"
+            got=$(git -C orig hash-object "$f"); echo "overlay $f $got" | tee -a meta/tree.txt
+            [ "$got" = "$blob" ] || { echo "::error::覆盖文件 $f blob $got ≠ $blob（本地补丁提交 7e08e3ab），停止"; exit 1; }
+          done <<'EOF'
+          8bf10e31480948cb2b348397ed8e7d22a7aee894 scripts/ci/lhci-tier.sh
+          a2d32bda5c0a91e810c39d12b6796ce17d06c107 scripts/ci/lhci-gate.sh
+          164b6c7a337fc527dcb7b8bea732b40a2fb01536 scripts/ci/lhci-evidence.mjs
+          cc7107e448b64ef1fd01f47dad5946f76b7e30de scripts/ci/lhci-handoff.mjs
+          393a190ec4c06d385cd11d535c3047c0d4bf3d7d scripts/ci/lhci-env.mjs
+          826b3344cff05da488fc83153bd833c63ad56aa3 scripts/ci/lhci-attempt-hook.cjs
+          e1c5a6ba482fe957f61d93673a81379a406cd387 scripts/ci/lhci-slots.mjs
+          28ab9d878b4ea08bf3eabf0c4b7f73233987b603 scripts/ci/lhci-summary.mjs
+          58012b9b5dbe9d5cc81f1066f4347802b23e44d6 tools/lhci/package.json
+          d12b12025a684137139f60d1525b936d0f1669ea tools/lhci/package-lock.json
+          EOF
+      - uses: actions/setup-node@v4
+        timeout-minutes: 4
+        with: { node-version: 22, cache: npm, cache-dependency-path: orig/package-lock.json }
+      - name: npm ci（与原 lighthouse 任务相同）
+        timeout-minutes: 6
+        working-directory: orig
+        run: npm ci
+      - name: 原 dist 产物：元数据核对 + 实际下载 + zip 哈希 + 内容清单（不重建）
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIG_ARTIFACT_ID}"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -o meta/artifact-meta.json "$api"
+          node -e '
+            const m=require("./meta/artifact-meta.json"), e=process.env;
+            const bad=[];
+            if (m.expired!==false) bad.push("expired="+m.expired);
+            if (String(m.workflow_run?.id)!==e.ORIG_RUN_ID) bad.push("workflow_run.id="+m.workflow_run?.id);
+            if (m.digest!=="sha256:"+e.ORIG_ARTIFACT_ZIP_SHA256) bad.push("digest="+m.digest);
+            console.log("artifact meta: name="+m.name+" size="+m.size_in_bytes+" expires_at="+m.expires_at+" expired="+m.expired);
+            if (bad.length) { console.log("::error::产物元数据不符："+bad.join("，")+"，停止（不测量）"); process.exit(1); }' | tee meta/artifact.txt
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -o dist.zip "$api/zip"
+          z=$(sha256sum dist.zip | cut -d' ' -f1); echo "zip sha256=$z" | tee -a meta/artifact.txt
+          [ "$z" = "$ORIG_ARTIFACT_ZIP_SHA256" ] || { echo "::error::产物 zip 哈希不符，停止（不测量）"; exit 1; }
+          mkdir -p orig/dist && unzip -q dist.zip -d orig/dist
+          ( cd orig/dist && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum ) > meta/dist.manifest
+          m=$(sha256sum meta/dist.manifest | cut -d' ' -f1); echo "dist manifest sha256=$m ($(wc -l < meta/dist.manifest) 行)" | tee -a meta/artifact.txt
+          [ "$m" = "$ORIG_DIST_MANIFEST_SHA256" ] || { echo "::error::dist 内容清单不符，停止（不测量）"; exit 1; }
+          rm -f dist.zip
+      - name: 安装固定版本 Lighthouse CI（@lhci/cli 0.15.1 / lighthouse 12.6.1，按 package-lock）
+        timeout-minutes: 5
+        working-directory: orig
+        run: npm ci --prefix tools/lhci --no-audit --no-fund
+      # 走到这里 = 树 / 覆盖文件 / dist 元数据 + 下载 + 哈希 + 清单 / 工具安装全部通过；桌面档的 !cancelled() 只放行「移动档失败」，
+      # 不放行任何测量前核对失败（否则核对失败后桌面档仍会测量）
+      - name: 测量前核对全部通过
+        id: ready
+        timeout-minutes: 1
+        run: |
+          echo "ready"
+          echo "ready $(date -u +%FT%TZ)" >> meta/timeline.txt
+      - name: Lighthouse 移动档（32 页 × 3 次，证据留存）
+        id: lh_mobile
+        # 原移动档约 17 分钟；r24 逐样本调度估计 22–26 分钟，r25 上限 25 → 40。超时 / 中断 = 本步骤失败，且 lhci-tier.sh 走不到最后
+        # → 没有交接记录 → 桌面档不测量（r20）。证据停在中断时的阶段（归档前：未归档的 .lighthouseci；归档后：lhci-out/mobile/raw 已有，
+        # 缺 exit-codes / manifest）；未归档目录只说明文件当时在 runner 本地，超时 / runner 回收后不保证能上传或取回。
+        timeout-minutes: 40
+        working-directory: orig
+        run: |
+          echo "mobile-start $(date -u +%FT%TZ)" >> ../meta/timeline.txt
+          rc=0; bash scripts/ci/lhci-tier.sh mobile lighthouserc.cjs lhci-out 32x3 || rc=$?
+          echo "mobile-end $(date -u +%FT%TZ) rc=$rc" >> ../meta/timeline.txt
+          exit "$rc"
+      # r20：移动档正常走完的交接核对。只要求交接记录有效、且与移动档步骤记下的退出码一致；不要求移动档通过。
+      # 不满足 → 不写 ok → 桌面档不测量（本步骤失败只是记录，gate 照样因为桌面档缺失而失败）。
+      - name: 移动档交接核对（正常走完才放行桌面档）
+        id: handoff
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        timeout-minutes: 1
+        working-directory: orig
+        run: |
+          set -euo pipefail
+          cp lhci-out/mobile.handoff.json ../meta/ 2>/dev/null || true
+          node scripts/ci/lhci-handoff.mjs check lhci-out mobile lighthouserc.cjs 32x3
+          step_rc=$(sed -n 's/^mobile-end .* rc=\([0-9][0-9]*\)$/\1/p' ../meta/timeline.txt | tail -1)
+          ho_rc=$(node -p 'require("./lhci-out/mobile.handoff.json").exitCode')
+          if [ -z "$step_rc" ] || [ "$step_rc" != "$ho_rc" ]; then
+            echo "::error::移动档步骤退出码（${step_rc:-无记录}）与交接记录（$ho_rc）不一致，桌面档不测量"
+            exit 1
+          fi
+          echo "handoff ok mobile rc=$ho_rc $(date -u +%FT%TZ)" >> ../meta/timeline.txt
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - name: Lighthouse 桌面档（12 页 × 1 次，证据留存）
+        id: lh_desktop
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' && steps.handoff.outputs.ok == 'true' }}
+        # 原桌面档约 3 分钟；上限 7
+        timeout-minutes: 7
+        working-directory: orig
+        env:
+          LH_HANDOFF_FROM: mobile # lhci-tier.sh 测量前再核对一次交接记录，无效就不调用 collect
+        run: |
+          echo "desktop-start $(date -u +%FT%TZ)" >> ../meta/timeline.txt
+          rc=0; bash scripts/ci/lhci-tier.sh desktop lighthouserc.desktop.cjs lhci-out 12x1 || rc=$?
+          echo "desktop-end $(date -u +%FT%TZ) rc=$rc" >> ../meta/timeline.txt
+          exit "$rc"
+      # 收尾记录：时间、磁盘、各档结论文件 / 交接记录是否存在（尽力而为；超时 / 取消后通常也会跑，但不保证）
+      - name: 收尾记录（always）
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: |
+          mkdir -p meta
+          {
+            echo "wrapup $(date -u +%FT%TZ)"
+            df -h . | tail -1
+            du -sh orig/lhci-out orig/.lighthouseci 2>/dev/null || true
+            ls -la orig/lhci-out/*.handoff.json orig/lhci-out/*/exit-codes.json orig/lhci-out/*/manifest.sha256 2>/dev/null || echo "（某档没有 exit-codes.json / manifest.sha256：该档没跑完或被终止）"
+          } >> meta/timeline.txt 2>&1 || true
+          cp orig/lhci-out/*.handoff.json meta/ 2>/dev/null || true
+          cat meta/timeline.txt || true
+      - name: 上传移动档证据
+        if: ${{ always() }}
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v4
+        with: { name: lhci-evidence-mobile, path: orig/lhci-out/mobile, retention-days: 14, if-no-files-found: warn }
+      - name: 上传桌面档证据
+        if: ${{ always() }}
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v4
+        with: { name: lhci-evidence-desktop, path: orig/lhci-out/desktop, retention-days: 14, if-no-files-found: warn }
+      - name: 上传未归档的工作目录（只有归档失败时才存在）
+        if: ${{ always() }}
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v4
+        with: { name: lhci-evidence-unarchived-workdir, path: orig/.lighthouseci, include-hidden-files: true, retention-days: 14, if-no-files-found: ignore }
+      - name: 上传产物核对记录（树 / 覆盖文件 / dist 元数据与清单）
+        if: ${{ always() }}
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v4
+        with: { name: lhci-evidence-meta, path: meta, retention-days: 14, if-no-files-found: warn }
+      - name: Lighthouse 结论（任一档失败、证据不完整或对应表不符 → 失败）
+        if: ${{ always() }}
+        timeout-minutes: 3
+        working-directory: orig
+        run: bash scripts/ci/lhci-gate.sh lhci-out mobile=lighthouserc.cjs:32x3 desktop=lighthouserc.desktop.cjs:12x1
