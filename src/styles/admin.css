@@ -1404,6 +1404,7 @@
     align-items: center;
     gap: var(--space-1);
     font-size: var(--fs-meta);
+    white-space: nowrap;
   }
   @media (min-width: 900px) {
     .table-tools__sort {
