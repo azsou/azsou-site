@@ -45,6 +45,9 @@ describe('数据表列排序 compareCells（T10.17）', () => {
     const mq = { matches: true, addEventListener: (_: string, f: () => void) => (listener = f) };
     const orig = window.matchMedia;
     window.matchMedia = (() => mq) as unknown as typeof window.matchMedia;
+    const origCV = (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility;
+    // jsdom 不做布局：本用例里所有控件都视为可见
+    (HTMLElement.prototype as unknown as { checkVisibility: () => boolean }).checkVisibility = () => true;
     try {
       document.body.innerHTML = `<div class="table-wrap"><table class="data-table" data-cards data-server-sort data-table2="t-cards">
         <thead><tr><th class="col-check"><span>选择</span></th><th data-sort-key="title">内容</th><th>备注</th><th data-sort-key="published">状态</th></tr></thead>
@@ -91,6 +94,73 @@ describe('数据表列排序 compareCells（T10.17）', () => {
       expect(document.activeElement).toBe(sel);
     } finally {
       window.matchMedia = orig;
+      if (origCV === undefined)
+        delete (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility;
+      else (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility = origCV;
+    }
+  });
+
+  it('回到宽屏时对应列仍隐藏：焦点交给可见表头 / 工具条，不改排序、不派发排序、不改隐藏偏好', () => {
+    let listener: (() => void) | null = null;
+    const mq = { matches: true, addEventListener: (_: string, f: () => void) => (listener = f) };
+    const orig = window.matchMedia;
+    const origCV = (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility;
+    window.matchMedia = (() => mq) as unknown as typeof window.matchMedia;
+    // jsdom 不做布局：用 th[data-test-hidden] 模拟被 data-priority / data-hide 隐藏的列
+    (HTMLElement.prototype as unknown as { checkVisibility: () => boolean }).checkVisibility = function (
+      this: HTMLElement,
+    ) {
+      return !this.closest('[data-test-hidden]');
+    };
+    try {
+      document.body.innerHTML = `<div class="table-wrap"><table class="data-table" data-cards data-server-sort data-table2="t-hidden">
+        <thead><tr><th class="col-check"><span>选择</span></th><th data-sort-key="title">内容</th><th>备注</th><th data-sort-key="created_at">注册时间</th></tr></thead>
+        <tbody><tr data-row><td><input type="checkbox"></td><td>甲</td><td>x</td><td>2026</td></tr></tbody>
+      </table></div>`;
+      const table = document.querySelector('table')!;
+      const events: unknown[] = [];
+      table.addEventListener('table2:sort', (e) => events.push((e as CustomEvent).detail));
+      enhanceTable(table);
+      const sel = document.querySelector<HTMLSelectElement>('.table-tools__sort select')!;
+      sel.value = '4:ascending';
+      sel.dispatchEvent(new Event('change'));
+      expect(events).toEqual([{ key: 'created_at', dir: 'asc' }]);
+      const hideBefore = table.dataset.hide ?? '';
+      // 路径 A/B 的共同形态：目标列（第 4 列）在宽屏下仍隐藏
+      table.querySelector('thead th:nth-child(4)')!.setAttribute('data-test-hidden', '');
+      sel.focus();
+      mq.matches = false;
+      listener!();
+      expect(document.activeElement).toBe(table.querySelector('[data-sort-col="2"]'));
+      expect(document.activeElement).not.toBe(document.body);
+      expect(sel.value).toBe('4:ascending');
+      expect(table.querySelector('thead th:nth-child(4)')!.getAttribute('aria-sort')).toBe('ascending');
+      expect(events).toHaveLength(1);
+      expect(table.dataset.hide ?? '').toBe(hideBefore);
+      // 所有表头排序按钮都不可见：交给工具条按钮
+      mq.matches = true;
+      listener!();
+      expect(document.activeElement).toBe(sel);
+      table.querySelector('thead')!.setAttribute('data-test-hidden', '');
+      mq.matches = false;
+      listener!();
+      const active = document.activeElement as HTMLElement;
+      expect(active).not.toBe(document.body);
+      expect(active.closest('.table-tools')).not.toBeNull();
+      expect(events).toHaveLength(1);
+      // 焦点在行内控件：断点切换不移动它
+      const cb = table.querySelector<HTMLInputElement>('tbody input')!;
+      cb.focus();
+      mq.matches = true;
+      listener!();
+      mq.matches = false;
+      listener!();
+      expect(document.activeElement).toBe(cb);
+    } finally {
+      window.matchMedia = orig;
+      if (origCV === undefined)
+        delete (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility;
+      else (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility = origCV;
     }
   });
 });

@@ -775,33 +775,47 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
     await signIn(page, a);
     await page.goto('/admin/users/');
     await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
-    // 焦点逐个检查：不能落在表头里，表格内的焦点要完整落在滚动容器的可视区内
+    // 焦点逐个检查：不能落在表头里，表格内的焦点要完整落在滚动容器的可视区内；
+    // 每一站都必须是真实可见的控件。Tab 合法离开页面（落到 BODY）时结束循环，不算失败。
     await page.locator('.table-tools button').first().focus();
     for (let i = 0; i < 24; i++) {
       await page.keyboard.press('Tab');
       const f = await page.evaluate(() => {
-        const e = document.activeElement as HTMLElement;
+        const e = document.activeElement as HTMLElement | null;
+        if (!e || e === document.body) return null;
         const wrap = e.closest('.table-wrap');
         const b = e.getBoundingClientRect();
         const w = wrap?.getBoundingClientRect();
         return {
           thead: !!e.closest('thead'),
           inside: !w || (b.left >= w.left - 1 && b.right <= w.right + 1),
+          visible: b.width > 0 && b.height > 0 && e.checkVisibility({ visibilityProperty: true }),
           label: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 20),
         };
       });
+      if (!f) break;
       expect(f.thead, f.label).toBe(false);
       expect(f.inside, f.label).toBe(true);
+      expect(f.visible, f.label).toBe(true);
     }
     const sort = page.locator('.table-tools__sort select');
     await expect(sort).toBeVisible();
-    const req = page.waitForRequest(
-      (r) => /mod_list_users/.test(r.url()) && /"p_sort"/.test(r.postData() ?? ''),
-    );
+    const sortReq = () => page.waitForRequest((r) => /mod_list_users/.test(r.url()) && r.method() === 'POST');
+    let req = sortReq();
     await sort.selectOption({ index: 1 });
-    expect((await req).postData()).toContain('"p_dir":"asc"');
+    let body = JSON.parse((await req).postData() ?? '{}');
+    expect([body.p_sort, body.p_dir]).toEqual([expect.any(String), 'asc']);
     await expect(page.locator('thead th[aria-sort="ascending"]')).toHaveCount(1);
+    req = sortReq();
+    await sort.selectOption({ index: 2 });
+    body = JSON.parse((await req).postData() ?? '{}');
+    expect(body.p_dir).toBe('desc');
+    await expect(page.locator('thead th[aria-sort="descending"]')).toHaveCount(1);
+    // 默认顺序：请求不再带排序参数（或为 null），表头无 aria-sort
+    req = sortReq();
     await sort.selectOption('');
+    body = JSON.parse((await req).postData() ?? '{}');
+    expect(body.p_sort ?? null).toBeNull();
     await expect(page.locator('thead th[aria-sort]')).toHaveCount(0);
 
     await page.goto('/admin/data/');
@@ -819,5 +833,130 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
       };
     });
     expect(m).toEqual({ overflow: 0, clipped: [], preInside: true, preScrolls: true });
+  });
+
+  test('断点交接：焦点从排序下拉回到宽屏时只落在可见控件；隐藏列不丢焦点、不改排序、不发请求', async ({
+    page,
+    makeUser,
+    signIn,
+  }) => {
+    test.setTimeout(90_000);
+    const a = await makeUser(uniq('管理员'), { role: 'admin' });
+    await makeUser(uniq('用户'));
+    await signIn(page, a);
+    const focusState = () =>
+      page.evaluate(() => {
+        const e = document.activeElement as HTMLElement | null;
+        if (!e || e === document.body) return { body: true } as const;
+        const b = e.getBoundingClientRect();
+        // 祖先裁切：沿 overflow 非 visible 的祖先检查交集
+        let clipped = false;
+        for (let p = e.parentElement; p; p = p.parentElement) {
+          const s = getComputedStyle(p);
+          if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
+            const r = p.getBoundingClientRect();
+            if (b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom)
+              clipped = true;
+          }
+        }
+        return {
+          body: false,
+          visible: b.width > 0 && b.height > 0 && e.checkVisibility({ visibilityProperty: true }),
+          clipped,
+          where: e.closest('thead')
+            ? 'thead'
+            : e.closest('.table-tools')
+              ? 'tools'
+              : e.closest('tbody')
+                ? 'tbody'
+                : 'other',
+          col: e.getAttribute('data-sort-col'),
+          tag: e.tagName,
+        };
+      });
+    const sort = page.locator('.table-tools__sort select');
+    const rpc: string[] = [];
+    page.on('request', (r) => {
+      if (/mod_list_users/.test(r.url())) rpc.push(r.postData() ?? '');
+    });
+    const choose = async (value: string) => {
+      const req = page.waitForRequest((r) => /mod_list_users/.test(r.url()) && r.method() === 'POST');
+      await sort.selectOption(value);
+      await req;
+      await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    };
+
+    // 正常对照：可见列（第 1 列「用户」）800 → 1440，焦点交给该列表头按钮
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.goto('/admin/users/');
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    await choose('1:ascending');
+    await sort.focus();
+    let n = rpc.length;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect
+      .poll(async () => (await focusState()).body === false && (await focusState()).where)
+      .toBe('thead');
+    let f = await focusState();
+    expect(f).toMatchObject({ body: false, visible: true, clipped: false, where: 'thead', col: '1' });
+    expect(rpc.length).toBe(n);
+    // 宽 → 窄：焦点在表头，交给可见下拉
+    await page.setViewportSize({ width: 800, height: 900 });
+    await expect.poll(async () => (await focusState()).where).toBe('tools');
+    f = await focusState();
+    expect(f).toMatchObject({ body: false, visible: true, clipped: false, tag: 'SELECT' });
+
+    // 路径 A：响应式隐藏列（注册时间，data-priority=3，<1200 隐藏）800 → 1000
+    await choose('8:ascending');
+    await sort.focus();
+    n = rpc.length;
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await expect.poll(async () => (await focusState()).body).toBe(false);
+    f = await focusState();
+    expect(f).toMatchObject({ body: false, visible: true, clipped: false });
+    expect(f.col).not.toBe('8');
+    await expect(page.locator('thead th:nth-child(8)')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(page.locator('thead th:nth-child(8)')).toBeHidden();
+    expect(rpc.length).toBe(n);
+    // 1000 → 800 → 1000 再来一次（来回切换）
+    await page.setViewportSize({ width: 800, height: 900 });
+    await sort.focus();
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await expect.poll(async () => (await focusState()).body).toBe(false);
+    expect(await focusState()).toMatchObject({ visible: true, clipped: false });
+    expect(rpc.length).toBe(n);
+
+    // 路径 B：用户隐藏「状态」列（第 3 列）800 → 1440
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.evaluate(() => {
+      const k = 'az-admin-table:users';
+      const p = JSON.parse(localStorage.getItem(k) || '{}');
+      localStorage.setItem(k, JSON.stringify({ ...p, hide: [3], sort: null }));
+    });
+    await page.reload();
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    await expect(page.locator('table.data-table')).toHaveAttribute('data-hide', /\b3\b/);
+    await choose('3:ascending');
+    await sort.focus();
+    n = rpc.length;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(async () => (await focusState()).body).toBe(false);
+    f = await focusState();
+    expect(f).toMatchObject({ body: false, visible: true, clipped: false });
+    expect(f.col).not.toBe('3');
+    await expect(page.locator('table.data-table')).toHaveAttribute('data-hide', /\b3\b/);
+    await expect(page.locator('thead th:nth-child(3)')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(sort).toHaveValue('3:ascending');
+    expect(rpc.length).toBe(n);
+
+    // 焦点在行内按钮：断点来回切换不移动它
+    const rowBtn = page
+      .locator('.data-table tbody tr[data-row] button, .data-table tbody tr[data-row] a')
+      .first();
+    await rowBtn.focus();
+    const before = await rowBtn.evaluate((e) => e.outerHTML);
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await page.evaluate(() => document.activeElement?.outerHTML)).toBe(before);
   });
 });

@@ -14,6 +14,13 @@
 import { toCsv } from '@/lib/csv';
 import { download, h, stamp } from './shell';
 
+/** 元素是否实际渲染、可见（祖先 display:none / visibility:hidden 都算不可见）。 */
+export function isShown(el: HTMLElement): boolean {
+  if (!el.isConnected) return false;
+  if (typeof el.checkVisibility === 'function') return el.checkVisibility({ visibilityProperty: true });
+  return el.getClientRects().length > 0;
+}
+
 export type Density = 'standard' | 'compact';
 export interface SavedView {
   name: string;
@@ -490,8 +497,21 @@ export function enhanceTable(table: HTMLTableElement) {
       if (narrow && active instanceof HTMLElement && table.tHead?.contains(active)) {
         (sortSel ?? tools.querySelector<HTMLElement>('button'))?.focus();
       } else if (!narrow && sortSel && active === sortSel) {
+        // 对应列可能仍被响应式（data-priority）或用户偏好（data-hide）隐藏：依次尝试
+        // 对应列表头 → 其它可见表头排序按钮 → 工具条按钮，只停在真正拿到焦点的控件上。
+        // 不改隐藏偏好、不改排序值、不派发排序。
         const col = prefs.sort?.col ?? sortable[0]?.n;
-        table.querySelector<HTMLElement>(`thead [data-sort-col="${col}"]`)?.focus();
+        const target = table.querySelector<HTMLElement>(`thead [data-sort-col="${col}"]`);
+        const candidates = [
+          target,
+          ...table.querySelectorAll<HTMLElement>('thead .th-sort'),
+          ...tools.querySelectorAll<HTMLElement>('button:not([disabled])'),
+        ];
+        for (const el of candidates) {
+          if (!el || !isShown(el)) continue;
+          el.focus();
+          if (document.activeElement === el) break;
+        }
       }
     };
     cardsMq.addEventListener('change', syncCards);
