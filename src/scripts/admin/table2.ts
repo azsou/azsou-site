@@ -233,7 +233,12 @@ export function enhanceTable(table: HTMLTableElement) {
       : null;
   let sortSel: HTMLSelectElement | null = null;
   if (cardsMq && sortable.length) {
-    sortSel = h('select', { class: 'select select--inline', 'data-sort-select': true }) as HTMLSelectElement;
+    // 名称只取「排序」：包在 <label> 里会把全部选项文字并入可访问名称，与页面上的「状态」等筛选同名冲突
+    sortSel = h('select', {
+      class: 'select select--inline',
+      'data-sort-select': true,
+      'aria-label': '排序',
+    }) as HTMLSelectElement;
     sortSel.append(h('option', { value: '', text: '默认顺序' }));
     for (const c of sortable)
       sortSel.append(
@@ -451,7 +456,16 @@ export function enhanceTable(table: HTMLTableElement) {
     'div',
     { class: 'table-tools', role: 'group', 'aria-label': '表格工具' },
     seg,
-    ...(sortSel ? [h('label', { class: 'table-tools__sort' }, h('span', { text: '排序' }), sortSel)] : []),
+    ...(sortSel
+      ? [
+          h(
+            'div',
+            { class: 'table-tools__sort' },
+            h('span', { text: '排序', 'aria-hidden': 'true' }),
+            sortSel,
+          ),
+        ]
+      : []),
     ...(allLabel ? [allLabel] : []),
     h('span', { class: 'table-tools__spacer' }),
     cols,
