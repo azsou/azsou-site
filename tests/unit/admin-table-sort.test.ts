@@ -39,4 +39,58 @@ describe('数据表列排序 compareCells（T10.17）', () => {
     expect(col()).toEqual(['3', '12', '1']);
     expect(btn.closest('th')!.hasAttribute('aria-sort')).toBe(false);
   });
+
+  it('窄屏卡片：表头控件移出 Tab 顺序，工具条下拉复用同一排序状态并派发 table2:sort；回到宽屏恢复', () => {
+    let listener: (() => void) | null = null;
+    const mq = { matches: true, addEventListener: (_: string, f: () => void) => (listener = f) };
+    const orig = window.matchMedia;
+    window.matchMedia = (() => mq) as unknown as typeof window.matchMedia;
+    try {
+      document.body.innerHTML = `<div class="table-wrap"><table class="data-table" data-cards data-server-sort data-table2="t-cards">
+        <thead><tr><th class="col-check"><span>选择</span></th><th data-sort-key="title">内容</th><th>备注</th><th data-sort-key="published">状态</th></tr></thead>
+        <tbody><tr data-row><td><input type="checkbox"></td><td>甲</td><td>x</td><td>已发布</td></tr></tbody>
+      </table></div>`;
+      const table = document.querySelector('table')!;
+      const events: unknown[] = [];
+      table.addEventListener('table2:sort', (e) => events.push((e as CustomEvent).detail));
+      enhanceTable(table);
+      const ctrls = [...table.querySelectorAll<HTMLElement>('thead .th-sort, thead .th-resize')];
+      expect(ctrls.length).toBeGreaterThan(0);
+      expect(ctrls.every((el) => el.tabIndex === -1)).toBe(true);
+      // 表头文字仍在（辅助技术 / 数据关联）
+      expect(table.querySelector('thead th:nth-child(2)')!.textContent).toContain('内容');
+      const sel = document.querySelector<HTMLSelectElement>('.table-tools__sort select')!;
+      expect([...sel.options].map((o) => o.value)).toEqual([
+        '',
+        '2:ascending',
+        '2:descending',
+        '4:ascending',
+        '4:descending',
+      ]);
+      sel.value = '4:descending';
+      sel.dispatchEvent(new Event('change'));
+      expect(events.at(-1)).toEqual({ key: 'published', dir: 'desc' });
+      expect(table.querySelector('thead th:nth-child(4)')!.getAttribute('aria-sort')).toBe('descending');
+      sel.value = '';
+      sel.dispatchEvent(new Event('change'));
+      expect(events.at(-1)).toBeNull();
+      expect(table.querySelector('thead th[aria-sort]')).toBeNull();
+      // 表头按钮点击后，下拉同步显示同一状态
+      table.querySelector<HTMLButtonElement>('[data-sort-col="2"]')!.click();
+      expect(sel.value).toBe('2:ascending');
+      // 窄屏焦点停在下拉 → 切到宽屏：焦点交给对应表头按钮，表头控件回到 Tab 顺序
+      sel.focus();
+      mq.matches = false;
+      listener!();
+      expect(document.activeElement).toBe(table.querySelector('[data-sort-col="2"]'));
+      expect(table.querySelector<HTMLElement>('thead .th-resize')!.tabIndex).toBe(0);
+      expect(table.querySelector<HTMLElement>('thead .th-sort')!.hasAttribute('tabindex')).toBe(false);
+      // 宽屏焦点在表头 → 切到窄屏：焦点交给可见的排序下拉
+      mq.matches = true;
+      listener!();
+      expect(document.activeElement).toBe(sel);
+    } finally {
+      window.matchMedia = orig;
+    }
+  });
 });

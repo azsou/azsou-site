@@ -1398,6 +1398,18 @@
   .table-tools__spacer {
     flex: 1;
   }
+  /* 窄屏卡片的可见排序入口（表头在 < 900 时视觉隐藏）；宽屏用表头排序，不显示 */
+  .table-tools__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--fs-meta);
+  }
+  @media (min-width: 900px) {
+    .table-tools__sort {
+      display: none;
+    }
+  }
   .table-tools .segmented button {
     min-height: var(--control-sm);
   }

@@ -762,4 +762,62 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
       expect(await axe(page), path).toEqual([]);
     }
   });
+
+  test('窄屏卡片表：Tab 不停在视觉隐藏的表头，排序走工具条下拉；导入导出卡片不超出视口', async ({
+    page,
+    makeUser,
+    signIn,
+  }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 390, height: 900 });
+    const a = await makeUser(uniq('管理员'), { role: 'admin' });
+    await makeUser(uniq('用户'));
+    await signIn(page, a);
+    await page.goto('/admin/users/');
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    // 焦点逐个检查：不能落在表头里，表格内的焦点要完整落在滚动容器的可视区内
+    await page.locator('.table-tools button').first().focus();
+    for (let i = 0; i < 24; i++) {
+      await page.keyboard.press('Tab');
+      const f = await page.evaluate(() => {
+        const e = document.activeElement as HTMLElement;
+        const wrap = e.closest('.table-wrap');
+        const b = e.getBoundingClientRect();
+        const w = wrap?.getBoundingClientRect();
+        return {
+          thead: !!e.closest('thead'),
+          inside: !w || (b.left >= w.left - 1 && b.right <= w.right + 1),
+          label: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 20),
+        };
+      });
+      expect(f.thead, f.label).toBe(false);
+      expect(f.inside, f.label).toBe(true);
+    }
+    const sort = page.locator('.table-tools__sort select');
+    await expect(sort).toBeVisible();
+    const req = page.waitForRequest(
+      (r) => /mod_list_users/.test(r.url()) && /"p_sort"/.test(r.postData() ?? ''),
+    );
+    await sort.selectOption({ index: 1 });
+    expect((await req).postData()).toContain('"p_dir":"asc"');
+    await expect(page.locator('thead th[aria-sort="ascending"]')).toHaveCount(1);
+    await sort.selectOption('');
+    await expect(page.locator('thead th[aria-sort]')).toHaveCount(0);
+
+    await page.goto('/admin/data/');
+    await expect(page.locator('[data-export-csv="comments"]')).toBeVisible();
+    const m = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const pre = document.querySelector('pre.code-block') as HTMLElement;
+      return {
+        overflow: document.documentElement.scrollWidth - vw,
+        clipped: [...document.querySelectorAll('main button, main input')]
+          .filter((e) => e.getBoundingClientRect().right > vw + 1)
+          .map((e) => e.textContent?.trim() || (e as HTMLInputElement).type),
+        preInside: pre.getBoundingClientRect().right <= vw + 1,
+        preScrolls: pre.scrollWidth > pre.clientWidth,
+      };
+    });
+    expect(m).toEqual({ overflow: 0, clipped: [], preInside: true, preScrolls: true });
+  });
 });

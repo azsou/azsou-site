@@ -201,21 +201,49 @@ export function enhanceTable(table: HTMLTableElement) {
     th.append(btn);
     btn.addEventListener('click', () => {
       const cur = prefs.sort?.col === c.n ? prefs.sort.dir : null;
-      prefs.sort =
+      setSort(
         cur === null
           ? { col: c.n, dir: 'ascending' }
           : cur === 'ascending'
             ? { col: c.n, dir: 'descending' }
-            : null;
-      apply();
-      if (server) {
-        const key = thAt(c.n)?.dataset.sortKey ?? '';
-        table.dispatchEvent(
-          new CustomEvent<ServerSort | null>('table2:sort', {
-            detail: prefs.sort ? { key, dir: prefs.sort.dir === 'ascending' ? 'asc' : 'desc' } : null,
-          }),
-        );
-      } else sortRows();
+            : null,
+        c.n,
+      );
+    });
+  }
+  // 表头按钮与窄屏排序下拉共用：更新 prefs.sort → aria-sort / 记忆 → 服务端取数或当前页重排
+  function setSort(next: Prefs['sort'], col: number) {
+    prefs.sort = next;
+    apply();
+    if (server) {
+      const key = thAt(next?.col ?? col)?.dataset.sortKey ?? '';
+      table.dispatchEvent(
+        new CustomEvent<ServerSort | null>('table2:sort', {
+          detail: next ? { key, dir: next.dir === 'ascending' ? 'asc' : 'desc' } : null,
+        }),
+      );
+    } else sortRows();
+  }
+
+  // 窄屏卡片（< 900，data-cards）：thead 只做视觉隐藏（列名仍供辅助技术与数据关联），
+  // 其中的排序按钮 / 调宽手柄移出 Tab 顺序；排序改由工具条里可见的下拉提供，状态仍是同一个 prefs.sort。
+  const cardsMq =
+    table.dataset.cards !== undefined && typeof matchMedia === 'function'
+      ? matchMedia('(max-width: 899.98px)')
+      : null;
+  let sortSel: HTMLSelectElement | null = null;
+  if (cardsMq && sortable.length) {
+    sortSel = h('select', { class: 'select select--inline', 'data-sort-select': true }) as HTMLSelectElement;
+    sortSel.append(h('option', { value: '', text: '默认顺序' }));
+    for (const c of sortable)
+      sortSel.append(
+        h('option', { value: `${c.n}:ascending`, text: `${c.label} 升序` }),
+        h('option', { value: `${c.n}:descending`, text: `${c.label} 降序` }),
+      );
+    sortSel.addEventListener('change', () => {
+      const [n, dir] = sortSel!.value.split(':');
+      const col = Number(n);
+      setSort(sortSel!.value ? { col, dir: dir as SortDir } : null, prefs.sort?.col ?? col);
     });
   }
 
@@ -302,6 +330,7 @@ export function enhanceTable(table: HTMLTableElement) {
       if (prefs.sort?.col === i + 1) th.setAttribute('aria-sort', prefs.sort.dir);
       else th.removeAttribute('aria-sort');
     });
+    if (sortSel) sortSel.value = prefs.sort ? `${prefs.sort.col}:${prefs.sort.dir}` : '';
     table.dataset.density = prefs.density;
     const hide = prefs.hide.filter((n) => !columnsOf(table).find((c) => c.n === n)?.locked);
     if (hide.length) table.dataset.hide = hide.join(' ');
@@ -422,6 +451,7 @@ export function enhanceTable(table: HTMLTableElement) {
     'div',
     { class: 'table-tools', role: 'group', 'aria-label': '表格工具' },
     seg,
+    ...(sortSel ? [h('label', { class: 'table-tools__sort' }, h('span', { text: '排序' }), sortSel)] : []),
     ...(allLabel ? [allLabel] : []),
     h('span', { class: 'table-tools__spacer' }),
     cols,
@@ -432,6 +462,27 @@ export function enhanceTable(table: HTMLTableElement) {
   if (allLabel) allRow?.remove();
   apply();
   sortRows();
+
+  if (cardsMq) {
+    const syncCards = () => {
+      const narrow = cardsMq.matches;
+      table.querySelectorAll<HTMLElement>('thead .th-sort, thead .th-resize').forEach((el) => {
+        if (narrow) el.tabIndex = -1;
+        else if (el.classList.contains('th-resize')) el.tabIndex = 0;
+        else el.removeAttribute('tabindex');
+      });
+      // 只在焦点正好落在刚被隐藏 / 刚出现替代入口的控件上时，把它交给对应的可见控件；其它焦点不动
+      const active = document.activeElement;
+      if (narrow && active instanceof HTMLElement && table.tHead?.contains(active)) {
+        (sortSel ?? tools.querySelector<HTMLElement>('button'))?.focus();
+      } else if (!narrow && sortSel && active === sortSel) {
+        const col = prefs.sort?.col ?? sortable[0]?.n;
+        table.querySelector<HTMLElement>(`thead [data-sort-col="${col}"]`)?.focus();
+      }
+    };
+    cardsMq.addEventListener('change', syncCards);
+    syncCards();
+  }
 }
 
 export function enhanceTables(root: ParentNode = document) {
