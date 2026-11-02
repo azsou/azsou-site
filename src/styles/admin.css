@@ -754,7 +754,8 @@
       padding: var(--space-2) var(--space-3) var(--space-2) 52px;
       border-bottom: 1px solid var(--c-separator);
     }
-    .data-table[data-cards] tr.no-check {
+    /* 只作用于整行跨列的空状态 / 骨架行；无复选列的数据行（用户列表）仍按卡片 flex 换行 */
+    .data-table[data-cards] tr.no-check:not([data-row]) {
       display: block;
       padding-left: 0;
       padding-right: 0;
@@ -902,7 +903,13 @@
   }
   .settings-grid {
     display: grid;
+    /* 单列轨道不随内容（备份代码块的最长行等）撑宽：窄屏下卡片不再超出视口被裁切，代码块在自身内部横向滚动 */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
+  }
+  /* 导入格式说明里的连续 JSON 没有可断点，允许在任意位置换行 */
+  .settings-grid .field__hint {
+    overflow-wrap: anywhere;
   }
   .switch {
     display: flex;

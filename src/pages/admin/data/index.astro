@@ -76,7 +76,10 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
         上面的导出只覆盖用户内容；完整备份（含账户、审计日志、举报、通知、封禁记录、函数 / 策略与 Storage
         文件）用仓库里的脚本，各范围取自同一个数据库快照，产物强制加密：
       </p>
-      <pre class="code-block">{`# 连接串在 Supabase Dashboard → Project Settings → Database（用 Session pooler 或直连）
+      <pre
+        class="code-block"
+        tabindex="0"
+      >{`# 连接串在 Supabase Dashboard → Project Settings → Database（用 Session pooler 或直连）
 BACKUP_PASSPHRASE=… STORAGE_URL=https://<ref>.supabase.co/storage/v1 STORAGE_SERVICE_KEY=… \\
   bash scripts/db-backup.sh "$DATABASE_URL" ./backup
 
