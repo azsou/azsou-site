@@ -1411,6 +1411,26 @@
       display: none;
     }
   }
+  /* R11 样式修复（只作用于工具条里的排序下拉）。覆盖链：components.css 的 `.select`（0,1,0）给 appearance:none、
+     自绘箭头和 40px 右内边距；admin.css 的 `.admin select`（0,1,1）用 background 简写把 background-image 重置为 none，
+     padding 简写又把右内边距改回 12px → 实测（390，浅 / 深）appearance:none 且 background-image:none，下拉没有箭头。
+     这里在 0,2,0 上只补回箭头和右内边距；底色、字号、高度、宽度、焦点样式都沿用原值，不动可见性 / 断点 / 焦点逻辑。
+     箭头色 #6e6e73：对浅色 --c-bg #f5f5f7 为 4.66:1、对深色 #000 为 4.14:1（非文本对比度 ≥ 3:1），不依赖主题切换。 */
+  .table-tools__sort .select {
+    padding-inline-end: var(--space-10);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 20px;
+  }
+  @media (forced-colors: active) {
+    /* 与 components.css D05 一致：强制色下回到系统原生箭头（随 FieldText 变色） */
+    .table-tools__sort .select {
+      appearance: auto;
+      background-image: none;
+      padding-inline-end: var(--space-3);
+    }
+  }
   .table-tools .segmented button {
     min-height: var(--control-sm);
   }
