@@ -1,0 +1,23 @@
+{
+  "now": "2026-11-02T12:00:00Z",
+  "maxAgeHours": 192,
+  "runs": [
+    {
+      "id": 7,
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-11-01T19:31:00Z",
+      "updated_at": "2026-11-01T19:31:00Z",
+      "html_url": "https://github.com/azsou/azsou-site/actions/runs/7"
+    },
+    {
+      "id": 6,
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-25T19:31:00Z",
+      "updated_at": "2026-10-25T19:31:00Z",
+      "html_url": "https://github.com/azsou/azsou-site/actions/runs/6"
+    }
+  ],
+  "artifacts": []
+}

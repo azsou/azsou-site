@@ -51,9 +51,10 @@ describe.skipIf(!BIN)('PostgREST 重放 V72 请求', () => {
     let db: Awaited<ReturnType<typeof freshDb>>;
     let proc: ChildProcess;
     let api: ReturnType<typeof client>;
-    const port = freePort();
+    let port = 0;
 
     beforeAll(async () => {
+      port = await freePort();
       db = await freshDb(migrated ? 'pgrst_new' : 'pgrst_old', { files });
       proc = await startPostgrest(db.name, port);
       api = client(port);

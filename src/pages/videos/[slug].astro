@@ -88,7 +88,8 @@ const description = `${d.title}：${d.summary}（${d.channel.name} 官方视频�
       <p class="video-detail__orig" lang={d.lang}>
         原标题：{d.originalTitle}
       </p>
-      <ul class="video-facts" role="list">
+      {/* F10：频道 / 时长 / 发布等字段不进搜索索引（否则结果摘要是字段堆砌）；正文导读与原标题仍可检索 */}
+      <ul class="video-facts" role="list" data-pagefind-ignore>
         <li>
           频道{' '}
           <b>

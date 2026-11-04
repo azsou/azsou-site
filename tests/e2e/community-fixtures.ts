@@ -28,9 +28,8 @@ interface CommunityFixtures {
 let pool: pg.Pool | null = null;
 const getPool = () => (pool ??= new pg.Pool({ connectionString: process.env.E2E_DB_URL, max: 3 }));
 
-/** 把一个 /rest/v1 请求转发到本地 PostgREST */
-async function forward(route: Route) {
-  const target = process.env.E2E_PGRST!;
+/** 把一个 /rest/v1 请求转发到本地 PostgREST（默认 = 跑完全部迁移的库；target 可指向旧结构的库） */
+async function forward(route: Route, target = process.env.E2E_PGRST!) {
   const req = route.request();
   const u = new URL(req.url());
   const headers = { ...req.headers() };
@@ -54,7 +53,12 @@ async function forward(route: Route) {
         'access-control-expose-headers': 'Content-Range, Content-Location',
       },
     });
-  } catch {
+  } catch (err) {
+    // 诊断（2026-10-28 故障 5 首跑失败：mod_list_users 在 36ms 内被 abort，trace 里看不到真实原因）：
+    // 把 route.fetch 的真实错误打进日志，下次首跑失败能直接看到是连接复用 / 上游断开 / 页面已离开中的哪一种。
+    console.warn(
+      `[forwardRest] route.fetch 失败 ${req.method()} ${u.pathname}: ${String(err).slice(0, 300)}`,
+    );
     await route.abort('connectionrefused').catch(() => {});
   }
 }
@@ -67,8 +71,8 @@ const PUBLIC_SETTINGS = /\/rest\/v1\/site_content\?kind=eq\.setting&published=eq
  * 站点设置是全局的：为了不让「后台设置」用例影响并行的其他用例，公开页面读设置默认得到空（= 默认设置），
  * 需要真实设置的用例调用 useRealSettings(page)。
  */
-export async function forwardRest(page: Page) {
-  await page.route('**/rest/v1/**', forward);
+export async function forwardRest(page: Page, target?: string) {
+  await page.route('**/rest/v1/**', (route) => forward(route, target));
   await page.route(PUBLIC_SETTINGS, (route) =>
     route.fulfill({
       status: 200,
@@ -84,7 +88,7 @@ export async function forwardRest(page: Page) {
 
 /** 本页面读真实的站点设置（后注册的路由优先） */
 export async function useRealSettings(page: Page) {
-  await page.route(PUBLIC_SETTINGS, forward);
+  await page.route(PUBLIC_SETTINGS, (route) => forward(route));
 }
 
 export const uniq = (p = '') => `${p}${randomUUID().slice(0, 8)}`;
@@ -170,3 +174,26 @@ export async function seedReply(db: pg.Pool, author: string, threadId: string, b
 }
 
 export { expect };
+
+/**
+ * 点「发布主题」并等到新主题页可用。发布 = 一次真实写库 + 一次整页跳转，按真实信号逐段等待：
+ * 写库请求返回 201 → 浏览器发出新主题页的文档请求（带新 id）→ 新文档的模块脚本执行完（DOMContentLoaded）。
+ * 不用一个 7 秒的 toHaveURL 同时覆盖这三段——CI 40522111734 webkit-iphone 首跑就是导航已提交到新 id、
+ * 但新文档 7 秒内没跑完脚本，toHaveURL 只拿到旧页地址（docs/audits/evidence/ci/images-flake-2026-10-28.md）。
+ * 返回新主题页地址（已断言是 /forum/t/?id=<uuid>，且当前页就是它）。
+ */
+export async function publishThread(page: Page): Promise<string> {
+  const created = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && /\/rest\/v1\/forum_threads/.test(r.url()),
+  );
+  const navigation = page.waitForRequest(
+    (r) => r.isNavigationRequest() && r.frame() === page.mainFrame() && /\/forum\/t\/\?id=/.test(r.url()),
+  );
+  await page.getByRole('button', { name: '发布主题' }).click();
+  expect((await created).status()).toBe(201);
+  const threadUrl = (await navigation).url();
+  expect(threadUrl).toMatch(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+  await page.waitForURL(threadUrl, { waitUntil: 'domcontentloaded' });
+  await expect(page).toHaveURL(threadUrl);
+  return threadUrl;
+}

@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { test, expect, forwardRest, seedReply, seedThread, uniq } from './community-fixtures';
+import { test, expect, forwardRest, publishThread, seedReply, seedThread, uniq } from './community-fixtures';
+import { BASE_URL } from './port';
 
 /**
  * P3 社区流程（真实 Postgres + PostgREST + RLS + 触发器）：
@@ -58,8 +59,7 @@ test.describe('发帖', () => {
     const preview = page.getByRole('region', { name: '预览' });
     await expect(preview.locator('strong')).toHaveText('加粗文字');
     await expect(preview.locator('img')).toHaveCount(0);
-    await page.getByRole('button', { name: '发布主题' }).click();
-    await expect(page).toHaveURL(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+    await publishThread(page);
     await expect(page.locator('h1')).toHaveText(title);
     await expect(page.locator('[data-body] strong')).toHaveText('加粗文字');
     await expect(page.locator('[data-body] img')).toHaveCount(0);
@@ -182,7 +182,7 @@ test.describe('主题页', () => {
 
     // 楼主：未读角标与通知页
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
@@ -307,7 +307,7 @@ test.describe('主题页', () => {
     expect(row.rows[0]).toEqual({ pinned: true, featured: true, locked: true });
     // 普通用户：看到锁定提示，没有回复框
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
@@ -387,7 +387,7 @@ test.describe('评论', () => {
     // 版主隐藏
     const mod = await makeUser(uniq('版主'), { role: 'moderator' });
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',

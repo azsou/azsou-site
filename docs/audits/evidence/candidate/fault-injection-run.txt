@@ -1,0 +1,15 @@
+[faults] endpoints {"overview":["reports","rpc/mod_lift_expired_bans","rpc/admin_stats","rpc/unread_notification_count"],"content":["reports","rpc/mod_workflow_tick","rpc/mod_list_content","rpc/unread_notification_count"],"users":["reports","rpc/mod_list_users","rpc/unread_notification_count"],"reports":["reports","forum_threads","rpc/unread_notification_count"],"guestbook":["reports","guestbook_entries","rpc/unread_notification_count"],"links":["reports","rpc/admin_list_friend_links","rpc/unread_notification_count"],"subscribers":["reports","rpc/admin_subscriber_counts","rpc/unread_notification_count"],"audit":["reports","audit_log","rpc/unread_notification_count"]}
+  ✓  1 [chromium-desktop] › tests/e2e/admin-faults.spec.ts:196:1 › 基线：8 个模块在真实 PostgREST 上读出真实数据，并记录各自的数据端点 (9.4s)
+  ✓  2 [chromium-desktop] › tests/e2e/admin-faults.spec.ts:221:1 › 故障 1：停掉 PostgREST 进程 → 8 个模块都显示「无法连接数据服务」；同端口重启后「重试」恢复 (11.2s)
+  ✓  3 [chromium-desktop] › tests/e2e/admin-faults.spec.ts:238:1 › 故障 2：本机代理回 503 → 8 个模块都显示「服务端出错（HTTP 503）」；代理恢复后「重试」恢复 (10.0s)
+  ✓  4 [chromium-desktop] › tests/e2e/admin-faults.spec.ts:274:1 › 故障 3：删除模块用到的函数 / 表（重命名 + 重载结构）→ PostgREST 真实回 404 PGRST202 / PGRST205 → 「数据库未就绪」；还原后「重新检测」恢复 (12.4s)
+  ✓  5 [chromium-desktop] › tests/e2e/admin-faults.spec.ts:364:1 › 故障 4：撤销模块用到的函数 / 表授权 → PostgREST 真实回 403 42501 → 「没有权限」；按原 ACL 恢复后「重试」恢复 (10.3s)
+[faults] timeout overview: 错误条出现用时 8s
+[faults] timeout content: 错误条出现用时 16s
+[faults] timeout users: 错误条出现用时 8s
+[faults] timeout reports: 错误条出现用时 8s
+[faults] timeout guestbook: 错误条出现用时 8s
+[faults] timeout links: 错误条出现用时 8s
+[faults] timeout subscribers: 错误条出现用时 8s
+[faults] timeout audit: 错误条出现用时 8s
+  ✓  6 [chromium-desktop] › tests/e2e/admin-faults.spec.ts:392:1 › 故障 5：代理延迟 12s（前端超时 8s）→ 8 个模块都显示「请求超时」；恢复后「重试」恢复 (1.4m)

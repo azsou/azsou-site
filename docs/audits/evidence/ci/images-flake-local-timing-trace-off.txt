@@ -1,0 +1,12 @@
+TIMING {"project":"webkit-desktop","withImage":false,"committed":790,"urlSeen":2670,"evalDone":2712,"nt":{"fetchStart":7,"responseEnd":23,"domInteractive":105,"dcl":1902,"load":1912,"now":1967}}
+TIMING {"project":"webkit-desktop","withImage":true,"committed":773,"urlSeen":2570,"evalDone":2616,"nt":{"fetchStart":8,"responseEnd":27,"domInteractive":80,"dcl":1820,"load":1821,"now":1888}}
+TIMING {"project":"webkit-desktop","withImage":true,"committed":899,"urlSeen":2339,"evalDone":2382,"nt":{"fetchStart":14,"responseEnd":50,"domInteractive":126,"dcl":1483,"load":1483,"now":1553}}
+TIMING {"project":"webkit-desktop","withImage":false,"committed":932,"urlSeen":2189,"evalDone":2253,"nt":{"fetchStart":7,"responseEnd":22,"domInteractive":87,"dcl":1259,"load":1262,"now":1364}}
+TIMING {"project":"webkit-desktop","withImage":false,"committed":565,"urlSeen":2222,"evalDone":2271,"nt":{"fetchStart":4,"responseEnd":14,"domInteractive":74,"dcl":1668,"load":1668,"now":1727}}
+TIMING {"project":"webkit-desktop","withImage":true,"committed":734,"urlSeen":2418,"evalDone":2457,"nt":{"fetchStart":18,"responseEnd":32,"domInteractive":100,"dcl":1718,"load":1719,"now":1767}}
+TIMING {"project":"webkit-iphone","withImage":true,"committed":855,"urlSeen":2925,"evalDone":2993,"nt":{"fetchStart":13,"responseEnd":35,"domInteractive":88,"dcl":2114,"load":2115,"now":2206}}
+TIMING {"project":"webkit-iphone","withImage":false,"committed":824,"urlSeen":3229,"evalDone":3250,"nt":{"fetchStart":3,"responseEnd":16,"domInteractive":60,"dcl":2418,"load":2419,"now":2449}}
+TIMING {"project":"webkit-iphone","withImage":false,"committed":563,"urlSeen":1890,"evalDone":1919,"nt":{"fetchStart":10,"responseEnd":19,"domInteractive":51,"dcl":1334,"load":1334,"now":1392}}
+TIMING {"project":"webkit-iphone","withImage":true,"committed":552,"urlSeen":1872,"evalDone":1923,"nt":{"fetchStart":4,"responseEnd":11,"domInteractive":28,"dcl":1319,"load":1320,"now":1374}}
+TIMING {"project":"webkit-iphone","withImage":true,"committed":842,"urlSeen":2762,"evalDone":2816,"nt":{"fetchStart":8,"responseEnd":21,"domInteractive":72,"dcl":1946,"load":1957,"now":1999}}
+TIMING {"project":"webkit-iphone","withImage":false,"committed":788,"urlSeen":2713,"evalDone":2752,"nt":{"fetchStart":7,"responseEnd":23,"domInteractive":79,"dcl":1931,"load":1932,"now":2003}}

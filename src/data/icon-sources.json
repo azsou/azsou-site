@@ -1,0 +1,161 @@
+{
+  "aider": {
+    "url": "https://avatars.githubusercontent.com/u/172139148?s=256",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "bolt-new": {
+    "url": "https://bolt.new/static/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "chatgpt": {
+    "url": "https://chatgpt.com/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "待复核",
+    "note": "复核时该地址返回人机验证页，无法比对"
+  },
+  "claude": {
+    "url": "https://assets.claude.com/95a868946ac8a31e5ff832e2899f294aa368b836.png?w=32&h=32",
+    "retrieved": "2026-10-24",
+    "check": "待复核",
+    "note": "官网页面 `link rel=icon` 只提供 32×32，经规范化管线放大；有更清晰的官方素材时建议替换；2026-10-27 复核时该地址的文件已与入库图不同（官方可能已更新）"
+  },
+  "claude-code": {
+    "url": "https://assets.claude.com/95a868946ac8a31e5ff832e2899f294aa368b836.png?w=32&h=32",
+    "retrieved": "2026-10-24",
+    "check": "待复核",
+    "note": "官网页面 `link rel=icon` 只提供 32×32，经规范化管线放大；有更清晰的官方素材时建议替换；2026-10-27 复核时该地址的文件已与入库图不同（官方可能已更新）"
+  },
+  "cline": {
+    "url": "https://cline.bot/assets/branding/favicons/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "codex-cli": {
+    "url": "https://avatars.githubusercontent.com/u/14957082?s=256",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "coze": {
+    "url": "https://lf-coze-web-cdn.coze.cn/obj/coze-web-cn/obric/coze/favicon.1970.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "cursor": {
+    "url": "https://cursor.com/marketing-static/apple-touch-icon-light.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "deepseek": {
+    "url": "https://www.deepseek.com/favicon.ico",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "devin-desktop": {
+    "url": "https://devin.ai/apple-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "dify": {
+    "url": "https://dify.ai/favicon.svg",
+    "retrieved": "2026-10-24",
+    "check": "同字节",
+    "note": "SVG，入库时转为 PNG"
+  },
+  "gemini": {
+    "url": "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "gemini-cli": {
+    "url": "https://avatars.githubusercontent.com/u/161781182?s=256",
+    "retrieved": "2026-10-24",
+    "check": "图像一致",
+    "note": "google-gemini 官方 GitHub 组织头像（取图记录原写 geminicli.com/favicon.ico，经比对实际入库的是组织头像）"
+  },
+  "github-copilot": {
+    "url": "https://github.githubassets.com/favicons/favicon.svg",
+    "retrieved": "2026-10-24",
+    "check": "同字节",
+    "note": "SVG，入库时转为 PNG"
+  },
+  "github-mcp-server": {
+    "url": "https://avatars.githubusercontent.com/u/9919?s=256",
+    "retrieved": "2026-10-24",
+    "check": "图像一致"
+  },
+  "goose": {
+    "url": "https://goose-docs.ai/img/favicon.ico",
+    "retrieved": "2026-10-24",
+    "check": "待复核",
+    "note": "2026-10-27 复核时该地址的文件已与入库图不同（官方可能已更新）"
+  },
+  "kiro": {
+    "url": "https://kiro.dev/apple-icon.png?4cefa8c54a20b098",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "lm-studio": {
+    "url": "https://lmstudio.ai/assets/marketing/logo-192x192.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "lovable": {
+    "url": "https://lovable.dev/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "mcp-servers": {
+    "url": "https://modelcontextprotocol.io/mintlify-assets/_mintlify/favicons/mcp/ebiVJzri-bsiCfVZ/_generated/favicon/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "n8n": {
+    "url": "https://n8n.io/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "ollama": {
+    "url": "https://ollama.com/public/apple-touch-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "open-webui": {
+    "url": "https://openwebui.com/favicon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "openhands": {
+    "url": "https://www.openhands.dev/favicon.svg",
+    "retrieved": "2026-10-24",
+    "check": "同字节",
+    "note": "SVG，入库时转为 PNG"
+  },
+  "playwright-mcp": {
+    "url": "https://playwright.dev/img/playwright-logo.svg",
+    "retrieved": "2026-10-24",
+    "check": "同字节",
+    "note": "SVG，入库时转为 PNG（取图记录原写 apple-touch-icon.png，该地址返回的是网页，实际入库的是这个 logo）"
+  },
+  "replit-agent": {
+    "url": "https://cdn.replit.com/dotcom/favicon-rb-48.png",
+    "retrieved": "2026-10-24",
+    "check": "图像一致"
+  },
+  "trae": {
+    "monogram": true,
+    "note": "官网 favicon（https://lf-static.traecdn.us/obj/trae-ai-tx/trae_website/favicon.png，2026-10-24 取）只有 16 / 32 像素，放大后不清晰，按内容规范改用本站自制「TR」字母标识，不是官方图标"
+  },
+  "v0": {
+    "url": "https://v0.app/assets/apple-icon.png",
+    "retrieved": "2026-10-24",
+    "check": "同字节"
+  },
+  "zed": {
+    "url": "https://zed.dev/favicon_white_64.png",
+    "retrieved": "2026-10-24",
+    "check": "待复核",
+    "note": "2026-10-27 复核时该地址的文件已与入库图不同（官方可能已更新）"
+  }
+}

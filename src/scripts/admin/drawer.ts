@@ -27,6 +27,8 @@ export function openDrawer(title: string): { dlg: HTMLDialogElement; body: HTMLE
   // 关闭时先播放退出动画（减少动态效果时直接关闭）
   const shut = () => {
     if (dlg.dataset.closing !== undefined) return;
+    // A11：备注 / 表单里有未保存的输入时先确认，避免误关丢字（保存成功后各处会清空或重绘输入框，不再提示）
+    if (hasUnsaved(dlg) && !confirm('抽屉里有未保存的输入，确定关闭吗？')) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return dlg.close();
     dlg.dataset.closing = '';
     const done = (e?: AnimationEvent) => {
@@ -49,6 +51,13 @@ export function openDrawer(title: string): { dlg: HTMLDialogElement; body: HTMLE
   dlg.showModal();
   close.focus();
   return { dlg, body };
+}
+
+/** 抽屉里的多行文本（备注、原因说明）有未保存的输入。日期 / 下拉等由脚本赋值的控件不算，避免误报 */
+export function hasUnsaved(root: ParentNode): boolean {
+  return [...root.querySelectorAll<HTMLTextAreaElement>('textarea')].some(
+    (el) => !el.disabled && !el.readOnly && el.value.trim() !== el.defaultValue.trim(),
+  );
 }
 
 const section = (title: string, ...kids: (Node | null)[]) =>

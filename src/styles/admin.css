@@ -129,6 +129,8 @@
     }
     .admin {
       grid-template-columns: minmax(0, 1fr);
+      /* A18：内容很短（如用户详情缺参态）时，剩余高度不能均分给顶部导航行（曾撑出约 260px 空白） */
+      grid-template-rows: auto 1fr;
     }
     .admin-nav {
       position: sticky;
@@ -680,10 +682,15 @@
     font-weight: var(--fw-semibold);
   }
   .error-bar--admin {
+    flex-wrap: wrap;
     margin: var(--space-3);
   }
   .error-bar--admin .error-bar__text {
-    flex: 1;
+    flex: 1 1 14rem;
+  }
+  /* A15：分类错误的标题（缺迁移 / 网络 / 超时 / 5xx / 权限） */
+  .error-bar__title {
+    font-weight: var(--fw-semibold);
   }
   .ad-icon {
     display: inline-flex;
@@ -747,7 +754,8 @@
       padding: var(--space-2) var(--space-3) var(--space-2) 52px;
       border-bottom: 1px solid var(--c-separator);
     }
-    .data-table[data-cards] tr.no-check {
+    /* 只作用于整行跨列的空状态 / 骨架行；无复选列的数据行（用户列表）仍按卡片 flex 换行 */
+    .data-table[data-cards] tr.no-check:not([data-row]) {
       display: block;
       padding-left: 0;
       padding-right: 0;
@@ -879,9 +887,29 @@
   }
 
   /* ---------- 设置 ---------- */
+  /* A16：读取状态条（加载中 / 失败 + 重试 / 已读取 + 重新加载） */
+  .settings-load {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  .settings-load > span {
+    flex: 1 1 16rem;
+  }
+  .settings-load--ok {
+    font-size: var(--fs-meta);
+  }
   .settings-grid {
     display: grid;
+    /* 单列轨道不随内容（备份代码块的最长行等）撑宽：窄屏下卡片不再超出视口被裁切，代码块在自身内部横向滚动 */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
+  }
+  /* 导入格式说明里的连续 JSON 没有可断点，允许在任意位置换行 */
+  .settings-grid .field__hint {
+    overflow-wrap: anywhere;
   }
   .switch {
     display: flex;
@@ -1108,15 +1136,23 @@
       padding: 0;
       justify-content: center;
     }
-    .admin-search__text,
     .admin-search__kbd {
       display: none;
+    }
+    /* A18：窄屏只显示图标，但「搜索或跳转」仍是按钮的可访问名称（视觉隐藏，不 display:none） */
+    .admin-search__text {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
 
   /* ---------- 分组侧栏 ---------- */
   .admin {
-    transition: grid-template-columns var(--dur-base) var(--ease-out);
+    transition: grid-template-columns var(--dur) var(--ease-out);
   }
   .admin-nav {
     display: grid;
@@ -1362,6 +1398,39 @@
   .table-tools__spacer {
     flex: 1;
   }
+  /* 窄屏卡片的可见排序入口（表头在 < 900 时视觉隐藏）；宽屏用表头排序，不显示 */
+  .table-tools__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--fs-meta);
+    white-space: nowrap;
+  }
+  @media (min-width: 900px) {
+    .table-tools__sort {
+      display: none;
+    }
+  }
+  /* R11 样式修复（只作用于工具条里的排序下拉）。覆盖链：components.css 的 `.select`（0,1,0）给 appearance:none、
+     自绘箭头和 40px 右内边距；admin.css 的 `.admin select`（0,1,1）用 background 简写把 background-image 重置为 none，
+     padding 简写又把右内边距改回 12px → 实测（390，浅 / 深）appearance:none 且 background-image:none，下拉没有箭头。
+     这里在 0,2,0 上只补回箭头和右内边距；底色、字号、高度、宽度、焦点样式都沿用原值，不动可见性 / 断点 / 焦点逻辑。
+     箭头色 #6e6e73：对浅色 --c-bg #f5f5f7 为 4.66:1、对深色 #000 为 4.14:1（非文本对比度 ≥ 3:1），不依赖主题切换。 */
+  .table-tools__sort .select {
+    padding-inline-end: var(--space-10);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 20px;
+  }
+  @media (forced-colors: active) {
+    /* 与 components.css D05 一致：强制色下回到系统原生箭头（随 FieldText 变色） */
+    .table-tools__sort .select {
+      appearance: auto;
+      background-image: none;
+      padding-inline-end: var(--space-3);
+    }
+  }
   .table-tools .segmented button {
     min-height: var(--control-sm);
   }
@@ -1507,7 +1576,7 @@
   .drawer[open] {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    animation: drawer-in var(--dur-base) var(--ease-out);
+    animation: drawer-in var(--dur) var(--ease-out);
   }
   .drawer::backdrop {
     /* stylelint-disable-next-line function-disallowed-list -- 固定色：遮罩不随主题 */
@@ -1929,6 +1998,37 @@
   .perm-note {
     margin-top: var(--space-3);
   }
+  /* A18 / D10：手机（< 600，最窄 320）时后台顶栏（站点名 + 搜索 + 快捷键 + 返回前台 + 外观 + 账户）会把整页撑宽约 13px。
+     站点名改为视觉隐藏（链接仍可读出「AZ Studio」），快捷键帮助在手机上没有用处，隐藏 */
+  @media (max-width: 599.98px) {
+    .admin-top__brand span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .admin-top__help {
+      display: none;
+    }
+  }
+  /* A18：手机上三列角色固定 112px 会把「能力」列挤成每行 1–2 字的文字柱。
+     窄屏改为角色列 64px、能力列至少 9em；仍放不下（320 / 200% 文字）时只在表格容器内横向滚动，整页不横溢 */
+  @media (max-width: 599.98px) {
+    .perm-table__role,
+    .perm-table__cell {
+      width: 64px;
+      padding-inline: var(--space-1);
+    }
+    .data-table.perm-table th[scope='row'] {
+      min-width: 9em;
+    }
+    .perm-table__role {
+      font-size: var(--fs-caption);
+      white-space: nowrap;
+    }
+  }
 
   /* ---------- 列宽调整（T10.17） ---------- */
   .data-table thead th {
@@ -1978,7 +2078,7 @@
     }
   }
   .drawer__body > * {
-    animation: rise-in var(--dur-base) var(--ease-out) both;
+    animation: rise-in var(--dur) var(--ease-out) both;
   }
   .drawer__body > :nth-child(2) {
     animation-delay: 40ms;

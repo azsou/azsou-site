@@ -31,6 +31,12 @@ describe('快捷键（T10.23）', () => {
     expect(shortcutAction(k('e', { altKey: true }))).toBeNull();
     expect(shortcutAction(k('a'))).toBeNull();
   });
+  it('D07 / T012：输入法组字中（isComposing / Process）不当快捷键，中文输入不被吞', () => {
+    expect(shortcutAction({ ...k('k'), isComposing: true })).toBeNull();
+    expect(shortcutAction({ ...k('k', { metaKey: true }), isComposing: true })).toBeNull();
+    expect(shortcutAction(k('Process'))).toBeNull();
+    expect(shortcutAction({ ...k('j'), isComposing: false })).toBe('next');
+  });
   it('输入框里不触发单键快捷键', () => {
     document.body.innerHTML =
       '<input id="a"><textarea id="b"></textarea><div id="c" contenteditable="true"></div><button id="d"></button>';
@@ -146,5 +152,24 @@ describe('详情抽屉时间线（T10.18）', () => {
       ],
     );
     expect(ev.map((e) => e.title)).toEqual(['警告用户', '解除封禁', '被封禁（有期限）', '注册账号']);
+  });
+});
+
+describe('A11 抽屉未保存提示', () => {
+  it('多行文本有未保存输入时判为未保存；清空 / 未改动 / 只读不算', async () => {
+    const { hasUnsaved } = await import('@/scripts/admin/drawer');
+    document.body.innerHTML =
+      '<div id="r"><textarea id="t"></textarea><input type="datetime-local" id="d"></div>';
+    const r = document.getElementById('r')!;
+    (document.getElementById('d') as HTMLInputElement).value = '2026-10-28T10:00';
+    expect(hasUnsaved(r)).toBe(false);
+    const t = document.getElementById('t') as HTMLTextAreaElement;
+    t.value = '备注草稿';
+    expect(hasUnsaved(r)).toBe(true);
+    t.readOnly = true;
+    expect(hasUnsaved(r)).toBe(false);
+    t.readOnly = false;
+    t.value = '  ';
+    expect(hasUnsaved(r)).toBe(false);
   });
 });

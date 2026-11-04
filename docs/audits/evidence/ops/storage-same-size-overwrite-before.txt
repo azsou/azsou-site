@@ -1,0 +1,34 @@
+== 1. 源：Postgres + 真实 storage-api（:4510）+ 全部迁移 + 经 API 上传的对象
+NOTICE:  database "azsou_st_src" does not exist, skipping
+  ✓ 源 storage.objects 4 个对象（2 个桶，含多级目录、名字含空格 / 括号；storage-api 不接受非 ASCII 对象名）
+== 2. 备份（统一快照 + Storage API 下载 + 加密）
+  备份完成：/tmp/tmp.6msY2TU2QT/bk（快照 00000045-0000001D-1，schema 0019，Storage 文件 included / 4 个对象）
+  Storage 文件：4 个对象，sha256 与清单一致
+  校验通过：azsou-public-20261028T104751Z.dump（306493 字节，表数据 25 张），清单 32 行
+== 3. 精确恢复到新的空目标（Postgres + 真实 storage-api :4520）
+NOTICE:  database "azsou_st_dst" does not exist, skipping
+  备份：快照 00000045-0000001D-1（2026-10-28T10:47:51.606199Z，LSN 0/DB7E3A0），schema 版本 0019，Storage 文件 included（4 个对象）
+  恢复中（单事务）…
+  核对通过（事务内）：
+    范围 auth：2 张表 / 1 行，行数与内容校验和一致
+    范围 private：3 张表 / 1 行，行数与内容校验和一致
+    范围 public：25 张表 / 8 行，行数与内容校验和一致
+  storage 已恢复：2 个桶、4 个对象 / 72556 字节
+    桶 backup-test：2 个对象，sha256 / 大小 / 清单一致
+    桶 ugc-images：2 个对象，sha256 / 大小 / 清单一致
+  storage 校验通过：4 个对象
+    范围 storage（API）：桶设置 / 对象名 / owner 与备份快照一致，文件 sha256 一致
+  ✓ 精确恢复完成：schema 版本 0019（未执行任何迁移），快照 00000045-0000001D-1。需要升级到 0019 时另行显式运行 scripts/db-upgrade.sh。
+  ✓ 公开桶对象 a.png 经目标 storage-api 公开地址下载，与原文件逐字节一致
+  ✓ 公开桶对象 b.png 经目标 storage-api 公开地址下载，与原文件逐字节一致
+  ✓ 私有桶对象（名字含空格 / 括号，内容为中文）往返一致
+  ✓ owner / owner_id 按备份回填（RLS 依赖它判断「自己的图片」）
+  ✓ storage.objects 上 3 条 az_ugc_images_* RLS 策略随精确恢复回来（未执行迁移）
+  ✓ cache-control 保留（max-age=3600）
+== 4. 负面：目标桶已存在 / 归档被改 / 快照之后对象被删 / 快照之后同尺寸改写
+  ✓ S1 目标已有数据 / 桶：拒绝（退出码 3）
+NOTICE:  database "azsou_st_dst2" does not exist, skipping
+  ✓ S2 归档文件与逐对象 sha256 不符：恢复失败并删除了新目标库
+  ✓ S3 快照之后对象被删：备份失败、不留产物（不会产出缺文件的备份）
+  ✗ S4 同尺寸改写没有被发现：退出码 0：-rw-r--r-- 1 sandbox sandbox   314 Oct 28 10:48 azsou-storage-listing-20261028T104829Z.tsv.gpg 备份完成：/tmp/tmp.6msY2TU2QT/bk-same-size（快照 00000004-00000095-1，schema 0019，Storage 文件 included / 3 个对象） 
+✗ Storage 往返测试失败

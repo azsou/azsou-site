@@ -3,7 +3,7 @@ import { checkLength, getRepository, LIMITS } from '@/lib/data';
 import { friendlyError } from '@/lib/community-errors';
 import { url } from '@/lib/routes';
 import { clearDraft, countChars, loadDraft, mountEditor, saveDraft } from './editor';
-import { busy, viewer } from './ui';
+import { viewer } from './ui';
 import { loadSiteSettings } from '../site-settings';
 
 const root = document.querySelector<HTMLElement>('[data-new-thread]')!;
@@ -68,8 +68,27 @@ const showError = (field: 'title' | 'body', msg: string) => {
   (field === 'title' ? title : editor.textarea).setAttribute('aria-invalid', msg ? 'true' : 'false');
 };
 
+/**
+ * 提交锁：从发出请求到页面真正离开都保持锁定。
+ * 以前 busy() 在请求返回后立刻恢复按钮，而 location.assign 到新主题页在慢机 / WebKit 上要 1–8 秒才完成；
+ * 这段时间按钮可再点、Ctrl+Enter 可再提交（正文已清空 → 闪出「正文不能为空」）。
+ */
+let submitting = false;
+const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+const lock = (on: boolean) => {
+  submitting = on;
+  submitBtn.disabled = on;
+  if (on) submitBtn.setAttribute('aria-busy', 'true');
+  else submitBtn.removeAttribute('aria-busy');
+};
+// 从新主题页按「返回」时页面可能从往返缓存恢复：解锁，允许再发一帖
+addEventListener('pageshow', (e) => {
+  if (e.persisted) lock(false);
+});
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (submitting) return;
   status.textContent = '';
   const tErr = checkLength(title.value, LIMITS.threadTitle, '标题');
   const bErr = editor.validate();
@@ -77,18 +96,24 @@ form.addEventListener('submit', async (e) => {
   showError('body', bErr ?? '');
   if (tErr) return title.focus();
   if (bErr) return editor.focus();
-  const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  lock(true);
+  let t: { id: string };
   try {
-    const t = await busy(btn, () =>
-      getRepository().forum.createThread({ category: current(), title: title.value, body: editor.value() }),
-    );
-    editor.clear();
-    clearDraft(`${DRAFT}:title`);
-    clearDraft(`${DRAFT}:cat`);
-    location.assign(url.forumThread(t.id));
+    t = await getRepository().forum.createThread({
+      category: current(),
+      title: title.value,
+      body: editor.value(),
+    });
   } catch (err) {
+    lock(false);
     status.textContent = friendlyError(err);
+    return;
   }
+  editor.clear();
+  clearDraft(`${DRAFT}:title`);
+  clearDraft(`${DRAFT}:cat`);
+  // 保持锁定直到离开本页
+  location.assign(url.forumThread(t.id));
 });
 
 /** 站点设置：停用的分类不出现、按设置排序（数据库不拦截旧客户端，见 docs/PLAN.md §5） */

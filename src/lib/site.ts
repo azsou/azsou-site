@@ -21,12 +21,12 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: '/', label: '首页', tab: '首页', icon: 'home' },
   { href: '/apps/', label: '应用', tab: '应用', icon: 'apps' },
-  { href: '/ai/', label: 'AI 工具' },
-  { href: '/videos/', label: '视频' },
-  { href: '/games/', label: '游戏', tab: '游戏', icon: 'games' },
+  { href: '/ai/', label: 'AI 工具', tab: 'AI', icon: 'sparkle' },
+  { href: '/videos/', label: '视频', icon: 'play' },
+  { href: '/games/', label: '游戏', icon: 'games' },
   { href: '/articles/', label: '文章', tab: '文章', icon: 'articles' },
   { href: '/works/', label: '作品', icon: 'works' },
-  { href: '/forum/', label: '论坛', tab: '论坛', icon: 'forum' },
+  { href: '/forum/', label: '论坛', icon: 'forum' },
 ];
 
 export const FOOTER = [

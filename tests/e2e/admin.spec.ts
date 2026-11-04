@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { emulateColorScheme } from './fixtures';
+import { BASE_URL } from './port';
 import {
   test,
   expect,
@@ -203,7 +204,13 @@ test.describe('举报队列', () => {
 });
 
 test.describe('内容管理', () => {
-  test('搜索 → 隐藏 → 恢复 → 置顶 → 删除（确认框）', async ({ page, db, makeUser, signIn, errors }) => {
+  test('搜索 → 隐藏 → 恢复（回到待审）→ 发布 → 置顶 → 删除（确认框）', async ({
+    page,
+    db,
+    makeUser,
+    signIn,
+    errors,
+  }) => {
     const author = await makeUser(uniq('作者'));
     const m = await makeUser(uniq('版主'), { role: 'moderator' });
     const title = uniq('后台内容 ');
@@ -228,8 +235,18 @@ test.describe('内容管理', () => {
     // 「已隐藏」筛选
     await page.getByLabel('状态').selectOption('1');
     await expect(row).toBeVisible();
+    // 站长 2026-10-27 21:06：恢复 = 回到「待审」，仍不公开（行留在「已隐藏」筛选里），主按钮变成显式「发布」
     await row.getByRole('button', { name: '恢复' }).click();
+    await expect(row.getByText('待审', { exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: '发布' })).toBeVisible();
+    expect(
+      (await db.query(`select published from forum_threads where id = $1`, [tid])).rows[0].published,
+    ).toBe(false);
+    await row.getByRole('button', { name: '发布' }).click();
     await expect(row).toHaveCount(0);
+    expect(
+      (await db.query(`select published from forum_threads where id = $1`, [tid])).rows[0].published,
+    ).toBe(true);
     await page.getByLabel('状态').selectOption('');
     await expect(row.getByText('已发布')).toBeVisible();
     // 次要操作在「⋯」菜单里（T9.16）：键盘可达，Esc 关闭并把焦点还给按钮
@@ -252,9 +269,15 @@ test.describe('内容管理', () => {
       0,
     );
     const audit = await db.query(`select action from audit_log where target_id = $1 order by id`, [tid]);
+    // 0018：隐藏 / 恢复走统一状态接口 mod_set_visibility，除行级 thread.update 外再记一条 content.visibility（含工作流状态与是否取消排程）
+    // 0019：恢复只回到待审（公开标志不变 → 没有 thread.update，只有 content.visibility）；
+    //       发布走 mod_publish_content → thread.update + content.published
     expect(audit.rows.map((x) => x.action)).toEqual([
       'thread.update',
+      'content.visibility',
+      'content.visibility',
       'thread.update',
+      'content.published',
       'thread.update',
       'thread.delete',
     ]);
@@ -273,9 +296,28 @@ test.describe('内容管理', () => {
     await expect(page.locator('tbody[data-rows] tr[data-id]')).toHaveCount(2);
     await page.getByRole('checkbox', { name: '全选本页' }).check();
     await page.locator('[data-bulkbar]').getByRole('button', { name: '隐藏' }).click();
-    await expect(page.getByText('已处理 2 条。')).toBeVisible();
+    // 0018：批量隐藏返回逐项结果——结果面板摘要与提示都改为「已隐藏 N 条。」（旧库无逐项结果时仍是「已处理 N 条。」）
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已隐藏 2 条。');
+    await expect(page.locator('.toast', { hasText: '已隐藏 2 条。' })).toBeVisible();
     const r = await db.query(`select bool_or(published) p from forum_replies where id = any($1)`, [[r1, r2]]);
     expect(r.rows[0].p).toBe(false);
+    // 0019：批量「恢复」只回到待审（仍不公开）；批量「发布」才公开
+    await page.getByRole('checkbox', { name: '全选本页' }).check();
+    await page.locator('[data-bulkbar]').getByRole('button', { name: '恢复' }).click();
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已恢复 2 条。');
+    const restored = await db.query(
+      `select bool_or(t.published) p, array_agg(distinct w.status) s from forum_replies t
+         join content_workflow w on w.target_type = 'reply' and w.target_id = t.id where t.id = any($1)`,
+      [[r1, r2]],
+    );
+    expect(restored.rows[0]).toEqual({ p: false, s: ['review'] });
+    await page.getByRole('checkbox', { name: '全选本页' }).check();
+    await page.locator('[data-bulkbar]').getByRole('button', { name: '发布' }).click();
+    await expect(page.locator('[data-bulk-summary]')).toHaveText('已发布 2 条。');
+    const pub = await db.query(`select bool_and(published) p from forum_replies where id = any($1)`, [
+      [r1, r2],
+    ]);
+    expect(pub.rows[0].p).toBe(true);
   });
 });
 
@@ -672,7 +714,7 @@ test.describe('@提及', () => {
     expect(n.rows).toEqual([{ kind: 'mention', thread_key: tid }]);
 
     const ctx = await browser.newContext({
-      baseURL: 'http://127.0.0.1:4321',
+      baseURL: BASE_URL,
       serviceWorkers: 'block',
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
@@ -718,6 +760,363 @@ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
       expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(true);
       await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
       expect(await axe(page), path).toEqual([]);
+    }
+  });
+
+  test('窄屏卡片表：Tab 不停在视觉隐藏的表头，排序走工具条下拉；导入导出卡片不超出视口', async ({
+    page,
+    makeUser,
+    signIn,
+  }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 390, height: 900 });
+    const a = await makeUser(uniq('管理员'), { role: 'admin' });
+    await makeUser(uniq('用户'));
+    await signIn(page, a);
+    await page.goto('/admin/users/');
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    // 焦点逐个检查：不能落在表头里，表格内的焦点要完整落在滚动容器的可视区内；
+    // 每一站都必须是真实可见的控件。Tab 合法离开页面（落到 BODY）时结束循环，不算失败。
+    await page.locator('.table-tools button').first().focus();
+    for (let i = 0; i < 24; i++) {
+      await page.keyboard.press('Tab');
+      const f = await page.evaluate(() => {
+        const e = document.activeElement as HTMLElement | null;
+        if (!e || e === document.body) return null;
+        const wrap = e.closest('.table-wrap');
+        const b = e.getBoundingClientRect();
+        const w = wrap?.getBoundingClientRect();
+        return {
+          thead: !!e.closest('thead'),
+          inside: !w || (b.left >= w.left - 1 && b.right <= w.right + 1),
+          visible: b.width > 0 && b.height > 0 && e.checkVisibility({ visibilityProperty: true }),
+          label: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 20),
+        };
+      });
+      if (!f) break;
+      expect(f.thead, f.label).toBe(false);
+      expect(f.inside, f.label).toBe(true);
+      expect(f.visible, f.label).toBe(true);
+    }
+    const sort = page.locator('.table-tools__sort select');
+    await expect(sort).toBeVisible();
+    const sortReq = () => page.waitForRequest((r) => /mod_list_users/.test(r.url()) && r.method() === 'POST');
+    let req = sortReq();
+    await sort.selectOption({ index: 1 });
+    let body = JSON.parse((await req).postData() ?? '{}');
+    expect([body.p_sort, body.p_dir]).toEqual([expect.any(String), 'asc']);
+    await expect(page.locator('thead th[aria-sort="ascending"]')).toHaveCount(1);
+    req = sortReq();
+    await sort.selectOption({ index: 2 });
+    body = JSON.parse((await req).postData() ?? '{}');
+    expect(body.p_dir).toBe('desc');
+    await expect(page.locator('thead th[aria-sort="descending"]')).toHaveCount(1);
+    // 默认顺序：请求不再带排序参数（或为 null），表头无 aria-sort
+    req = sortReq();
+    await sort.selectOption('');
+    body = JSON.parse((await req).postData() ?? '{}');
+    expect(body.p_sort ?? null).toBeNull();
+    await expect(page.locator('thead th[aria-sort]')).toHaveCount(0);
+
+    await page.goto('/admin/data/');
+    await expect(page.locator('[data-export-csv="comments"]')).toBeVisible();
+    const m = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const pre = document.querySelector('pre.code-block') as HTMLElement;
+      return {
+        overflow: document.documentElement.scrollWidth - vw,
+        clipped: [...document.querySelectorAll('main button, main input')]
+          .filter((e) => e.getBoundingClientRect().right > vw + 1)
+          .map((e) => e.textContent?.trim() || (e as HTMLInputElement).type),
+        preInside: pre.getBoundingClientRect().right <= vw + 1,
+        preScrolls: pre.scrollWidth > pre.clientWidth,
+      };
+    });
+    expect(m).toEqual({ overflow: 0, clipped: [], preInside: true, preScrolls: true });
+  });
+
+  test('断点交接：焦点从排序下拉回到宽屏时只落在可见控件；隐藏列不丢焦点、不改排序、不发请求', async ({
+    page,
+    makeUser,
+    signIn,
+  }) => {
+    test.setTimeout(90_000);
+    const a = await makeUser(uniq('管理员'), { role: 'admin' });
+    await makeUser(uniq('用户'));
+    await signIn(page, a);
+    const focusState = () =>
+      page.evaluate(() => {
+        const e = document.activeElement as HTMLElement | null;
+        if (!e || e === document.body) return { body: true } as const;
+        const b = e.getBoundingClientRect();
+        // 祖先裁切：沿 overflow 非 visible 的祖先检查交集
+        let clipped = false;
+        for (let p = e.parentElement; p; p = p.parentElement) {
+          const s = getComputedStyle(p);
+          if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
+            const r = p.getBoundingClientRect();
+            if (b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom)
+              clipped = true;
+          }
+        }
+        return {
+          body: false,
+          visible: b.width > 0 && b.height > 0 && e.checkVisibility({ visibilityProperty: true }),
+          clipped,
+          where: e.closest('thead')
+            ? 'thead'
+            : e.closest('.table-tools')
+              ? 'tools'
+              : e.closest('tbody')
+                ? 'tbody'
+                : 'other',
+          col: e.getAttribute('data-sort-col'),
+          tag: e.tagName,
+        };
+      });
+    const sort = page.locator('.table-tools__sort select');
+    const rpc: string[] = [];
+    page.on('request', (r) => {
+      if (/mod_list_users/.test(r.url())) rpc.push(r.postData() ?? '');
+    });
+    const choose = async (value: string) => {
+      const req = page.waitForRequest((r) => /mod_list_users/.test(r.url()) && r.method() === 'POST');
+      await sort.selectOption(value);
+      await req;
+      await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    };
+    // 完整状态轮询（R12）：「不是 BODY、可见、未被祖先裁切」同时成立才算交接完成。
+    // 只读 focusState()，不加观测器、不包 fetch、不加 MQ 监听 / rAF / 定时等待，不改超时。
+    const settled = { body: false, visible: true, clipped: false } as const;
+    const hidePref = () =>
+      page.evaluate(() => JSON.parse(localStorage.getItem('az-admin-table:users') || '{}').hide ?? []);
+
+    // 正常对照：可见列（第 1 列「用户」）800 → 1440，焦点交给该列表头按钮
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.goto('/admin/users/');
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    await choose('1:ascending');
+    await sort.focus();
+    let n = rpc.length;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(focusState).toMatchObject({ ...settled, where: 'thead', col: '1' });
+    expect(rpc.length).toBe(n);
+    // 宽 → 窄：焦点在表头，交给可见下拉
+    await page.setViewportSize({ width: 800, height: 900 });
+    await expect.poll(focusState).toMatchObject({ ...settled, where: 'tools', tag: 'SELECT' });
+
+    // 路径 A：响应式隐藏列（注册时间，data-priority=3，<1200 隐藏）800 → 1000
+    await choose('8:ascending');
+    await sort.focus();
+    n = rpc.length;
+    const hideA = await hidePref();
+    await page.setViewportSize({ width: 1000, height: 900 });
+    // 第 8 列仍被响应式隐藏：交给其它可见表头中的第一个（第 1 列「用户」）
+    await expect.poll(focusState).toMatchObject({ ...settled, where: 'thead', col: '1' });
+    await expect(page.locator('thead th:nth-child(8)')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(page.locator('thead th:nth-child(8)')).toBeHidden();
+    await expect(sort).toHaveValue('8:ascending');
+    expect(await hidePref()).toEqual(hideA);
+    expect(rpc.length).toBe(n);
+    // 1000 → 800 → 1000 再来一次（快速来回，中间不加任何等待；可能没有 MQ change）
+    await page.setViewportSize({ width: 800, height: 900 });
+    await sort.focus();
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await expect.poll(focusState).toMatchObject({ ...settled, where: 'thead', col: '1' });
+    await expect(sort).toHaveValue('8:ascending');
+    expect(await hidePref()).toEqual(hideA);
+    expect(rpc.length).toBe(n);
+
+    // 路径 B：用户隐藏「状态」列（第 3 列）800 → 1440
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.evaluate(() => {
+      const k = 'az-admin-table:users';
+      const p = JSON.parse(localStorage.getItem(k) || '{}');
+      localStorage.setItem(k, JSON.stringify({ ...p, hide: [3], sort: null }));
+    });
+    await page.reload();
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    await expect(page.locator('table.data-table')).toHaveAttribute('data-hide', /\b3\b/);
+    await choose('3:ascending');
+    await sort.focus();
+    n = rpc.length;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // 第 3 列被用户隐藏：交给其它可见表头中的第一个（第 1 列），不改隐藏偏好
+    await expect.poll(focusState).toMatchObject({ ...settled, where: 'thead', col: '1' });
+    await expect(page.locator('table.data-table')).toHaveAttribute('data-hide', /\b3\b/);
+    await expect(page.locator('thead th:nth-child(3)')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(sort).toHaveValue('3:ascending');
+    expect(await hidePref()).toEqual([3]);
+    expect(rpc.length).toBe(n);
+
+    // 焦点在行内按钮：断点来回切换不移动它
+    const rowBtn = page
+      .locator('.data-table tbody tr[data-row] button, .data-table tbody tr[data-row] a')
+      .first();
+    await rowBtn.focus();
+    expect(await focusState()).toMatchObject({ ...settled, where: 'tbody' });
+    const before = await rowBtn.evaluate((e) => e.outerHTML);
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await page.evaluate(() => document.activeElement?.outerHTML)).toBe(before);
+    expect(rpc.length).toBe(n);
+  });
+
+  test('断点交接防抢：其它输入框 / 行内按钮 / 空白点击 / Escape / Tab 离开 / 切宽屏后聚焦搜索框，焦点都不被错误交接', async ({
+    page,
+    makeUser,
+    signIn,
+  }) => {
+    test.setTimeout(90_000);
+    // 本页只有一张 data-table2 表，「焦点进入另一张表」在 E2E 里覆盖不到，只由 jsdom 机制测试覆盖
+    test.info().annotations.push({
+      type: 'limitation',
+      description:
+        '/admin/users/ 只有一张数据表：另一张表的防抢只在 tests/unit/admin-table-handoff.test.ts 中覆盖',
+    });
+    const a = await makeUser(uniq('管理员'), { role: 'admin' });
+    await makeUser(uniq('用户'));
+    await signIn(page, a);
+    const sort = page.locator('.table-tools__sort select');
+    const search = page.locator('#us-q');
+    const rpc: string[] = [];
+    page.on('request', (r) => {
+      if (/mod_list_users/.test(r.url())) rpc.push(r.postData() ?? '');
+    });
+    // 焦点身份：用 page.evaluateHandle 持有 activeElement 这个真实 DOM 节点的引用，在页面内用 === 比较。
+    // 不用 outerHTML / 标签名 / id / 重新查询选择器当身份，也不在 Node 侧比较 JSHandle 对象。
+    // 因此：同一节点子树里的属性变化（如表头 tabindex 随断点变化）不算换了节点；HTML 完全相同的新节点也不是原节点。
+    // 只读取 activeElement 的实际值，不用 focus() / blur() / 额外点击去「修正」它。
+    // 所有句柄登记在 held 里，在下面的 try/finally 中统一释放。
+    const grabRaw = () => page.evaluateHandle(() => document.activeElement);
+    type Focus = Awaited<ReturnType<typeof grabRaw>>;
+    const held: Focus[] = [];
+    const grab = async () => {
+      const h = await grabRaw();
+      held.push(h);
+      return h;
+    };
+    // 在页面内比较两个焦点句柄。BODY 与 null 单独标出（null 不算 BODY）；desc 只用于失败信息，不参与判定
+    const compare = (now: Focus, base: Focus) =>
+      page.evaluate(
+        ([a, b]) => {
+          const kind = (e: Element | null) =>
+            e === null ? 'NULL' : e === document.body ? 'BODY' : 'ELEMENT';
+          const desc = (e: Element | null) =>
+            e === null ? 'null' : `${e.tagName.toLowerCase()}${e.id ? `#${e.id}` : ''}`;
+          return { same: a === b, now: kind(a), base: kind(b), nowDesc: desc(a), baseDesc: desc(b) };
+        },
+        [now, base],
+      );
+    // 检查点：先确认应用已按该断点同步（表头排序按钮的 tabindex：宽屏无该属性，窄屏为 -1），
+    // 再等两帧，给同一轮里可能排队的交接 rAF 一个执行机会。这只是一个检查点：
+    // 它不证明之后永远不会发生交接，也不保证所有异步工作都已完成。
+    const frames = () =>
+      page.evaluate(
+        () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+      );
+    const thSort = page.locator('thead .th-sort').first();
+    const to = async (wide: boolean) => {
+      await page.setViewportSize({ width: wide ? 1440 : 800, height: 900 });
+      await expect.poll(() => thSort.getAttribute('tabindex')).toBe(wide ? null : '-1');
+      await frames();
+    };
+    // 每一程各用自己的基线（不再两程都与起点比较，否则 SELECT → BODY → SELECT 会两次通过）：
+    //  - 去程（宽）：与起点比较，允许集合不变：仍是起点那个节点；或（仅 bothWays 的去程）BODY——原控件被隐藏时浏览器可能把焦点移到 BODY。
+    //    null 不在允许集合里；交给表头即失败。返回去程实际的焦点句柄。
+    //  - 回程（窄）：以去程实际焦点为基线严格比较（=== 同一节点，不再豁免 BODY）。去程是 BODY → 回程必须仍是 BODY，
+    //    焦点被放回原下拉即失败；去程停在原控件 → 回程也必须是同一个节点。
+    const expectSame = async (label: string, base: Focus, allowBody = false) => {
+      const now = await grab();
+      const r = await compare(now, base);
+      const ok = r.same || (allowBody && r.now === 'BODY');
+      expect(ok, `${label}: ${JSON.stringify(r)}`).toBe(true);
+      return now;
+    };
+    const bothWays = async (start: Focus) => {
+      await to(true);
+      const outbound = await expectSame('wide', start, true);
+      await to(false);
+      await expectSame('narrow', outbound);
+    };
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.goto('/admin/users/');
+    await expect(page.locator('.data-table tbody tr[data-row]').first()).toBeVisible();
+    const n = rpc.length;
+
+    try {
+      // 1. 其它输入框：先在下拉、再到搜索框；宽、窄两个方向都停在搜索框（同一节点，不豁免 BODY）
+      await sort.focus();
+      await search.focus();
+      const s1 = await grab();
+      await to(true);
+      const o1 = await expectSame('1 wide', s1);
+      await to(false);
+      await expectSame('1 narrow', o1);
+
+      // 2. 行内按钮
+      const rowBtn = page
+        .locator('.data-table tbody tr[data-row] button, .data-table tbody tr[data-row] a')
+        .first();
+      await sort.focus();
+      await rowBtn.focus();
+      const s2 = await grab();
+      await to(true);
+      const o2 = await expectSame('2 wide', s2);
+      await to(false);
+      await expectSame('2 narrow', o2);
+
+      // 3. 空白点击：表内非交互单元格、页面标题。不调用 blur()：浏览器可能让下拉仍是 activeElement，
+      //    这是允许的；要求是之后的断点切换不把它交给表头（宽）或拉回下拉（窄）
+      for (const blank of [
+        page
+          .locator('.data-table tbody tr[data-row] td')
+          .filter({ hasNot: page.locator('a, button, input, select, label') })
+          .first(),
+        page.locator('main h1').first(),
+      ]) {
+        await sort.focus();
+        await blank.click({ position: { x: 1, y: 1 } });
+        await bothWays(await grab());
+      }
+
+      // 4. Escape：不调用 blur()，下拉可以仍是 activeElement；取消后宽屏不交给表头
+      await sort.focus();
+      await page.keyboard.press('Escape');
+      await bothWays(await grab());
+
+      // 5. 键盘离开：Tab / Shift+Tab 离开下拉后，焦点停在用户去的地方。
+      //    「已离开下拉」用节点身份判断：按键前的 activeElement（排序下拉本身）与按键后的不是同一节点（页面内 ===）
+      for (const key of ['Tab', 'Shift+Tab']) {
+        await sort.focus();
+        const sel = await grab();
+        expect(await sel.evaluate((e) => e instanceof HTMLSelectElement)).toBe(true);
+        await page.keyboard.press(key);
+        const s5 = await grab();
+        const left = await compare(s5, sel);
+        expect(left.same, `5 ${key} left select: ${JSON.stringify(left)}`).toBe(false);
+        await to(true);
+        const o5 = await expectSame(`5 ${key} wide`, s5);
+        await to(false);
+        await expectSame(`5 ${key} narrow`, o5);
+      }
+
+      // 6. 切到宽屏后立即聚焦搜索框：此时是否已有排队的交接取决于引擎时序，本步不保证一定构造出排队任务；
+      //    只检查到检查点为止焦点仍是第 1 步那个搜索框节点
+      await sort.focus();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await search.focus();
+      await expect.poll(() => thSort.getAttribute('tabindex')).toBe(null);
+      await frames();
+      await expectSame('6 checkpoint', s1);
+
+      // 全程不改排序、不发请求
+      await expect(sort).toHaveValue('');
+      await expect(page.locator('thead th[aria-sort]')).toHaveCount(0);
+      expect(rpc.length).toBe(n);
+    } finally {
+      // allSettled：释放失败（如页面已关闭）不覆盖测试本身的断言错误
+      await Promise.allSettled(held.map((h) => h.dispose()));
     }
   });
 });

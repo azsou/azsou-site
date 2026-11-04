@@ -28,6 +28,16 @@ export async function createDatabase(name: string, files: string[]): Promise<str
   const admin = new pg.Client({ connectionString: ADMIN_URL });
   await admin.connect();
   try {
+    // pool.end() 返回时刚关闭的连接可能还在断开中；先等它们真正断开（最多约 2.5s），再强制删库。
+    // 否则 with (force) 会终止这些连接，已脱离连接池的客户端没有错误监听，抛出 57P01 未处理错误（CI db 偶发）。
+    for (let i = 0; i < 50; i++) {
+      const r = await admin.query<{ n: number }>(
+        `select count(*)::int as n from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()`,
+        [name],
+      );
+      if (!r.rows[0].n) break;
+      await new Promise((res) => setTimeout(res, 50));
+    }
     await admin.query(`drop database if exists ${name} with (force)`);
     await admin.query(`create database ${name}`);
   } finally {

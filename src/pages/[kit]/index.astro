@@ -71,7 +71,9 @@ const STATES = [
   { key: 'loading', name: '加载', cls: '' },
 ];
 
-const colorRoles = Object.keys(tokens.color.light).filter((k) => !/^(elev|cover|icon-stroke|mono-)/.test(k));
+const colorRoles = Object.keys(tokens.color.light).filter(
+  (k) => !/^(elev|cover|icon-stroke|mono-|tint-)/.test(k),
+);
 const typeNames = Object.keys(tokens.scale);
 const spaces = Object.entries(tokens.space).sort((a, b) => a[1] - b[1]);
 const radii = ['xs', 'sm', 'md', 'lg', 'pill'];

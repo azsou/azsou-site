@@ -69,6 +69,9 @@ import { forum } from '@/lib/content';
     <button class="btn btn--sm" type="button" data-bulk="restore">
       恢复
     </button>
+    <button class="btn btn--sm" type="button" data-bulk="publish">
+      发布
+    </button>
     <button class="btn btn--sm" type="button" data-bulk="draft">
       转草稿
     </button>
@@ -88,6 +91,7 @@ import { forum } from '@/lib/content';
       取消选择
     </button>
   </div>
+  <div data-bulk-result role="status" aria-live="polite" hidden></div>
   <div class="btn-row" data-select-all-row>
     <label class="check">
       <input type="checkbox" data-select-all />

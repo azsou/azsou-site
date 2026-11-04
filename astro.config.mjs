@@ -4,6 +4,9 @@ import vercel from '@astrojs/vercel';
 import sitemap from '@astrojs/sitemap';
 import fs from 'node:fs';
 import path from 'node:path';
+import { loadEnv } from 'vite';
+import { resolveSupabaseConfig } from './scripts/supabase-env.mjs';
+import { PRODUCTION_IDENTITY, PRODUCTION_REF } from './scripts/supabase-prod.mjs';
 
 export const SITE = 'https://azsou.com';
 
@@ -58,6 +61,65 @@ function thinTags() {
 }
 const THIN_TAGS = thinTags();
 
+/**
+ * 客户端 chunk → 源模块清单（dist/meta/client-chunks.json，不在 dist/client 里、不会部署）。
+ * tests/built/js-budget.test.ts 用它检查：公开页面能加载到的任何 chunk 都不含后台专用模块（站长 2026-10-27：前后台共享依赖拆开，
+ * /apps/ JS 预算 49,152 B 不放宽）。只记录确实打进 chunk 的模块（renderedLength > 0）。
+ */
+/** @returns {import('astro').AstroIntegration} */
+function clientChunkManifest() {
+  let outDir = new URL('./dist/', import.meta.url);
+  return {
+    name: 'az-client-chunk-manifest',
+    hooks: {
+      'astro:config:done': ({ config }) => {
+        outDir = config.outDir;
+      },
+      'astro:build:setup': ({ vite, target }) => {
+        if (target !== 'client') return;
+        const root = path.resolve('.') + path.sep;
+        /** @type {import('vite').Plugin} */
+        const plugin = {
+          name: 'az-client-chunk-manifest',
+          generateBundle(_opts, bundle) {
+            /** @type {Record<string, { modules: string[]; imports: string[]; dynamicImports: string[] }>} */
+            const chunks = {};
+            for (const c of Object.values(bundle)) {
+              if (c.type !== 'chunk') continue;
+              chunks[c.fileName] = {
+                modules: Object.entries(c.modules)
+                  .filter(([, m]) => m.renderedLength > 0)
+                  .map(([id]) => id.replace(/\0/g, '').split('?')[0].replace(root, '')),
+                imports: c.imports,
+                dynamicImports: c.dynamicImports,
+              };
+            }
+            const dir = new URL('meta/', outDir);
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(new URL('client-chunks.json', dir), JSON.stringify(chunks, null, 1));
+          },
+        };
+        vite.plugins = [...(vite.plugins ?? []), plugin];
+      },
+    },
+  };
+}
+
+/**
+ * 构建期检查（站长 2026-10-28 第五轮）：任何环境（本机、CI、Vercel Preview / Development / Production）都必须显式配置
+ * PUBLIC_SUPABASE_URL / KEY，且目标在允许清单里——非生产只能是测试项目 azsou-test 或本机栈，VERCEL_ENV=production 只能是生产项目。
+ * 不满足直接让构建失败（没有默认值、不回退生产）。规则见 scripts/supabase-env.mjs、docs/DEPLOY.md。
+ * 读 process.env（Vercel / CI 注入）并合并 .env 文件里的 PUBLIC_*（本机开发），与 Vite 构建期替换进客户端包的值一致。
+ */
+const SUPABASE_BUILD = (() => {
+  const fileEnv = loadEnv(
+    process.env.NODE_ENV === 'development' ? 'development' : 'production',
+    process.cwd(),
+    'PUBLIC_SUPABASE_',
+  );
+  return resolveSupabaseConfig({ ...fileEnv, ...process.env }, PRODUCTION_IDENTITY);
+})();
+
 export default defineConfig({
   site: SITE,
   // 静态输出；adapter 已就位，后续 P2/P3 的论坛/用户页可用 `export const prerender = false` 按需渲染
@@ -70,6 +132,7 @@ export default defineConfig({
   build: { format: 'directory', inlineStylesheets: 'always' },
   compressHTML: true,
   integrations: [
+    clientChunkManifest(),
     sitemap({
       // 中英对应页面互相写 xhtml:link 备用语言（页面 <head> 里另有 hreflang + x-default）
       i18n: { defaultLocale: 'zh', locales: { zh: 'zh-CN', en: 'en' } },
@@ -81,5 +144,14 @@ export default defineConfig({
       changefreq: 'weekly',
     }),
   ],
-  vite: { build: { assetsInlineLimit: 2048 } },
+  vite: {
+    build: { assetsInlineLimit: 2048 },
+    // 生产身份只进生产构建：浏览器端 / 服务端运行时据此按同一允许清单再校验（src/lib/supabase-config.ts）。
+    // 非生产构建注入空串 → 产物里没有生产 ref，运行时也不可能被放行连生产（tests/built/supabase-target.test.ts 扫描产物）
+    define: {
+      'import.meta.env.PUBLIC_SUPABASE_PROD_REF': JSON.stringify(
+        SUPABASE_BUILD.target === 'production' ? PRODUCTION_REF : '',
+      ),
+    },
+  },
 });

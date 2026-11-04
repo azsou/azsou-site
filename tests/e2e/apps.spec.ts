@@ -273,14 +273,15 @@ test.describe('应用目录', () => {
     );
     await page.goto('/apps/');
     await catalogReady(page);
-    await page.locator('[data-more-filters] summary').click();
-    await page.getByRole('button', { name: '热门' }).click();
-    await expect(page.getByRole('button', { name: '热门' })).toHaveAttribute('aria-pressed', 'true');
+    // F02：排序是工具条上的单一「排序」下拉（不在「更多筛选」里）
+    const sort = page.getByRole('combobox', { name: '排序' });
+    await sort.selectOption('hot');
+    await expect(sort).toHaveValue('hot');
     await expect(page).toHaveURL(/sort=hot/);
     await expect(cards(page).nth(0)).toContainText('Sub2API');
     await expect(cards(page).nth(1)).toContainText('Hermes');
     // P10：列表条目不再显示评分 / 下载数（站长决定），排序仍按真实数据
-    await page.getByRole('button', { name: '评分' }).click();
+    await sort.selectOption('rating');
     await expect(cards(page).nth(0)).toContainText('职业技能树工具');
     await expect(cards(page).nth(1)).toContainText('Capture Kit');
     await expect(page.locator('[data-catalog-status]')).toContainText('按评分排序');
@@ -310,8 +311,7 @@ test.describe('应用目录', () => {
     await page.locator('[data-more-filters] summary').click();
     // 平台页上再按价格筛选，地址不重复写固定的平台
     await catalogReady(page);
-    await page.locator('[data-more-filters] summary').click();
-    await page.getByRole('button', { name: '热门' }).click();
+    await page.getByRole('combobox', { name: '排序' }).selectOption('hot');
     await expect(page).toHaveURL(/\/apps\/platform\/browser-ext\/\?sort=hot$/);
   });
 });

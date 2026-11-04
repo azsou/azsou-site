@@ -2,14 +2,20 @@ import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { Resvg } from '@resvg/resvg-js';
 import type { Page } from '@playwright/test';
-import { test, expect, seedThread, uniq } from './community-fixtures';
+import { test, expect, publishThread, seedThread, uniq } from './community-fixtures';
 
 /**
  * P5 编辑器图片上传：Storage 接口用 page.route 模拟（本地 / CI 没有 storage-api），
  * 帖子本身写进真实 Postgres（PostgREST + RLS）。存储 RLS 在 tests/db/p5.test.ts 里测。
  */
 
-const SUPA = 'https://abryflgoljltyakthtql.supabase.co';
+// 构建时显式配置的 Supabase 地址（CI / 本机 = 本机栈 http://127.0.0.1:54321；scripts/supabase-env.mjs 没有默认值）
+const SUPA = (() => {
+  const u = process.env.PUBLIC_SUPABASE_URL;
+  if (!u)
+    throw new Error('E2E 需要与构建一致的 PUBLIC_SUPABASE_URL（见 docs/DEPLOY.md「Supabase 连接配置」）');
+  return u.replace(/\/+$/, '');
+})();
 
 /** 2400×1200 的 PNG（客户端应缩到 1600×800 并转成 WebP / JPEG） */
 function widePng(): Buffer {
@@ -138,8 +144,8 @@ test.describe('编辑器图片上传', () => {
     await expect(pimg).toHaveAttribute('width', '1600');
     await expect.poll(() => pimg.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1600);
 
-    await page.getByRole('button', { name: '发布主题' }).click();
-    await expect(page).toHaveURL(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+    // 发布：等写库 201 → 新主题文档请求 → DOMContentLoaded（不是只加等待，见 publishThread 注释）
+    await publishThread(page);
     await expect(page.locator('h1')).toHaveText(title);
     const img = page.locator('[data-body] img');
     await expect(img).toHaveAttribute('alt', '渐变横幅示意图');
@@ -179,7 +185,11 @@ test.describe('编辑器图片上传', () => {
     await panel.getByLabel(/图片说明/).fill('粘贴的图');
     await panel.getByLabel(/图片说明/).press('Enter');
     await expect(panel).toBeHidden();
-    await expect(ta).toHaveValue(/^!\[粘贴的图\]\(https:\/\/\S+-1600x800\.(webp|jpg)\)\n$/);
+    await expect(ta).toHaveValue(
+      new RegExp(
+        `^!\\[粘贴的图\\]\\(${SUPA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/\\S+-1600x800\\.(webp|jpg)\\)\\n$`,
+      ),
+    );
 
     // 拖放
     await ta.evaluate((el) => {

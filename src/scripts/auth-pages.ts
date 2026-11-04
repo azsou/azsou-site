@@ -3,6 +3,7 @@
  * 只在这些页面加载；所有请求经仓储接口（src/lib/data），权限由数据库与 Supabase Auth 决定。
  */
 import { AuthError, checkLength, getRepository, LIMITS, type OAuthProvider, type Profile } from '@/lib/data';
+import { navigateSameOrigin, safeNext } from '@/lib/safe-next';
 import { PROFILE_KEY } from './user-menu';
 
 const repo = getRepository();
@@ -11,12 +12,7 @@ const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = docu
 
 // ------------------------------------------------------------------ 通用 ----
 
-/** 只允许站内相对路径作为登录后的跳转目标 */
-export function safeNext(raw: string | null | undefined, fallback = '/'): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return fallback;
-  if (/^\/(login|register|auth)\//.test(raw)) return fallback;
-  return raw;
-}
+// 登录后的跳转目标只允许本站路径：safeNext（src/lib/safe-next.ts，I01 / T074）；真正导航时再经 navigateSameOrigin 校验同源
 const params = new URLSearchParams(location.search);
 const next = safeNext(params.get('next'));
 const callbackUrl = (n?: string) =>
@@ -203,7 +199,8 @@ document.querySelectorAll<HTMLButtonElement>('[data-oauth]').forEach((b) => {
 async function afterSignIn(target = next) {
   const p = await repo.profiles.me().catch(() => null);
   rememberProfile(p);
-  location.assign(target);
+  // 最终导航前再做一次同源校验（第二道防线，I01 / T074 第 3 轮）
+  navigateSameOrigin(target, 'assign');
 }
 
 {
@@ -479,6 +476,6 @@ async function handleCallback() {
       : r.type === 'signup'
         ? safeNext(params.get('next'), '/settings/?welcome=1')
         : next;
-  location.replace(target);
+  navigateSameOrigin(target, 'replace');
 }
 void handleCallback();

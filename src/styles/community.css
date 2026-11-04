@@ -395,8 +395,12 @@
     .composer[data-mode] .composer__input {
       display: block;
     }
+    /* 预览不参与撑高这一行：行高只由编辑区决定，预览在框内滚动。
+       以前预览 200ms 防抖渲染后变高，把「发布主题」等按钮往下推——用户（和测试）点下去时按钮刚好移走。 */
     .composer__preview {
+      overflow-y: auto;
       border-left: 1px solid var(--c-separator);
+      contain: size;
     }
     .composer .composer__modes {
       display: none;
@@ -712,9 +716,26 @@
   .forum-cats .card__text {
     font-size: var(--fs-meta);
   }
+  /* F09（批次 3）：手机上 4 张横排卡仍占约 360px，首屏看不到任何主题。改为 2 列紧凑分类格（不放缩略图，名称 + 说明），
+     第一条主题回到 390×844 首屏内。缩略图在 ≥ 600 与分类页里照常显示。 */
   @media (max-width: 599.98px) {
+    .forum-cats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-2);
+    }
+    .forum-cats > .card {
+      align-items: flex-start;
+      padding: var(--space-2) var(--space-3);
+    }
     .forum-cats .card__media {
-      width: 96px;
+      display: none;
+    }
+    .forum-cats .card__title {
+      font-size: var(--fs-body-sm);
+    }
+    .forum-cats .card__text {
+      font-size: var(--fs-caption);
+      line-height: var(--lh-meta);
     }
   }
 }

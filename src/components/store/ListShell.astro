@@ -4,6 +4,8 @@
  *  - 分类栏：≥ 1200 是左侧竖栏，< 1200 是顶部一行胶囊（同一组元素，不重复）。
  *    链接模式（应用 / AI 工具：分类有可索引的静态页）或按钮模式（游戏 / 作品：filterParam，交给 list-filter.ts）；
  *  - 工具条：结果数（role=status，各页原有筛选脚本更新它）+ 排序（最新 / 名称 / 编辑推荐）+ 网格 / 列表切换；
+ *    F02：页面自己负责排序时（/apps/ 目录，排序项更多、要排整个目录而不只是本页条目）传 sortOptions：
+ *    工具条改为一个带可见标签的原生「排序」下拉（一个控件、一个 ?sort=），外壳脚本不再碰排序，由页面脚本接管。
  *  - 条目超过一页（24）时「加载更多」（src/scripts/list-shell.ts）。没有 JS 时全部显示、按默认顺序。
  */
 import '@/styles/store.css';
@@ -33,6 +35,11 @@ interface Props {
   sort?: 'new' | 'name' | 'editor';
   /** 每页条数（加载更多）；0 = 不分批（已有服务端分页的页面） */
   pageSize?: number;
+  /**
+   * F02：页面自管排序的选项（值 + 文字，第一项是默认）。传了就渲染单个「排序」下拉
+   * （data-list-sort-select，data-sort-owner="page"），list-shell.ts 不再处理排序。
+   */
+  sortOptions?: { value: string; label: string }[];
 }
 const {
   railLabel,
@@ -43,11 +50,18 @@ const {
   statusAttrs = {},
   sort = 'new',
   pageSize = 24,
+  sortOptions,
 } = Astro.props;
 const Rail = filterParam ? 'div' : 'nav';
 ---
 
-<div class="list-layout list-layout--rail" data-list-shell data-page-size={pageSize} data-default-sort={sort}>
+<div
+  class="list-layout list-layout--rail"
+  data-list-shell
+  data-page-size={pageSize}
+  data-default-sort={sortOptions ? sortOptions[0].value : sort}
+  data-sort-owner={sortOptions ? 'page' : 'shell'}
+>
   {/* 链接模式是导航（分类有静态页）；按钮模式是一组筛选按钮（list-filter.ts） */}
   <Rail
     class="list-rail"
@@ -89,13 +103,36 @@ const Rail = filterParam ? 'div' : 'nav';
       <p class="list-toolbar__count" role="status" {...statusAttrs}>
         {status}
       </p>
-      <div class="segmented" role="group" aria-label="排序" data-list-sort>
-        {ENTRY_SORTS.map((s) => (
-          <button type="button" data-entry-sort={s} aria-pressed={s === sort ? 'true' : 'false'} disabled>
-            {ENTRY_SORT_LABEL[s]}
-          </button>
-        ))}
-      </div>
+      {sortOptions ? (
+        <div class="list-sort">
+          <label class="list-sort__label" for="list-sort">
+            排序
+          </label>
+          {/* autocomplete=off：后退 / 刷新时浏览器不自动恢复旧选项，状态只从地址读 */}
+          <select
+            id="list-sort"
+            class="select list-sort__select"
+            name="sort"
+            autocomplete="off"
+            data-list-sort-select
+            disabled
+          >
+            {sortOptions.map((o, i) => (
+              <option value={o.value} selected={i === 0}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div class="segmented" role="group" aria-label="排序" data-list-sort>
+          {ENTRY_SORTS.map((s) => (
+            <button type="button" data-entry-sort={s} aria-pressed={s === sort ? 'true' : 'false'} disabled>
+              {ENTRY_SORT_LABEL[s]}
+            </button>
+          ))}
+        </div>
+      )}
       <div class="segmented" role="group" aria-label="显示方式" data-list-viewtoggle>
         <button type="button" data-view-set="grid" aria-pressed="true" disabled>
           网格

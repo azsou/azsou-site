@@ -9,4 +9,6 @@ interface ImportMetaEnv {
   readonly PUBLIC_GA4_ID?: string;
   readonly PUBLIC_GSC_VERIFICATION?: string;
   readonly PUBLIC_CONTACT_EMAIL?: string;
+  /** 构建期由 astro.config.mjs 注入：生产 ref（仅 VERCEL_ENV=production 的构建），其余构建为空串 */
+  readonly PUBLIC_SUPABASE_PROD_REF?: string;
 }

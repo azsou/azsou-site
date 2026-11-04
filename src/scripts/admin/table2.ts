@@ -14,6 +14,13 @@
 import { toCsv } from '@/lib/csv';
 import { download, h, stamp } from './shell';
 
+/** 元素是否实际渲染、可见（祖先 display:none / visibility:hidden 都算不可见）。 */
+export function isShown(el: HTMLElement): boolean {
+  if (!el.isConnected) return false;
+  if (typeof el.checkVisibility === 'function') return el.checkVisibility({ visibilityProperty: true });
+  return el.getClientRects().length > 0;
+}
+
 export type Density = 'standard' | 'compact';
 export interface SavedView {
   name: string;
@@ -99,6 +106,9 @@ export function tableRows(table: HTMLTableElement, hide: number[]): { cols: stri
   );
   return { cols: cols.map((c) => c.label), rows };
 }
+
+/** 每张表的断点交接监听（重复初始化先撤销旧的，避免重复监听；表格脱离文档时撤销） */
+const handoffs = new WeakMap<HTMLTableElement, AbortController>();
 
 let popSeq = 0;
 function popover(label: string, icon: string, build: (panel: HTMLElement, close: () => void) => void) {
@@ -201,21 +211,54 @@ export function enhanceTable(table: HTMLTableElement) {
     th.append(btn);
     btn.addEventListener('click', () => {
       const cur = prefs.sort?.col === c.n ? prefs.sort.dir : null;
-      prefs.sort =
+      setSort(
         cur === null
           ? { col: c.n, dir: 'ascending' }
           : cur === 'ascending'
             ? { col: c.n, dir: 'descending' }
-            : null;
-      apply();
-      if (server) {
-        const key = thAt(c.n)?.dataset.sortKey ?? '';
-        table.dispatchEvent(
-          new CustomEvent<ServerSort | null>('table2:sort', {
-            detail: prefs.sort ? { key, dir: prefs.sort.dir === 'ascending' ? 'asc' : 'desc' } : null,
-          }),
-        );
-      } else sortRows();
+            : null,
+        c.n,
+      );
+    });
+  }
+  // 表头按钮与窄屏排序下拉共用：更新 prefs.sort → aria-sort / 记忆 → 服务端取数或当前页重排
+  function setSort(next: Prefs['sort'], col: number) {
+    prefs.sort = next;
+    apply();
+    if (server) {
+      const key = thAt(next?.col ?? col)?.dataset.sortKey ?? '';
+      table.dispatchEvent(
+        new CustomEvent<ServerSort | null>('table2:sort', {
+          detail: next ? { key, dir: next.dir === 'ascending' ? 'asc' : 'desc' } : null,
+        }),
+      );
+    } else sortRows();
+  }
+
+  // 窄屏卡片（< 900，data-cards）：thead 只做视觉隐藏（列名仍供辅助技术与数据关联），
+  // 其中的排序按钮 / 调宽手柄移出 Tab 顺序；排序改由工具条里可见的下拉提供，状态仍是同一个 prefs.sort。
+  const cardsMq =
+    table.dataset.cards !== undefined && typeof matchMedia === 'function'
+      ? matchMedia('(max-width: 899.98px)')
+      : null;
+  let sortSel: HTMLSelectElement | null = null;
+  if (cardsMq && sortable.length) {
+    // 名称只取「排序」：包在 <label> 里会把全部选项文字并入可访问名称，与页面上的「状态」等筛选同名冲突
+    sortSel = h('select', {
+      class: 'select select--inline',
+      'data-sort-select': true,
+      'aria-label': '排序',
+    }) as HTMLSelectElement;
+    sortSel.append(h('option', { value: '', text: '默认顺序' }));
+    for (const c of sortable)
+      sortSel.append(
+        h('option', { value: `${c.n}:ascending`, text: `${c.label} 升序` }),
+        h('option', { value: `${c.n}:descending`, text: `${c.label} 降序` }),
+      );
+    sortSel.addEventListener('change', () => {
+      const [n, dir] = sortSel!.value.split(':');
+      const col = Number(n);
+      setSort(sortSel!.value ? { col, dir: dir as SortDir } : null, prefs.sort?.col ?? col);
     });
   }
 
@@ -302,6 +345,7 @@ export function enhanceTable(table: HTMLTableElement) {
       if (prefs.sort?.col === i + 1) th.setAttribute('aria-sort', prefs.sort.dir);
       else th.removeAttribute('aria-sort');
     });
+    if (sortSel) sortSel.value = prefs.sort ? `${prefs.sort.col}:${prefs.sort.dir}` : '';
     table.dataset.density = prefs.density;
     const hide = prefs.hide.filter((n) => !columnsOf(table).find((c) => c.n === n)?.locked);
     if (hide.length) table.dataset.hide = hide.join(' ');
@@ -422,6 +466,16 @@ export function enhanceTable(table: HTMLTableElement) {
     'div',
     { class: 'table-tools', role: 'group', 'aria-label': '表格工具' },
     seg,
+    ...(sortSel
+      ? [
+          h(
+            'div',
+            { class: 'table-tools__sort' },
+            h('span', { text: '排序', 'aria-hidden': 'true' }),
+            sortSel,
+          ),
+        ]
+      : []),
     ...(allLabel ? [allLabel] : []),
     h('span', { class: 'table-tools__spacer' }),
     cols,
@@ -432,6 +486,202 @@ export function enhanceTable(table: HTMLTableElement) {
   if (allLabel) allRow?.remove();
   apply();
   sortRows();
+
+  if (cardsMq) {
+    // 断点交接（R12）：每张表一份焦点归属记录。只恢复「被本表窄 / 宽切换作废」的焦点：
+    //  - 记录：焦点进入本表的排序下拉、表头 .th-sort / .th-resize 或工具条按钮时记下（归属 = 本表）；
+    //  - 资格：按断点 + 控件角色判断（下拉只在窄屏、表头控件只在宽屏），再加 isShown 排除 display:none 的列。
+    //    窄屏表头只是视觉裁切（clip-path），checkVisibility() 仍为 true，所以不能只靠它；
+    //  - 采纳：初始化时焦点已在本表控件上，只在初始化时采纳一次；之后归属只由「新的 focusin 进入本表控件」或
+    //    「在仍是焦点的本表合格控件上 pointerdown / keydown」重新建立。取消后旧控件即使仍是 activeElement，
+    //    之后的 MQ change / resize 也不会据此恢复（取消优先，Escape 不例外）；
+    //  - 触发：MQ change 同步调用 syncCards；resize 时按需合并成一个 rAF（快速 1000→800→1000 可能没有 MQ change），
+    //    被隐藏控件先失焦到 BODY（relatedTarget=null）时也按需排一个 rAF。rAF 回调不看排队时的状态，
+    //    执行时按最新归属重新判断（新焦点已接走 → 不动；新归属需要交接 → 照常交接；tabindex 照常同步）；
+    //  - 取消：焦点进入其它控件 / 其它表、在非本表控件处（含本表空白处）pointerdown、Tab / Escape、
+    //    页面失焦或隐藏、记录的控件或表格脱离文档；回到前台不自动恢复；
+    //  - 不抢：页面隐藏或没有焦点、真正打开且可见的模态 / popover / 工具条弹出面板（.table-pop__panel）存在时不动；
+    //    目标已是焦点时不再调用 focus()。
+    const prev = handoffs.get(table);
+    prev?.abort();
+    const ac = new AbortController();
+    handoffs.set(table, ac);
+    const { signal } = ac;
+    type Role = 'sort' | 'th' | 'tool';
+    let owner: { el: HTMLElement; role: Role } | null = null;
+    let raf = 0;
+    let synced: boolean | null = null;
+    const roleOf = (el: EventTarget | null): Role | null => {
+      if (!(el instanceof HTMLElement)) return null;
+      if (sortSel && el === sortSel) return 'sort';
+      if (table.tHead?.contains(el) && el.matches('.th-sort, .th-resize')) return 'th';
+      if (tools.contains(el) && el.matches('button') && !el.closest('.table-pop__panel')) return 'tool';
+      return null;
+    };
+    // 断点 + 角色：下拉只属于窄屏，表头控件只属于宽屏；工具条按钮两种都可。另需真实渲染（排除 display:none）。
+    const eligible = (el: HTMLElement | null, narrow: boolean): el is HTMLElement => {
+      if (!el || !el.isConnected || !table.isConnected) return false;
+      const r = roleOf(el);
+      if (!r || (r === 'sort' && !narrow) || (r === 'th' && narrow)) return false;
+      if (el instanceof HTMLButtonElement && el.disabled) return false;
+      return isShown(el);
+    };
+    // 取消只放弃归属；已排队的 rAF 保留（执行时归属为空，只同步 tabindex，不动焦点）
+    const cancel = () => {
+      owner = null;
+    };
+    // 撤销旧控制器时 AbortController.abort() 不会取消已排队的 rAF，这里显式取消
+    signal.addEventListener('abort', () => {
+      owner = null;
+      if (raf) window.cancelAnimationFrame(raf);
+      raf = 0;
+    });
+    const blocked = () => {
+      if (document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus())) return true;
+      const open = (sel: string) => {
+        try {
+          return [...document.querySelectorAll<HTMLElement>(sel)].some(
+            (m) => isShown(m) && !m.closest('[inert]'),
+          );
+        } catch {
+          return false; // 不支持的选择器（如旧环境的 :popover-open）
+        }
+      };
+      // 工具条弹出面板：popover() 用 hidden 属性开关（同时切换按钮 aria-expanded），[hidden] 时 display:none。
+      // 只认这个类名，不把 role=group 节点（工具条、密度切换、关闭的面板）一概当作阻挡
+      const panelOpen = [...document.querySelectorAll<HTMLElement>('.table-pop__panel')].some(
+        (p) => !p.hidden && isShown(p) && !p.closest('[inert]'),
+      );
+      return panelOpen || open('dialog[open]') || open('[aria-modal="true"]') || open(':popover-open');
+    };
+    const syncTabs = (narrow: boolean) => {
+      if (synced === narrow) return;
+      synced = narrow;
+      table.querySelectorAll<HTMLElement>('thead .th-sort, thead .th-resize').forEach((el) => {
+        if (narrow) el.tabIndex = -1;
+        else if (el.classList.contains('th-resize')) el.tabIndex = 0;
+        else el.removeAttribute('tabindex');
+      });
+    };
+    const syncCards = () => {
+      if (!table.isConnected) return teardown();
+      const narrow = cardsMq.matches;
+      syncTabs(narrow);
+      const active = document.activeElement;
+      if (!owner) return;
+      if (!owner.el.isConnected) return cancel(); // 被替换 / 移除：不当作交接
+      // 只处理本表窄 / 宽切换作废的焦点：下拉在宽屏、表头控件在窄屏。工具条按钮不受切换影响；
+      // 同一断点下因 display:none（列被隐藏）失效的不算切换，放弃记录
+      const swapped = (owner.role === 'sort' && !narrow) || (owner.role === 'th' && narrow);
+      if (!swapped) {
+        if (!eligible(owner.el, narrow)) cancel();
+        return;
+      }
+      // 焦点只能在 BODY / null，或仍停在这个已作废的控件上；其它情况说明焦点已被别处接走
+      if (active && active !== document.body && active !== owner.el) return cancel();
+      if (blocked()) return cancel(); // 页面不在前台 / 有模态：放弃，之后也不自动恢复
+      const candidates: (HTMLElement | null)[] = narrow
+        ? [sortSel, ...tools.querySelectorAll<HTMLElement>('button')]
+        : [
+            // 对应列表头 → 其它可见表头排序按钮 → 工具条按钮；只停在真正拿到焦点的控件上
+            table.querySelector<HTMLElement>(`thead [data-sort-col="${prefs.sort?.col ?? sortable[0]?.n}"]`),
+            ...table.querySelectorAll<HTMLElement>('thead .th-sort'),
+            ...tools.querySelectorAll<HTMLElement>('button:not([disabled])'),
+          ];
+      for (const el of candidates) {
+        if (!eligible(el, narrow)) continue;
+        if (document.activeElement !== el) el.focus();
+        if (document.activeElement === el) break;
+      }
+    };
+    const later = () => {
+      if (raf) return; // 合并：同一帧只排一个
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        syncCards(); // 按执行时的最新归属与焦点重新判断，不按排队时的状态
+      });
+    };
+    // 在仍是焦点的本表合格控件上的新交互（pointerdown / keydown）：重新建立归属
+    const reconfirm = (el: Element | null) => {
+      const r = roleOf(el);
+      if (r && el === document.activeElement && eligible(el as HTMLElement, cardsMq.matches))
+        owner = { el: el as HTMLElement, role: r };
+      return r;
+    };
+    const teardown = () => {
+      cancel();
+      ac.abort();
+      if (handoffs.get(table) === ac) handoffs.delete(table);
+    };
+    document.addEventListener(
+      'focusin',
+      (e) => {
+        if (!table.isConnected) return teardown();
+        const r = roleOf(e.target);
+        if (r) owner = { el: e.target as HTMLElement, role: r };
+        else cancel(); // 其它控件、行内按钮、别的表
+      },
+      { capture: true, signal },
+    );
+    document.addEventListener(
+      'focusout',
+      (e) => {
+        if (!owner || e.target !== owner.el || (e as FocusEvent).relatedTarget) return;
+        // 失焦到 BODY：只有控件已不再渲染或不再属于当前断点（被本表切换隐藏）才保留记录并按需排一个 rAF
+        if (!owner.el.isConnected) return cancel();
+        if (!isShown(owner.el) || !eligible(owner.el, cardsMq.matches)) later();
+        else cancel();
+      },
+      { capture: true, signal },
+    );
+    document.addEventListener(
+      'pointerdown',
+      (e) => {
+        // 本表合格控件上：若它仍是焦点则重新建立归属，否则等随后的 focusin；其它地方（含空白）取消
+        if (!reconfirm(e.target instanceof Element ? e.target.closest('button, select, .th-resize') : null))
+          cancel();
+      },
+      { capture: true, signal },
+    );
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Tab' || e.key === 'Escape') cancel();
+        else reconfirm(e.target instanceof Element ? e.target : null);
+      },
+      { capture: true, signal },
+    );
+    // 页面隐藏 / 窗口失焦：放弃记录，回到前台不自动恢复
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        if (document.hidden) cancel();
+      },
+      { signal },
+    );
+    window.addEventListener(
+      'blur',
+      (e) => {
+        // 只认窗口自身的 blur（非捕获监听只在目标阶段触发）；不与全局 window 做身份比较（jsdom 测试环境里两者不是同一对象）
+        if (e.target === e.currentTarget) cancel();
+      },
+      { signal },
+    );
+    window.addEventListener(
+      'resize',
+      () => {
+        if (!table.isConnected) return teardown();
+        if (owner || synced !== cardsMq.matches) later(); // 按需：没有记录且断点未变时不排 rAF
+      },
+      { passive: true, signal },
+    );
+    cardsMq.addEventListener('change', syncCards, { signal });
+    // 初始化时采纳一次已有焦点（等价于原来的 active in thead / active === sortSel 分支）；之后不再采纳
+    const initial = document.activeElement;
+    const initialRole = roleOf(initial);
+    if (initialRole) owner = { el: initial as HTMLElement, role: initialRole };
+    syncCards();
+  }
 }
 
 export function enhanceTables(root: ParentNode = document) {

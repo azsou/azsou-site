@@ -312,18 +312,61 @@ export interface DataRepository {
   bookmarks: BookmarkRepo;
   /** 用户图片（P5，Supabase Storage `ugc-images` 桶）；没有对象存储的适配器不提供 */
   media?: MediaRepo;
-  /** 管理后台（P4）；内存适配器不提供 */
-  admin?: import('./admin').AdminRepo;
+  /**
+   * 管理后台（P4）用的原始 REST 通道（缺 RPC / 表时抛 SchemaMissingError）；内存适配器不提供。
+   * 后台接口本身由 `adminApiFor(repo)`（src/lib/data/admin-repo.ts）按需创建——
+   * 不放在仓储对象上，是为了让公开页面共用的数据层 chunk 不带后台代码（JS 预算）。
+   */
+  adminRest?: import('./admin').AdminRest;
 }
 
 // ------------------------------------------------------------------ 错误 ----
 
+/**
+ * 读取失败的原因分类（A15）：网络断开、请求超时、服务端 5xx、响应格式异常、数据库缺少对象（未迁移）。
+ * 后台按 kind 给出不同提示，不再把「库没迁移」说成「网络不可用」。
+ */
+export type UnavailableKind = 'network' | 'timeout' | 'server' | 'bad-response' | 'schema';
+
 /** 后端不可达时抛出，UI 进入只读/离线提示 */
 export class DataUnavailableError extends Error {
-  constructor(message = '数据服务暂时不可达') {
+  readonly kind: UnavailableKind;
+  readonly status: number | null;
+  constructor(message = '数据服务暂时不可达', opts: { kind?: UnavailableKind; status?: number | null } = {}) {
     super(message);
     this.name = 'DataUnavailableError';
+    this.kind = opts.kind ?? 'network';
+    this.status = opts.status ?? null;
   }
+}
+
+/**
+ * 数据库缺少接口需要的 RPC / 表 / 列（PostgREST PGRST202 / PGRST205 / 42703，HTTP 404 / 400）：
+ * 说明迁移没有执行，重试不会恢复。object = 缺少的对象名，migration = 创建它的迁移编号（未知时 null）。
+ * 继承 DataUnavailableError：只认父类的旧代码照样把它当「暂不可用」处理。
+ */
+export class SchemaMissingError extends DataUnavailableError {
+  readonly object: string;
+  readonly code: string;
+  readonly migration: string | null;
+  constructor(object: string, code: string, migration: string | null = null) {
+    super(
+      migration
+        ? `数据库缺少「${object}」（迁移 ${migration} 未执行）`
+        : `数据库缺少「${object}」（相关迁移未执行）`,
+      { kind: 'schema', status: 404 },
+    );
+    this.name = 'SchemaMissingError';
+    this.object = object;
+    this.code = code;
+    this.migration = migration;
+  }
+}
+
+/** PostgREST 路径（`rpc/name?…` / `table?…`）→ 对象名 */
+export function objectFromPath(path: string): string {
+  const p = path.split('?')[0].replace(/^\/+/, '');
+  return p.startsWith('rpc/') ? p.slice(4) : p;
 }
 
 /** 需要登录 */

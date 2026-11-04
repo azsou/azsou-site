@@ -1,0 +1,110 @@
+
+ RUN  v3.2.7 /workspace/work/azv2-b4
+
+ ❯ tests/unit/safe-next.test.ts (7 tests | 4 failed) 27ms
+   ✓ safeNext > 本站路径原样保留（含查询与锚点） 2ms
+   ✓ safeNext > 外域与伪装成站内路径的地址一律退回默认值 5ms
+   ✓ safeNext > 不回到登录 / 注册 / 回调页（避免循环） 0ms
+   × safeNext > 第 3 轮：点段 / 编码点 / 编码斜杠 / 反斜杠混用 / 编码控制字符——全部退回默认值 13ms
+     → expected [ …(27) ] to deeply equal []
+   × safeNext > 返回规范化后的路径，而不是原始输入；结果永远落在本站 5ms
+     → /.//evil.example: expected 'https://evil.example' to be 'https://azsou.com' // Object.is equality
+   × sameOriginTarget > 本站路径通过（含查询与锚点） 0ms
+     → (0 , sameOriginTarget) is not a function
+   × sameOriginTarget > 任何会离开本站的目标都换成默认值 0ms
+     → (0 , sameOriginTarget) is not a function
+ ✓ tests/unit/guarded-auth.test.ts (13 tests) 32ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/safe-next.test.ts > safeNext > 第 3 轮：点段 / 编码点 / 编码斜杠 / 反斜杠混用 / 编码控制字符——全部退回默认值
+AssertionError: expected [ …(27) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "\"/.//evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/./%2F/evil\" → /%2F/evil（落到 https://azsou.com）",
++   "\"/a/..//evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/%2e/%2fevil\" → /%2fevil（落到 https://azsou.com）",
++   "\"/..//evil\" → //evil（落到 https://evil）",
++   "\"/././/evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/..///evil.example\" → ///evil.example（落到 https://evil.example）",
++   "\"/a/b/../..//evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/%2e//evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/%2E%2E//evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/.%2e//evil.example\" → //evil.example（落到 https://evil.example）",
++   "\"/%2e%2e/%2Fevil.example\" → /%2Fevil.example（落到 https://azsou.com）",
++   "\"/%2f%2fevil.example\" → /%2f%2fevil.example（落到 https://azsou.com）",
++   "\"/%2F/evil.example\" → /%2F/evil.example（落到 https://azsou.com）",
++   "\"/.%2f/evil.example\" → /.%2f/evil.example（落到 https://azsou.com）",
++   "\"/..%2f/evil.example\" → /..%2f/evil.example（落到 https://azsou.com）",
++   "\"/%252e//evil.example\" → /%252e//evil.example（落到 https://azsou.com）",
++   "\"/%252f%252fevil.example\" → /%252f%252fevil.example（落到 https://azsou.com）",
++   "\"/%25252f%25252fevil.example\" → /%25252f%25252fevil.example（落到 https://azsou.com）",
++   "\"/%5cevil.example\" → /%5cevil.example（落到 https://azsou.com）",
++   "\"/%5c%5cevil.example\" → /%5c%5cevil.example（落到 https://azsou.com）",
++   "\"/..%5c/evil.example\" → /..%5c/evil.example（落到 https://azsou.com）",
++   "\"/.%5c/evil.example\" → /.%5c/evil.example（落到 https://azsou.com）",
++   "\"/%255cevil.example\" → /%255cevil.example（落到 https://azsou.com）",
++   "\"/%09/evil.example\" → /%09/evil.example（落到 https://azsou.com）",
++   "\"/%0a/evil.example\" → /%0a/evil.example（落到 https://azsou.com）",
++   "\"/%250a/evil.example\" → /%250a/evil.example（落到 https://azsou.com）",
++ ]
+
+ ❯ tests/unit/safe-next.test.ts:47:17
+     45|       if (out !== '/x/') bad.push(`${JSON.stringify(raw)} → ${out}（落到 …
+     46|     }
+     47|     expect(bad).toEqual([]);
+       |                 ^
+     48|   });
+     49|   it('返回规范化后的路径，而不是原始输入；结果永远落在本站', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/unit/safe-next.test.ts > safeNext > 返回规范化后的路径，而不是原始输入；结果永远落在本站
+AssertionError: /.//evil.example: expected 'https://evil.example' to be 'https://azsou.com' // Object.is equality
+
+Expected: "https://azsou.com"
+Received: "https://evil.example"
+
+ ❯ tests/unit/safe-next.test.ts:53:33
+     51|     for (const raw of [...EVIL_NEXT, ...BENIGN_DOT_NEXT.map(([r]) => r…
+     52|       const out = safeNext(raw);
+     53|       expect(landsOn(out), raw).toBe(SITE);
+       |                                 ^
+     54|       expect(out.startsWith('//') || out.startsWith('/\\'), raw).toBe(…
+     55|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/unit/safe-next.test.ts > sameOriginTarget > 本站路径通过（含查询与锚点）
+TypeError: (0 , sameOriginTarget) is not a function
+ ❯ tests/unit/safe-next.test.ts:62:12
+     60| describe('sameOriginTarget', () => {
+     61|   it('本站路径通过（含查询与锚点）', () => {
+     62|     expect(sameOriginTarget('/forum/', SITE)).toBe('/forum/');
+       |            ^
+     63|     expect(sameOriginTarget('/settings/?welcome=1#n', SITE)).toBe('/se…
+     64|     expect(sameOriginTarget('/reset-password/?mode=update', SITE)).toB…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/unit/safe-next.test.ts > sameOriginTarget > 任何会离开本站的目标都换成默认值
+TypeError: (0 , sameOriginTarget) is not a function
+ ❯ tests/unit/safe-next.test.ts:68:19
+     66|   it('任何会离开本站的目标都换成默认值', () => {
+     67|     for (const raw of ['//evil.example', '///evil.example', '/\\evil.e…
+     68|       const out = sameOriginTarget(raw, SITE, '/');
+       |                   ^
+     69|       expect(landsOn(out), JSON.stringify(raw)).toBe(SITE);
+     70|       expect(out.startsWith('//'), JSON.stringify(raw)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 16 passed (20)
+

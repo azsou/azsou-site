@@ -2,7 +2,17 @@
  * 后台 CRM 扩展（迁移 0017：备注 / 用户画像与标签 / 内容流程 / 版本）。
  * 单独成模块、只被后台页面（懒）加载：公开页面经数据层引入 admin.ts，不应为后台功能多背体积（首屏 JS 预算 50KB）。
  */
-import { uuidList, type AdminRest, type ContentType, type WorkflowStatus } from './admin';
+import {
+  BATCH_MIGRATION,
+  batchFromRows,
+  toBatchResult,
+  uuidList,
+  type AdminRest,
+  type BatchResult,
+  type ContentType,
+  type WorkflowStatus,
+} from './admin';
+import { SchemaMissingError } from './types';
 
 type Row = Record<string, unknown>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -79,7 +89,8 @@ export interface CrmApi {
     ids: string[],
     status: WorkflowStatus,
     scheduledAt?: string | null,
-  ): Promise<number>;
+    opts?: { expected?: Record<string, string | null>; idemKey?: string },
+  ): Promise<BatchResult>;
   workflowTick(): Promise<number>;
   versions(type: ContentType, id: string): Promise<ContentVersion[]>;
   contentBody(type: ContentType, id: string): Promise<{ title: string | null; body: string } | null>;
@@ -188,15 +199,36 @@ export function createCrmApi({ rest }: AdminRest): CrmApi {
       if (!UUID.test(userId)) return;
       await bulk(`admin_user_tags?user_id=eq.${userId}&tag=eq.${enc(tag)}&select=tag`, 'DELETE');
     },
-    async setWorkflow(type, ids, status, scheduledAt = null) {
-      const n = await rpc<number>('mod_set_workflow', {
-        p_type: type,
-        p_ids: uuidList(ids),
-        p_status: status,
-        p_scheduled_at:
-          scheduledAt && !Number.isNaN(Date.parse(scheduledAt)) ? new Date(scheduledAt).toISOString() : null,
-      });
-      return num(n);
+    async setWorkflow(type, ids, status, scheduledAt = null, opts = {}) {
+      const list = uuidList(ids);
+      const at =
+        scheduledAt && !Number.isNaN(Date.parse(scheduledAt)) ? new Date(scheduledAt).toISOString() : null;
+      if (!list.length) return batchFromRows([], []);
+      try {
+        // A01 / A07 / A08（0018）：统一状态接口，逐项结果 + 乐观并发 + 幂等键
+        return toBatchResult(
+          await rpc<Record<string, unknown>>('mod_workflow_apply', {
+            p_type: type,
+            p_ids: list,
+            p_status: status,
+            p_scheduled_at: at,
+            p_expected: opts.expected ?? null,
+            p_idem_key: opts.idemKey ?? null,
+          }),
+        );
+      } catch (e) {
+        if (!(e instanceof SchemaMissingError) || e.object !== 'mod_workflow_apply') throw e;
+        const n = num(
+          await rpc<number>('mod_set_workflow', {
+            p_type: type,
+            p_ids: list,
+            p_status: status,
+            p_scheduled_at: at,
+          }),
+        );
+        const r = batchFromRows(list, [], { feature: '逐项结果与并发冲突检查', migration: BATCH_MIGRATION });
+        return { ...r, ok: n, results: [] };
+      }
     },
     async workflowTick() {
       return num(await rpc<number>('mod_workflow_tick'));

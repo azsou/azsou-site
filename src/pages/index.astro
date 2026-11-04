@@ -280,8 +280,9 @@ const schema = [
 <script>
   // 旧版 hash 路由（#/article/xxx、#project …）→ 新的真实 URL
   import { mapLegacyHash } from '@/lib/hash-redirect';
+  import { navigateSameOrigin } from '@/lib/safe-next';
   import { initSearchShortcut } from '@/scripts/home/rows';
   const target = mapLegacyHash(location.hash);
-  if (target) location.replace(target);
+  if (target) navigateSameOrigin(target, 'replace');
   else initSearchShortcut();
 </script>

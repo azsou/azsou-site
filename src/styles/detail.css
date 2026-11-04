@@ -147,6 +147,10 @@
   .detail-hero__actions .game-cta {
     margin-top: 0;
   }
+  /* 首次按设备推荐主按钮时不播放颜色过渡（src/scripts/apps/platform.ts 换完 class 后移除 data-dl-init） */
+  [data-downloads][data-dl-init] .btn {
+    transition: none;
+  }
   .detail-actions {
     display: flex;
     flex-wrap: wrap;

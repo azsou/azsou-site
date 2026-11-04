@@ -272,28 +272,13 @@ describe('首页源码与构建产物', () => {
   it('不出现伪造的评分 / 下载量 / 用户数，也没有广告占位', () => {
     expect(src).not.toMatch(/ratingValue|aggregateRating|下载量\s*\d|\d+\s*万次|用户数\s*\d|AdSlot|广告位/);
   });
-  const html = fs.existsSync('dist/client/index.html')
-    ? fs.readFileSync('dist/client/index.html', 'utf8')
-    : '';
-  it.skipIf(!html)('结构化数据：WebSite + SearchAction、Person、Organization、ItemList', () => {
-    const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1]);
-    const types = ld['@graph'].map((n: { '@type': string }) => n['@type']);
-    expect(types).toEqual(expect.arrayContaining(['WebSite', 'Person', 'Organization', 'ItemList']));
-    const site = ld['@graph'].find((n: { '@type': string }) => n['@type'] === 'WebSite');
-    expect(site.potentialAction['@type']).toBe('SearchAction');
-  });
-  // P10 T10.7：首页去掉了装饰图标墙、平台胶囊区与大 CTA（纯货架）
-  it.skipIf(!html)('首页没有装饰图标墙 / 平台胶囊区 / 大 CTA，货架条目都有类型徽标', () => {
-    expect(html).not.toMatch(/class="icon-wall"|class="home-chips"|class="home-cta/);
-    const entries = [...html.matchAll(/<article class="entry entry--(tile|mini)"/g)];
-    expect(entries.length).toBeGreaterThan(30);
-    expect([...html.matchAll(/class="entry__type entry__type--/g)].length).toBe(entries.length);
-  });
-  // T9.4（DESIGN-SYSTEM §19.3）：首屏图片 eager（设计测试 Q18 断言首屏无 lazy），其余懒加载；eager 只给小图标，数量有上限
-  it.skipIf(!html)('首页 eager 图片只有首屏图标（≤ 32 张小图标），其余懒加载', () => {
-    const eager = [...html.matchAll(/<img[^>]*loading="eager"[^>]*>/g)].map((m) => m[0]);
-    expect(eager.length).toBeLessThanOrEqual(32);
-    for (const tag of eager) expect(tag, tag).toMatch(/class="app-icon-img/);
-    expect(html).toMatch(/<img[^>]*loading="lazy"/);
+  // 构建产物断言（结构化数据、类型徽标、eager 图片）在 tests/built/home.test.ts：CI 在 build 之后跑（npm run test:ld），
+  // 没有产物直接失败，不再「构建前跳过」。
+  it('单元测试不依赖构建产物（CI 里单元测试在 build 之前跑，依赖产物的断言只会被跳过）', () => {
+    const needle = ['dist', 'client'].join('/');
+    const offenders = fs
+      .readdirSync('tests/unit')
+      .filter((f) => f.endsWith('.ts') && fs.readFileSync(`tests/unit/${f}`, 'utf8').includes(needle));
+    expect(offenders).toEqual([]);
   });
 });

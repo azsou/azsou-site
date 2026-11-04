@@ -1,0 +1,10 @@
+[e2e] 未配置 DATABASE_URL / POSTGREST_BIN：社区（P3）用例将跳过
+
+Running 4 tests using 4 workers
+
+  ✓  2 [chromium-desktop] › tests/e2e/auth.spec.ts:541:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 静态服务器补尾斜杠：编码斜杠 / 多斜杠路径的 308 Location 仍是本站 (2.5s)
+  ✓  1 [chromium-desktop] › tests/e2e/auth.spec.ts:501:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 注册确认回调（signup）：每个向量都回到本站欢迎页 (2.1m)
+  ✓  3 [chromium-desktop] › tests/e2e/auth.spec.ts:484:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 邮件回调（magiclink）：每个向量登录后都留在本站首页 (2.4m)
+  ✓  4 [chromium-desktop] › tests/e2e/auth.spec.ts:523:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 邮箱密码登录（/login/?next=）：每个向量登录后都留在本站首页 (2.7m)
+
+  4 passed (2.8m)

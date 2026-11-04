@@ -1,0 +1,17 @@
+comments | comments_delete | DELETE | {public} | ((author = auth.uid()) OR is_admin()) | 
+comments | comments_insert | INSERT | {public} |  | ((author = auth.uid()) AND can_write())
+comments | comments_read | SELECT | {public} | (published OR (author = auth.uid()) OR is_admin()) | 
+comments | comments_update | UPDATE | {public} | ((author = auth.uid()) OR is_admin()) | (((author = auth.uid()) AND can_write()) OR is_admin())
+forum_replies | replies_delete | DELETE | {public} | ((author = auth.uid()) OR is_admin()) | 
+forum_replies | replies_insert | INSERT | {public} |  | ((author = auth.uid()) AND can_write())
+forum_replies | replies_read | SELECT | {public} | (published OR (author = auth.uid()) OR is_admin()) | 
+forum_replies | replies_update | UPDATE | {public} | ((author = auth.uid()) OR is_admin()) | (((author = auth.uid()) AND can_write()) OR is_admin())
+forum_threads | threads_admin_insert | INSERT | {public} |  | is_admin()
+forum_threads | threads_delete | DELETE | {public} | ((author = auth.uid()) OR is_admin()) | 
+forum_threads | threads_insert | INSERT | {public} |  | ((author = auth.uid()) AND can_write() AND (cat <> '公告'::text))
+forum_threads | threads_read | SELECT | {public} | (published OR (author = auth.uid()) OR is_admin()) | 
+forum_threads | threads_update | UPDATE | {public} | ((author = auth.uid()) OR is_admin()) | (((author = auth.uid()) AND can_write()) OR is_admin())
+profiles | profiles_read | SELECT | {public} | true | 
+profiles | profiles_update_own | UPDATE | {public} | (id = auth.uid()) | (id = auth.uid())
+site_content | content_admin_write | ALL | {public} | is_admin() | is_admin()
+site_content | content_read | SELECT | {public} | (published OR is_admin()) | 

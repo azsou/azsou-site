@@ -9,6 +9,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+import { isSupabaseUrl } from '../supabase-route';
 
 const HAS = fs.existsSync('dist-ads/client/index.html') && fs.existsSync('dist-ads.vercel.json');
 test.skip(!HAS, '没有广告变体产物（npm run build:ads）');
@@ -45,7 +46,7 @@ async function open(page: Page, path: string) {
     (r) => r.abort(),
   );
   // Supabase 等外部请求同样不需要
-  await page.route(/supabase\.co/, (r) =>
+  await page.route(isSupabaseUrl, (r) =>
     r.fulfill({ status: 200, body: '[]', contentType: 'application/json' }),
   );
   await page.goto(base + path);

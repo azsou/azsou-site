@@ -1,0 +1,28 @@
+0002 | forum_seed_threads 表存在 | f
+0002 | forum_threads 有 locked / featured / edited_at 列 | f
+0002 | profiles.role 允许 moderator | f
+0003 | 点赞 / 收藏 / 举报 / 通知 / 审计 / 限流表存在 | f
+0004 | 主题守卫触发器存在 | f
+0004 | 限流与守卫函数存在 | f
+0005 | anon 不能写 forum_threads | f
+0005 | authenticated 不能 TRUNCATE | f
+0006 | forum_threads 写策略只给 authenticated（V72 旧策略已替换） | f
+0006 | 社交表的行级策略已建立（likes / reports / audit_log） | f
+0007 | 注册钩子函数与 private.app_settings 存在 | f
+0008 | pg_trgm 与 search_threads 存在 | f
+0009 | user_bans 表与版主 RPC 存在 | f
+0009 | 注册钩子读取「注册开关」 | f
+0010 | ugc-images 桶（公开读、2 MB）与 3 条存储策略 | f
+0010 | 图片上传校验函数存在 | f
+0011 | 停用分类触发器存在 | f
+0012 | 下载计数表与计数 RPC 存在，举报可指向评价 | f
+0012 | 评价表（RLS 已开启）与评分统计视图存在 | f
+0013 | 评论可以挂在 AI 工具页（page_key 允许 tool:） | f
+0014 | 评论可以挂在视频页（page_key 允许 video:） | f
+0015 | 提交记录表存在（限流 / 票据一次性；另需写入 community_ticket_secret，见 0015 文件头） | f
+0015 | 留言板与友链表（RLS 已开启）与提交 RPC 存在 | f
+0016 | 订阅表（RLS 已开启，无公开读写）与确认 / 退订 / 计数 RPC 存在 | f
+0017 | 后台 CRM：备注 / 用户标签 / 内容流程 / 版本表（RLS 已开启）与排序参数、画像、流程 RPC 存在 | f
+0018 | 状态一致性：统一状态接口 / 调度运行记录 / 分页 envelope / 正文编辑 RPC / 同步与孤儿触发器存在 | f
+0019 | 版本 50 条上限只裁剪早于 90 天的版本（az_save_content_version 已替换） | f
+0019 | 站长第二轮：恢复回到待审 + 显式发布 RPC 存在 | f

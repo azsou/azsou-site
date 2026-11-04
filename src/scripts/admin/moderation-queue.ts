@@ -139,8 +139,7 @@ async function load(append: boolean) {
       setStatusText(status, items.length ? `共 ${items.length} 条` : '');
     }
   } catch (e) {
-    if (!append)
-      list.replaceChildren(stateLi(stateBlock('error', { text: errorText(e), retry: () => void reload() })));
+    if (!append) list.replaceChildren(stateLi(stateBlock('error', { error: e, retry: () => void reload() })));
     else setStatusText(status, errorText(e), 'error');
   } finally {
     list.removeAttribute('aria-busy');

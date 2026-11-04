@@ -1,17 +1,18 @@
-/** 后台「邮件订阅」（T7.8）：只读数量 */
+/** 后台「邮件订阅」（T7.8）：只读数量。读取失败显示分类错误 + 可重试（A15），不显示 0 冒充真实数量。 */
 import { getGuestbook } from '@/lib/data/guestbook';
-import { friendlyError } from '@/lib/community-errors';
 import { initAdmin, h } from './shell';
+import { showError, showLoading } from './table';
 
 const LABEL = { confirmed: '已订阅', pending: '待确认', unsubscribed: '已退订' } as const;
+const body = document.querySelector<HTMLElement>('[data-sub-counts]')!;
+let seq = 0;
 
-async function main() {
-  const me = await initAdmin();
-  if (!me) return;
-  const body = document.querySelector<HTMLElement>('[data-sub-counts]')!;
-  const status = document.querySelector<HTMLElement>('[data-status]')!;
+async function load() {
+  const my = ++seq;
+  showLoading(body, 4);
   try {
     const rows = await getGuestbook().subscriberCounts();
+    if (my !== seq) return;
     const get = (s: string, l: string) => rows.find((r) => r.status === s && r.lang === l)?.n ?? 0;
     body.replaceChildren(
       ...(Object.keys(LABEL) as (keyof typeof LABEL)[]).map((s) => {
@@ -28,9 +29,16 @@ async function main() {
       }),
     );
   } catch (e) {
-    status.textContent = friendlyError(e, '读取失败，请稍后再试。');
+    if (my !== seq) return;
+    showError(body, 4, e, () => void load());
   } finally {
-    body.removeAttribute('aria-busy');
+    if (my === seq) body.removeAttribute('aria-busy');
   }
+}
+
+async function main() {
+  const me = await initAdmin();
+  if (!me) return;
+  await load();
 }
 void main();

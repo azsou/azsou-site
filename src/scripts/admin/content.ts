@@ -8,6 +8,7 @@ import {
   adminRepo,
   createSelection,
   dateTime,
+  degradedText,
   errorText,
   h,
   initAdmin,
@@ -18,6 +19,8 @@ import {
   writeParams,
 } from './shell';
 import { actionsCell, plainText, rowMenu, showEmpty, showError, showLoading } from './table';
+import { assertSingle, batchSummary, renderBatchResult } from './batch-result';
+import { newIdemKey, type BatchResult } from '@/lib/data/admin';
 
 const DEFAULTS = { type: 'thread', q: '', cat: '', hidden: '', reported: '', author: '', offset: '0' };
 const state = readParams(DEFAULTS);
@@ -32,6 +35,7 @@ const bar = document.querySelector<HTMLElement>('[data-bulkbar]')!;
 const filters = document.querySelector<HTMLFormElement>('[data-filters]')!;
 const typeBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-type-filter] button')];
 const chip = document.querySelector<HTMLElement>('[data-author-chip]')!;
+const bulkResult = document.querySelector<HTMLElement>('[data-bulk-result]')!;
 const sel = createSelection(body, bar);
 const table = document.querySelector<HTMLTableElement>('table[data-table2]')!;
 let sort: ServerSort | null = null;
@@ -62,6 +66,12 @@ function paintFilters() {
     .querySelectorAll<HTMLElement>('[data-thread-only]')
     .forEach((b) => (b.hidden = state.type !== 'thread'));
 }
+
+const QUICK = {
+  hide: { label: '隐藏', done: '已隐藏。' },
+  restore: { label: '恢复', done: '已恢复为待审，需「发布」后才公开。' },
+  publish: { label: '发布', done: '已发布。' },
+} as const;
 
 function badges(r: ContentRow) {
   return h(
@@ -123,9 +133,17 @@ function row(r: ContentRow) {
       : h('span', { class: 'cell-title', text: titleText }),
     sub ? h('span', { class: 'cell-sub', text: sub }) : null,
   );
-  const quick = btn(r.published ? '隐藏' : '恢复', async () => {
-    await repo.setPublished(t, [r.id], !r.published);
-    toast(r.published ? '已隐藏。' : '已恢复。');
+  // 站长 2026-10-27 21:06：已公开 → 「隐藏」；已隐藏 / 下线 → 「恢复」（回到待审，不公开）；
+  // 待审 / 草稿 → 「发布」（显式公开，0019 mod_publish_content）
+  const quickKind = r.published ? 'hide' : r.wfStatus === 'offline' ? 'restore' : 'publish';
+  const quick = btn(QUICK[quickKind].label, async () => {
+    const key = newIdemKey();
+    assertSingle(
+      quickKind === 'publish'
+        ? await repo.publish(t, [r.id], key)
+        : await repo.setPublished(t, [r.id], quickKind === 'restore', key),
+    );
+    toast(QUICK[quickKind].done);
     await load();
   });
   const menu = rowMenu(label(r), [
@@ -213,18 +231,56 @@ function row(r: ContentRow) {
   );
 }
 
-async function bulk(kind: string) {
-  const ids = sel.ids();
+const BULK_VERB: Record<string, string> = {
+  hide: '隐藏',
+  restore: '恢复',
+  publish: '发布',
+  draft: '转草稿',
+  review: '送审',
+};
+
+/** 网络中断 / 超时：同一幂等键再试一次（服务端已执行过则直接返回第一次的结果，不会重复执行） */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const kind = (e as { kind?: string }).kind;
+    if (e instanceof TypeError || kind === 'network' || kind === 'timeout') return fn();
+    throw e;
+  }
+}
+
+async function bulk(kind: string, only?: string[]) {
+  const ids = only ?? sel.ids();
   if (!ids.length) return;
   const repo = adminRepo();
   const t = state.type as ContentType;
   try {
     let n = 0;
-    if (kind === 'hide') n = await repo.setPublished(t, ids, false);
-    else if (kind === 'restore') n = await repo.setPublished(t, ids, true);
-    else if (kind === 'draft') n = await (await crmApi()).setWorkflow(t, ids, 'draft');
-    else if (kind === 'review') n = await (await crmApi()).setWorkflow(t, ids, 'review');
-    else if (kind === 'lock') n = await repo.setThreadFlags(ids, { locked: true });
+    if (kind in BULK_VERB) {
+      const key = newIdemKey();
+      let r: BatchResult;
+      if (kind === 'hide' || kind === 'restore')
+        r = await withRetry(() => repo.setPublished(t, ids, kind === 'restore', key));
+      else if (kind === 'publish') r = await withRetry(() => repo.publish(t, ids, key));
+      else {
+        const crm = await crmApi();
+        r = await withRetry(() =>
+          crm.setWorkflow(t, ids, kind as 'draft' | 'review', null, { idemKey: key }),
+        );
+      }
+      // 逐项结果（0018）：有失败项时保留面板，可只重试失败项；旧库（无逐项结果）只给总数
+      if (r.results.length)
+        renderBatchResult(bulkResult, r, BULK_VERB[kind], (failed) => void bulk(kind, failed));
+      toast(
+        r.results.length ? batchSummary(r, BULK_VERB[kind]) : `已处理 ${r.ok} 条。`,
+        r.failed ? 'error' : undefined,
+      );
+      sel.clear();
+      await load();
+      return;
+    }
+    if (kind === 'lock') n = await repo.setThreadFlags(ids, { locked: true });
     else if (kind === 'pin') n = await repo.setThreadFlags(ids, { pinned: true });
     else if (kind === 'delete') {
       if (!(await confirmDialog(`永久删除选中的 ${ids.length} 条${TYPE_LABEL[t]}？此操作不可撤销。`, '删除')))
@@ -301,7 +357,7 @@ async function load() {
   setStatusText(status, '正在加载…');
   try {
     const offset = Number(state.offset) || 0;
-    const { items, total } = await adminRepo().listContent({
+    const { items, total, degraded, outOfRange, lastOffset } = await adminRepo().listContent({
       type: state.type as ContentType,
       q: state.q,
       category: state.cat || undefined,
@@ -316,6 +372,20 @@ async function load() {
     if (my !== seq) return;
     const filtered = !!(state.q || state.cat || state.hidden || state.reported || state.author);
     if (items.length) rows.replaceChildren(...items.map(row));
+    else if (outOfRange)
+      // A09：越界页 ≠ 空库——给出真实总数与「回到最后一页」
+      showEmpty(rows, COLS, {
+        filtered: true,
+        title: `第 ${Math.floor(offset / LIMIT) + 1} 页已超出末页`,
+        text: `共 ${total} 条，可能刚被删除或筛选条件已变化。`,
+        action: {
+          label: '回到最后一页',
+          run: () => {
+            state.offset = String(lastOffset ?? 0);
+            void load();
+          },
+        },
+      });
     else
       showEmpty(rows, COLS, {
         filtered,
@@ -333,10 +403,10 @@ async function load() {
         void load();
       },
     });
-    setStatusText(status, '');
+    setStatusText(status, degradedText(degraded));
   } catch (e) {
     if (my !== seq) return;
-    showError(rows, COLS, errorText(e), () => void load());
+    showError(rows, COLS, e, () => void load());
     pager.replaceChildren();
     setStatusText(status, '');
   } finally {
@@ -346,13 +416,18 @@ async function load() {
 
 enhanceTables();
 sort = serverSort(table);
-void initAdmin().then(async (p) => {
+void initAdmin().then((p) => {
   me = p;
   if (!p) return;
-  // 到点的定时发布先落地（旧库没有 0017 时静默跳过）
-  const n = await crmApi()
+  void load();
+  // 到点的定时发布在旁边结算，不挡列表读取（A15 故障注入：结算请求超时曾让列表多等 8s 才出错误条）；
+  // 有内容落地再刷新一次列表。旧库没有 0017 / 结算失败时静默跳过。
+  void crmApi()
     .then((c) => c.workflowTick())
-    .catch(() => 0);
-  if (n) toast(`已按计划发布 ${n} 条内容。`);
-  await load();
+    .catch(() => 0)
+    .then((n) => {
+      if (!n) return;
+      toast(`已按计划发布 ${n} 条内容。`);
+      void load();
+    });
 });

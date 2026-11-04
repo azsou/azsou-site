@@ -1,0 +1,45 @@
+ RUN  v3.2.7 /workspace/work/azv2-b2
+ ✓ tests/db/batch2.test.ts > A01 / T032 工作流与公开标志一致 > thread：直接 PATCH published（旧「隐藏 / 恢复」路径）后 workflow 与公开标志、匿名可见性一致 51ms
+ ✓ tests/db/batch2.test.ts > A01 / T032 工作流与公开标志一致 > reply：直接 PATCH published（旧「隐藏 / 恢复」路径）后 workflow 与公开标志、匿名可见性一致 24ms
+ ✓ tests/db/batch2.test.ts > A01 / T032 工作流与公开标志一致 > comment：直接 PATCH published（旧「隐藏 / 恢复」路径）后 workflow 与公开标志、匿名可见性一致 22ms
+ ✓ tests/db/batch2.test.ts > A01 / T032 工作流与公开标志一致 > 统一接口 mod_set_visibility：隐藏 / 恢复返回逐项结果并同步 workflow 15ms
+ ✓ tests/db/batch2.test.ts > A01 / T063 手工隐藏排程内容的取消语义（默认：隐藏 = 取消排程，待站长确认） > thread：review + 未来时间 → 手工隐藏 → 到期 tick 不得重新公开 16ms
+ ✓ tests/db/batch2.test.ts > A01 / T063 手工隐藏排程内容的取消语义（默认：隐藏 = 取消排程，待站长确认） > reply：review + 未来时间 → 手工隐藏 → 到期 tick 不得重新公开 14ms
+ ✓ tests/db/batch2.test.ts > A01 / T063 手工隐藏排程内容的取消语义（默认：隐藏 = 取消排程，待站长确认） > comment：review + 未来时间 → 手工隐藏 → 到期 tick 不得重新公开 11ms
+ ✓ tests/db/batch2.test.ts > A01 / T063 手工隐藏排程内容的取消语义（默认：隐藏 = 取消排程，待站长确认） > 开关 az_hide_cancels_schedule() 存在且默认 true（唯一的策略开关） 1ms
+ ✓ tests/db/batch2.test.ts > A02 / T033 删除排程目标后 tick > thread：目标已删 → tick 不计成功、不写成功审计、排程标记为孤儿并留异常审计 11ms
+ ✓ tests/db/batch2.test.ts > A02 / T033 删除排程目标后 tick > reply：目标已删 → tick 不计成功、不写成功审计、排程标记为孤儿并留异常审计 9ms
+ ✓ tests/db/batch2.test.ts > A02 / T033 删除排程目标后 tick > comment：目标已删 → tick 不计成功、不写成功审计、排程标记为孤儿并留异常审计 9ms
+ ✓ tests/db/batch2.test.ts > A02 / T033 删除排程目标后 tick > tick 循环中途目标被并发删除：本行计入孤儿，不是成功 10ms
+ ✓ tests/db/batch2.test.ts > A03 / T061 未到期排程绝不提前发布 > 未来时间：tick 多次返回 0 且匿名不可见；到期后只发布一次 16ms
+ ✓ tests/db/batch2.test.ts > A03 / T062 双 worker 并发 tick 幂等 > 两个连接同时 tick：成功合计 = 真实到期数，每条成功审计仅一次 54ms
+ ✓ tests/db/batch2.test.ts > A03 无人值守调度入口 + 运行记录 + 健康检查（告警数据源） > mod_workflow_tick_job 返回汇总并写 workflow_tick_runs；az_workflow_health 能看出积压与上次运行 17ms
+ ✓ tests/db/batch2.test.ts > A03 无人值守调度入口 + 运行记录 + 健康检查（告警数据源） > 调度入口只给表所有者 / service_role：普通登录用户、匿名都不能直接调 tick_job 4ms
+ ✓ tests/db/batch2.test.ts > A04 / T035 版主字段权限矩阵（默认：版主只改审核标志，正文编辑走管理员 RPC，待站长确认） > 版主直接 PATCH 他人主题的 title / body / cat 被拒，数据不变 8ms
+ ✓ tests/db/batch2.test.ts > A04 / T035 版主字段权限矩阵（默认：版主只改审核标志，正文编辑走管理员 RPC，待站长确认） > 版主直接 PATCH 他人回复 / 评论正文被拒 6ms
+ ✓ tests/db/batch2.test.ts > A04 / T035 版主字段权限矩阵（默认：版主只改审核标志，正文编辑走管理员 RPC，待站长确认） > 合法审核仍可用：版主可改他人 published / pinned / locked / featured 16ms
+ ✓ tests/db/batch2.test.ts > A04 / T035 版主字段权限矩阵（默认：版主只改审核标志，正文编辑走管理员 RPC，待站长确认） > 作者改自己的内容照常；管理员直接 PATCH 他人正文也被拒（必须走带理由的 RPC） 6ms
+ ✓ tests/db/batch2.test.ts > A04 / T035 版主字段权限矩阵（默认：版主只改审核标志，正文编辑走管理员 RPC，待站长确认） > mod_edit_content：管理员带理由可改，写版本 + 审计（含理由）+ 通知作者；版主默认不可用 16ms
+ ✓ tests/db/batch2.test.ts > A04 / T067 / T068 封禁旧会话、降权与最后管理员 > 已封禁账号沿用旧 JWT 仍不能发帖 / 改帖 7ms
+ ✓ tests/db/batch2.test.ts > A04 / T067 / T068 封禁旧会话、降权与最后管理员 > 降权后下一个请求即失去后台 RPC 权限；恢复后可用 10ms
+ ✓ tests/db/batch2.test.ts > A04 / T067 / T068 封禁旧会话、降权与最后管理员 > 最后一个管理员不能把自己降级或封禁 4ms
+ ✓ tests/db/batch2.test.ts > A05 / T036 备注与标签增删审计 > 版主增删备注 / 标签留最小审计（不复制备注全文）；普通用户被拒且无审计 15ms
+ ✓ tests/db/batch2.test.ts > A05 / T036 备注与标签增删审计 > 事务回滚不留假成功审计；版主读不到审计日志 4ms
+ ✓ tests/db/batch2.test.ts > A07 / T038 / T066 编辑与工作流并发冲突 > A/B 读同一版本：A 保存成功，B 用旧版本提交被拒（PT409），不覆盖 A；重载后可保存 20ms
+ ✓ tests/db/batch2.test.ts > A07 / T038 / T066 编辑与工作流并发冲突 > 工作流：带过期 updated_at 的变更返回 conflict，不改状态 12ms
+ ✓ tests/db/batch2.test.ts > A07 / T038 / T066 编辑与工作流并发冲突 > T066 连续编辑 55 次：保留最近 50 个版本，倒序、编辑者正确 191ms
+ ✓ tests/db/batch2.test.ts > A08 / T039 / T065 批量逐项结果、去重、上限与幂等重试 > 有效 + 重复 + 不存在混合：逐项结果与计数准确 9ms
+ ✓ tests/db/batch2.test.ts > A08 / T039 / T065 批量逐项结果、去重、上限与幂等重试 > 同一幂等键重试：返回第一次的结果（replayed），无重复副作用 10ms
+ ✓ tests/db/batch2.test.ts > A08 / T039 / T065 批量逐项结果、去重、上限与幂等重试 > 上限：0 条 → 空结果；200 条唯一 → 接受；201 条唯一 → 整体拒绝且无任何写入 22ms
+ ✓ tests/db/batch2.test.ts > A08 / T039 / T065 批量逐项结果、去重、上限与幂等重试 > 无权限：普通用户调用整体 42501 2ms
+ ✓ tests/db/batch2.test.ts > A09 / T040 / T070 越界分页与稳定排序 > 内容：offset = total / > total 时仍返回真实 total 与最后有效页 19ms
+ ✓ tests/db/batch2.test.ts > A09 / T040 / T070 越界分页与稳定排序 > 用户：越界页 total 不变 0 6ms
+ ✓ tests/db/batch2.test.ts > A09 / T040 / T070 越界分页与稳定排序 > 并发删除末页后：旧页码越界时仍报告真实 total（不误报数据库为空） 14ms
+ ✓ tests/db/batch2.test.ts > A09 / T040 / T070 越界分页与稳定排序 > T070 同 created_at / 同标题：按标题分页无重复无遗漏 10ms
+ ✓ tests/db/batch2.test.ts > I04 / T049 服务端授权边界复核 > public 下所有 SECURITY DEFINER 函数都固定了 search_path 2ms
+ ✓ tests/db/batch2.test.ts > I04 / T049 服务端授权边界复核 > anon 对任何 mod_* / admin_* 函数都没有 EXECUTE 3ms
+ ✓ tests/db/batch2.test.ts > I04 / T049 服务端授权边界复核 > IDOR：普通用户不能改 / 删别人的主题、回复、评论，也读不到别人的通知 7ms
+ Test Files  1 passed (1)
+      Tests  40 passed (40)
+   Start at  03:35:38
+   Duration  2.68s (transform 259ms, setup 0ms, collect 340ms, tests 1.09s, environment 0ms, prepare 470ms)
