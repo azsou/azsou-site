@@ -101,7 +101,9 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
     <p id="official-summary" role="status" aria-live="polite" aria-atomic="true" data-official-summary>
       显示 {total} / {total} 条
     </p>
-    <p class="table-empty" data-official-source-empty hidden={total !== 0}>尚无官方内容。</p>
+    <p class="table-empty" data-official-source-empty hidden={total !== 0}>
+      尚无官方内容。
+    </p>
     <div class="state-card" data-official-no-match hidden>
       <p class="state-card__title">没有匹配的官方内容</p>
       <p class="state-card__text">试试其他关键词或类型，也可以清除筛选查看全部。</p>
