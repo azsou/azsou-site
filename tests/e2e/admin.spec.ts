@@ -47,7 +47,7 @@ async function report(
   return r.rows[0].id as string;
 }
 
-test.describe('权限门', () => {
+ test.describe('权限门', () => {
   test('未登录 → 登录引导；普通用户 → 无权限；被封禁的版主 → 受限', async ({ page, makeUser, signIn }) => {
     await page.goto('/admin/');
     await expect(page.getByText('管理后台需要登录。')).toBeVisible();
@@ -77,7 +77,7 @@ test.describe('权限门', () => {
   });
 });
 
-test.describe('仪表盘', () => {
+ test.describe('仪表盘', () => {
   test('计数卡片、30 天图表（含数据表）、无障碍', async ({ page, makeUser, signIn, errors }) => {
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     await signIn(page, a);
@@ -102,7 +102,7 @@ test.describe('仪表盘', () => {
   });
 });
 
-test.describe('举报队列', () => {
+ test.describe('举报队列', () => {
   test('隐藏被举报主题（写处理说明）→ 离开队列、主题隐藏、举报人收到通知、审计记录', async ({
     page,
     db,
@@ -203,7 +203,7 @@ test.describe('举报队列', () => {
   });
 });
 
-test.describe('内容管理', () => {
+ test.describe('内容管理', () => {
   test('搜索 → 隐藏 → 恢复（回到待审）→ 发布 → 置顶 → 删除（确认框）', async ({
     page,
     db,
@@ -321,7 +321,7 @@ test.describe('内容管理', () => {
   });
 });
 
-test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () => {
+ test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () => {
   test('表头排序走服务端；抽屉：转草稿 → 定时发布、版本对比、备注', async ({
     page,
     db,
@@ -419,7 +419,7 @@ test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () =
   });
 });
 
-test.describe('用户管理', () => {
+ test.describe('用户管理', () => {
   test('管理员：搜索用户 → 详情 → 改为版主；自己的角色不可修改', async ({
     page,
     db,
@@ -491,7 +491,7 @@ test.describe('用户管理', () => {
   });
 });
 
-test.describe('审计日志', () => {
+ test.describe('审计日志', () => {
   test('管理员按动作筛选、导出 CSV（含中文与表头）', async ({ page, db, makeUser, signIn }) => {
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     const u = await makeUser(uniq('被改角色'));
@@ -522,7 +522,7 @@ test.describe('审计日志', () => {
   });
 });
 
-test.describe('站点设置（全局状态：串行，只在桌面视口跑）', () => {
+ test.describe('站点设置（全局状态：串行，只在桌面视口跑）', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(({ db: _db }, info) => {
     void _db;
@@ -656,7 +656,7 @@ test.describe('站点设置（全局状态：串行，只在桌面视口跑）',
   });
 });
 
-test.describe('导入导出 / 官方内容', () => {
+ test.describe('导入导出 / 官方内容', () => {
   test('导出 JSON 不含邮箱', async ({ page, makeUser, signIn }) => {
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     await signIn(page, a);
@@ -686,13 +686,100 @@ test.describe('导入导出 / 官方内容', () => {
       'https://github.com/azsou/azsou-site/edit/main/src/content/apps/fablemotion.md',
     );
     await expect(edit).toHaveAttribute('target', '_blank');
-    // 文章数随内容增加（P8 新增原创文章），按内容目录实际数量核对
+    // 保留精确数量校验，按已实现的“显示数 / 总数”标题契约核对，不放宽匹配。
     const articleCount = readdirSync('src/content/articles').filter((f) => f.endsWith('.md')).length;
-    await expect(page.getByRole('heading', { name: `文章（${articleCount}）` })).toBeVisible();
+    const root = page.locator('[data-official]');
+    const query = root.getByRole('searchbox', { name: '关键词', exact: true });
+    const kind = root.getByRole('combobox', { name: '类型', exact: true });
+    const toolbar = root.getByRole('group', { name: '筛选官方内容', exact: true });
+    const clear = toolbar.getByRole('button', { name: '清除筛选', exact: true });
+    const rows = root.locator('[data-official-row]');
+    const visibleRows = root.locator('[data-official-row]:visible');
+    const summary = root.locator('[data-official-summary]');
+    const noMatch = root.locator('[data-official-no-match]');
+    const sourceEmpty = root.locator('[data-official-source-empty]');
+    const articles = root.locator('[data-official-group="articles"]');
+    const articleHeading = articles.getByRole('heading', {
+      name: `文章（${articleCount} / ${articleCount}）`,
+      exact: true,
+    });
+    await expect(articleHeading).toBeVisible();
+    await expect(articles.locator('[data-official-row]')).toHaveCount(articleCount);
+    await expect(articles.locator('[data-official-count]')).toHaveText(String(articleCount));
+    await expect(query).toBeEnabled();
+    await expect(kind).toBeEnabled();
+    await expect(clear).toBeDisabled();
+    const originalPaths = await rows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-official-path')),
+    );
+    const total = originalPaths.length;
+    expect(total).toBeGreaterThan(0);
+    expect(originalPaths).not.toContain(null);
+    expect(new Set(originalPaths).size).toBe(total);
+    await expect(visibleRows).toHaveCount(total);
+    await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
+    await expect(noMatch).toBeHidden();
+    await expect(sourceEmpty).toBeHidden();
+
+    // 关键词去首尾空白、不区分大小写，并与类型取交集。
+    await query.fill('  FABLEMOTION  ');
+    await kind.selectOption('apps');
+    await expect(visibleRows).toHaveCount(1);
+    await expect(visibleRows).toHaveAttribute('data-official-path', 'src/content/apps/fablemotion.md');
+    await expect(summary).toHaveText(`显示 1 / ${total} 条`);
+    await expect(root.locator('[data-official-group="apps"] [data-official-count]')).toHaveText('1');
+    await expect(articles).toBeHidden();
+    await expect(noMatch).toBeHidden();
+    await expect(clear).toBeEnabled();
+
+    // 文章也有 FableMotion 主题，改用完整应用路径，再切类型验证零交集。
+    await query.fill('  SRC/CONTENT/APPS/FABLEMOTION.MD  ');
+    await expect(visibleRows).toHaveCount(1);
+    await kind.selectOption('articles');
+    await expect(visibleRows).toHaveCount(0);
+    await expect(root.locator('[data-official-group]:visible')).toHaveCount(0);
+    await expect(summary).toHaveText(`显示 0 / ${total} 条`);
+    await expect(noMatch).toBeVisible();
+    await expect(noMatch.getByText('没有匹配的官方内容', { exact: true })).toBeVisible();
+    await expect(sourceEmpty).toBeHidden();
+    await noMatch.getByRole('button', { name: '清除筛选', exact: true }).click();
+    await expect(query).toHaveValue('');
+    await expect(kind).toHaveValue('all');
+    await expect(query).toBeFocused();
+    await expect(visibleRows).toHaveCount(total);
+    await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
+    await expect(noMatch).toBeHidden();
+    await expect(sourceEmpty).toBeHidden();
+    await expect(clear).toBeDisabled();
+    await expect(articleHeading).toBeVisible();
+    const restoredPaths = await visibleRows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-official-path')),
+    );
+    expect(restoredPaths).toEqual(originalPaths);
+
+    // 文件路径也按字面匹配；工具条清除入口同样恢复全部行、顺序和焦点。
+    await query.fill('src/content/apps/fablemotion.md');
+    await expect(visibleRows).toHaveCount(1);
+    await expect(visibleRows).toHaveAttribute('data-official-path', 'src/content/apps/fablemotion.md');
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(query).toHaveValue('');
+    await expect(kind).toHaveValue('all');
+    await expect(query).toBeFocused();
+    await expect(visibleRows).toHaveCount(total);
+    await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
+    await expect(noMatch).toBeHidden();
+    await expect(sourceEmpty).toBeHidden();
+    await expect(clear).toBeDisabled();
+    await expect(articleHeading).toBeVisible();
+    const toolbarPaths = await visibleRows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-official-path')),
+    );
+    expect(toolbarPaths).toEqual(originalPaths);
   });
 });
 
-test.describe('@提及', () => {
+ test.describe('@提及', () => {
   test('回复里 @昵称 → 被提及者的通知页出现「提到了你」并链接到回复', async ({
     page,
     browser,
@@ -730,7 +817,7 @@ test.describe('@提及', () => {
   });
 });
 
-test.describe('暗色模式 / 窄屏 / 无障碍', () => {
+ test.describe('暗色模式 / 窄屏 / 无障碍', () => {
   test('举报队列、内容表、用户详情、设置页在暗色模式下 axe 无违规', async ({
     page,
     db,
