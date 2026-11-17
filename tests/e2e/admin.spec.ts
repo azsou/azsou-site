@@ -47,7 +47,7 @@ async function report(
   return r.rows[0].id as string;
 }
 
- test.describe('权限门', () => {
+test.describe('权限门', () => {
   test('未登录 → 登录引导；普通用户 → 无权限；被封禁的版主 → 受限', async ({ page, makeUser, signIn }) => {
     await page.goto('/admin/');
     await expect(page.getByText('管理后台需要登录。')).toBeVisible();
@@ -77,7 +77,7 @@ async function report(
   });
 });
 
- test.describe('仪表盘', () => {
+test.describe('仪表盘', () => {
   test('计数卡片、30 天图表（含数据表）、无障碍', async ({ page, makeUser, signIn, errors }) => {
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     await signIn(page, a);
@@ -102,7 +102,7 @@ async function report(
   });
 });
 
- test.describe('举报队列', () => {
+test.describe('举报队列', () => {
   test('隐藏被举报主题（写处理说明）→ 离开队列、主题隐藏、举报人收到通知、审计记录', async ({
     page,
     db,
@@ -203,7 +203,7 @@ async function report(
   });
 });
 
- test.describe('内容管理', () => {
+test.describe('内容管理', () => {
   test('搜索 → 隐藏 → 恢复（回到待审）→ 发布 → 置顶 → 删除（确认框）', async ({
     page,
     db,
@@ -321,7 +321,7 @@ async function report(
   });
 });
 
- test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () => {
+test.describe('内容流程 / 服务端排序 / 备注 / 版本（0017）', () => {
   test('表头排序走服务端；抽屉：转草稿 → 定时发布、版本对比、备注', async ({
     page,
     db,
@@ -419,7 +419,7 @@ async function report(
   });
 });
 
- test.describe('用户管理', () => {
+test.describe('用户管理', () => {
   test('管理员：搜索用户 → 详情 → 改为版主；自己的角色不可修改', async ({
     page,
     db,
@@ -491,7 +491,7 @@ async function report(
   });
 });
 
- test.describe('审计日志', () => {
+test.describe('审计日志', () => {
   test('管理员按动作筛选、导出 CSV（含中文与表头）', async ({ page, db, makeUser, signIn }) => {
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     const u = await makeUser(uniq('被改角色'));
@@ -522,7 +522,7 @@ async function report(
   });
 });
 
- test.describe('站点设置（全局状态：串行，只在桌面视口跑）', () => {
+test.describe('站点设置（全局状态：串行，只在桌面视口跑）', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(({ db: _db }, info) => {
     void _db;
@@ -656,7 +656,7 @@ async function report(
   });
 });
 
- test.describe('导入导出 / 官方内容', () => {
+test.describe('导入导出 / 官方内容', () => {
   test('导出 JSON 不含邮箱', async ({ page, makeUser, signIn }) => {
     const a = await makeUser(uniq('管理员'), { role: 'admin' });
     await signIn(page, a);
@@ -779,7 +779,7 @@ async function report(
   });
 });
 
- test.describe('@提及', () => {
+test.describe('@提及', () => {
   test('回复里 @昵称 → 被提及者的通知页出现「提到了你」并链接到回复', async ({
     page,
     browser,
@@ -817,7 +817,7 @@ async function report(
   });
 });
 
- test.describe('暗色模式 / 窄屏 / 无障碍', () => {
+test.describe('暗色模式 / 窄屏 / 无障碍', () => {
   test('举报队列、内容表、用户详情、设置页在暗色模式下 axe 无违规', async ({
     page,
     db,
