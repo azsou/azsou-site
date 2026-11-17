@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "brain/admin-official-filter-20261116": false
+    }
+  },
   "framework": "astro",
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
