@@ -88,7 +88,9 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
           disabled
         >
           <option value="all">全部类型</option>
-          {groups.map((g) => <option value={g.id}>{g.label}</option>)}
+          {groups.map((g) => (
+            <option value={g.id}>{g.label}</option>
+          ))}
         </select>
       </div>
       <button class="btn" type="button" data-official-clear disabled>
