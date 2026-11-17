@@ -141,3 +141,26 @@ import { forum } from '@/lib/content';
 <script>
   import '@/scripts/admin/content';
 </script>
+
+<style is:global>
+  @layer components {
+    @media (max-width: 599.98px) {
+      /* 仅内容表的手机工具栏：缩小空隙，不隐藏控件、缩字或改变 DOM 顺序。 */
+      .table-tools:has(+ .table-wrap > [data-table2='content']) {
+        gap: var(--space-1);
+      }
+      .table-tools:has(+ .table-wrap > [data-table2='content']) > .table-tools__spacer {
+        display: none;
+      }
+      .table-tools:has(+ .table-wrap > [data-table2='content']) > .check,
+      .table-tools:has(+ .table-wrap > [data-table2='content']) > .table-pop > button,
+      .table-tools:has(+ .table-wrap > [data-table2='content']) > [data-export-csv] {
+        min-height: var(--touch);
+        padding-inline: var(--space-1);
+      }
+      .table-tools:has(+ .table-wrap > [data-table2='content']) > .segmented > button {
+        min-height: var(--touch);
+      }
+    }
+  }
+</style>
