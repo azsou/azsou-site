@@ -27,6 +27,40 @@ for (const c of CASES) {
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
     await settle(page);
 
+    const admin = page.locator('[data-admin][data-section="content"]');
+    await expect(admin.locator('.admin-head p')).toHaveText('搜索并管理主题、回复与评论。');
+    const types = admin.getByRole('group', { name: '内容类型', exact: true });
+    const filters = admin.locator('form[data-filters]');
+    const search = filters.getByRole('searchbox', { name: '搜索', exact: true });
+    const category = filters.getByRole('combobox', { name: '分类', exact: true });
+    const state = filters.getByRole('combobox', { name: '状态', exact: true });
+    const reported = filters.getByRole('combobox', { name: '举报', exact: true });
+    const apply = filters.getByRole('button', { name: '筛选', exact: true });
+    const reset = filters.getByRole('button', { name: '重置', exact: true });
+    const filterControls = [
+      types.getByRole('button', { name: '主题', exact: true }),
+      types.getByRole('button', { name: '回复', exact: true }),
+      types.getByRole('button', { name: '评论', exact: true }),
+      search,
+      category,
+      state,
+      reported,
+      apply,
+      reset,
+    ];
+    for (const control of filterControls) {
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      if (!box) throw new Error('Missing visible filter control bounds');
+      expect(box.x).toBeGreaterThanOrEqual(-1);
+      expect(box.x + box.width).toBeLessThanOrEqual(c.width + 1);
+      if (c.width < 600) {
+        expect(box.width, '手机筛选点击区宽度').toBeGreaterThanOrEqual(44);
+        expect(box.height, '手机筛选点击区高度').toBeGreaterThanOrEqual(44);
+      }
+    }
+
     const tools = page.getByRole('group', { name: '表格工具', exact: true });
     const density = tools.getByRole('group', { name: '表格密度', exact: true });
     const standard = density.getByRole('button', { name: '标准', exact: true });
@@ -84,10 +118,20 @@ for (const c of CASES) {
       expect(box).not.toBeNull();
       if (!box) throw new Error('Missing toolbar bounds');
       expect(box.height, '两行工具栏总高').toBeLessThanOrEqual(104);
+      const tableBox = await admin.locator('.table-wrap:has(> [data-table2="content"])').boundingBox();
+      expect(tableBox).not.toBeNull();
+      if (!tableBox) throw new Error('Missing content table bounds');
+      expect(tableBox.y, '390px 首屏内容区应提前出现').toBeLessThanOrEqual(648);
     }
 
     // 真正按 Tab 走过所有入口；不隐藏排序，也不通过 CSS order 改变阅读顺序。
     if (c.width === 390 && c.state === 'data') {
+      await search.focus();
+      await expect(search).toBeFocused();
+      for (const control of [category, state, reported, apply, reset]) {
+        await page.keyboard.press('Tab');
+        await expect(control).toBeFocused();
+      }
       await standard.focus();
       await expect(standard).toBeFocused();
       for (const control of [compact, sort, all, columns, views, csv]) {
