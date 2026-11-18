@@ -119,34 +119,35 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
             {g.label}（<span data-official-count>{g.items.length}</span> / {g.items.length}）
           </h2>
           <div class="table-wrap">
-            <table class="data-table">
+            <table class="data-table" role="table">
               <caption class="visually-hidden">{g.label}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">标题</th>
-                  <th scope="col">文件</th>
-                  <th scope="col">操作</th>
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">标题</th>
+                  <th scope="col" role="columnheader">文件</th>
+                  <th scope="col" role="columnheader">操作</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {g.items.map((it) => (
                   <tr
                     class="no-check"
+                    role="row"
                     data-official-row
                     data-official-title={it.title}
                     data-official-id={it.id}
                     data-official-path={`${g.dir}/${it.id}.md`}
                   >
-                    <td class="cell-main" data-label="标题">
+                    <td class="cell-main" data-label="标题" role="cell">
                       <a class="cell-title" href={it.href}>
                         {it.title}
                       </a>
                       {it.review && <span class="badge badge--warn">待作者补充</span>}
                     </td>
-                    <td data-label="文件">
+                    <td data-label="文件" role="cell">
                       <code>{`${g.dir}/${it.id}.md`}</code>
                     </td>
-                    <td data-label="操作">
+                    <td data-label="操作" role="cell">
                       <span class="row-actions">
                         <a
                           class="btn btn--sm"
@@ -229,6 +230,62 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
       .admin[data-section='official'] [data-official-clear] {
         min-width: var(--touch);
         min-height: var(--touch);
+      }
+      /* 手机记录纵向排列：标题、完整路径、操作；不再把文件路径挤成窄列。 */
+      .admin[data-section='official'] #official-list .data-table,
+      .admin[data-section='official'] #official-list tbody {
+        display: block;
+        width: 100%;
+      }
+      .admin[data-section='official'] #official-list thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      .admin[data-section='official'] [data-official-row]:not([hidden]) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-2);
+        padding: var(--space-3);
+        border-bottom: 1px solid var(--c-separator);
+      }
+      .admin[data-section='official'] [data-official-row]:last-child {
+        border-bottom: 0;
+      }
+      .admin[data-section='official'] [data-official-row] > td {
+        display: block;
+        height: auto;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+      }
+      .admin[data-section='official'] [data-official-row] .cell-title {
+        display: flex;
+        align-items: center;
+        min-height: var(--touch);
+        max-width: none;
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .admin[data-section='official'] [data-official-row] code {
+        display: block;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+      .admin[data-section='official'] [data-official-row] .row-actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: var(--space-2);
+      }
+      .admin[data-section='official'] [data-official-row] .btn {
+        min-width: var(--touch);
+        min-height: var(--touch);
+        max-width: 100%;
+        white-space: normal;
       }
     }
   }

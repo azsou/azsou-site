@@ -55,6 +55,58 @@ for (const c of cases) {
     await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
     await expect(visibleRows).toHaveCount(total);
 
+    expect(await page.evaluate(() => scrollY), '首屏检查不得先滚动').toBe(0);
+    if (c.state === 'no-match') {
+      await query.fill('zz-f10-official-no-match-20261118');
+      await expect(visibleRows).toHaveCount(0);
+      await expect(noMatch).toBeVisible();
+      await expect(root.locator('[data-official-source-empty]')).toBeHidden();
+      await expect(summary).toHaveText(`显示 0 / ${total} 条`);
+    }
+    // 先留存状态画面与几何证据，后续断言失败也能审阅；不滚动、不改视口。
+    await testInfo.attach(`official-layout-${c.name}`, {
+      body: await page.screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
+    });
+    const geometry = await root.evaluate((element) => {
+      const measure = (node: Element) => {
+        const box = node.getBoundingClientRect();
+        return {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          right: box.right,
+          bottom: box.bottom,
+          clientWidth: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          clientHeight: node.clientHeight,
+          scrollHeight: node.scrollHeight,
+          display: getComputedStyle(node).display,
+        };
+      };
+      const groups = '[data-official-group]:not([hidden])';
+      const records = element.querySelectorAll(`${groups} [data-official-row]:not([hidden])`);
+      return {
+        viewport: { width: innerWidth, height: innerHeight, scrollX, scrollY },
+        tables: Array.from(element.querySelectorAll(`${groups} .table-wrap`), measure),
+        rows: Array.from(records, (row) => {
+          const path = row.querySelector('td[data-label="文件"] code');
+          return {
+            ...measure(row),
+            path: row.getAttribute('data-official-path'),
+            file: path ? { ...measure(path), text: path.textContent } : null,
+            cells: Array.from(row.children, measure),
+            links: Array.from(row.querySelectorAll('a'), measure),
+          };
+        }),
+      };
+    });
+    await testInfo.attach(`official-geometry-${c.name}`, {
+      body: Buffer.from(JSON.stringify(geometry, null, 2)),
+      contentType: 'application/json',
+    });
+
     const boxes = [];
     for (const control of [query, kind, clear]) {
       await expect(control).toBeVisible();
@@ -76,14 +128,8 @@ for (const c of cases) {
     }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow, '官方页不应横向撑开整页').toBeLessThanOrEqual(1);
-    expect(await page.evaluate(() => scrollY), '首屏检查不得先滚动').toBe(0);
 
     if (c.state === 'no-match') {
-      await query.fill('zz-f10-official-no-match-20261118');
-      await expect(visibleRows).toHaveCount(0);
-      await expect(noMatch).toBeVisible();
-      await expect(root.locator('[data-official-source-empty]')).toBeHidden();
-      await expect(summary).toHaveText(`显示 0 / ${total} 条`);
       const box = await noMatchClear.boundingBox();
       expect(box).not.toBeNull();
       if (!box) throw new Error('Missing no-match clear button bounds');
@@ -101,10 +147,48 @@ for (const c of cases) {
       expect(box.y).toBeGreaterThanOrEqual(0);
       expect(box.y + box.height, '390px 首条官方记录应在纵向完整进入首屏').toBeLessThanOrEqual(c.height);
     }
-    await testInfo.attach(`official-layout-${c.name}`, {
-      body: await page.screenshot({ animations: 'disabled' }),
-      contentType: 'image/png',
-    });
+    expect(geometry.viewport.scrollX).toBe(0);
+    expect(geometry.viewport.scrollY).toBe(0);
+    expect(geometry.rows).toHaveLength(c.state === 'no-match' ? 0 : total);
+    if (c.state === 'data') {
+      const firstTable = root.getByRole('table').first();
+      await expect(firstTable).toHaveAccessibleName('应用');
+      await expect(firstTable.getByRole('columnheader')).toHaveCount(3);
+      await expect(visibleRows.first().getByRole('cell')).toHaveCount(3);
+    }
+    if (c.width < 600 && c.state === 'data') {
+      expect(geometry.tables.length).toBeGreaterThan(0);
+      for (const table of geometry.tables) {
+        expect(table.scrollWidth - table.clientWidth, '手机记录区不应依赖横向滚动').toBeLessThanOrEqual(1);
+      }
+      for (const row of geometry.rows) {
+        expect(row.display).toBe('grid');
+        expect(row.x).toBeGreaterThanOrEqual(-1);
+        expect(row.right).toBeLessThanOrEqual(c.width + 1);
+        expect(row.cells).toHaveLength(3);
+        expect(row.links).toHaveLength(3);
+        expect(row.file).not.toBeNull();
+        if (!row.file) throw new Error('Missing official file path');
+        expect(row.file.text).toBe(row.path);
+        expect(row.file.scrollWidth - row.file.clientWidth).toBeLessThanOrEqual(1);
+        expect(row.file.scrollHeight - row.file.clientHeight).toBeLessThanOrEqual(1);
+        for (const cell of row.cells) {
+          expect(cell.x).toBeGreaterThanOrEqual(row.x);
+          expect(cell.right).toBeLessThanOrEqual(row.right + 1);
+        }
+        expect(row.cells[1].y).toBeGreaterThanOrEqual(row.cells[0].bottom);
+        expect(row.cells[2].y).toBeGreaterThanOrEqual(row.cells[1].bottom);
+        for (const link of row.links) {
+          expect(link.x).toBeGreaterThanOrEqual(row.x);
+          expect(link.right).toBeLessThanOrEqual(row.right + 1);
+          expect(link.y).toBeGreaterThanOrEqual(row.y);
+          expect(link.bottom).toBeLessThanOrEqual(row.bottom + 1);
+          expect(link.width).toBeGreaterThanOrEqual(44);
+          expect(link.height).toBeGreaterThanOrEqual(44);
+          expect(link.scrollWidth - link.clientWidth).toBeLessThanOrEqual(1);
+        }
+      }
+    }
 
     if (c.state === 'no-match') {
       await noMatchClear.focus();
