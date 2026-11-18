@@ -52,11 +52,7 @@ const dataFiles = [
 const total = groups.reduce((n, g) => n + g.items.length, 0);
 ---
 
-<AdminLayout
-  section="official"
-  title="官方内容"
-  lede={`共 ${total} 篇，在 Git（Markdown）里维护；修改沿用仓库既有审核与发布流程。`}
->
+<AdminLayout section="official" title="官方内容" lede={`共 ${total} 篇；修改沿用仓库审核发布流程。`}>
   <p class="notice notice--info">
     后台不直接修改官方内容（没有 CMS 写入），这样每次改动都有版本记录与预览站。编辑链接指向{' '}
     <code>{REPO.branch}</code> 分支；文件格式见 <code>src/content.config.ts</code>。
@@ -212,5 +208,28 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
   [data-official-row][hidden],
   [data-official-source-empty][hidden] {
     display: none;
+  }
+</style>
+
+<style is:global>
+  @layer components {
+    @media (max-width: 599.98px) {
+      /* 只收紧官方页首屏留白，保留完整只读提示和现有筛选顺序。 */
+      .admin[data-section='official'] > .admin-main > .admin-head {
+        margin-bottom: var(--space-3);
+      }
+      .admin[data-section='official'] [data-admin-body] > .notice {
+        margin-block: 0 var(--space-3);
+        padding: var(--space-3);
+      }
+      .admin[data-section='official'] [data-official] > .toolbar {
+        gap: var(--space-2);
+        margin-bottom: var(--space-2);
+      }
+      .admin[data-section='official'] [data-official-clear] {
+        min-width: var(--touch);
+        min-height: var(--touch);
+      }
+    }
   }
 </style>
