@@ -72,6 +72,7 @@ if (form && grid && statusEl && pager && sortSel) {
   const staticPager = [...pager.children];
   const staticStatus = statusEl.textContent;
   const staticPagerHidden = pager.hidden;
+  let applyVersion = 0;
 
   const state = (): CatalogQuery => ({
     platform: fixedPlatform || (sel('platform').value as PlatformOs | ''),
@@ -107,6 +108,7 @@ if (form && grid && statusEl && pager && sortSel) {
   }
 
   async function apply(page = 1, push = true) {
+    const version = ++applyVersion;
     const q = state();
     if (moreRoot) setMoreFiltersCount(moreRoot, Number(!fixedPlatform && !!q.platform) + Number(!!q.price));
     // F02：地址是唯一的状态来源。只写规范化后的查询串（未知参数、无效取值丢弃）；越界页码在下面按实际页数纠正
@@ -119,6 +121,7 @@ if (form && grid && statusEl && pager && sortSel) {
     if (push || location.search) setUrl(page);
     if (isDefault(q) && page === 1 && !wantedPage) {
       restoreStatic();
+      grid!.removeAttribute('aria-busy');
       return;
     }
     grid!.setAttribute('aria-busy', 'true');
@@ -126,6 +129,7 @@ if (form && grid && statusEl && pager && sortSel) {
       const items = filterApps(await loadCatalog(), q);
       const needStats = STATS_SORTS.includes(q.sort ?? 'new');
       const s = needStats ? await loadStats() : stats;
+      if (version !== applyVersion) return;
       const sorted = sortApps(items, q.sort ?? 'new', needStats ? s : null);
       const p = paginate(sorted, page);
       // 页码超出（分享的旧链接 / 筛选后结果变少）：纠正到最后一页并写回地址
@@ -142,9 +146,10 @@ if (form && grid && statusEl && pager && sortSel) {
       }
       renderPager(p.page, p.pages);
     } catch {
+      if (version !== applyVersion) return;
       statusEl!.textContent = '筛选暂时不可用（目录数据加载失败），可以用上方的分类与平台入口浏览。';
     } finally {
-      grid!.removeAttribute('aria-busy');
+      if (version === applyVersion) grid!.removeAttribute('aria-busy');
     }
   }
 
