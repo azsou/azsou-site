@@ -75,7 +75,7 @@ for (const stale of ['success', 'error'] as const) {
   });
 }
 
- test('catalog race: clearing the filter keeps the original static list after a late response', async ({
+test('catalog race: clearing the filter keeps the original static list after a late response', async ({
   page,
   request,
   errors,
@@ -106,7 +106,7 @@ for (const stale of ['success', 'error'] as const) {
   expect(errors).toEqual([]);
 });
 
- test('catalog race: an old response cannot clear busy while the latest request is pending', async ({
+test('catalog race: an old response cannot clear busy while the latest request is pending', async ({
   page,
   request,
   errors,
