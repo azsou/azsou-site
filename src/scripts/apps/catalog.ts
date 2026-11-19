@@ -33,7 +33,7 @@ const sortSel = document.querySelector<HTMLSelectElement>('[data-list-sort-selec
 
 let catalog: CatalogItem[] | null = null;
 let stats: Record<string, AppStats> | null = null;
-let statsTried = false;
+let statsPromise: Promise<Record<string, AppStats> | null> | null = null;
 
 async function loadCatalog() {
   if (!catalog) {
@@ -45,12 +45,10 @@ async function loadCatalog() {
 }
 
 async function loadStats() {
-  if (!statsTried) {
-    statsTried = true;
-    stats = await getAppStore()
-      .stats()
-      .catch(() => null);
-  }
+  statsPromise ??= getAppStore()
+    .stats()
+    .catch(() => null);
+  stats = await statsPromise;
   return stats;
 }
 
