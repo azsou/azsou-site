@@ -45,9 +45,9 @@ switch_mirror() {
   for f in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
     [ -f "$f" ] || continue
     sudo sed -i -E \
-      -e "s#https?://[a-z0-9.-]*archive\.ubuntu\.com/ubuntu/?#${to}#g" \
-      -e "s#https?://mirrors\.edge\.kernel\.org/ubuntu/?#${to}#g" \
-      -e "s#file:/etc/apt/apt-mirrors\.txt#${to}#g" \
+      -e "s#(mirror\+)?https?://[a-z0-9.-]*archive\.ubuntu\.com/ubuntu/?#${to}#g" \
+      -e "s#(mirror\+)?https?://mirrors\.edge\.kernel\.org/ubuntu/?#${to}#g" \
+      -e "s#(mirror\+)?file:/etc/apt/apt-mirrors\.txt#${to}#g" \
       "$f"
   done
 }

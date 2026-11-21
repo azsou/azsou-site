@@ -338,11 +338,15 @@ async function contentPanel(u: AdminUser) {
   );
 }
 
+/** 只认最新一次加载：保存角色、封禁、解封都会重载，较早的加载晚到不得再往页面追加面板或清掉新状态 */
+let seq = 0;
 async function load(me: Profile) {
+  const my = ++seq;
   box.setAttribute('aria-busy', 'true');
   try {
     const repo = adminRepo();
     const u = await repo.getUser(id);
+    if (my !== seq) return;
     if (!u) {
       box.replaceChildren(h('p', { class: 'notice notice--error', role: 'alert', text: '找不到这个用户。' }));
       return;
@@ -352,6 +356,7 @@ async function load(me: Profile) {
     const names = await repo.names(
       bans.flatMap((b) => [b.createdBy ?? '', b.liftedBy ?? '']).filter(Boolean),
     );
+    if (my !== seq) return;
     const parts: (Node | null)[] = [
       headPanel(u),
       rolePanel(u, me),
@@ -360,18 +365,22 @@ async function load(me: Profile) {
       bansPanel(bans, names),
     ];
     box.replaceChildren(...parts.filter((x): x is Node => !!x));
-    box.append(await contentPanel(u));
+    const content = await contentPanel(u);
+    if (my !== seq) return;
+    box.append(content);
     // 画像（0017）：懒加载，不进首屏包
     const [{ profilePanels }, { crmApi }] = await Promise.all([import('./crm'), import('./crm-badge')]);
     const extra = await crmApi()
       .then((c) => c.userProfile(u.id))
       .catch(() => null);
+    if (my !== seq) return;
     box.append(...profilePanels(u, extra, panel, { meId: me.id, isAdmin: isAdminRole(me) }));
   } catch (e) {
+    if (my !== seq) return;
     box.replaceChildren(h('p', { class: 'data-status', role: 'status' }));
     setStatusText(box.querySelector('p'), errorText(e), 'error');
   } finally {
-    box.removeAttribute('aria-busy');
+    if (my === seq) box.removeAttribute('aria-busy');
   }
 }
 

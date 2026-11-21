@@ -686,9 +686,96 @@ test.describe('导入导出 / 官方内容', () => {
       'https://github.com/azsou/azsou-site/edit/main/src/content/apps/fablemotion.md',
     );
     await expect(edit).toHaveAttribute('target', '_blank');
-    // 文章数随内容增加（P8 新增原创文章），按内容目录实际数量核对
+    // 保留精确数量校验，按已实现的“显示数 / 总数”标题契约核对，不放宽匹配。
     const articleCount = readdirSync('src/content/articles').filter((f) => f.endsWith('.md')).length;
-    await expect(page.getByRole('heading', { name: `文章（${articleCount}）` })).toBeVisible();
+    const root = page.locator('[data-official]');
+    const query = root.getByRole('searchbox', { name: '关键词', exact: true });
+    const kind = root.getByRole('combobox', { name: '类型', exact: true });
+    const toolbar = root.getByRole('group', { name: '筛选官方内容', exact: true });
+    const clear = toolbar.getByRole('button', { name: '清除筛选', exact: true });
+    const rows = root.locator('[data-official-row]');
+    const visibleRows = root.locator('[data-official-row]:visible');
+    const summary = root.locator('[data-official-summary]');
+    const noMatch = root.locator('[data-official-no-match]');
+    const sourceEmpty = root.locator('[data-official-source-empty]');
+    const articles = root.locator('[data-official-group="articles"]');
+    const articleHeading = articles.getByRole('heading', {
+      name: `文章（${articleCount} / ${articleCount}）`,
+      exact: true,
+    });
+    await expect(articleHeading).toBeVisible();
+    await expect(articles.locator('[data-official-row]')).toHaveCount(articleCount);
+    await expect(articles.locator('[data-official-count]')).toHaveText(String(articleCount));
+    await expect(query).toBeEnabled();
+    await expect(kind).toBeEnabled();
+    await expect(clear).toBeDisabled();
+    const originalPaths = await rows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-official-path')),
+    );
+    const total = originalPaths.length;
+    expect(total).toBeGreaterThan(0);
+    expect(originalPaths).not.toContain(null);
+    expect(new Set(originalPaths).size).toBe(total);
+    await expect(visibleRows).toHaveCount(total);
+    await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
+    await expect(noMatch).toBeHidden();
+    await expect(sourceEmpty).toBeHidden();
+
+    // 关键词去首尾空白、不区分大小写，并与类型取交集。
+    await query.fill('  FABLEMOTION  ');
+    await kind.selectOption('apps');
+    await expect(visibleRows).toHaveCount(1);
+    await expect(visibleRows).toHaveAttribute('data-official-path', 'src/content/apps/fablemotion.md');
+    await expect(summary).toHaveText(`显示 1 / ${total} 条`);
+    await expect(root.locator('[data-official-group="apps"] [data-official-count]')).toHaveText('1');
+    await expect(articles).toBeHidden();
+    await expect(noMatch).toBeHidden();
+    await expect(clear).toBeEnabled();
+
+    // 文章也有 FableMotion 主题，改用完整应用路径，再切类型验证零交集。
+    await query.fill('  SRC/CONTENT/APPS/FABLEMOTION.MD  ');
+    await expect(visibleRows).toHaveCount(1);
+    await kind.selectOption('articles');
+    await expect(visibleRows).toHaveCount(0);
+    await expect(root.locator('[data-official-group]:visible')).toHaveCount(0);
+    await expect(summary).toHaveText(`显示 0 / ${total} 条`);
+    await expect(noMatch).toBeVisible();
+    await expect(noMatch.getByText('没有匹配的官方内容', { exact: true })).toBeVisible();
+    await expect(sourceEmpty).toBeHidden();
+    await noMatch.getByRole('button', { name: '清除筛选', exact: true }).click();
+    await expect(query).toHaveValue('');
+    await expect(kind).toHaveValue('all');
+    await expect(query).toBeFocused();
+    await expect(visibleRows).toHaveCount(total);
+    await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
+    await expect(noMatch).toBeHidden();
+    await expect(sourceEmpty).toBeHidden();
+    await expect(clear).toBeDisabled();
+    await expect(articleHeading).toBeVisible();
+    const restoredPaths = await visibleRows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-official-path')),
+    );
+    expect(restoredPaths).toEqual(originalPaths);
+
+    // 文件路径也按字面匹配；工具条清除入口同样恢复全部行、顺序和焦点。
+    await query.fill('src/content/apps/fablemotion.md');
+    await expect(visibleRows).toHaveCount(1);
+    await expect(visibleRows).toHaveAttribute('data-official-path', 'src/content/apps/fablemotion.md');
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(query).toHaveValue('');
+    await expect(kind).toHaveValue('all');
+    await expect(query).toBeFocused();
+    await expect(visibleRows).toHaveCount(total);
+    await expect(summary).toHaveText(`显示 ${total} / ${total} 条`);
+    await expect(noMatch).toBeHidden();
+    await expect(sourceEmpty).toBeHidden();
+    await expect(clear).toBeDisabled();
+    await expect(articleHeading).toBeVisible();
+    const toolbarPaths = await visibleRows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('data-official-path')),
+    );
+    expect(toolbarPaths).toEqual(originalPaths);
   });
 });
 

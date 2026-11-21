@@ -46,20 +46,30 @@ export interface BatchResult {
   degraded?: { feature: string; migration: string };
 }
 export const BATCH_MIGRATION = '0018';
+const ITEM_RESULTS: readonly string[] = ['ok', 'unchanged', 'not_found', 'conflict', 'denied', 'failed'];
 export function toBatchResult(r: Record<string, unknown> | null | undefined): BatchResult {
-  const results = Array.isArray(r?.results) ? (r!.results as Record<string, unknown>[]) : [];
+  const raw = Array.isArray(r?.results) ? (r!.results as Record<string, unknown>[]) : [];
+  // G04：不认识的逐项结果一律按失败处理（带「未知结果」说明、可重试），绝不当作成功或静默忽略
+  let unknownCount = 0;
+  const results = raw.map((x) => {
+    const result = String(x.result);
+    if (ITEM_RESULTS.includes(result))
+      return {
+        id: String(x.id),
+        result: result as BatchItemResult,
+        ...(x.message ? { message: String(x.message) } : {}),
+      };
+    unknownCount += 1;
+    return { id: String(x.id), result: 'failed' as BatchItemResult, message: `未知结果（${result}）` };
+  });
   return {
     requested: Number(r?.requested) || 0,
     unique: Number(r?.unique) || 0,
     duplicates: Number(r?.duplicates) || 0,
     ok: Number(r?.ok) || 0,
-    failed: Number(r?.failed) || 0,
+    failed: (Number(r?.failed) || 0) + unknownCount,
     replayed: r?.replayed === true,
-    results: results.map((x) => ({
-      id: String(x.id),
-      result: String(x.result) as BatchItemResult,
-      ...(x.message ? { message: String(x.message) } : {}),
-    })),
+    results,
   };
 }
 /** 旧接口（PATCH 返回受影响行）→ 逐项结果：返回的行 = ok，其余 = not_found */

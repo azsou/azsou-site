@@ -59,3 +59,30 @@ describe('批量逐项结果（A08）', () => {
     ]);
   });
 });
+
+describe('批量结果的未知与空响应（G04）', () => {
+  it('不认识的逐项结果归为失败，带「未知结果」说明，并计入 failed', () => {
+    const u = toBatchResult({ failed: 0, results: [{ id: 'z', result: 'weird' }] });
+    expect(u.results[0]).toMatchObject({ id: 'z', result: 'failed' });
+    expect(u.results[0].message).toContain('未知结果');
+    expect(u.failed).toBe(1);
+  });
+  it('未知结果在摘要里按失败计数，可只重试，面板标红且不出现 undefined', () => {
+    const u = toBatchResult({ results: [{ id: 'z', result: 'weird' }] });
+    expect(batchSummary(u, '隐藏')).not.toContain('undefined');
+    expect(failedIds(u)).toEqual(['z']);
+    const box = document.createElement('div');
+    renderBatchResult(box, u, '隐藏', vi.fn());
+    expect(box.getAttribute('class')).toContain('notice--error');
+    expect(box.textContent ?? '').not.toContain('undefined');
+  });
+  it('单条操作：服务端返回未知结果时抛出可读错误，不当作成功', () => {
+    expect(() => assertSingle(toBatchResult({ results: [{ id: 'x', result: 'weird' }] }))).toThrow(
+      '未知结果',
+    );
+  });
+  it('单条操作：服务端返回空对象或 null（没有逐项结果）时抛出，不当作成功', () => {
+    expect(() => assertSingle(toBatchResult({}))).toThrow();
+    expect(() => assertSingle(toBatchResult(null))).toThrow();
+  });
+});

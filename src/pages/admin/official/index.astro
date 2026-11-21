@@ -52,71 +52,138 @@ const dataFiles = [
 const total = groups.reduce((n, g) => n + g.items.length, 0);
 ---
 
-<AdminLayout
-  section="official"
-  title="官方内容"
-  lede={`共 ${total} 篇，在 Git（Markdown）里维护：在 GitHub 上编辑并合并后，Vercel 自动重新构建上线。`}
->
+<AdminLayout section="official" title="官方内容" lede={`共 ${total} 篇；修改沿用仓库审核发布流程。`}>
   <p class="notice notice--info">
     后台不直接修改官方内容（没有 CMS 写入），这样每次改动都有版本记录与预览站。编辑链接指向{' '}
     <code>{REPO.branch}</code> 分支；文件格式见 <code>src/content.config.ts</code>。
   </p>
-  {groups.map((g) => (
-    <section class="section" aria-labelledby={`h-off-${g.id}`}>
-      <h2 id={`h-off-${g.id}`} class="list-heading">
-        {g.label}（{g.items.length}）
-      </h2>
-      <div class="table-wrap">
-        <table class="data-table">
-          <caption class="visually-hidden">{g.label}</caption>
-          <thead>
-            <tr>
-              <th scope="col">标题</th>
-              <th scope="col">文件</th>
-              <th scope="col">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {g.items.map((it) => (
-              <tr class="no-check">
-                <td class="cell-main" data-label="标题">
-                  <a class="cell-title" href={it.href}>
-                    {it.title}
-                  </a>
-                  {it.review && <span class="badge badge--warn">待作者补充</span>}
-                </td>
-                <td data-label="文件">
-                  <code>{`${g.dir}/${it.id}.md`}</code>
-                </td>
-                <td data-label="操作">
-                  <span class="row-actions">
-                    <a
-                      class="btn btn--sm"
-                      href={githubEdit(`${g.dir}/${it.id}.md`)}
-                      rel="noopener"
-                      target="_blank"
-                      aria-label={`在 GitHub 编辑：${it.title}（新窗口）`}
-                    >
-                      在 GitHub 编辑
-                    </a>
-                    <a
-                      class="btn btn--sm"
-                      href={githubHistory(`${g.dir}/${it.id}.md`)}
-                      rel="noopener"
-                      target="_blank"
-                      aria-label={`历史：${it.title}（新窗口）`}
-                    >
-                      历史
-                    </a>
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  <div data-official>
+    <!-- official-controls:start -->
+    <div class="toolbar" role="group" aria-label="筛选官方内容">
+      <div class="field field--grow">
+        <label for="official-query">关键词</label>
+        <input
+          id="official-query"
+          class="input"
+          type="search"
+          placeholder="搜索标题、ID 或文件路径"
+          autocomplete="off"
+          aria-controls="official-list"
+          aria-describedby="official-summary"
+          data-official-query
+          disabled
+        />
       </div>
-    </section>
-  ))}
+      <div class="field">
+        <label for="official-kind">类型</label>
+        <select
+          id="official-kind"
+          aria-controls="official-list"
+          aria-describedby="official-summary"
+          data-official-kind
+          disabled
+        >
+          <option value="all">全部类型</option>
+          {groups.map((g) => (
+            <option value={g.id}>{g.label}</option>
+          ))}
+        </select>
+      </div>
+      <button class="btn" type="button" data-official-clear disabled>
+        清除筛选
+      </button>
+    </div>
+    <!-- official-controls:end -->
+    <p id="official-summary" role="status" aria-live="polite" aria-atomic="true" data-official-summary>
+      显示 {total} / {total} 条
+    </p>
+    <p class="table-empty" data-official-source-empty hidden={total !== 0}>
+      尚无官方内容。
+    </p>
+    <div class="state-card" data-official-no-match hidden>
+      <p class="state-card__title">没有匹配的官方内容</p>
+      <p class="state-card__text">试试其他关键词或类型，也可以清除筛选查看全部。</p>
+      <button class="btn" type="button" data-official-clear disabled>
+        清除筛选
+      </button>
+    </div>
+    <div id="official-list">
+      {groups.map((g) => (
+        <section
+          class="section"
+          aria-labelledby={`h-off-${g.id}`}
+          data-official-group={g.id}
+          hidden={g.items.length === 0}
+        >
+          <h2 id={`h-off-${g.id}`} class="list-heading">
+            {g.label}（<span data-official-count>{g.items.length}</span> / {g.items.length}）
+          </h2>
+          <div class="table-wrap">
+            <table class="data-table" role="table">
+              <caption class="visually-hidden">{g.label}</caption>
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">
+                    标题
+                  </th>
+                  <th scope="col" role="columnheader">
+                    文件
+                  </th>
+                  <th scope="col" role="columnheader">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody role="rowgroup">
+                {g.items.map((it) => (
+                  <tr
+                    class="no-check"
+                    role="row"
+                    data-official-row
+                    data-official-title={it.title}
+                    data-official-id={it.id}
+                    data-official-path={`${g.dir}/${it.id}.md`}
+                  >
+                    <td class="cell-main" data-label="标题" role="cell">
+                      <a class="cell-title" href={it.href}>
+                        {it.title}
+                      </a>
+                      {it.review && <span class="badge badge--warn">待作者补充</span>}
+                    </td>
+                    <td data-label="文件" role="cell">
+                      <code>{`${g.dir}/${it.id}.md`}</code>
+                    </td>
+                    <td data-label="操作" role="cell">
+                      <span class="row-actions">
+                        <a
+                          class="btn btn--sm"
+                          href={githubEdit(`${g.dir}/${it.id}.md`)}
+                          rel="noopener"
+                          target="_blank"
+                          aria-label={`在 GitHub 编辑：${it.title}（新窗口）`}
+                        >
+                          在 GitHub 编辑
+                        </a>
+                        <a
+                          class="btn btn--sm"
+                          href={githubHistory(`${g.dir}/${it.id}.md`)}
+                          rel="noopener"
+                          target="_blank"
+                          aria-label={`历史：${it.title}（新窗口）`}
+                        >
+                          历史
+                        </a>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
+    </div>
+  </div>
   <section class="section" aria-labelledby="h-off-data">
     <h2 id="h-off-data" class="list-heading">
       数据文件与页面
@@ -139,6 +206,93 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
 </AdminLayout>
 
 <script>
-  import { initAdmin } from '@/scripts/admin/shell';
-  void initAdmin();
+  import { initOfficial } from '@/scripts/admin/official';
+  void initOfficial();
 </script>
+
+<style>
+  [data-official-group][hidden],
+  [data-official-row][hidden],
+  [data-official-source-empty][hidden] {
+    display: none;
+  }
+</style>
+
+<style is:global>
+  @layer components {
+    @media (max-width: 599.98px) {
+      /* 只收紧官方页首屏留白，保留完整只读提示和现有筛选顺序。 */
+      .admin[data-section='official'] > .admin-main > .admin-head {
+        margin-bottom: var(--space-3);
+      }
+      .admin[data-section='official'] [data-admin-body] > .notice {
+        margin-block: 0 var(--space-3);
+        padding: var(--space-3);
+      }
+      .admin[data-section='official'] [data-official] > .toolbar {
+        gap: var(--space-2);
+        margin-bottom: var(--space-2);
+      }
+      .admin[data-section='official'] [data-official-clear] {
+        min-width: var(--touch);
+        min-height: var(--touch);
+      }
+      /* 手机记录纵向排列：标题、完整路径、操作；不再把文件路径挤成窄列。 */
+      .admin[data-section='official'] #official-list .data-table,
+      .admin[data-section='official'] #official-list tbody {
+        display: block;
+        width: 100%;
+      }
+      .admin[data-section='official'] #official-list thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      .admin[data-section='official'] [data-official-row]:not([hidden]) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-2);
+        padding: var(--space-3);
+        border-bottom: 1px solid var(--c-separator);
+      }
+      .admin[data-section='official'] [data-official-row]:last-child {
+        border-bottom: 0;
+      }
+      .admin[data-section='official'] [data-official-row] > td {
+        display: block;
+        height: auto;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+      }
+      .admin[data-section='official'] [data-official-row] .cell-title {
+        display: flex;
+        align-items: center;
+        min-height: var(--touch);
+        max-width: none;
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .admin[data-section='official'] [data-official-row] code {
+        display: block;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+      .admin[data-section='official'] [data-official-row] .row-actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: var(--space-2);
+      }
+      .admin[data-section='official'] [data-official-row] .btn {
+        min-width: var(--touch);
+        min-height: var(--touch);
+        max-width: 100%;
+        white-space: normal;
+      }
+    }
+  }
+</style>
