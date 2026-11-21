@@ -35,7 +35,9 @@ export function batchSummary(r: BatchResult, verb: string): string {
 /** 单条操作：不是成功 / 无变化就抛出可读错误 */
 export function assertSingle(r: BatchResult) {
   const x = r.results[0];
-  if (!x || x.result === 'ok' || x.result === 'unchanged') return;
+  // G04：服务端没有返回逐项结果（空对象 / null）时结果未知，不能当作成功
+  if (!x) throw new Error('没有收到操作结果，请刷新后确认');
+  if (x.result === 'ok' || x.result === 'unchanged') return;
   throw new Error(x.message && x.result !== 'conflict' ? x.message : RESULT_LABEL[x.result]);
 }
 
