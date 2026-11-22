@@ -56,10 +56,10 @@
   "en": {
     "kind": "In development",
     "status": "Active development",
-    "summary": "A voxel roguelike with voxel dungeons, torch lighting, classes and skill trees. Version 0.8 focuses on migrating old saves to the new class system. The demo runs the current build in the browser; it is not presented as a commercial release, and the version number reflects how complete it is.",
+    "summary": "A voxel roguelike with voxel dungeons, torch lighting, classes and skill trees. Version 0.8 focuses on migrating old saves to the new class system. This page does not yet offer a public playable demo.",
     "genre": "Voxel Roguelike"
   }
 }
 ---
 
-<p>Voxel Roguelike：体素地牢、火把光照、职业与技能树。0.8 版的主线是把旧存档迁移到新的职业系统——对应文章《职业技能树与旧存档迁移》里的全部实测。</p><p>Demo 可以直接在浏览器里玩到当前构建；不包装成商业发行，版本号如实反映完成度。</p>
+<p>Voxel Roguelike：体素地牢、火把光照、职业与技能树。0.8 版的主线是把旧存档迁移到新的职业系统——对应文章《职业技能树与旧存档迁移》里的全部实测。</p><p>本页暂未提供公开试玩链接。你可以在下方的开发日志中查看当前版本的进展。</p>
