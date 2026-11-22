@@ -26,7 +26,10 @@ export function shortcutAction(e: {
   metaKey: boolean;
   ctrlKey: boolean;
   altKey: boolean;
+  /** 输入法组字中（中文 / 日文等）：一律不当快捷键（D07） */
+  isComposing?: boolean;
 }): 'palette' | 'search' | 'next' | 'prev' | 'select' | 'open' | 'help' | null {
+  if (e.isComposing || e.key === 'Process' || !e.key) return null;
   if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') return 'palette';
   if (e.metaKey || e.ctrlKey || e.altKey) return null;
   switch (e.key) {

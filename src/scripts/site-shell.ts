@@ -41,9 +41,15 @@ if (toggle) {
 }
 
 // ------------------------------------------------------------ 搜索面板 ------
+// 快捷键提示按平台显示（D07）：Apple 设备显示 ⌘，其余 Ctrl
+const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+if (/Mac|iPhone|iPad|iPod/i.test(`${nav.userAgentData?.platform ?? ''} ${navigator.platform ?? ''}`))
+  for (const k of document.querySelectorAll('[data-kbd-mod]')) k.textContent = '⌘';
 const openPalette = () => import('./search/palette').then((m) => m.openPalette());
 
 addEventListener('keydown', (e) => {
+  // 输入法组字中不拦截（D07：不吞中文输入）
+  if (e.isComposing || e.key === 'Process') return;
   if (e.key?.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
   e.preventDefault();
   void openPalette();

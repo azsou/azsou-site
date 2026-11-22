@@ -6,7 +6,7 @@
 import type { AdminStats } from '@/lib/data';
 import { groupedBars } from '@/lib/chart';
 import { toast } from '../community/ui';
-import { adminRepo, errorText, h, initAdmin, setStatusText } from './shell';
+import { adminRepo, h, initAdmin, setStatusText } from './shell';
 import { stateBlock } from './table';
 
 const statsEl = document.querySelector<HTMLElement>('[data-stats]')!;
@@ -300,16 +300,17 @@ function chart(s: AdminStats) {
   );
 }
 
-async function init() {
-  const me = await initAdmin();
-  if (!me) return;
+let statsSeq = 0;
+/** 读统计；失败显示分类错误（A15），「重试」真的重新请求，而不是整页刷新 */
+async function loadStats() {
+  const my = ++statsSeq;
   const repo = adminRepo();
-  repo
-    .liftExpiredBans()
-    .then((n) => n && toast(`已解除 ${n} 个到期的封禁。`))
-    .catch(() => {});
+  statsEl.setAttribute('aria-busy', 'true');
+  if (statsEl.querySelector('[data-table-error]'))
+    statsEl.replaceChildren(h('li', { class: 'stat-grid__state' }, stateBlock('loading')));
   try {
     const s = await repo.stats();
+    if (my !== statsSeq) return;
     statsEl.removeAttribute('aria-busy');
     statsEl.replaceChildren(
       tile('用户', s.users, `版主 ${s.moderators} · 管理员 ${s.admins}`, '/admin/users/', false, {
@@ -358,6 +359,7 @@ async function init() {
     renderMix(s);
     setStatusText(status, '');
   } catch (e) {
+    if (my !== statsSeq) return;
     todoEl?.removeAttribute('aria-busy');
     todoEl?.replaceChildren();
     mixEl?.removeAttribute('aria-busy');
@@ -367,11 +369,21 @@ async function init() {
       h(
         'li',
         { class: 'stat-grid__state' },
-        stateBlock('error', { text: errorText(e), retry: () => location.reload() }),
+        stateBlock('error', { error: e, retry: () => void loadStats() }),
       ),
     );
     setStatusText(status, '');
   }
+}
+
+async function init() {
+  const me = await initAdmin();
+  if (!me) return;
+  adminRepo()
+    .liftExpiredBans()
+    .then((n) => n && toast(`已解除 ${n} 个到期的封禁。`))
+    .catch(() => {});
+  await loadStats();
 }
 
 void init();

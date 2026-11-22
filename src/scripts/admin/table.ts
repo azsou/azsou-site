@@ -7,6 +7,7 @@
  *  - "3" = 可省：< 1200 隐藏（窄屏卡片也不显示），完整信息在详情 / 菜单里。
  * 窄屏卡片 = 主列 + 最多 2 个 meta + 操作（快捷按钮 + ⋯），不再把每一列竖排成「标签：值」。
  */
+import { describeAdminError } from '@/lib/admin-errors';
 import { h } from '../community/ui';
 
 const SVG = (inner: string, size = 20) =>
@@ -100,10 +101,37 @@ export function showEmpty(
   );
 }
 
-/** 错误态：原因 + 重试（不清空筛选） */
-export function showError(tbody: HTMLElement, cols: number, message: string, retry: () => void) {
+/**
+ * 错误内容（A15）：传入错误对象时按原因分类（缺迁移 / 网络 / 超时 / 5xx / 权限），
+ * 标题 + 说明 + data-error-kind；只传字符串时保持旧的单行样式。
+ */
+function errorBody(err: unknown, retryLabel?: string) {
+  if (typeof err === 'string')
+    return {
+      kind: '',
+      nodes: [h('span', { class: 'error-bar__text', text: err })],
+      label: retryLabel ?? '重试',
+    };
+  const i = describeAdminError(err);
+  return {
+    kind: i.kind,
+    nodes: [
+      h(
+        'span',
+        { class: 'error-bar__text' },
+        h('strong', { class: 'error-bar__title', text: i.title }),
+        h('span', { text: ` ${i.text}` }),
+      ),
+    ],
+    label: retryLabel ?? i.retryLabel,
+  };
+}
+
+/** 错误态：原因 + 重试（不清空筛选）；retry 会真的重新请求 */
+export function showError(tbody: HTMLElement, cols: number, err: unknown, retry: () => void) {
   tbody.removeAttribute('aria-busy');
-  const btn = h('button', { type: 'button', class: 'btn btn--sm', text: '重试', 'data-retry': true });
+  const b = errorBody(err);
+  const btn = h('button', { type: 'button', class: 'btn btn--sm', text: b.label, 'data-retry': true });
   btn.addEventListener('click', retry);
   tbody.replaceChildren(
     fullRow(
@@ -111,9 +139,14 @@ export function showError(tbody: HTMLElement, cols: number, message: string, ret
       'table-state',
       h(
         'div',
-        { class: 'error-bar error-bar--admin', role: 'alert', 'data-table-error': true },
+        {
+          class: 'error-bar error-bar--admin',
+          role: 'alert',
+          'data-table-error': true,
+          'data-error-kind': b.kind || undefined,
+        },
         icon('alert'),
-        h('span', { class: 'error-bar__text', text: message }),
+        ...b.nodes,
         btn,
       ),
     ),
@@ -123,7 +156,7 @@ export function showError(tbody: HTMLElement, cols: number, message: string, ret
 /** 列表区块（非表格，如举报卡片列表、仪表盘）用同一套空 / 错 / 加载块 */
 export function stateBlock(
   kind: 'loading' | 'empty' | 'error',
-  opts: { title?: string; text?: string; retry?: () => void } = {},
+  opts: { title?: string; text?: string; retry?: () => void; error?: unknown } = {},
 ): HTMLElement {
   if (kind === 'loading')
     return h(
@@ -139,13 +172,19 @@ export function stateBlock(
       h('p', { class: 'empty-state__title', text: opts.title ?? '这里还没有内容' }),
       opts.text ? h('p', { class: 'empty-state__text', text: opts.text }) : null,
     );
-  const btn = h('button', { type: 'button', class: 'btn btn--sm', text: '重试', 'data-retry': true });
+  const b = errorBody(opts.error !== undefined ? opts.error : (opts.text ?? '加载失败，请稍后再试。'));
+  const btn = h('button', { type: 'button', class: 'btn btn--sm', text: b.label, 'data-retry': true });
   if (opts.retry) btn.addEventListener('click', opts.retry);
   return h(
     'div',
-    { class: 'error-bar error-bar--admin', role: 'alert', 'data-table-error': true },
+    {
+      class: 'error-bar error-bar--admin',
+      role: 'alert',
+      'data-table-error': true,
+      'data-error-kind': b.kind || undefined,
+    },
     icon('alert'),
-    h('span', { class: 'error-bar__text', text: opts.text ?? '加载失败，请稍后再试。' }),
+    ...b.nodes,
     opts.retry ? btn : null,
   );
 }

@@ -1,0 +1,24 @@
+# Q06 / T057 / T086 本地备份演练（隔离 Postgres 17，合成数据；口令为一次性随机值，未记录）  2026-10-27T03:47:37Z
+## 1. 备份（加密）
+pg_dump: pg_dump (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1)
+已加密（gpg AES256）
+备份完成：<tmp>/good
+## 2. 校验（正确口令）+ 用 scripts/db-restore.sh 恢复到隔离库并核对行数
+校验通过：azsou-public-20261027T034739Z.dump（292700 字节，表数据 24 张），清单 25 行
+恢复演练通过：行数与清单一致
+exit=0
+## 3. 缺口令（T086）
+::error title=备份校验失败::产物已加密但没有提供 BACKUP_PASSPHRASE
+exit=1
+## 4. 损坏产物（T086：改动 .dump.gpg 中间 1 字节）
+gpg: [don't know]: invalid packet (ctb=69)
+gpg: [don't know]: invalid packet (ctb=72)
+gpg: WARNING: encrypted message has been manipulated!
+gpg: [don't know]: invalid packet (ctb=20)
+::error title=备份校验失败::解密失败：azsou-public-20261027T034739Z.dump.gpg
+exit=1
+## 5. 未加密产物被篡改（校验和不一致）
+azsou-rowcounts-20261027T034744Z.tsv: FAILED
+sha256sum: WARNING: 1 computed checksum did NOT match
+::error title=备份校验失败::校验和不一致（文件损坏或被改动）
+exit=1

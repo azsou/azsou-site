@@ -143,6 +143,20 @@ const crumbs = [
             </a>
           </div>
         </div>
+        <div class="state-card" data-gate-error hidden role="alert" data-state="error">
+          <Icon name="alert-circle" class="state-card__icon" />
+          <p class="state-card__title" data-gate-error-title>
+            暂时无法验证账号
+          </p>
+          <p class="state-card__text" data-gate-error-text>
+            读取账号资料失败，请稍后重试。
+          </p>
+          <div class="btn-row">
+            <button type="button" class="btn btn--primary" data-gate-retry>
+              重试
+            </button>
+          </div>
+        </div>
         <div class="state-card" data-gate-forbidden hidden data-state="denied">
           <Icon name="alert-circle" class="state-card__icon" />
           <p class="state-card__title" data-gate-forbidden-text>

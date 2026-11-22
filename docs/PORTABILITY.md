@@ -30,7 +30,7 @@ psql "$NEW" -f db/verify/status.sql          # 全部 true（没有 Storage 时 
 
 - `--disable-triggers` 需要超级用户（RDS 用 `rds_superuser` 不够时，去掉该参数并先导 `auth.users` 再导 public；通知 / 审计触发器只对 API 角色生效，导入不会重复写）。
 - Neon：创建项目时选 Postgres 17；`pg_trgm`、`pgcrypto` 可直接 `create extension`。连接 PostgREST 用直连（非 pooler）地址或开启 pooler 的 session 模式。
-- 也可以用「整库恢复」：`bash scripts/db-restore.sh "$NEW" azsou-public-*.dump azsou-auth-users-*.dump`（先跑 shim），
+- 也可以用「整库恢复」：`bash scripts/db-restore.sh "$NEW" azsou-public-*.dump azsou-auth-*.dump --private azsou-private-*.dump --storage azsou-storage-*.dump`（先 gpg -d 解密）（先跑 shim），
   它会处理默认权限、扩展、auth 触发器，并重跑 0002+ 补齐 public 以外的对象。CI 的恢复演练同时覆盖两种方式。
 - 完整流程与核对方法在 `scripts/restore-drill.sh`，在本地对任何 Postgres 都可以跑：`DATABASE_URL=… npm run db:drill`。
 

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { localCsp } from '../../scripts/lib/local-csp.mjs';
 import { test, expect, mockTurnstile } from './fixtures';
 
 /**
@@ -12,6 +13,8 @@ const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
 const CSP = vercel.headers
   .find((h) => h.source === '/((?!_astro/|pagefind/|cms/|api/cms/).*)')!
   .headers.find((h) => h.key === 'Content-Security-Policy')!.value;
+/** 本地服务器下发的 CSP = vercel.json 的 CSP 经 scripts/lib/local-csp.mjs 改写（去掉 upgrade-insecure-requests；本机栈源） */
+const LOCAL_CSP = localCsp(CSP, process.env);
 
 const PAGES = [
   '/',
@@ -33,10 +36,18 @@ const PAGES = [
 ];
 
 test.describe('CSP 与安全头', () => {
-  test('响应头与 vercel.json 一致（本地去掉 upgrade-insecure-requests）', async ({ request }) => {
+  test('响应头与 vercel.json 一致（本地去掉 upgrade-insecure-requests；构建指向本机栈时只多放行该 loopback 源）', async ({
+    request,
+  }) => {
     const r = await request.get('/');
     const h = r.headers();
-    expect(h['content-security-policy']).toBe(CSP.replace(/;\s*upgrade-insecure-requests/, ''));
+    expect(h['content-security-policy']).toBe(LOCAL_CSP);
+    // 本地改写只允许这两处：去掉 upgrade-insecure-requests、追加 loopback 源；别的指令逐字等于 vercel.json
+    const strip = (s: string) =>
+      s
+        .replace(/;\s*upgrade-insecure-requests/, '')
+        .replace(/ (https?|wss?):\/\/(127\.0\.0\.1|localhost|\[::1\]):\d+/g, '');
+    expect(strip(h['content-security-policy'])).toBe(strip(CSP));
     expect(h['x-content-type-options']).toBe('nosniff');
     expect(h['x-frame-options']).toBe('SAMEORIGIN');
     expect(h['referrer-policy']).toBe('strict-origin-when-cross-origin');
@@ -65,7 +76,7 @@ test.describe('CSP 与安全头', () => {
     // Service Worker 脚本的 CSP 来自它自己的响应头，必须保留；404 文档也带 CSP
     for (const p of ['/sw.js', '/no-such-page/']) {
       const h = (await request.get(p)).headers();
-      expect(h['content-security-policy'], p).toBe(CSP.replace(/;\s*upgrade-insecure-requests/, ''));
+      expect(h['content-security-policy'], p).toBe(LOCAL_CSP);
     }
   });
 

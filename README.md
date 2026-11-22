@@ -40,7 +40,7 @@ npm run test:lhci    # Lighthouse CI：16 个页面，四项 ≥ 95（noindex �
 - Linux arm64 上 Playwright 没有 Chromium 构建：`CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`
 - 在全部 12 个项目上跑 axe：`A11Y_ALL=1 npm run test:e2e`
 - CI（`.github/workflows/ci.yml`）在每个 PR 上跑以上全部：build、db（含恢复演练）、lighthouse、e2e（3 引擎 × 2 分片）。
-- 数据库备份：`.github/workflows/db-backup.yml` 每周一 03:30（北京时间）运行，产物保留 30 天（需要仓库 Secret，见 docs/OPERATIONS.md）。
+- 数据库 + Storage 备份：`.github/workflows/db-backup.yml` **仅手动触发**，在受保护环境 `backup-production`（必需审批人）里运行，统一快照、强制加密、产物保留 30 天；恢复分「精确恢复」（`scripts/db-restore.sh`）与「显式升级」（`scripts/db-upgrade.sh`）。每日定时 / 外部存储 / 监控在 `ops/disabled-workflows/`，另行启用（见 docs/BACKUP.md）。
 
 ## 目录
 

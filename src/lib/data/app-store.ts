@@ -6,7 +6,7 @@
 import { mergeStats, type AppStats, type PlatformOs } from '../app-store';
 import { restError } from './supabase';
 import { DataUnavailableError, NotSignedInError, ValidationError, type Author } from './types';
-import { DEFAULT_SUPABASE } from '../supabase-config';
+import { supabaseConfig } from '../supabase-config';
 import { getRepository } from './index';
 
 export interface Review {
@@ -284,11 +284,9 @@ let appStore: AppStoreApi | null = null;
  */
 export function getAppStore(): AppStoreApi {
   if (appStore) return appStore;
-  const env = import.meta.env ?? {};
   const repo = getRepository();
   appStore = createAppStoreApi({
-    url: env.PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE.url,
-    key: env.PUBLIC_SUPABASE_KEY || DEFAULT_SUPABASE.key,
+    ...supabaseConfig(),
     token: () => repo.auth.accessToken(),
   });
   return appStore;

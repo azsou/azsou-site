@@ -1,0 +1,30 @@
+2026-10-27T17:13:33.3559311Z   ✓   523 [webkit-iphone] › tests/e2e/images.spec.ts:156:3 › 编辑器图片上传 › 回复框：粘贴图片与拖入图片都能上传并插入 (5.6s)
+2026-10-27T17:13:38.1040130Z   ✓   524 [webkit-iphone] › tests/e2e/images.spec.ts:210:3 › 编辑器图片上传 › 存储拒绝（RLS / 限流）时显示中文原因，正文不插入；不支持的格式直接提示 (4.7s)
+2026-10-27T17:13:41.3969187Z   ✘   522 [webkit-iphone] › tests/e2e/images.spec.ts:90:3 › 编辑器图片上传 › 工具栏选图 → 压缩为 1600×800 → 填写替代文字 → 插入 → 发布后主题页显示图片 (16.5s)
+2026-10-27T17:13:42.2275743Z   ✓   525 [webkit-iphone] › tests/e2e/images.spec.ts:232:3 › 编辑器图片上传 › 无障碍：图片面板打开时发帖页 axe 无违规 (4.1s)
+2026-10-27T17:13:42.5976213Z   -   526 [webkit-iphone] › tests/e2e/js-budget.spec.ts:17:1 › /apps/ 加载期间的全部 JS（含空闲加载）≤ 49,152 B（Lighthouse 同口径）
+2026-10-27T17:13:45.7700995Z   ✓   528 [webkit-iphone] › tests/e2e/list-filters.spec.ts:13:3 › 列表页单套筛选（T9.12） › /ai/、/videos/：常驻的只有分类标签，其余条件在收起的「更多筛选」里 (3.2s)
+2026-10-27T17:13:47.6262494Z   ✓   529 [webkit-iphone] › tests/e2e/list-filters.spec.ts:33:3 › 列表页单套筛选（T9.12） › /articles/：分段控件只放最常用的标签，其余标签在「更多筛选」里且链接到标签页 (1.8s)
+2026-10-27T17:13:48.6669090Z 
+2026-10-27T17:13:48.6796546Z ##[error]  1) [webkit-iphone] › tests/e2e/images.spec.ts:90:3 › 编辑器图片上传 › 工具栏选图 → 压缩为 1600×800 → 填写替代文字 → 插入 → 发布后主题页显示图片 
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/forum\/t\/\?id=[0-9a-f-]{36}$/
+    Received string:  "http://127.0.0.1:4321/forum/new/?cat=tech"
+    Timeout: 7000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 7000ms
+        - waiting for navigation to finish...
+        - navigated to "http://127.0.0.1:4321/forum/t/?id=7a2f018e-2b31-48a2-b747-067a2240df2d"
+
+
+      140 |
+      141 |     await page.getByRole('button', { name: '发布主题' }).click();
+    > 142 |     await expect(page).toHaveURL(/\/forum\/t\/\?id=[0-9a-f-]{36}$/);
+          |                        ^
+      143 |     await expect(page.locator('h1')).toHaveText(title);
+      144 |     const img = page.locator('[data-body] img');
+      145 |     await expect(img).toHaveAttribute('alt', '渐变横幅示意图');
+        at /home/runner/work/azsou-site/azsou-site/tests/e2e/images.spec.ts:142:24
+2026-10-27T17:13:48.6814051Z   ✓   527 [webkit-iphone] › tests/e2e/images.spec.ts:90:3 › 编辑器图片上传 › 工具栏选图 → 压缩为 1600×800 → 填写替代文字 → 插入 → 发布后主题页显示图片 (retry #1) (5.9s)

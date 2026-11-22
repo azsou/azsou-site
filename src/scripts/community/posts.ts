@@ -102,7 +102,8 @@ export function postNode(p: Post, ctx: PostContext): HTMLLIElement {
 
   actions.append(likeButton(ctx.kind, p.id, ctx.likes?.[p.id], ctx.me));
 
-  const canEdit = ctx.me && !ctx.me.banned && (mine || mod) && (!ctx.locked || mod);
+  // A04（0018，站长 2026-10-27 已定）：只能编辑自己的内容；版主对他人内容只做隐藏 / 删除等审核操作
+  const canEdit = ctx.me && !ctx.me.banned && mine && (!ctx.locked || mod);
   if (canEdit) {
     const edit = h('button', { type: 'button', class: 'act', 'data-act': 'edit', text: '编辑' });
     edit.addEventListener('click', async () => {

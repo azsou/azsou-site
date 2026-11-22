@@ -58,7 +58,9 @@ test('列表页 /apps/ 1440：分类栏在左侧、工具条有结果数 / 排�
   const [r, mm] = [await rail.boundingBox(), await main.boundingBox()];
   expect(r!.x + r!.width).toBeLessThanOrEqual(mm!.x);
   await expect(page.locator('.list-toolbar [role="status"]')).toContainText(/共 \d+ 个应用/);
-  await expect(page.getByRole('group', { name: '排序' })).toBeVisible();
+  // F02（站长 2026-10-27）：/apps/ 排序合成单个「排序」下拉
+  await expect(page.getByRole('combobox', { name: '排序' })).toBeVisible();
+  await expect(page.locator('.list-toolbar').getByRole('combobox', { name: '排序' })).toHaveCount(1);
   await expect(page.getByRole('group', { name: '显示方式' })).toBeVisible();
 });
 

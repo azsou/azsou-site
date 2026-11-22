@@ -3,7 +3,7 @@
  * 限制、尺寸计算、对象路径、公开 URL、渲染时的 URL 白名单、Markdown 片段。
  * 与 db/migrations/0010_ugc_images.sql 的 RLS 规则保持一致（路径 / 扩展名 / 2 MB）。
  */
-import { supabaseConfig } from './supabase-config';
+import { classifySupabaseUrl, supabaseConfig } from './supabase-config';
 
 export const IMAGE_BUCKET = 'ugc-images';
 /** 与桶的 file_size_limit 一致 */
@@ -75,12 +75,25 @@ export function imageHosts(): Set<string> {
   return hosts;
 }
 
+/**
+ * 本机栈（E2E / 本地开发，PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 之类）的源：只有这时才接受 http 图片地址。
+ * 生产 / 测试项目构建里永远是 null（它们是 https://<ref>.supabase.co）。
+ */
+function localStackOrigin(): string | null {
+  try {
+    const { url } = supabaseConfig();
+    return classifySupabaseUrl(url)?.target === 'local' ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+}
+
 const PATH_RE = new RegExp(
   `^/storage/v1/object/public/${IMAGE_BUCKET}/[0-9a-f-]{36}/([a-z0-9][a-z0-9-]{0,79})\\.(webp|png|jpg|jpeg|gif)$`,
 );
 
 /**
- * 渲染白名单：只显示本站图片桶里的图（https、已知主机、规范路径），
+ * 渲染白名单：只显示本站图片桶里的图（https——本机栈例外、已知主机、规范路径），
  * 防止帖子用外链图片追踪读者或引用不受控的内容。返回 null = 不显示为图片。
  */
 export function parseImageUrl(
@@ -93,7 +106,8 @@ export function parseImageUrl(
   } catch {
     return null;
   }
-  if (u.protocol !== 'https:' || u.username || u.password || u.search || u.hash) return null;
+  const httpLocal = u.protocol === 'http:' && u.origin === localStackOrigin();
+  if ((u.protocol !== 'https:' && !httpLocal) || u.username || u.password || u.search || u.hash) return null;
   if (!hosts.has(u.host.toLowerCase())) return null;
   const m = PATH_RE.exec(u.pathname);
   if (!m) return null;

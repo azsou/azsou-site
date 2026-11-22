@@ -12,6 +12,8 @@ export const TURNSTILE_TEST = {
   siteKeyFail: '2x00000000000000000000AB',
   secretPass: '1x0000000000000000000000000000000AA',
   secretFail: '2x0000000000000000000000000000000AA',
+  /** 总是返回 timeout-or-duplicate（token 已被用过） */
+  secretSpent: '3x0000000000000000000000000000000AA',
   /** 测试 site key 在浏览器里产出的假 token */
   dummyToken: 'XXXX.DUMMY.TOKEN.XXXX',
 } as const;

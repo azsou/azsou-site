@@ -52,6 +52,19 @@ create table if not exists auth.users (
   created_at timestamptz not null default now()
 );
 
+-- Supabase Auth 的第三方登录绑定表（备份 / 恢复范围 auth.identities 用；只保留恢复需要的列）
+create table if not exists auth.identities (
+  id uuid primary key default gen_random_uuid(),
+  provider_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  identity_data jsonb not null default '{}'::jsonb,
+  provider text not null,
+  last_sign_in_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint identities_provider_id_provider_unique unique (provider_id, provider)
+);
+
 create or replace function auth.uid() returns uuid
 language sql stable
 as $$

@@ -1,0 +1,7 @@
+I01 真实链路验收：前提缺失 / 目标不在允许清单（未发出任何请求）：
+  - 缺 I01_CONFIRM_ISOLATED：必须为 1：确认目标是隔离测试项目 azsou-test（不是生产）
+  - 缺 I01_SUPABASE_URL：azsou-test 的 URL（https://ovvfwkmqlejcpatmfqcd.supabase.co）
+  - 缺 I01_SUPABASE_ANON_KEY：azsou-test 的 anon / publishable key
+  - 缺 I01_SITE_URL：指向 azsou-test 的测试预览站（Auth 的 Site URL / Redirect URLs 已配成它的 /auth/callback/**）
+VERDICT INCOMPLETE（退出码 2）
+exit=2

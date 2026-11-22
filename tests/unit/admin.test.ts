@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseRepository, DataUnavailableError, memoryStore, type Session } from '@/lib/data';
+import { adminApiFor } from '@/lib/data/admin-repo';
 import { auditPath, toContentRow, uuidList } from '@/lib/data/admin';
 import { csvCell, toCsv } from '@/lib/csv';
 import { groupedBars, niceMax } from '@/lib/chart';
@@ -225,8 +226,15 @@ const repoWith = (routes: Parameters<typeof fakeFetch>[0]) => {
     fetch: ff.f,
     store: memoryStore(session),
   });
-  return { admin: repo.admin!, calls: ff.calls };
+  return { admin: adminApiFor(repo)!, calls: ff.calls };
 };
+const PGRST202 = (fn: string) => ({
+  status: 404,
+  json: {
+    code: 'PGRST202',
+    message: `Could not find the function public.${fn} without parameters in the schema cache`,
+  },
+});
 const ID1 = '10000000-0000-4000-b000-000000000001';
 const ID2 = '10000000-0000-4000-b000-000000000002';
 
@@ -308,16 +316,108 @@ describe('Supabase 后台接口', () => {
       'status=eq.open&target_type=eq.reply&order=created_at.asc,id.asc&limit=1&offset=0',
     );
   });
-  it('批量隐藏只发合法 uuid；没有合法 id 时不发请求', async () => {
+  it('批量隐藏（A01 / A08）：走 rpc/mod_set_visibility，只发合法 uuid、带幂等键，返回逐项结果；没有合法 id 时不发请求', async () => {
     const { admin, calls } = repoWith([
-      [/PATCH .*forum_replies/, () => ({ json: [{ id: ID1 }, { id: ID2 }] })],
+      [
+        /POST .*rpc\/mod_set_visibility/,
+        () => ({
+          json: {
+            requested: 2,
+            unique: 2,
+            duplicates: 0,
+            ok: 1,
+            failed: 0,
+            replayed: false,
+            results: [
+              { id: ID1, result: 'ok' },
+              { id: ID2, result: 'not_found' },
+            ],
+          },
+        }),
+      ],
     ]);
-    expect(await admin.setPublished('reply', [ID1, 'x),id.neq.(', ID2, ID1], false)).toBe(2);
-    expect(calls[0].url).toContain(`forum_replies?id=in.(${ID1},${ID2})&select=id`);
-    expect(calls[0].body).toEqual({ published: false });
+    const r = await admin.setPublished('reply', [ID1, 'x),id.neq.(', ID2, ID1], false, 'k1');
+    expect(r.ok).toBe(1);
+    expect(r.results).toEqual([
+      { id: ID1, result: 'ok' },
+      { id: ID2, result: 'not_found' },
+    ]);
+    expect(calls[0].body).toEqual({
+      p_type: 'reply',
+      p_ids: [ID1, ID2],
+      p_published: false,
+      p_idem_key: 'k1',
+    });
     expect(await admin.deleteContent('comment', ['nope'])).toBe(0);
     expect(calls).toHaveLength(1);
     expect(uuidList(['A0000000-0000-4000-b000-000000000001'])).toHaveLength(1);
+  });
+  it('显式发布（0019，站长 2026-10-27 21:06）：走 rpc/mod_publish_content，只发合法 uuid、带幂等键，返回逐项结果', async () => {
+    const { admin, calls } = repoWith([
+      [
+        /POST .*rpc\/mod_publish_content/,
+        () => ({
+          json: {
+            requested: 1,
+            unique: 1,
+            duplicates: 0,
+            ok: 1,
+            failed: 0,
+            replayed: false,
+            results: [{ id: ID1, result: 'ok' }],
+          },
+        }),
+      ],
+    ]);
+    const r = await admin.publish('thread', [ID1, 'x),id.neq.(', ID1], 'k-pub');
+    expect(r.ok).toBe(1);
+    expect(r.results).toEqual([{ id: ID1, result: 'ok' }]);
+    expect(calls[0].body).toEqual({ p_type: 'thread', p_ids: [ID1], p_idem_key: 'k-pub' });
+    expect((await admin.publish('thread', ['nope'])).ok).toBe(0);
+    expect(calls).toHaveLength(1);
+  });
+  it('显式发布：库里没有 0019（PGRST202）→ 抛出缺迁移错误并写明 0019；绝不退回 PATCH published=true', async () => {
+    const { admin, calls } = repoWith([[/rpc\/mod_publish_content/, () => PGRST202('mod_publish_content')]]);
+    await expect(admin.publish('reply', [ID1])).rejects.toMatchObject({
+      name: 'SchemaMissingError',
+      migration: '0019',
+    });
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+    expect(calls).toHaveLength(1);
+  });
+  it('批量隐藏：库里没有 0018（PGRST202）→ 退回旧 PATCH，返回行 = ok、其余 = not_found，并标记降级', async () => {
+    const { admin, calls } = repoWith([
+      [/rpc\/mod_set_visibility/, () => PGRST202('mod_set_visibility')],
+      [/PATCH .*forum_replies/, () => ({ json: [{ id: ID1 }] })],
+    ]);
+    const r = await admin.setPublished('reply', [ID1, ID2], false);
+    expect(calls[1].url).toContain(`forum_replies?id=in.(${ID1},${ID2})&select=id`);
+    expect(calls[1].body).toEqual({ published: false });
+    expect(r.ok).toBe(1);
+    expect(r.results.map((x) => x.result)).toEqual(['ok', 'not_found']);
+    expect(r.degraded?.migration).toBe('0018');
+  });
+  it('A09 越界页：空页且 offset > 0 时用同一条件读第 1 页取真实 total，并给出最后有效页', async () => {
+    const { admin, calls } = repoWith([
+      [
+        /POST .*rpc\/mod_list_content/,
+        (c) =>
+          (c.body as Record<string, unknown>).p_offset === 0
+            ? { json: [{ id: ID1, kind: 'thread', title: 't', total: 51 }] }
+            : { json: [] },
+      ],
+    ]);
+    const r = await admin.listContent({ type: 'thread', limit: 25, offset: 75 });
+    expect(r).toMatchObject({ items: [], total: 51, outOfRange: true, lastOffset: 50 });
+    expect((calls[1].body as Record<string, unknown>).p_limit).toBe(1);
+    // 真实空库 / 筛选为空：不越界
+    const { admin: a2 } = repoWith([[/rpc\/mod_list_content/, () => ({ json: [] })]]);
+    expect(await a2.listContent({ type: 'thread', offset: 25 })).toMatchObject({
+      total: 0,
+      outOfRange: false,
+    });
+    const first = await a2.listContent({ type: 'thread' });
+    expect(first.outOfRange).toBeUndefined();
   });
   it('handleReports / ban / setRole 的 RPC 参数', async () => {
     const { admin, calls } = repoWith([[/POST .*rpc\//, () => ({ json: 3 })]]);

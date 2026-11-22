@@ -43,6 +43,13 @@ interface Props {
   preloadImage?: string;
   /** 首屏 LCP 图是 <picture>（AVIF srcset）时用这个预加载，与 <source> 的 srcset 一致才不会重复下载 */
   preloadSrcset?: { srcset: string; type: string; sizes?: string };
+  /**
+   * 首帧之前必须已解析完的元素 id（`<link rel="expect" blocking="render">`）。详情页传 DETAIL_HERO_END_ID：
+   * 头部操作卡在 ≥ 1200 垂直居中，HTML 只解析到操作卡一半时先画的那一帧里卡片偏下，内容到齐后上移最多约 55px，
+   * 和滚动条出现（整页横移）落在同一帧时桌面 CLS 0.029–0.036（docs/audits/evidence/ci/lighthouse-detail-hero-cls-2026-10-29.md）。
+   * 不支持的浏览器忽略此标签，布局不变。
+   */
+  renderBlockUntil?: string;
   /** 进 Pagefind 全文索引（T7.1）：只有内容详情页设置；值是结果里显示的类型 */
   searchType?: 'app' | 'tool' | 'video' | 'game' | 'article' | 'work' | 'thread';
   /** 本页不出广告、不加载 AdSense（P8；默认按 src/lib/ads.ts 的 AD_FREE_PREFIXES 判断） */
@@ -65,6 +72,7 @@ const {
   modified,
   preloadImage,
   preloadSrcset,
+  renderBlockUntil,
   searchType,
   noAds = false,
 } = Astro.props;
@@ -135,6 +143,7 @@ const isProd = import.meta.env.PROD;
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="AZ Studio" />
+    {renderBlockUntil && <link rel="expect" href={`#${renderBlockUntil}`} blocking="render" />}
     {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
     {preloadSrcset && (
       <link

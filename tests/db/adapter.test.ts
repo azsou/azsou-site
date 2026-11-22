@@ -60,7 +60,7 @@ describe.skipIf(!BIN)('Supabase 适配器 × PostgREST', () => {
   beforeAll(async () => {
     await ensureAuthenticator();
     db = await freshDb('adapter');
-    const port = freePort();
+    const port = await freePort();
     proc = await startPostgrest(db.name, port);
     // 适配器拼的是 ${url}/rest/v1/...；本地 PostgREST 没有 /rest/v1 前缀，用一个小代理去掉
     url = `http://127.0.0.1:${port}`;
@@ -260,7 +260,7 @@ describe.skipIf(!BIN)('Supabase 适配器 × 迁移前的生产库结构', () =>
   beforeAll(async () => {
     await ensureAuthenticator();
     db = await freshDb('adapter_old', { files: [SHIM, join(MIGRATIONS_DIR, '0001_baseline.sql')] });
-    const port = freePort();
+    const port = await freePort();
     proc = await startPostgrest(db.name, port);
     globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) =>
       origFetch(String(input).replace('/rest/v1/', '/'), init)) as typeof fetch;

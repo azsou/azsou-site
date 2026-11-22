@@ -9,6 +9,8 @@ import { BIN, ensureAuthenticator, startPostgrest } from '../db/postgrest';
 import { COMMUNITY_TEST_SECRET } from '../../src/lib/server/community-submit';
 
 export const E2E_DB = `azsou_e2e_${process.pid}`;
+export const E2E_DB_V72 = `azsou_e2e_v72_${process.pid}`;
+export const E2E_DB_PRE17 = `azsou_e2e_pre17_${process.pid}`;
 export const SEED_BOT = '00000000-0000-4000-a000-0000000000b0';
 
 export default async function globalSetup() {
@@ -46,8 +48,25 @@ export default async function globalSetup() {
   const child = await startPostgrest(E2E_DB, port);
   process.env.E2E_PGRST = `http://127.0.0.1:${port}`;
   process.env.E2E_DB_URL = dbUrl(E2E_DB);
+  // A15：旧结构的库（真实 PostgREST，不是 mock）——
+  //   v72 = shim + 0001（与生产库现状一致：0002–0017 都没执行）；pre17 = shim + 0001…0016（缺 0017）
+  const all = migrationFiles();
+  const legacy = [
+    { db: E2E_DB_V72, files: all.filter((f) => /\/0001_/.test(f)), env: 'V72' },
+    // 0018 依赖 0017：pre17 = 0016 及以前的全部迁移
+    { db: E2E_DB_PRE17, files: all.filter((f) => Number(/\/(\d{4})_/.exec(f)?.[1]) < 17), env: 'PRE17' },
+  ];
+  const children = [child];
+  for (const [i, l] of legacy.entries()) {
+    await createDatabase(l.db, [SHIM, ...l.files]);
+    const p = port + 1 + i;
+    children.push(await startPostgrest(l.db, p));
+    process.env[`E2E_PGRST_${l.env}`] = `http://127.0.0.1:${p}`;
+    process.env[`E2E_DB_URL_${l.env}`] = dbUrl(l.db);
+  }
   return async () => {
-    child.kill();
+    for (const c of children) c.kill();
     await dropDatabase(E2E_DB).catch(() => {});
+    for (const l of legacy) await dropDatabase(l.db).catch(() => {});
   };
 }

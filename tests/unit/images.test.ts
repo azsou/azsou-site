@@ -15,7 +15,7 @@ import {
 } from '@/lib/images';
 import { renderMarkdown } from '@/lib/markdown';
 import { markdownHtml, sanitize } from '@/lib/sanitize';
-import { DEFAULT_SUPABASE } from '@/lib/supabase-config';
+import { supabaseConfig } from '@/lib/supabase-config';
 import {
   createSupabaseRepository,
   ForbiddenError,
@@ -29,7 +29,15 @@ import { mountEditor } from '@/scripts/community/editor';
 import { imageFromTransfer } from '@/scripts/community/image-upload';
 
 const UID = '00000000-0000-4000-a000-00000000000a';
-const HOST = new URL(DEFAULT_SUPABASE.url).host;
+// 本文件按「测试项目构建」校验（https）；本机栈的 http 例外在最后一组单独测
+const TEST_BASE = 'https://ovvfwkmqlejcpatmfqcd.supabase.co';
+const LOCAL_BASE = 'http://127.0.0.1:54321';
+beforeEach(() => {
+  vi.stubEnv('PUBLIC_SUPABASE_URL', TEST_BASE);
+  vi.stubEnv('PUBLIC_SUPABASE_KEY', 'sb_publishable_test');
+});
+afterEach(() => vi.unstubAllEnvs());
+const HOST = new URL(TEST_BASE).host;
 const good = `https://${HOST}/storage/v1/object/public/ugc-images/${UID}/202610-abc123def456-800x600.webp`;
 
 describe('images：限制与路径', () => {
@@ -76,6 +84,22 @@ describe('images：限制与路径', () => {
     ];
     for (const b of bad) expect(parseImageUrl(b), b).toBeNull();
     expect(parseImageUrl(good.replace('-800x600', ''))).toEqual({ url: good.replace('-800x600', '') });
+  });
+  it('parseImageUrl：http 只在构建指向本机栈时、且只限该本机源', () => {
+    const path = `/storage/v1/object/public/ugc-images/${UID}/202610-abc123def456-800x600.webp`;
+    // 测试项目构建：本机 http 地址不接受
+    expect(parseImageUrl(`${LOCAL_BASE}${path}`)).toBeNull();
+    vi.stubEnv('PUBLIC_SUPABASE_URL', LOCAL_BASE);
+    expect(supabaseConfig().url).toBe(LOCAL_BASE);
+    expect(parseImageUrl(`${LOCAL_BASE}${path}`)).toEqual({
+      url: `${LOCAL_BASE}${path}`,
+      width: 800,
+      height: 600,
+    });
+    // 别的端口 / 别的 loopback 名字 / 测试项目主机都不行
+    expect(parseImageUrl(`http://127.0.0.1:9999${path}`)).toBeNull();
+    expect(parseImageUrl(`http://localhost:54321${path}`)).toBeNull();
+    expect(parseImageUrl(`${TEST_BASE}${path}`)).toBeNull();
   });
   it('替代文字：清洗与默认值', () => {
     expect(cleanAlt(' a [b]\nc ')).toBe('a b c');

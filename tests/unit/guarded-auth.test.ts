@@ -180,6 +180,22 @@ describe('/api/auth/[action]', () => {
     );
     expect(safeRedirect(`${ORIGIN}/admin/`, ORIGIN)).toBe(`${ORIGIN}/auth/callback/`);
   });
+  it('第 3 轮：点段 / 编码点 / 反斜杠绕过 /auth/callback/ 前缀——退回默认回调', () => {
+    for (const raw of [
+      '/auth/callback/..//evil.example',
+      '/auth/callback/../..//evil.example',
+      `${ORIGIN}/auth/callback/%2e%2e/%2e%2e//evil.example`,
+      '/auth/callback/..\\evil.example',
+      '/./auth/callback/../../admin/',
+      '//evil.example/auth/callback/',
+      '/\\evil.example/auth/callback/',
+      '/\t/evil.example/auth/callback/',
+    ]) {
+      const out = safeRedirect(raw, ORIGIN);
+      expect(new URL(out).origin, raw).toBe(ORIGIN);
+      expect(new URL(out).pathname.startsWith('/auth/callback/'), raw).toBe(true);
+    }
+  });
 });
 
 describe('注册开关（站点设置）', () => {

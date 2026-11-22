@@ -16,6 +16,8 @@ const DEFAULTS = { status: 'pending' };
 const state = readParams(DEFAULTS);
 const LIMIT = 30;
 let offset = 0;
+/** 只认最新一次读取：筛选快速切换时，较早发出的响应晚到不得覆盖新结果或清掉忙碌状态 */
+let seq = 0;
 const api = getGuestbook();
 const LABEL: Record<ModStatus, [string, string]> = {
   pending: ['待审核', 'badge--warn'],
@@ -112,6 +114,7 @@ function linkCard(l: FriendLink) {
 const stateLi = (el: HTMLElement) => h('li', { class: 'state-li' }, el);
 
 async function load(append: boolean) {
+  const my = ++seq;
   list.setAttribute('aria-busy', 'true');
   more.disabled = true;
   if (!append) list.replaceChildren(stateLi(stateBlock('loading')));
@@ -127,6 +130,7 @@ async function load(append: boolean) {
   try {
     if (kind === 'guestbook') {
       const { items, total } = await api.modEntries(filter(), { offset, limit: LIMIT });
+      if (my !== seq) return;
       if (!append) list.replaceChildren(...(items.length ? [] : [empty()]));
       list.append(...items.map(entryCard));
       offset += items.length;
@@ -134,17 +138,20 @@ async function load(append: boolean) {
       setStatusText(status, total ? `共 ${total} 条` : '');
     } else {
       const items = await api.adminLinks(filter());
+      if (my !== seq) return;
       list.replaceChildren(...(items.length ? items.map(linkCard) : [empty()]));
       more.hidden = true;
       setStatusText(status, items.length ? `共 ${items.length} 条` : '');
     }
   } catch (e) {
-    if (!append)
-      list.replaceChildren(stateLi(stateBlock('error', { text: errorText(e), retry: () => void reload() })));
+    if (my !== seq) return;
+    if (!append) list.replaceChildren(stateLi(stateBlock('error', { error: e, retry: () => void reload() })));
     else setStatusText(status, errorText(e), 'error');
   } finally {
-    list.removeAttribute('aria-busy');
-    more.disabled = false;
+    if (my === seq) {
+      list.removeAttribute('aria-busy');
+      more.disabled = false;
+    }
   }
 }
 function reload() {

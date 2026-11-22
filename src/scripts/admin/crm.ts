@@ -8,7 +8,8 @@
  * 拿不到的数据（旧库没有 0017、版主看不到订阅）整块省略或如实说明，不放假数据。
  */
 import type { AdminUser, ContentRow, ContentType } from '@/lib/data';
-import type { WorkflowStatus } from '@/lib/data/admin';
+import { newIdemKey, type WorkflowStatus } from '@/lib/data/admin';
+import { assertSingle } from './batch-result';
 import type { AdminNote, ContentVersion, NoteTarget, UserProfileExtra } from '@/lib/data/admin-crm-api';
 import { diffStats, fillTemplate, lineDiff, recentCount, SEGMENT_LABEL, userSegments } from '@/lib/admin-crm';
 import { markdownHtml } from '@/lib/sanitize';
@@ -84,10 +85,15 @@ export function notesBlock(type: NoteTarget, id: string, meId: string | null, is
       }),
     );
   };
+  let seq = 0;
   const load = async () => {
+    const my = ++seq;
     try {
-      paint(await crm().notes(type, id));
+      const items = await crm().notes(type, id);
+      if (my !== seq) return;
+      paint(items);
     } catch {
+      if (my !== seq) return;
       wrap.replaceChildren(h('p', { class: 'muted', text: '备注功能需要数据库迁移 0017。' }));
     }
   };
@@ -202,7 +208,7 @@ export async function openContentDrawer(
       const s = status.value as WorkflowStatus;
       const at = s === 'review' && when.value ? new Date(when.value).toISOString() : null;
       if (at && Date.parse(at) <= Date.now()) throw new Error('定时时间需要晚于现在');
-      await crm().setWorkflow(r.type, [r.id], s, at);
+      assertSingle(await crm().setWorkflow(r.type, [r.id], s, at, { idemKey: newIdemKey() }));
       toast(at ? `已设为定时发布：${dateTime(at)}` : `已改为「${WF_LABEL[s]}」。`);
       opts.onChange?.();
     } catch (e) {

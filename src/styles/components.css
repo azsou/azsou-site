@@ -596,6 +596,12 @@
     .select {
       border-color: FieldText;
     }
+    /* D05：自绘箭头是固定灰色的图片，强制色下可能看不清；改回系统原生箭头（随 FieldText 变色） */
+    .select {
+      appearance: auto;
+      background-image: none;
+      padding-inline-end: var(--space-3);
+    }
     .chip[aria-pressed='true'],
     .chip[aria-current='page'],
     .chip[aria-selected='true'],
