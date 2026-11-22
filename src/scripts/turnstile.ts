@@ -2,6 +2,7 @@
  * Cloudflare Turnstile 小组件（留言板 / 友链申请用；注册页沿用 auth-pages.ts 里的同一套做法）。
  * 脚本只在表单真正需要时加载（显式渲染），主题跟随站点当前明暗。
  */
+import { captchaError } from '@/lib/turnstile-hint';
 import { effectiveTheme } from './theme';
 
 interface TurnstileApi {
@@ -57,15 +58,13 @@ export function mountTurnstile(form: HTMLElement, onToken?: () => void): Captcha
           language: en ? 'en' : 'zh-cn',
           callback: (v: string) => {
             token = v;
+            if (hint) hint.textContent = '';
             onToken?.();
           },
           'expired-callback': () => (token = ''),
-          'error-callback': () => {
+          'error-callback': (code: unknown) => {
             token = '';
-            if (hint)
-              hint.textContent = en
-                ? 'Verification failed to load. Please reload the page.'
-                : '人机验证加载失败，请刷新页面重试。';
+            captchaError(hint, code, en, () => api?.reset(id));
           },
         });
       })
