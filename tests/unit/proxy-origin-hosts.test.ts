@@ -8,7 +8,7 @@ import { SITEVERIFY_URL, TURNSTILE_TEST } from '@/lib/server/turnstile';
  * PR #10 上线后线上仍然报「来源不正确」：函数看到的请求地址可能不是浏览器访问的主机。
  * 对外主机要按代理头取（X-Forwarded-Host 优先，其次 Host，最后才是请求地址），
  * 回调链接也用这个公开主机；跨站 Origin、https→http 降级仍然拒绝。
- * 对不上时，提示里临时带上双方看到的值，方便定位。
+ * 对不上时只返回固定提示，不回显任何请求头（上线验证通过后已去掉临时诊断）。
  */
 const defaults = { url: 'https://sb.example.co', key: 'pk' };
 const PUBLIC = 'https://azsou.com';
@@ -77,27 +77,21 @@ describe('同源检查按代理头取公开主机', () => {
     expect((await s.json()).error_code).not.toBe('bad_origin');
   });
 
-  it('跨站 Origin 即使代理头是 azsou.com 也拒绝，并带上诊断信息', async () => {
+  it('跨站 Origin 即使代理头是 azsou.com 也拒绝，提示固定、不回显请求头', async () => {
     const { f } = upstream();
-    const res = await signup(f, { origin: EVIL, 'x-forwarded-host': 'azsou.com' });
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.error_code).toBe('bad_origin');
-    expect(body.msg).toContain('来源不正确');
-    expect(body.msg).toContain('origin=https://evil.example');
-    expect(body.msg).toContain('xfh=azsou.com');
+    const headers = { origin: EVIL, 'x-forwarded-host': 'azsou.com' };
+    const a = await signup(f, headers);
+    expect(a.status).toBe(403);
+    expect(await a.json()).toEqual({ error_code: 'bad_origin', msg: '来源不正确' });
+    const g = await community(f, headers);
+    expect(await g.json()).toEqual({ error_code: 'bad_origin', msg: '来源不正确' });
+    const s = await subscribe(f, headers);
+    expect(await s.json()).toEqual({ error_code: 'bad_origin', msg: '来源不正确' });
   });
 
   it('https→http 降级（Origin 为 http://azsou.com）仍然拒绝', async () => {
     const { f } = upstream();
     const res = await signup(f, { origin: 'http://azsou.com', 'x-forwarded-host': 'azsou.com' });
     expect(res.status).toBe(403);
-  });
-
-  it('诊断信息只含被清洗过的头，不会带出换行或引号', async () => {
-    const { f } = upstream();
-    const res = await signup(f, { origin: 'https://a"b<c>.example', 'x-forwarded-host': 'azsou.com' });
-    const { msg } = await res.json();
-    expect(msg).not.toMatch(/["<>\n]/);
   });
 });
