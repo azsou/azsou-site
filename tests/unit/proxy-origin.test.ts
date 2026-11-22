@@ -11,6 +11,7 @@ import { SITEVERIFY_URL, TURNSTILE_TEST } from '@/lib/server/turnstile';
  */
 const defaults = { url: 'https://sb.example.co', key: 'pk' };
 const PUBLIC = 'https://azsou.com';
+const EVIL = 'https://evil.example';
 
 const post = (url: string, body: unknown, origin?: string) =>
   new Request(url, {
@@ -37,73 +38,45 @@ const signupBody = {
   captchaToken: TURNSTILE_TEST.dummyToken,
 };
 
+const signup = (f: typeof fetch, url: string, origin?: string) =>
+  handleGuardedAuth('signup', post(url, signupBody, origin), {}, { fetch: f, defaults });
+const community = (f: typeof fetch, url: string, origin?: string) =>
+  handleCommunitySubmit('guestbook', post(url, {}, origin), {}, { fetch: f, defaults });
+const subscribe = (f: typeof fetch, url: string, origin?: string) =>
+  handleSubscribe(post(url, {}, origin), {}, { fetch: f, defaults, mailer: null });
+
 describe('反向代理之后的同源检查（线上 http 请求地址 + https Origin）', () => {
-  it('signup：请求地址 http://azsou.com、Origin https://azsou.com → 放行，回调链接是 https', async () => {
+  it('signup：http 请求地址 + https Origin 放行，回调链接是 https', async () => {
     const { f, calls } = upstream();
-    const res = await handleGuardedAuth(
-      'signup',
-      post('http://azsou.com/api/auth/signup', signupBody, PUBLIC),
-      {},
-      { fetch: f, defaults },
-    );
+    const res = await signup(f, 'http://azsou.com/api/auth/signup', PUBLIC);
     expect(res.status).toBe(200);
-    const gotrue = calls.find((u) => u.includes('/auth/v1/signup'))!;
-    expect(gotrue).toBe(
-      `https://sb.example.co/auth/v1/signup?redirect_to=${encodeURIComponent(`${PUBLIC}/auth/callback/`)}`,
-    );
+    const gotrue = calls.find((u) => u.includes('/auth/v1/signup'));
+    const redirect = encodeURIComponent(`${PUBLIC}/auth/callback/`);
+    expect(gotrue).toBe(`https://sb.example.co/auth/v1/signup?redirect_to=${redirect}`);
   });
 
-  it('guestbook / subscribe：同样不再返回 bad_origin', async () => {
+  it('guestbook / subscribe 同样不再返回 bad_origin', async () => {
     const { f } = upstream();
-    const g = await handleCommunitySubmit(
-      'guestbook',
-      post('http://azsou.com/api/submit/guestbook', {}, PUBLIC),
-      {},
-      { fetch: f, defaults },
-    );
+    const g = await community(f, 'http://azsou.com/api/submit/guestbook', PUBLIC);
     expect((await g.json()).error_code).not.toBe('bad_origin');
-    const s = await handleSubscribe(
-      post('http://azsou.com/api/subscribe', {}, PUBLIC),
-      {},
-      { fetch: f, defaults, mailer: null },
-    );
+    const s = await subscribe(f, 'http://azsou.com/api/subscribe', PUBLIC);
     expect((await s.json()).error_code).not.toBe('bad_origin');
   });
 
   it('跨站 Origin 仍然 403 bad_origin（三个入口）', async () => {
     const { f } = upstream();
-    const evil = 'https://evil.example';
-    const a = await handleGuardedAuth(
-      'signup',
-      post('http://azsou.com/api/auth/signup', signupBody, evil),
-      {},
-      { fetch: f, defaults },
-    );
+    const a = await signup(f, 'http://azsou.com/api/auth/signup', EVIL);
     expect(a.status).toBe(403);
     expect((await a.json()).error_code).toBe('bad_origin');
-    const g = await handleCommunitySubmit(
-      'guestbook',
-      post('http://azsou.com/api/submit/guestbook', {}, evil),
-      {},
-      { fetch: f, defaults },
-    );
+    const g = await community(f, 'http://azsou.com/api/submit/guestbook', EVIL);
     expect(g.status).toBe(403);
-    const s = await handleSubscribe(
-      post('http://azsou.com/api/subscribe', {}, evil),
-      {},
-      { fetch: f, defaults, mailer: null },
-    );
+    const s = await subscribe(f, 'http://azsou.com/api/subscribe', EVIL);
     expect(s.status).toBe(403);
   });
 
   it('https→http 降级（Origin 为 http://azsou.com）仍然拒绝', async () => {
     const { f } = upstream();
-    const res = await handleGuardedAuth(
-      'signup',
-      post('http://azsou.com/api/auth/signup', signupBody, 'http://azsou.com'),
-      {},
-      { fetch: f, defaults },
-    );
+    const res = await signup(f, 'http://azsou.com/api/auth/signup', 'http://azsou.com');
     expect(res.status).toBe(403);
     expect((await res.json()).error_code).toBe('bad_origin');
   });
@@ -111,27 +84,16 @@ describe('反向代理之后的同源检查（线上 http 请求地址 + https O
   it('本地开发（127.0.0.1 / localhost 的 http）Origin 与请求地址一致时照常放行', async () => {
     for (const base of ['http://127.0.0.1:4321', 'http://localhost:4321']) {
       const { f, calls } = upstream();
-      const res = await handleGuardedAuth(
-        'signup',
-        post(`${base}/api/auth/signup`, signupBody, base),
-        {},
-        { fetch: f, defaults },
-      );
+      const res = await signup(f, `${base}/api/auth/signup`, base);
       expect(res.status, base).toBe(200);
-      expect(calls.find((u) => u.includes('/auth/v1/signup')), base).toContain(
-        encodeURIComponent(`${base}/auth/callback/`),
-      );
+      const gotrue = calls.find((u) => u.includes('/auth/v1/signup'));
+      expect(gotrue, base).toContain(encodeURIComponent(`${base}/auth/callback/`));
     }
   });
 
-  it('没有 Origin 头（同源 GET 之外的服务端调用）仍按原逻辑放行', async () => {
+  it('没有 Origin 头的服务端调用仍按原逻辑放行', async () => {
     const { f } = upstream();
-    const res = await handleGuardedAuth(
-      'signup',
-      post('http://azsou.com/api/auth/signup', signupBody),
-      {},
-      { fetch: f, defaults },
-    );
+    const res = await signup(f, 'http://azsou.com/api/auth/signup');
     expect(res.status).toBe(200);
   });
 });
