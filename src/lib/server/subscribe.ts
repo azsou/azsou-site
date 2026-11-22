@@ -20,7 +20,7 @@ import { verifyTurnstile } from './turnstile';
 import { resolveSecret } from './guarded-auth';
 import { clientHash, makeCommunityTicket, resolveTicketSecret, type SubmitEnv } from './community-submit';
 import { mailerFromEnv, type Mail, type MailEnv, type Mailer } from './mailer';
-import { publicOrigin } from './public-origin';
+import { originAllowed, originMsg, publicOrigin } from './public-origin';
 
 export interface SubscribeDeps {
   fetch?: typeof fetch;
@@ -127,9 +127,10 @@ export async function handleSubscribe(
   clientIp?: string,
 ): Promise<Response> {
   if (request.method !== 'POST') return json(405, { error_code: 'method_not_allowed', msg: MSG.zh.method });
-  const origin = publicOrigin(request.url);
+  const origin = publicOrigin(request);
   const reqOrigin = request.headers.get('origin');
-  if (reqOrigin && reqOrigin !== origin) return json(403, { error_code: 'bad_origin', msg: MSG.zh.origin });
+  if (reqOrigin && !originAllowed(request, reqOrigin))
+    return json(403, { error_code: 'bad_origin', msg: originMsg(MSG.zh.origin, request) });
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;

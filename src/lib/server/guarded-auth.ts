@@ -7,7 +7,7 @@
  * 本地开发 / 测试自动使用 Cloudflare 的「总是通过」测试密钥。
  */
 import { makeSignupTicket, TURNSTILE_TEST, verifyTurnstile } from './turnstile';
-import { publicOrigin } from './public-origin';
+import { originAllowed, originMsg, publicOrigin } from './public-origin';
 
 export type GuardedAction = 'signup' | 'recover' | 'resend';
 export const ACTIONS: GuardedAction[] = ['signup', 'recover', 'resend'];
@@ -92,10 +92,11 @@ export async function handleGuardedAuth(
   if (!action || !ACTIONS.includes(action as GuardedAction))
     return json(404, { error_code: 'not_found', msg: '未知操作' });
   if (request.method !== 'POST') return json(405, { error_code: 'method_not_allowed', msg: '只支持 POST' });
-  const origin = publicOrigin(request.url);
+  const origin = publicOrigin(request);
   // 同源检查：浏览器跨站提交会带别的 Origin
   const reqOrigin = request.headers.get('origin');
-  if (reqOrigin && reqOrigin !== origin) return json(403, { error_code: 'bad_origin', msg: '来源不正确' });
+  if (reqOrigin && !originAllowed(request, reqOrigin))
+    return json(403, { error_code: 'bad_origin', msg: originMsg('来源不正确', request) });
 
   let body: Record<string, unknown>;
   try {
