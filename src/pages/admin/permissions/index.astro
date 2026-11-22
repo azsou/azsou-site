@@ -1,0 +1,62 @@
+---
+/**
+ * 权限矩阵（P10h T10.22）：能力 × 角色的只读表，数据来自 src/lib/admin-permissions.ts（每行标出数据库来源）。
+ * 版主与管理员都能看；当前账号的角色列在权限门通过后高亮。审计日志的筛选与导出在 /admin/audit/（仅管理员）。
+ */
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { CAPABILITIES, MATRIX_ROLES } from '@/lib/admin-permissions';
+---
+
+<AdminLayout
+  section="permissions"
+  title="权限矩阵"
+  lede="每个角色能做什么。真正的判断在数据库（RLS 与带权限检查的函数），这里只是列给人看。"
+>
+  <div class="table-wrap">
+    <table class="data-table perm-table" data-perm-table>
+      <caption class="visually-hidden">后台权限矩阵</caption>
+      <thead>
+        <tr>
+          <th scope="col">能力</th>
+          {MATRIX_ROLES.map((r) => (
+            <th scope="col" class="perm-table__role" data-role-col={r.id}>
+              {r.label}
+            </th>
+          ))}
+          <th scope="col" data-priority="3">
+            数据库依据
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {CAPABILITIES.map((c) => (
+          <tr class="no-check">
+            <th scope="row">
+              <span class="perm-table__group">{c.group}</span>
+              {c.label}
+            </th>
+            {MATRIX_ROLES.map((r) => (
+              <td class="perm-table__cell" data-role-col={r.id}>
+                {c.roles.includes(r.id) ? (
+                  <span class="badge badge--ok">可以</span>
+                ) : (
+                  <span class="badge">不可以</span>
+                )}
+              </td>
+            ))}
+            <td data-priority="3" class="perm-table__src">
+              {c.source}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted perm-note">
+    审计日志按动作、操作人、对象与时间筛选，并导出 CSV：见「审计日志」（仅管理员）。
+  </p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/permissions';
+</script>

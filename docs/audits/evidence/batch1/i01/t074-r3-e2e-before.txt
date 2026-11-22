@@ -1,0 +1,63 @@
+[e2e] 未配置 DATABASE_URL / POSTGREST_BIN：社区（P3）用例将跳过
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium-desktop] › tests/e2e/auth.spec.ts:483:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 邮件回调（magiclink）：每个向量登录后都留在本站首页 (1.2m)
+
+
+  1) [chromium-desktop] › tests/e2e/auth.spec.ts:483:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 邮件回调（magiclink）：每个向量登录后都留在本站首页 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 29
+
+    - Array []
+    + Array [
+    +   "\"/.//evil.example\" → http://evil.example/",
+    +   "\"/./%2F/evil\" → 停在 http://evil/（10 秒内没有跳转）",
+    +   "\"/a/..//evil.example\" → http://evil.example/",
+    +   "\"/%2e/%2fevil\" → 停在 http://evil/（10 秒内没有跳转）",
+    +   "\"/..//evil\" → http://evil/",
+    +   "\"/././/evil.example\" → http://evil.example/",
+    +   "\"/..///evil.example\" → http://evil.example/",
+    +   "\"/a/b/../..//evil.example\" → http://evil.example/",
+    +   "\"/%2e//evil.example\" → http://evil.example/",
+    +   "\"/%2E%2E//evil.example\" → http://evil.example/",
+    +   "\"/.%2e//evil.example\" → http://evil.example/",
+    +   "\"/%2e%2e/%2Fevil.example\" → http://127.0.0.1:4811/%2Fevil.example",
+    +   "\"/%2f%2fevil.example\" → http://127.0.0.1:4811/%2f%2fevil.example",
+    +   "\"/%2F/evil.example\" → http://127.0.0.1:4811/%2F/evil.example",
+    +   "\"/.%2f/evil.example\" → http://127.0.0.1:4811/.%2f/evil.example",
+    +   "\"/..%2f/evil.example\" → 停在 chrome-error://chromewebdata/（10 秒内没有跳转）",
+    +   "\"/%252e//evil.example\" → http://127.0.0.1:4811/%252e//evil.example",
+    +   "\"/%252f%252fevil.example\" → http://127.0.0.1:4811/%252f%252fevil.example",
+    +   "\"/%25252f%25252fevil.example\" → http://127.0.0.1:4811/%25252f%25252fevil.example",
+    +   "\"/%5cevil.example\" → http://127.0.0.1:4811/%5cevil.example",
+    +   "\"/%5c%5cevil.example\" → http://127.0.0.1:4811/%5c%5cevil.example",
+    +   "\"/..%5c/evil.example\" → http://127.0.0.1:4811/..%5c/evil.example",
+    +   "\"/.%5c/evil.example\" → http://127.0.0.1:4811/.%5c/evil.example",
+    +   "\"/%255cevil.example\" → http://127.0.0.1:4811/%255cevil.example",
+    +   "\"/%09/evil.example\" → http://127.0.0.1:4811/%09/evil.example",
+    +   "\"/%0a/evil.example\" → http://127.0.0.1:4811/%0a/evil.example",
+    +   "\"/%250a/evil.example\" → http://127.0.0.1:4811/%250a/evil.example",
+    + ]
+
+      495 |       await resetSession(page);
+      496 |     }
+    > 497 |     expect(bad).toEqual([]);
+          |                 ^
+      498 |   });
+      499 |
+      500 |   test('注册确认回调（signup）：每个向量都回到本站欢迎页', async ({ page }) => {
+
+    Error Context: test-results/auth-T074-第-3-轮：点段-编码绕过（本地-72298-调（magiclink）：每个向量登录后都留在本站首页-chromium-desktop/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-T074-第-3-轮：点段-编码绕过（本地-72298-调（magiclink）：每个向量登录后都留在本站首页-chromium-desktop/trace.zip
+
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium-desktop] › tests/e2e/auth.spec.ts:483:3 › T074 第 3 轮：点段 / 编码绕过（本地回归层，GoTrue 为假实现） › 邮件回调（magiclink）：每个向量登录后都留在本站首页 

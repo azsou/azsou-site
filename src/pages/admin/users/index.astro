@@ -1,0 +1,90 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="users"
+  title="用户"
+  lede="搜索用户、查看资料与发布的内容；版主可以封禁 / 解封普通用户，管理员可以修改角色。"
+>
+  <form class="toolbar" role="search" data-filters>
+    <div class="field field--grow">
+      <label for="us-q">搜索</label>
+      <input
+        id="us-q"
+        name="q"
+        type="search"
+        placeholder="昵称或用户 ID（管理员还可搜邮箱）"
+        autocomplete="off"
+      />
+    </div>
+    <div class="field">
+      <label for="us-role">角色</label>
+      <select id="us-role" name="role">
+        <option value="">全部</option>
+        <option value="user">用户</option>
+        <option value="moderator">版主</option>
+        <option value="admin">管理员</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="us-banned">状态</label>
+      <select id="us-banned" name="banned">
+        <option value="">全部</option>
+        <option value="0">正常</option>
+        <option value="1">封禁中</option>
+      </select>
+    </div>
+    <div class="toolbar__actions">
+      <button class="btn" type="submit">
+        筛选
+      </button>
+      <button class="btn btn--outline btn--rect" type="button" data-mail-draft hidden>
+        邮件草稿（本页）
+      </button>
+    </div>
+  </form>
+  <div class="table-wrap">
+    <table class="data-table" data-cards data-truncate-ok data-table2="users" data-server-sort>
+      <caption class="visually-hidden">用户列表</caption>
+      <thead>
+        <tr>
+          <th scope="col" data-sort-key="display_name">
+            用户
+          </th>
+          <th scope="col" data-priority="2" data-sort-key="role">
+            角色
+          </th>
+          <th scope="col" data-priority="2" data-sort-key="banned">
+            状态
+          </th>
+          <th scope="col" class="num" data-priority="3" data-sort-key="threads">
+            主题
+          </th>
+          <th scope="col" class="num" data-priority="3" data-sort-key="replies">
+            回复
+          </th>
+          <th scope="col" class="num" data-priority="3" data-sort-key="comments">
+            评论
+          </th>
+          <th scope="col" class="num" data-priority="3" data-sort-key="reports_against">
+            被举报
+          </th>
+          <th scope="col" data-priority="3" data-sort-key="created_at">
+            注册时间
+          </th>
+          <th scope="col" class="col-actions">
+            <span class="visually-hidden">操作</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody data-rows aria-busy="true"></tbody>
+    </table>
+  </div>
+  <nav class="pagination" aria-label="分页" data-pager></nav>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/users';
+</script>

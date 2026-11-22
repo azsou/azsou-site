@@ -1,0 +1,71 @@
+name: DB backup (daily)
+# ⚠ 默认不启用（站长第三轮 2026-10-28：每日备份另行启用）。本文件放在 ops/disabled-workflows/，GitHub 不会运行它。
+# 启用 = 站长批准后复制到 .github/workflows/db-backup-daily.yml（单独一个 PR），并同时启用 backup-monitor.yml（阈值 26 小时）。
+#
+# 与受保护的手动工作流 .github/workflows/db-backup.yml 完全相同的步骤（统一快照 + Storage 文件 + 强制加密 + 校验 + 只上传 .gpg），
+# 区别只有：每天北京时间 03:30 定时触发；项目 ref 不靠手输，而是环境变量 BACKUP_PROJECT_REF（站长在环境里配置）。
+# 注意：job 仍在环境 backup-production 里运行 → 每次定时运行也会等待「必需审批人」批准。
+#   想要无人值守，需要站长另建一个只允许 main 分支、无审批人的环境并改下面的 environment——这是对闸门的放宽，必须由站长明确决定。
+on:
+  schedule:
+    - cron: '30 19 * * *' # UTC 19:30 = 北京时间每天 03:30
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# bash -eo pipefail：管道里任何一段失败都让步骤失败（默认 shell 只有 -e）
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backup-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      BACKUP_ENVIRONMENT_GUARD: ${{ vars.BACKUP_ENVIRONMENT_GUARD }}
+      CONFIRM_PROJECT_REF: ${{ vars.BACKUP_PROJECT_REF }}
+      BACKUP_GUARD_ALLOW_SCHEDULE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 闸门（手动触发 / 受保护环境 / 输入的项目 ref / Secret 齐全）
+        id: guard
+        run: bash scripts/ops/backup-guard.sh
+      - name: 安装 PostgreSQL 17 客户端（pg_dump 版本需 ≥ 服务器）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: 统一快照备份（数据库各范围 + Storage 文件本体，强制加密）
+        # db-backup.sh 自己也拒绝无口令的远程备份；明文开关只对本机隔离库有效，这里从不打开；Storage 文件从不 skip
+        env:
+          STORAGE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: STORAGE_URL="${SUPABASE_URL%/}/storage/v1" bash scripts/db-backup.sh "$SUPABASE_DB_URL" backup
+      - name: 校验备份（校验和 / 解密 / pg_restore 目录 / 清单 / manifest / Storage 归档 sha256）
+        run: bash scripts/db-verify-backup.sh backup
+      - name: 上传前闸门：目录里只能有 gpg 对称加密产物
+        run: bash scripts/ops/assert-encrypted.sh backup
+      - name: 上传加密备份（只有 *.gpg，保留 30 天）
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup/*.gpg
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0 # 产物已压缩 / 加密

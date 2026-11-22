@@ -1,0 +1,43 @@
+---
+/**
+ * 赞助位（P8 T8.7）：读取 src/data/sponsors.json。默认 enabled=false 且没有赞助方 → 不输出任何内容（不放假赞助、不放「虚位以待」）。
+ * 赞助链接一律 rel="sponsored nofollow noopener"，并标注「赞助」。过期（until 早于构建日期）的条目不显示。
+ */
+import data from '@/data/sponsors.json';
+import { SPONSORED_REL } from '@/lib/sponsored';
+interface Sponsor {
+  name: string;
+  url: string;
+  line: string;
+  until: string;
+}
+interface Props {
+  lang?: 'zh' | 'en';
+}
+const { lang = 'zh' } = Astro.props;
+const today = new Date().toISOString().slice(0, 10);
+const list = (data.enabled ? (data.sponsors as Sponsor[]) : []).filter(
+  (s) => /^https:\/\//.test(s.url) && s.name && s.line && s.until >= today,
+);
+const en = lang === 'en';
+---
+
+{list.length > 0 && (
+  <section class="panel sponsor-slot" aria-label={en ? 'Sponsors' : '赞助'}>
+    <h2>{en ? 'Sponsors' : '赞助'}</h2>
+    <ul class="list-reset" role="list">
+      {list.map((s) => (
+        <li>
+          <span class="badge badge--disclosure">{en ? 'Sponsored' : '赞助'}</span>{' '}
+          <a href={s.url} rel={SPONSORED_REL.join(' ')}>
+            {s.name}
+          </a>
+          <span class="muted"> · {s.line}</span>
+        </li>
+      ))}
+    </ul>
+    <p class="muted">
+      <a href={en ? '/en/ad-disclosure/' : '/ad-disclosure/'}>{en ? 'About sponsorships' : '关于赞助'}</a>
+    </p>
+  </section>
+)}

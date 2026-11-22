@@ -1,0 +1,105 @@
+---
+import { formatDate } from '@/lib/dates';
+/**
+ * 英文版视频详情（T7.6）：本地缩略图 + 「在 YouTube 观看」链接（点击前不向视频平台发请求）+ 英文简介；
+ * 中文导读、章节与讨论在中文页面。
+ */
+import Base from '@/layouts/Base.astro';
+import VideoThumb from '@/components/videos/VideoThumb.astro';
+import { getVideos, type Video } from '@/lib/content';
+import {
+  PLAYER_SIZES,
+  PROVIDER_LABEL,
+  embedUrl,
+  isoDuration,
+  parseClock,
+  publishedDate,
+  thumbPath,
+  thumbSrcset,
+  watchUrl,
+} from '@/lib/videos';
+import { EN_VIDEO_CATEGORY } from '@/lib/i18n-labels';
+import { url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
+import { videoObject } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  const videos = (await getVideos()).filter((v) => v.data.en);
+  return videos.map((video) => ({ params: { slug: video.id }, props: { video } }));
+}
+const { video } = Astro.props as { video: Video };
+const d = video.data;
+const slug = video.id;
+const en = d.en!;
+const path = `/en/videos/${slug}/`;
+const seconds = d.duration ? parseClock(d.duration) : null;
+const date = d.published ? publishedDate(d.published) : null;
+const provider = PROVIDER_LABEL[d.provider];
+---
+
+<Base
+  image={ogFor('video', video.id, 'en')}
+  searchType="video"
+  title={d.originalTitle}
+  description={`${en.summary} (Official ${d.channel.name} video.)`}
+  preloadSrcset={{ srcset: thumbSrcset(slug, 'avif'), type: 'image/avif', sizes: PLAYER_SIZES }}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Videos', path: '/en/videos/' },
+    { name: d.originalTitle, path },
+  ]}
+  schema={[
+    videoObject({
+      name: d.originalTitle,
+      description: en.summary,
+      path,
+      thumbnails: [thumbPath(slug, 960, 'webp'), thumbPath(slug, 480, 'webp')],
+      embedUrl: embedUrl(d.provider, d.videoId).replace(/\?.*$/, ''),
+      uploadDate: d.published,
+      duration: seconds != null ? isoDuration(seconds) : undefined,
+      inLanguage: d.lang,
+      author: d.channel,
+    }),
+  ]}
+>
+  <article lang="en">
+    <header class="page-head">
+      <p class="eyebrow">{d.categories.map((c) => EN_VIDEO_CATEGORY[c]).join(' · ')}</p>
+      <h1>{d.originalTitle}</h1>
+      <p>
+        <a href={d.channel.url} rel="noopener">
+          {d.channel.name}
+        </a>
+        {date && (
+          <>
+            {' · '}
+            <time datetime={d.published}>{formatDate(date, 'en')}</time>
+          </>
+        )}
+        {d.duration && ` · ${d.duration}`}
+      </p>
+    </header>
+    <a class="video-watch" href={watchUrl(d.provider, d.videoId)} rel="noopener">
+      <VideoThumb slug={slug} alt={`${d.originalTitle} video thumbnail`} sizes={PLAYER_SIZES} eager />
+      <span class="btn btn--primary video-watch__btn">Watch on {provider}</span>
+    </a>
+    <p class="muted mt-2">
+      The video opens on {provider}; this page makes no request to {provider} until you click.
+    </p>
+    <section class="section" aria-labelledby="h-summary">
+      <div class="section__head">
+        <h2 id="h-summary">Summary</h2>
+      </div>
+      <div class="prose">
+        <p>{en.summary}</p>
+      </div>
+      <p class="notice mt-4">
+        A longer guide with key points{d.chapters.length ? ' and chapters' : ''} is available in Chinese:
+        <a href={url.video(slug)} hreflang="zh-CN" lang="zh-CN">
+          阅读中文导读
+        </a>
+        .
+      </p>
+    </section>
+  </article>
+</Base>

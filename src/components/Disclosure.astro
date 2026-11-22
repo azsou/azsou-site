@@ -1,0 +1,32 @@
+---
+/**
+ * 联盟 / 赞助披露标识（P8 T8.7）：文章 frontmatter 写了 disclosure，或正文含 rel="sponsored" 链接时显示在文首。
+ * 链接到 /ad-disclosure/ 说明本站的广告与联盟政策。
+ */
+interface Props {
+  type: 'affiliate' | 'sponsored';
+  sponsor?: string;
+  note?: string;
+  lang?: 'zh' | 'en';
+}
+const { type, sponsor, note, lang = 'zh' } = Astro.props;
+const en = lang === 'en';
+const label = en
+  ? type === 'sponsored'
+    ? `Sponsored${sponsor ? ` by ${sponsor}` : ''}`
+    : 'Contains affiliate links'
+  : type === 'sponsored'
+    ? `赞助内容${sponsor ? `（${sponsor}）` : ''}`
+    : '含联盟链接';
+---
+
+<p class="disclosure" role="note">
+  <span class="badge badge--disclosure">{label}</span>
+  <span>
+    {note ??
+      (en
+        ? 'If you buy through these links the site may earn a commission, at no extra cost to you. It does not change our conclusions.'
+        : '通过文中标注的链接购买，本站可能获得佣金，你的价格不变；佣金不影响文章结论。')}
+    <a href={en ? '/en/ad-disclosure/' : '/ad-disclosure/'}>{en ? 'Disclosure policy' : '披露政策'}</a>
+  </span>
+</p>

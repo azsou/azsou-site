@@ -1,0 +1,81 @@
+---
+/**
+ * 标签云（T7.2）：汇总应用、AI 工具、视频、文章的全部标签；数量是真实条目数，字号按数量对数分 5 档。
+ * 无障碍：一个普通的链接列表，每个链接的可访问名称包含数量（字号只是视觉强调，不是唯一信息）。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { getTags } from '@/lib/content';
+import { typeSummary } from '@/lib/tags';
+import { itemList } from '@/lib/seo';
+import { url } from '@/lib/routes';
+
+const tags = await getTags();
+const total = new Set(tags.flatMap((t) => t.items.map((i) => i.url))).size;
+// 云里按名称排序（大小代表数量）；下面的「最常用」按数量
+const cloud = [...tags].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+const top = tags.slice(0, 12);
+---
+
+<Base
+  title="标签"
+  description={`按标签浏览 AZ Studio 的应用、AI 工具、视频与文章：共 ${tags.length} 个标签、${total} 个条目。`}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '标签', path: '/tags/' },
+  ]}
+  schema={[
+    itemList(
+      '标签',
+      '/tags/',
+      tags.map((t) => ({ name: t.name, path: url.tag(t.slug) })),
+    ),
+  ]}
+>
+  <PageHead
+    eyebrow="标签"
+    title="标签云"
+    lede={`${tags.length} 个标签，覆盖 ${total} 个应用、AI 工具、视频与文章。字越大，用到的条目越多。`}
+  />
+  <section class="section" aria-labelledby="h-cloud">
+    <h2 id="h-cloud" class="visually-hidden">
+      全部标签（按名称）
+    </h2>
+    <ul class="tag-cloud" role="list">
+      {cloud.map((t) => (
+        <li>
+          <a
+            class={`tag-cloud__tag tag-cloud__tag--w${t.weight}`}
+            href={url.tag(t.slug)}
+            aria-label={`${t.name}，${t.count} 个条目`}
+            title={typeSummary(t.byType)}
+          >
+            {t.name}
+            <span class="tag-cloud__n" aria-hidden="true">
+              {t.count}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+  <section class="section" aria-labelledby="h-top">
+    <div class="section__head">
+      <h2 id="h-top">最常用</h2>
+    </div>
+    <ul class="list-group" role="list">
+      {top.map((t) => (
+        <li>
+          <a class="list-row" href={url.tag(t.slug)}>
+            <span class="list-row__main">
+              <span class="list-row__title">{t.name}</span>
+              <br />
+              <span class="list-row__sub">{typeSummary(t.byType)}</span>
+            </span>
+            <span class="list-row__aside">{t.count} 个</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Base>

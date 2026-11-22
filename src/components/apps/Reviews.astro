@@ -1,0 +1,62 @@
+---
+import '@/styles/community.css';
+/**
+ * 评分与评价（迁移 0012 的 app_reviews / app_review_stats）。全部来自真实用户：
+ * 静态 HTML 只有「暂无评分」骨架（预留高度），island 读到数据库后填入；不可达时显示只读提示。
+ */
+interface Props {
+  app: string;
+  title: string;
+  version: string;
+}
+const { app, title, version } = Astro.props;
+---
+
+<section
+  class="section reviews"
+  data-reviews
+  data-app={app}
+  data-version={version}
+  aria-labelledby="h-reviews"
+>
+  <div class="section__head">
+    <h2 id="h-reviews">评分及评价</h2>
+    <span class="muted" data-reviews-count>
+      0 条
+    </span>
+  </div>
+  <div class="reviews__summary panel">
+    <div class="reviews__score">
+      <span class="reviews__avg" data-reviews-avg>
+        —
+      </span>
+      <span class="muted">满分 5 分</span>
+    </div>
+    <ol class="reviews__bars" aria-label={`${title} 评分分布`} data-reviews-bars>
+      {[5, 4, 3, 2, 1].map((k) => (
+        <li>
+          <span class="reviews__bar-label">{k} 星</span>
+          <span class="reviews__bar">
+            <span class="reviews__bar-fill" data-bar={k} style="--w: 0%"></span>
+          </span>
+          <span class="reviews__bar-n" data-bar-n={k}>
+            0
+          </span>
+        </li>
+      ))}
+    </ol>
+  </div>
+  <div class="reviews__compose" data-reviews-compose></div>
+  <ul class="list-reset reviews__list" role="list" data-reviews-list></ul>
+  <p class="muted" data-reviews-empty>
+    还没有评价。评分只来自真实用户，本站不预置任何评分。
+  </p>
+  <div class="btn-row" data-reviews-more-row hidden>
+    <button type="button" class="btn" data-reviews-more>
+      加载更多评价
+    </button>
+  </div>
+  <p class="data-status" data-status role="status">
+    正在加载评价…
+  </p>
+</section>

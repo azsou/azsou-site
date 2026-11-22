@@ -1,0 +1,130 @@
+---
+/**
+ * 隐私选择（/cookies/#choices）：广告 Cookie / 统计 Cookie 的开关，保存在 localStorage az-consent，
+ * 与 /az-google.js 读取的格式一致；页面上有 gtag 时立即发送 consent update。
+ * 广告与统计都没启用时只显示说明（没有可选项）。
+ */
+import { adsenseClient, ga4Id } from '@/lib/ads';
+interface Props {
+  lang?: 'zh' | 'en';
+}
+const { lang = 'zh' } = Astro.props;
+const en = lang === 'en';
+const ads = !!adsenseClient(import.meta.env);
+const ga = !!ga4Id(import.meta.env);
+const t = en
+  ? {
+      none: 'Ads and analytics are currently turned off on this site, so there is nothing to choose: the site only uses the strictly necessary storage listed above.',
+      ads: 'Advertising cookies (Google AdSense)',
+      ga: 'Analytics cookies (Google Analytics 4)',
+      on: 'Allow',
+      off: 'Decline',
+      save: 'Save choices',
+      saved: 'Saved. Your choice applies from the next page you open.',
+      eea: 'Visitors in the EEA, the UK and Switzerland are asked through Google’s certified consent message; use the “Privacy and cookie settings” link that Google shows on pages with ads to change that choice.',
+    }
+  : {
+      none: '本站目前没有启用广告和统计，因此没有可选项：只使用上表中「必要」类的本地存储。',
+      ads: '广告 Cookie（Google AdSense）',
+      ga: '统计 Cookie（Google Analytics 4）',
+      on: '允许',
+      off: '拒绝',
+      save: '保存选择',
+      saved: '已保存，从下一个打开的页面起生效。',
+      eea: '欧洲经济区、英国和瑞士的访客通过 Google 认证的同意弹窗作出选择；如需修改，请使用 Google 在含广告页面上显示的「隐私和 Cookie 设置」入口。',
+    };
+---
+
+<section id="choices" class="panel mt-8" aria-labelledby="h-choices">
+  <h2 id="h-choices">{en ? 'Your choices' : '隐私选择（Cookie 设置）'}</h2>
+  {ads || ga ? (
+    <form class="choices" data-consent-form>
+      {ads && (
+        <fieldset>
+          <legend>{t.ads}</legend>
+          <label>
+            <input type="radio" name="ads" value="granted" checked /> {t.on}
+          </label>
+          <label>
+            <input type="radio" name="ads" value="denied" /> {t.off}
+          </label>
+        </fieldset>
+      )}
+      {ga && (
+        <fieldset>
+          <legend>{t.ga}</legend>
+          <label>
+            <input type="radio" name="analytics" value="granted" checked /> {t.on}
+          </label>
+          <label>
+            <input type="radio" name="analytics" value="denied" /> {t.off}
+          </label>
+        </fieldset>
+      )}
+      <div>
+        <button type="submit" class="btn btn--primary">
+          {t.save}
+        </button>
+        <p class="muted mt-4" role="status" aria-live="polite" data-consent-status></p>
+      </div>
+      <p class="muted">{t.eea}</p>
+    </form>
+  ) : (
+    <p>{t.none}</p>
+  )}
+</section>
+<script>
+  const KEY = 'az-consent';
+  const form = document.querySelector<HTMLFormElement>('[data-consent-form]');
+  if (form) {
+    const readSaved = (): { ads?: string; analytics?: string } | null => {
+      try {
+        return JSON.parse(localStorage.getItem(KEY) || 'null');
+      } catch {
+        return null;
+      }
+    };
+    const saved = readSaved();
+    for (const name of ['ads', 'analytics'] as const) {
+      const v = saved?.[name];
+      if (v === 'granted' || v === 'denied') {
+        const input = form.querySelector<HTMLInputElement>(`input[name="${name}"][value="${v}"]`);
+        if (input) input.checked = true;
+      }
+    }
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const ads = fd.get('ads') === 'denied' ? 'denied' : fd.get('ads') ? 'granted' : 'denied';
+      const analytics =
+        fd.get('analytics') === 'denied' ? 'denied' : fd.get('analytics') ? 'granted' : 'denied';
+      const w = window as unknown as {
+        azConsent?: { set: (a: string, b: string) => void };
+        gtag?: (...a: unknown[]) => void;
+      };
+      if (w.azConsent) w.azConsent.set(ads, analytics);
+      else {
+        try {
+          localStorage.setItem(
+            KEY,
+            JSON.stringify({ ads, analytics, ts: new Date().toISOString().slice(0, 10) }),
+          );
+        } catch {
+          // 存不下：本页无效果
+        }
+        w.gtag?.('consent', 'update', {
+          ad_storage: ads,
+          ad_user_data: ads,
+          ad_personalization: ads,
+          analytics_storage: analytics,
+        });
+      }
+      const status = form.querySelector('[data-consent-status]');
+      if (status)
+        status.textContent =
+          document.documentElement.lang === 'en'
+            ? 'Saved. Your choice applies from the next page you open.'
+            : '已保存，从下一个打开的页面起生效。';
+    });
+  }
+</script>

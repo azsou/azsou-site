@@ -1,0 +1,1970 @@
+{
+ "appsCatalog": [
+  {
+   "kind": "创作工具",
+   "page": "project",
+   "href": "#project",
+   "hue": "",
+   "ic": "FM",
+   "t": "FableMotion",
+   "p": "动画与视频编辑器，面向时间轴和关键帧创作。",
+   "sc": "status-active",
+   "s": "S3 · 活跃开发 · 7月核对"
+  },
+  {
+   "kind": "浏览器扩展",
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "ic": "IA",
+   "t": "Image Atlas Pro",
+   "p": "图片扫描、来源证据与相似内容识别。",
+   "sc": "status-review",
+   "s": "4.2 · 发布审查"
+  },
+  {
+   "kind": "浏览器扩展",
+   "page": "",
+   "href": "",
+   "hue": "blue",
+   "ic": "REC",
+   "t": "Capture Kit",
+   "p": "网页视频录制、帧扫描与素材整理。",
+   "sc": "status-active",
+   "s": "0.6 · 开发中"
+  },
+  {
+   "kind": "单文件 App",
+   "page": "",
+   "href": "",
+   "hue": "orange",
+   "ic": "1F",
+   "t": "单文件工具箱",
+   "p": "下载后直接运行的实用工具集合。",
+   "sc": "status-stable",
+   "s": "12 Apps · 可用",
+   "py": "dwjgjx"
+  },
+  {
+   "kind": "AI 工具",
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "ic": "SFX",
+   "t": "程序化声场",
+   "p": "分层音效、动态 BGM 与浏览器音频实验。",
+   "sc": "status-stable",
+   "s": "2.3 · 已验证",
+   "py": "cxhsc"
+  },
+  {
+   "kind": "创作工具",
+   "page": "",
+   "href": "",
+   "hue": "",
+   "ic": "RPG",
+   "t": "职业技能树工具",
+   "p": "节点、前置、互斥与职业成长配置器。",
+   "sc": "status-experiment",
+   "s": "1.2 · 实验",
+   "py": "zyjnsgj"
+  },
+  {
+   "kind": "AI 工具",
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "ic": "S2",
+   "t": "Sub2API",
+   "p": "把订阅制 AI 服务转成本地 OpenAI 兼容接口的网关实验，只在本机转发。",
+   "sc": "status-experiment",
+   "s": "0.4 · 实验"
+  },
+  {
+   "kind": "单文件 App",
+   "page": "",
+   "href": "",
+   "hue": "orange",
+   "ic": "HM",
+   "t": "Hermes 回归验收器",
+   "p": "本站在用的回归工具：几何矩阵比对 + 功能清单，单文件报告输出。",
+   "sc": "status-active",
+   "s": "1.0 · 站内在用",
+   "py": "hgysq"
+  }
+ ],
+ "discoveries": [
+  {
+   "page": "project",
+   "href": "#project",
+   "hue": "",
+   "ic": "FM",
+   "t": "FableMotion",
+   "sub": "应用 · S3",
+   "sc": "status-active",
+   "s": "活跃开发 · 7月核对"
+  },
+  {
+   "page": "games",
+   "href": "#games",
+   "hue": "green",
+   "ic": "VX",
+   "t": "EMBERDEEP",
+   "sub": "游戏 · 0.8",
+   "sc": "status-active",
+   "s": "可玩 Demo · 7月核对"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "ic": "IA",
+   "t": "Image Atlas Pro",
+   "sub": "应用 · 4.2",
+   "sc": "status-review",
+   "s": "发布审查 · 7月核对"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "blue",
+   "ic": "REC",
+   "t": "Capture Kit",
+   "sub": "应用 · 0.6",
+   "sc": "status-active",
+   "s": "开发中 · 7月核对"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "orange",
+   "ic": "1F",
+   "t": "单文件工具箱",
+   "sub": "软件 · 12 Apps",
+   "sc": "status-stable",
+   "s": "可用 · 7月核对"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "blue",
+   "ic": "3D",
+   "t": "Three.js 魔方",
+   "sub": "游戏 · 1.0",
+   "sc": "status-stable",
+   "s": "可运行 · 7月核对"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "ic": "SFX",
+   "t": "程序化声场",
+   "sub": "工具 · 2.3",
+   "sc": "status-stable",
+   "s": "已验证 · 7月核对"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "",
+   "ic": "RPG",
+   "t": "职业技能树工具",
+   "sub": "软件 · 1.2",
+   "sc": "status-experiment",
+   "s": "实验 · 7月核对"
+  }
+ ],
+ "appStrip": [
+  {
+   "page": "project",
+   "href": "#project",
+   "hue": "",
+   "ic": "FM",
+   "t": "FableMotion",
+   "s": "S3 · 活跃",
+   "type": "应用"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "ic": "IA",
+   "t": "Image Atlas",
+   "s": "4.2 · 审查",
+   "type": "应用"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "blue",
+   "ic": "REC",
+   "t": "Capture Kit",
+   "s": "0.6 · 开发",
+   "type": "应用"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "orange",
+   "ic": "1F",
+   "t": "单文件工具箱",
+   "s": "12 Apps",
+   "type": "工具"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "ic": "SFX",
+   "t": "程序化声场",
+   "s": "2.3 · 验证",
+   "type": "工具"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "",
+   "ic": "RPG",
+   "t": "技能树工具",
+   "s": "1.2 · 实验",
+   "type": "工具"
+  },
+  {
+   "page": "",
+   "href": "",
+   "hue": "blue",
+   "ic": "3D",
+   "t": "Three.js 魔方",
+   "s": "1.0 · 可用",
+   "type": "工具"
+  }
+ ],
+ "homeGames": [
+  {
+   "kind": "",
+   "page": "",
+   "href": "",
+   "hue": "",
+   "slot": "game-1",
+   "badge": "可玩 Demo",
+   "t": "EMBERDEEP",
+   "s": "Voxel Roguelike · 可玩 Demo",
+   "slug": "emberdeep"
+  },
+  {
+   "kind": "",
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "slot": "game-2",
+   "badge": "Web 3D",
+   "t": "Three.js 魔方",
+   "s": "Web 3D · 可运行",
+   "slug": "threejs-rubik"
+  },
+  {
+   "kind": "",
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "slot": "game-3",
+   "badge": "开发中",
+   "t": "像素地牢实验",
+   "s": "Roguelike · 开发中",
+   "slug": "pixel-dungeon-lab"
+  }
+ ],
+ "gamesGrid": [
+  {
+   "kind": "可玩 Demo",
+   "page": "",
+   "href": "",
+   "hue": "",
+   "slot": "game-4",
+   "badge": "",
+   "t": "EMBERDEEP",
+   "s": "Voxel Roguelike · 0.8 · 可玩 Demo",
+   "slug": "emberdeep"
+  },
+  {
+   "kind": "Web 3D",
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "slot": "game-5",
+   "badge": "",
+   "t": "Three.js 魔方",
+   "s": "Web 3D · 1.0 · 可运行",
+   "py": "mf",
+   "slug": "threejs-rubik"
+  },
+  {
+   "kind": "开发中",
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "slot": "game-6",
+   "badge": "",
+   "t": "像素地牢实验",
+   "s": "Roguelike · 0.3 · 开发中",
+   "py": "xsdlsy",
+   "slug": "pixel-dungeon-lab"
+  },
+  {
+   "kind": "可玩 Demo",
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "slot": "game-7",
+   "badge": "",
+   "t": "声波塔防",
+   "s": "音频反应塔防 · 0.5 · 可玩 Demo",
+   "py": "sbtf",
+   "slug": "audio-tower-defense"
+  },
+  {
+   "kind": "Web 3D",
+   "page": "",
+   "href": "",
+   "hue": "",
+   "slot": "game-8",
+   "badge": "",
+   "t": "Boids 星群沙盒",
+   "s": "Web 3D · 0.4 · 可运行",
+   "py": "xqsh",
+   "slug": "boids-sandbox"
+  },
+  {
+   "kind": "可玩 Demo",
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "slot": "game-9",
+   "badge": "",
+   "t": "重力高尔夫",
+   "s": "物理小品 · 0.7 · 可玩 Demo",
+   "py": "zlgef",
+   "slug": "gravity-golf"
+  },
+  {
+   "kind": "Roguelike",
+   "page": "",
+   "href": "",
+   "hue": "",
+   "slot": "game-10",
+   "badge": "",
+   "t": "地牢生成可视化",
+   "s": "Roguelike 工具链 · 0.2 · 开发中",
+   "py": "dlscksh",
+   "slug": "dungeon-gen-viz"
+  },
+  {
+   "kind": "Roguelike",
+   "page": "",
+   "href": "",
+   "hue": "green",
+   "slot": "game-11",
+   "badge": "",
+   "t": "回合制战棋原型",
+   "s": "Roguelike · 0.1 · 开发中",
+   "py": "hhzzqyx",
+   "slug": "tactics-prototype"
+  },
+  {
+   "kind": "开发中",
+   "page": "",
+   "href": "",
+   "hue": "teal",
+   "slot": "game-12",
+   "badge": "",
+   "t": "体素雕刻台",
+   "s": "创作实验 · 0.3 · 开发中",
+   "py": "tsdkt",
+   "slug": "voxel-sculpt"
+  }
+ ],
+ "updates": [
+  {
+   "page": "project",
+   "href": "#project",
+   "rk": "修复",
+   "hue": "",
+   "ic": "FM",
+   "t": "FableMotion S3",
+   "rm": "S2.9 → S3",
+   "ck": "修复",
+   "rd": "修复时间轴交互与导出",
+   "tm": "07-19"
+  },
+  {
+   "page": "",
+   "href": "",
+   "rk": "重构",
+   "hue": "green",
+   "ic": "VX",
+   "t": "EMBERDEEP 0.8",
+   "rm": "0.7 → 0.8",
+   "ck": "重构",
+   "rd": "职业系统与存档迁移",
+   "tm": "07-19"
+  },
+  {
+   "page": "",
+   "href": "",
+   "rk": "权限",
+   "hue": "teal",
+   "ic": "IA",
+   "t": "Image Atlas 4.2",
+   "rm": "4.1 → 4.2",
+   "ck": "权限",
+   "rd": "权限与识别引擎更新",
+   "tm": "07-18"
+  },
+  {
+   "page": "",
+   "href": "",
+   "rk": "增强",
+   "hue": "blue",
+   "ic": "REC",
+   "t": "Capture Kit 0.6",
+   "rm": "0.5 → 0.6",
+   "ck": "增强",
+   "rd": "录制与帧扫描增强",
+   "tm": "07-18"
+  },
+  {
+   "page": "",
+   "href": "",
+   "rk": "新增",
+   "hue": "orange",
+   "ic": "1F",
+   "t": "单文件工具箱",
+   "rm": "9 → 12 Apps",
+   "ck": "新增",
+   "rd": "新增 3 个工具",
+   "tm": "07-17"
+  },
+  {
+   "page": "",
+   "href": "",
+   "rk": "验证",
+   "hue": "blue",
+   "ic": "3D",
+   "t": "Three.js 魔方",
+   "rm": "0.9 → 1.0",
+   "ck": "验证",
+   "rd": "交互与公式验证更新",
+   "tm": "07-17"
+  }
+ ],
+ "worksGallery": [
+  {
+   "kind": "动画",
+   "slug": "fm-motion-typography",
+   "hue": "",
+   "slot": "work-5",
+   "t": "FableMotion 动态排版",
+   "py": "dtpb"
+  },
+  {
+   "kind": "游戏画面",
+   "slug": "emberdeep-voxel-scene",
+   "hue": "green",
+   "slot": "work-6",
+   "t": "EMBERDEEP Voxel 场景",
+   "py": "cj"
+  },
+  {
+   "kind": "AI 图像",
+   "slug": "ai-avatar-consistency",
+   "hue": "teal",
+   "slot": "work-7",
+   "t": "AI 头像一致性实验",
+   "py": "txyzxsy"
+  },
+  {
+   "kind": "动画",
+   "slug": "particle-soundfield",
+   "hue": "green",
+   "slot": "work-8",
+   "t": "粒子声场可视化",
+   "py": "lzscksh"
+  },
+  {
+   "kind": "动画",
+   "slug": "graph-editor-curves",
+   "hue": "",
+   "slot": "work-9",
+   "t": "Graph Editor 曲线研究",
+   "py": "qxyj"
+  },
+  {
+   "kind": "游戏画面",
+   "slug": "procedural-dungeon-materials",
+   "hue": "teal",
+   "slot": "work-10",
+   "t": "程序化地牢材质测试",
+   "py": "cxhdlczcs"
+  },
+  {
+   "kind": "游戏画面",
+   "slug": "wargame-board-design",
+   "hue": "",
+   "slot": "work-11",
+   "t": "战棋棋盘布局设计稿",
+   "py": "zqqpbjsjg"
+  },
+  {
+   "kind": "动画",
+   "slug": "boids-long-exposure",
+   "hue": "green",
+   "slot": "work-12",
+   "t": "Boids 轨迹长曝光",
+   "py": "gjcbg"
+  },
+  {
+   "kind": "游戏画面",
+   "slug": "dungeon-gen-timeline",
+   "hue": "teal",
+   "slot": "work-13",
+   "t": "地牢生成时间序列",
+   "py": "dlscsjxl"
+  },
+  {
+   "kind": "动画",
+   "slug": "voxel-sculpt-process",
+   "hue": "",
+   "slot": "work-14",
+   "t": "体素雕刻过程记录",
+   "py": "tsdkgcjl"
+  },
+  {
+   "kind": "AI 图像",
+   "slug": "avatar-style-transfer",
+   "hue": "green",
+   "slot": "work-15",
+   "t": "AI 头像风格迁移矩阵",
+   "py": "txfgqyjz"
+  },
+  {
+   "kind": "AI 图像",
+   "slug": "material-upscale-bench",
+   "hue": "teal",
+   "slot": "work-16",
+   "t": "材质 AI 上采样对照",
+   "py": "czscydz"
+  }
+ ],
+ "articlesRows": [
+  {
+   "slug": "pinyin-initial-search",
+   "t": "拼音首字母搜索：不引库的 30 行实现与取舍",
+   "m": "开发实践 · 2026-07-25",
+   "min": "6 分钟",
+   "tag": "实测",
+   "kind": "开发实践",
+   "py": "pyszmssbykd30hsxyqs"
+  },
+  {
+   "slug": "local-first-comments-forum",
+   "t": "本地优先的评论与论坛：localStorage 数据模型设计",
+   "m": "开发实践 · 2026-07-24",
+   "min": "10 分钟",
+   "tag": "原创",
+   "kind": "开发实践",
+   "py": "bdyxdplyltsjmxsj"
+  },
+  {
+   "slug": "keyboard-reachability",
+   "t": "两键导航与帮助面板：个人站的键盘可达性",
+   "m": "开发实践 · 2026-07-23",
+   "min": "7 分钟",
+   "tag": "原创",
+   "kind": "开发实践",
+   "py": "ljdhybzmbgrzdjpkdx"
+  },
+  {
+   "slug": "layer-migration-zero-important",
+   "t": "CSS @layer 迁移：从 3473 个 !important 到 0",
+   "m": "开发实践 · 2026-07-22",
+   "min": "11 分钟",
+   "tag": "复盘",
+   "kind": "开发实践",
+   "py": "qycqydldl"
+  },
+  {
+   "slug": "sw-offline-shell",
+   "t": "Service Worker 离线外壳：缓存策略与更新提示实测",
+   "m": "开发实践 · 2026-07-21",
+   "min": "8 分钟",
+   "tag": "实测",
+   "kind": "开发实践",
+   "py": "lxwkhccclygxtssc"
+  },
+  {
+   "slug": "generative-svg-assets",
+   "t": "生成式 SVG 素材：17 个母题的确定性视觉系统",
+   "m": "开发实践 · 2026-07-20",
+   "min": "9 分钟",
+   "tag": "实测",
+   "kind": "开发实践",
+   "py": "scsssc17gmtdqdxsjxt"
+  },
+  {
+   "slug": "fablemotion-s3-timeline",
+   "t": "FableMotion S3：从模块化到时间轴终版 UI",
+   "m": "FableMotion · 2026-07-19 · 最后核对 2026-07-19",
+   "min": "12 分钟",
+   "tag": "原创",
+   "kind": "FableMotion",
+   "py": "cmkhdsjzzb"
+  },
+  {
+   "slug": "motion-paths-onion-skin",
+   "t": "运动路径、洋葱皮与关键帧交互",
+   "m": "动画编辑 · 2026-07-18",
+   "min": "8 分钟",
+   "tag": "原创",
+   "kind": "FableMotion",
+   "py": "ydljycpygjzjh"
+  },
+  {
+   "slug": "chrome-mv3-domain-activation",
+   "t": "Chrome MV3 动态域名授权与用户激活",
+   "m": "浏览器扩展 · 2026-07-18",
+   "min": "11 分钟",
+   "tag": "实测",
+   "kind": "浏览器扩展",
+   "py": "dtymsqyyhjh"
+  },
+  {
+   "slug": "cross-origin-frame-scan",
+   "t": "跨域 frame 扫描如何避免拖垮主流程",
+   "m": "浏览器扩展 · 2026-07-17",
+   "min": "9 分钟",
+   "tag": "实测",
+   "kind": "浏览器扩展",
+   "py": "kysmrhbmtkzlc"
+  },
+  {
+   "slug": "emberdeep-skill-tree-migration",
+   "t": "职业技能树与旧存档迁移",
+   "m": "AI 游戏 · 2026-07-17",
+   "min": "13 分钟",
+   "tag": "原创",
+   "kind": "AI 游戏",
+   "py": "zyjnsyjcdqy"
+  },
+  {
+   "slug": "single-file-zero-build",
+   "t": "单文件 App 的零构建工作流与天花板",
+   "m": "开发实践 · 2026-07-16",
+   "min": "10 分钟",
+   "tag": "复盘",
+   "kind": "开发实践",
+   "py": "dwjdlgjgzlythb"
+  }
+ ],
+ "articlesReader": [
+  {
+   "slug": "pinyin-initial-search",
+   "crumb": "开发实践",
+   "badge": "实测",
+   "title": "拼音首字母搜索：不引库的 30 行实现与取舍",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-25",
+    "6 分钟",
+    "最后核对：2026-07-25"
+   ],
+   "toc": [
+    "为什么不引拼音库",
+    "30 行方案",
+    "命中率实测",
+    "边界与取舍"
+   ],
+   "body": "<p>站内搜索想支持 dwjgjx → 单文件工具箱 这种首拼命中。第一反应是引 pinyin 库，但最小的浏览器端拼音库也要几十 KB——为 30 个中文标题背一个词典，性价比不成立。</p><div class=\"callout\"><b>结论：</b>条目量小于几百时，手工标注 py 字段 + 一行匹配逻辑，比任何拼音库都便宜、可控、零依赖。</div><h2 id=\"a-sec-1\">为什么不引拼音库</h2><p>拼音库的成本不只是体积：多音字策略、繁简处理、构建链引入，每一样都在单文件哲学的反面。而站内需要拼音的字符串是有限集合——数据里的标题，全部可枚举。</p><h2 id=\"a-sec-2\">30 行方案</h2><p>数据侧：每条搜索源加一个 py 字段，手写首拼（如「声波塔防」→ sbtf）。渲染侧：把 py 写进结果项的 data-py。匹配侧：原有的 textContent 包含判断后面补一句 data-py 包含判断。全部改动 30 行以内。</p><h2 id=\"a-sec-3\">命中率实测</h2><p>30 个标注条目逐一验证：输入全拼首字母命中 30/30；输入前缀（如 dwj）命中包含它的全部条目；误标 0 处——标注时用「重力→zl」这类多音字规则逐条核对过。</p><h2 id=\"a-sec-4\">边界与取舍</h2><p>代价是新增内容要手动补 py，忘了就搜不到——所以构建期加了缺失警告。如果条目涨到上千，这套方案的维护成本会反超词典库，届时再换不迟。</p>",
+   "forumThread": "t-v63-changelog"
+  },
+  {
+   "slug": "local-first-comments-forum",
+   "crumb": "开发实践",
+   "badge": "原创",
+   "title": "本地优先的评论与论坛：localStorage 数据模型设计",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-24",
+    "10 分钟",
+    "最后核对：2026-07-24"
+   ],
+   "toc": [
+    "为什么本地优先",
+    "两个存储的形状",
+    "种子与覆盖层",
+    "冻结为 API 契约",
+    "后记（V68）"
+   ],
+   "body": "<p>V62/V63 给站点加评论和论坛时还没有后端。当时的做法是本地优先：交互全量实现，数据落在访客自己的 localStorage，界面处处如实标注。</p><div class=\"callout\"><b>结论：</b>本地优先不是妥协，是把「数据模型设计」提前到后端存在之前——schema 对了，接后端只是换存储。</div><h2 id=\"a-sec-1\">为什么本地优先</h2><p>假后端（伪造别人的评论）违反站点的编辑原则；没有交互又验证不了设计。本地优先是第三条路：真交互、真数据、真隔离，只是数据的主人恰好是访客本人。</p><h2 id=\"a-sec-2\">两个存储的形状</h2><p>az-comments 是 {\"页面键\": [评论]}，页面键形如 article:slug / work:slug / game:slug，天然按页隔离。az-forum 是 {threads:[], replies:{帖子id:[]}}——主题与回复分表，回复挂在任意帖（含种子帖）之下。</p><h2 id=\"a-sec-3\">种子与覆盖层</h2><p>种子内容全部站长署名、带「站长」徽章，解释规则或开启话题；访客内容叠加其上，可删除、标「我」。两层永不混淆：种子在 data 里随版本发布，覆盖层只在访客本机。</p><h2 id=\"a-sec-4\">冻结为 API 契约</h2><p>下一步把这两个 schema 原样冻结成 REST 契约：POST /api/comments 的请求体就是本地条目的形状。前端代码届时只换存储适配层，交互零改动——这就是本地优先阶段真正买到的东西。</p><h2 id=\"a-sec-5\">后记（V68）</h2><p>这套 schema 后来原样冻结成了 API 契约，并在 V68 接入 Supabase 成为真实后端——评论与论坛的交互代码零改动，只换了存储适配层。本地优先阶段承诺的那笔收益，如数兑现。</p>",
+   "forumThread": "t-feedback"
+  },
+  {
+   "slug": "keyboard-reachability",
+   "crumb": "开发实践",
+   "badge": "原创",
+   "title": "两键导航与帮助面板：个人站的键盘可达性",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-23",
+    "7 分钟",
+    "最后核对：2026-07-23"
+   ],
+   "toc": [
+    "为什么是 g 前缀",
+    "实现要点",
+    "别打扰输入框",
+    "帮助面板"
+   ],
+   "body": "<p>V63 给站点加了 Gmail 式两键导航：g 然后 h/a/g/t/w/f/n，八个视图一秒直达；? 呼出快捷键帮助。这篇记录实现里容易踩的四个坑。</p><div class=\"callout\"><b>结论：</b>两键序列的全部复杂度都在「什么时候不触发」：输入框里、修饰键按着、序列超时，三个否定条件比肯定逻辑更重要。</div><h2 id=\"a-sec-1\">为什么是 g 前缀</h2><p>单键直达会和浏览器/输入法抢按键；g 前缀把冲突面收敛到一个键，且 Gmail/GitHub 用户零学习成本。900ms 序列窗口是实测出来的：短了赶不上，长了误触。</p><h2 id=\"a-sec-2\">实现要点</h2><p>状态只有一个时间戳：pendingG。keydown 里先判 Escape（关帮助），再判「正在打字/带修饰键」直接放行，再判 ?，最后走序列逻辑。整个模块 60 行。</p><h2 id=\"a-sec-3\">别打扰输入框</h2><p>target 是 INPUT/TEXTAREA/SELECT/contentEditable 时一律放行——搜索框里输 gf 是在搜「gf」，不是要去论坛。这条判断放在最前，出错最伤信任。</p><h2 id=\"a-sec-4\">帮助面板</h2><p>? 面板列出全部快捷键：固定右下、Esc 或点关闭收起、role=dialog。快捷键不写进帮助等于不存在——可发现性是可达性的一半。</p>",
+   "forumThread": "t-v63-changelog"
+  },
+  {
+   "slug": "layer-migration-zero-important",
+   "crumb": "开发实践",
+   "badge": "复盘",
+   "title": "CSS @layer 迁移：从 3473 个 !important 到 0",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-22",
+    "11 分钟",
+    "最后核对：2026-07-22"
+   ],
+   "toc": [
+    "债是怎么欠下的",
+    "层序替代重要性",
+    "最后 20 个的处理",
+    "验收方式"
+   ],
+   "body": "<p>V52 期站点样式膨胀到 28 个补丁层、3473 个 !important。V53 归并砍掉九成，V55 用 @layer 收编剩余，V60.1 清到 0。这篇复盘完整路径。</p><div class=\"callout\"><b>结论：</b>!important 的本质是「没有层序管理时的最后手段」。@layer 把优先级变成结构问题：未分层覆盖区永远压过分层基线，重要性标记就失去了存在理由。</div><h2 id=\"a-sec-1\">债是怎么欠下的</h2><p>逐版本补丁模式下，每个新层都要压过旧层的同名规则，最快的武器就是 !important——于是它以复利增长：你的下一个补丁要压过上一个补丁的 !important，只能再加一层。</p><h2 id=\"a-sec-2\">层序替代重要性</h2><p>V55 把基线放进 @layer az-base，覆盖规则放在未分层区。CSS 规定未分层样式在层序里天然最高——同一条规则不需要任何标记就能压过基线，历史包袱一次性变成结构。</p><h2 id=\"a-sec-3\">最后 20 个的处理</h2><p>剩下的硬骨头分两类：对抗内联样式的（13 个）——把内联样式本身改成工具类，对抗随之消失；容器查询里压层内规则的（1 个）——把它搬进未分层区靠层序取胜。逐个消解，不留白名单。</p><h2 id=\"a-sec-4\">验收方式</h2><p>每一步都过全组合几何矩阵：断点 × 密度 × 视图 × 主题 × 面板态逐元素比对，非意图差异为 0 才算完成。清零不是 grep 数字归零，是渲染结果逐像素等价前提下的归零。</p>",
+   "forumThread": "t-regression"
+  },
+  {
+   "slug": "sw-offline-shell",
+   "crumb": "开发实践",
+   "badge": "实测",
+   "title": "Service Worker 离线外壳：缓存策略与更新提示实测",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-21",
+    "8 分钟",
+    "最后核对：2026-07-21"
+   ],
+   "toc": [
+    "单文件站要什么缓存",
+    "cache-first 的边界",
+    "更新的两难",
+    "file:// 的退化"
+   ],
+   "body": "<p>V58 给站点加了 Service Worker 离线外壳。单文件站点的缓存问题比多资源站简单得多，但「更新时机」的两难一点不少。这篇是部署套件里 az-sw.js 的设计说明与实测记录。</p><div class=\"callout\"><b>结论：</b>单文件 + SW 的正确形态：外壳 cache-first 保离线，版本号进缓存名保更新，升级提示交给页面而不是静默换血。</div><h2 id=\"a-sec-1\">单文件站要什么缓存</h2><p>整站就一个 HTML（外加 manifest/favicon），SHELL 列表三行写完。收益立竿见影：断网重开，站点完整可用——包括全部文章、作品与论坛种子。</p><h2 id=\"a-sec-2\">cache-first 的边界</h2><p>cache-first 意味着上线新版后，老访客第一次打开仍是旧版。对个人站可接受；对时效内容不行。版本号写进缓存名（az-studio-v63），install 时旧缓存整体废弃，避免新旧混用。</p><h2 id=\"a-sec-3\">更新的两难</h2><p>skipWaiting 立即接管会在用户浏览中途换代码；不接管则更新永远差一次刷新。折中：新 SW 就位后 postMessage 通知页面，页面弹一条「新版本已就绪」的 toast，刷新权交还用户。</p><h2 id=\"a-sec-4\">file:// 的退化</h2><p>SW 不在 file:// 下工作，注册代码检测协议后静默跳过——双击打开的单文件体验不受影响，这正是「渐进增强」在部署层的含义。</p>",
+   "forumThread": "t-regression"
+  },
+  {
+   "slug": "generative-svg-assets",
+   "crumb": "开发实践",
+   "badge": "实测",
+   "title": "生成式 SVG 素材：17 个母题的确定性视觉系统",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-20",
+    "9 分钟",
+    "最后核对：2026-07-20"
+   ],
+   "toc": [
+    "为什么自己画",
+    "母题 × 调色板 × 种子",
+    "确定性的价值",
+    "它画不了什么"
+   ],
+   "body": "<p>站内 40 个视觉槽位——首页大图、游戏封面、作品图、论坛分类图——全部来自一个 Node 脚本：17 个母题函数，按调色板与种子组合出场景，输出 base64 SVG。</p><div class=\"callout\"><b>结论：</b>生成式素材换来的不是「好看」，是三件工程品质：零版权风险、逐字节可复现、主题风格强一致。</div><h2 id=\"a-sec-1\">为什么自己画</h2><p>占位图服务有版权与网络依赖；AI 生图不可复现且风格漂移。自绘 SVG 把素材纳入构建：改一个种子，diff 里看得见每一字节变化。</p><h2 id=\"a-sec-2\">母题 × 调色板 × 种子</h2><p>母题是场景函数：时间轴、体素地牢、节点图、粒子束……各自接受调色板与确定性随机种子。40 个槽位就是 40 组参数，slot 名进 data 映射，页面按 data-asset-slot 注入。</p><h2 id=\"a-sec-3\">确定性的价值</h2><p>同一输入永远同一输出，素材参与整站的逐字节回归——几何矩阵里连封面都在被验收。伪随机源是自写的 mulberry 变体，种子写在槽位表里。</p><h2 id=\"a-sec-4\">它画不了什么</h2><p>实机截图。所以每个槽位保留 data-asset-slot 标记，未来逐张替换真图不动结构；素材说明面板也如实写着这一点——生成艺术是诚实的占位，不是伪装的实拍。</p>",
+   "forumThread": "t-svg-assets"
+  },
+  {
+   "slug": "fablemotion-s3-timeline",
+   "crumb": "FableMotion",
+   "badge": "原创技术文章",
+   "title": "FableMotion S3：从模块化到时间轴终版 UI",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-19",
+    "12 分钟",
+    "最后核对：2026-07-19"
+   ],
+   "toc": [
+    "问题是怎么形成的",
+    "重构方式",
+    "验收标准",
+    "下一步"
+   ],
+   "body": null,
+   "forumThread": "t-fm-timeline"
+  },
+  {
+   "slug": "motion-paths-onion-skin",
+   "crumb": "动画编辑",
+   "badge": "原创技术文章",
+   "title": "运动路径、洋葱皮与关键帧交互",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-18",
+    "8 分钟",
+    "最后核对：2026-07-19"
+   ],
+   "toc": [
+    "为什么路径要画在舞台上",
+    "洋葱皮的采样策略",
+    "拖拽关键帧的三条规则",
+    "验收清单"
+   ],
+   "body": "<p>S3 之前，运动路径只存在于数据里：想知道对象怎么走，要么按播放，要么读关键帧表。这次把路径直接画到舞台上，顺带把洋葱皮和关键帧拖拽也重做了一遍。</p><div class=\"callout\"><b>结论：</b>路径、洋葱皮、关键帧三者共享同一份采样缓存。分开实现时它们各自都对，叠在一起就互相矛盾。</div><h2 id=\"a-sec-1\">为什么路径要画在舞台上</h2><p>路径是位置属性的时间积分，画在舞台上才能一眼看出过冲和折返。实现上用 Graph Editor 的曲线求值器按帧采样，超过 240 帧自动降为二分抽样，保证 4 秒以上的动画路径也在 1ms 内画完。</p><h2 id=\"a-sec-2\">洋葱皮的采样策略</h2><p>前后各 N 帧的残影不能逐帧渲染整个舞台——那是 N 倍开销。只对选中对象走轻量绘制路径：变换 + 轮廓，跳过滤镜和子对象展开。测试场景里 7 层洋葱皮的额外开销从 41ms 降到 6ms。</p><h2 id=\"a-sec-3\">拖拽关键帧的三条规则</h2><ul><li>拖拽中只更新预览，不写入历史；松手才提交一条撤销记录</li><li>吸附到相邻关键帧与整数帧，按住 Alt 关闭吸附</li><li>多选拖拽保持相对间距，越界部分按边界钳制而不是丢弃</li></ul><div class=\"code\">onDrag(frames =&gt; preview(frames));\nonDrop(frames =&gt; store.dispatch({\n  type: 'keyframes/move', payload: frames\n}));</div><h2 id=\"a-sec-4\">验收清单</h2><ul><li>路径与实际播放轨迹逐帧一致（含缓动）</li><li>洋葱皮开关不改变最终渲染结果</li><li>拖拽过程中撤销栈长度不变，松手后恰好 +1</li></ul>",
+   "forumThread": "t-fm-timeline"
+  },
+  {
+   "slug": "chrome-mv3-domain-activation",
+   "crumb": "浏览器扩展",
+   "badge": "实测记录",
+   "title": "Chrome MV3 动态域名授权与用户激活",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-18",
+    "11 分钟",
+    "最后核对：2026-07-18"
+   ],
+   "toc": [
+    "为什么不能预授权",
+    "用户激活链路",
+    "失败的两种绕法",
+    "上架审查结论"
+   ],
+   "body": "<p>Image Atlas 需要在用户点开陌生图床时请求该域名的读取权限。MV3 之下这件事只有一条合法路径：<code>permissions.request</code> 必须发生在用户手势的同步调用栈里。任何\"提前想好\"的设计都会碰壁。</p><div class=\"callout\"><b>结论：</b>把授权请求留在用户点击的那一帧，其余全部按\"没有权限\"设计。体验反而更稳定，审查也一次通过。</div><h2 id=\"a-sec-1\">为什么不能预授权</h2><p><code>host_permissions</code> 里的通配域名会在安装时吓退用户，也让商店审查进入人工队列。实测同一个扩展，通配版本审查用了 11 天并被要求书面说明，白名单版本 36 小时过审。</p><h2 id=\"a-sec-2\">用户激活链路</h2><p>点击卡片 → 同步调用 <code>permissions.request({origins:[origin]})</code> → resolve 后才发起抓取。中间任何一次 <code>await</code> 都会丢失激活状态，Chrome 118 之后直接静默拒绝。</p><div class=\"code\">button.addEventListener('click', () =&gt; {\n  chrome.permissions.request(\n    { origins: [new URL(src).origin + '/*'] },\n    granted =&gt; granted &amp;&amp; scan(src)\n  );\n});</div><h2 id=\"a-sec-3\">失败的两种绕法</h2><p>试过把请求挂在 hover 上（被判定非显式手势）和用 offscreen document 代理（权限模型直接不认）。两条路都留下了回归测试，防止未来\"优化\"回去。</p><h2 id=\"a-sec-4\">上架审查结论</h2><ul><li>权限请求全部可追溯到用户点击，审查一次通过</li><li>拒绝授权后的降级路径必须可用，这是审查员实际点过的地方</li><li>权限说明文案与行为逐条对应，避免二次问询</li></ul>",
+   "forumThread": "t-mv3-ux"
+  },
+  {
+   "slug": "cross-origin-frame-scan",
+   "crumb": "浏览器扩展",
+   "badge": "实测记录",
+   "title": "跨域 frame 扫描如何避免拖垮主流程",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-17",
+    "9 分钟",
+    "最后核对：2026-07-18"
+   ],
+   "toc": [
+    "问题：一个页面几十个 frame",
+    "分层扫描队列",
+    "失败隔离",
+    "实测数字"
+   ],
+   "body": "<p>Image Atlas 要在任意页面上找图，而真实页面平均带着十几个跨域 iframe——广告位、嵌入播放器、评论区。第一版把它们串行扫完，主页面的扫描结果要等 6 秒才出来。</p><div class=\"callout\"><b>结论：</b>把\"扫得全\"和\"扫得快\"拆成两个队列：主文档即时返回，frame 结果流式补充。用户 300ms 内看到第一批图，剩下的陆续到。</div><h2 id=\"a-sec-1\">问题：一个页面几十个 frame</h2><p>实测新闻站首页：14 个 iframe，其中 9 个跨域。逐个 executeScript 平均 380ms，串行就是 3.4 秒起步，还没算失败重试。</p><h2 id=\"a-sec-2\">分层扫描队列</h2><p>主文档扫描立即执行并返回；frame 扫描进低优先级队列，三个并发，结果通过 port 流式推送到面板去重合并。面板先渲染主文档结果，frame 图片带着来源标记逐条插入。</p><div class=\"code\">const queue = new TaskQueue({ concurrency: 3 });\nframes.forEach(f =&gt; queue.push(() =&gt; scanFrame(f)));\nqueue.onResult(r =&gt; port.postMessage(r));</div><h2 id=\"a-sec-3\">失败隔离</h2><p>沙箱 frame、about:blank、失去响应的第三方页——任何一个失败都不该影响其余。每个任务 1.5s 超时，失败只记录不重试（重试留给用户手动刷新），面板上以\"n 个来源不可读\"的中性提示汇总。</p><h2 id=\"a-sec-4\">实测数字</h2><ul><li>首批结果时间：3.4s → 0.3s</li><li>全量完成时间：6.1s → 2.2s（3 并发）</li><li>单 frame 失败对整体的影响：无（此前会卡住整条链）</li></ul>",
+   "forumThread": "t-mv3-ux"
+  },
+  {
+   "slug": "emberdeep-skill-tree-migration",
+   "crumb": "AI 游戏",
+   "badge": "原创技术文章",
+   "title": "职业技能树与旧存档迁移",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-17",
+    "13 分钟",
+    "最后核对：2026-07-19"
+   ],
+   "toc": [
+    "数据驱动的职业系统",
+    "节点、前置与互斥",
+    "旧存档怎么迁",
+    "平衡性验收"
+   ],
+   "body": "<p>EMBERDEEP 0.8 把四个职业的技能全部搬进一份数据表：节点、前置、互斥、成长曲线都是配置而不是代码。这不是为了优雅，是为了让 0.7 的旧存档能安全走进新系统。</p><div class=\"callout\"><b>结论：</b>先给旧存档做\"翻译层\"，再谈新系统。直接改存档结构的方案在第一晚就丢了两个测试玩家的进度，全部回滚。</div><h2 id=\"a-sec-1\">数据驱动的职业系统</h2><p>每个技能节点是一条记录：<code>id、tier、requires[]、excludes[]、cost</code>。运行时只做两件事——校验图的连通性，和把节点效果编译成修正器列表。改平衡从改代码变成改表。</p><h2 id=\"a-sec-2\">节点、前置与互斥</h2><p>前置是有向边，互斥是无向边。加载时先跑一遍拓扑检查：环、悬空前置、互斥对里同时可达的死配置，全部在启动即报错，而不是等玩家点出来。</p><div class=\"code\">{ \"id\": \"ember-burst\", \"tier\": 2,\n  \"requires\": [\"ember-touch\"],\n  \"excludes\": [\"frost-line\"],\n  \"cost\": 2 }</div><h2 id=\"a-sec-3\">旧存档怎么迁</h2><p>0.7 存档只记\"已学技能名\"。迁移层把名字映射到新节点 id，映射不到的技能折算成未分配点数并在进入游戏时提示。迁移是纯函数，同一份旧存档永远得到同一结果，回归测试锁死这一点。</p><h2 id=\"a-sec-4\">平衡性验收</h2><ul><li>四职业 1-10 级模拟通关时间差 &lt; 18%</li><li>任意合法加点路径不存在无法通关的死档</li><li>0.7 全部 37 份测试存档迁移后可正常进入并继续游戏</li><li>迁移报告在设置页可回看，不弹打断式对话框</li></ul>",
+   "forumThread": "t-feedback"
+  },
+  {
+   "slug": "single-file-zero-build",
+   "crumb": "开发实践",
+   "badge": "复盘",
+   "title": "单文件 App 的零构建工作流与天花板",
+   "meta": [
+    "Randy Hopkins",
+    "2026-07-16",
+    "10 分钟",
+    "最后核对：2026-07-19"
+   ],
+   "toc": [
+    "为什么坚持单文件",
+    "让单文件活下去的纪律",
+    "天花板在哪里",
+    "什么时候该工程化"
+   ],
+   "body": "<p>工具箱里的 12 个单文件 App 和这个站点本身共用同一套哲学：打开就是全部，复制就是部署。这篇复盘写清楚这条路的收益、纪律，和它真实的尽头。</p><div class=\"callout\"><b>结论：</b>单文件是发布物的极佳形态，但当样式层数、数据体量或协作人数越过阈值，它就不该再是开发介质。</div><h2 id=\"a-sec-1\">为什么坚持单文件</h2><p>零依赖、零构建、离线可用、拷贝即备份。对个人工具，这四条抵得上所有工程化收益：写完 double-click 就能用，十年后还能打开。</p><h2 id=\"a-sec-2\">让单文件活下去的纪律</h2><ul><li>数据与表现分离：内容进数据对象，改内容不碰模板</li><li>逐版本追加而不是原地修改，直到定期归并</li><li>每版都留独立文件，坏了随时回滚</li><li>自动化回归（几何比对 + 功能清单）代替手工点验</li></ul><h2 id=\"a-sec-3\">天花板在哪里</h2><p>这个站点自己就是答案：样式在 V52 期膨胀到 28 层、三千多个 !important，归并花了一整版的力气。文本编辑器在 40 万字符的文件里的每次全文搜索、每次误改风险，都是复利式成本。</p><h2 id=\"a-sec-4\">什么时候该工程化</h2><p>三个信号出现任何一个：需要第二个人改代码；需要按环境出不同构建；出现\"不敢动\"的区域。届时正确形态是源码目录 + 构建期内联回单文件——发布物不变，开发介质换掉。</p>",
+   "forumThread": "t-regression"
+  }
+ ],
+ "worksDetail": [
+  {
+   "slug": "fm-motion-typography",
+   "title": "FableMotion 动态排版",
+   "kind": "动画",
+   "slot": "work-5",
+   "hue": "",
+   "date": "2026-06",
+   "status": "已归档",
+   "desc": "<p>用 FableMotion 的时间轴和 Graph Editor 做的一组文字动效研究：入场节奏、字重过渡与运动路径的配合。所有关键帧都在编辑器里手工调整，没有脚本生成。</p><p>这组实验直接催生了 S3 的曲线预设功能——重复调同一条 ease 曲线七八次之后，把它存成预设就成了显而易见的需求。</p>",
+   "facts": [
+    [
+     "工具",
+     "FableMotion S3 Candidate"
+    ],
+    [
+     "尺寸",
+     "1920×1080 · 60fps"
+    ],
+    [
+     "过程",
+     "时间轴 + Graph Editor 手工关键帧"
+    ],
+    [
+     "验证",
+     "Win11 Chrome / Edge 回放一致"
+    ]
+   ],
+   "related": [
+    {
+     "page": "project",
+     "icon": "FM",
+     "hue": "",
+     "b": "FableMotion S3",
+     "s": "项目档案"
+    },
+    {
+     "article": "fablemotion-s3-timeline",
+     "icon": "RH",
+     "b": "时间轴终版 UI 复盘",
+     "s": "原创文章"
+    }
+   ]
+  },
+  {
+   "slug": "emberdeep-voxel-scene",
+   "title": "EMBERDEEP Voxel 场景",
+   "kind": "游戏画面",
+   "slot": "work-6",
+   "hue": "green",
+   "date": "2026-07",
+   "status": "开发中截图",
+   "desc": "<p>EMBERDEEP 0.8 的地牢第三层实机画面：体素光照、雾效与程序化材质在同一场景里的表现。截图未做后期，保留了开发中的调试配色。</p><p>场景由地牢生成器输出，同一种子可完整复现。</p>",
+   "facts": [
+    [
+     "引擎",
+     "自研 Voxel 渲染器"
+    ],
+    [
+     "来源",
+     "0.8 开发版实机截取"
+    ],
+    [
+     "种子",
+     "d3-7741，可复现"
+    ],
+    [
+     "验证",
+     "截图与运行时逐像素一致"
+    ]
+   ],
+   "related": [
+    {
+     "page": "games",
+     "icon": "VX",
+     "hue": "green",
+     "b": "EMBERDEEP 0.8",
+     "s": "可玩 Demo"
+    },
+    {
+     "article": "emberdeep-skill-tree-migration",
+     "icon": "RH",
+     "b": "职业技能树与存档迁移",
+     "s": "原创文章"
+    }
+   ]
+  },
+  {
+   "slug": "ai-avatar-consistency",
+   "title": "AI 头像一致性实验",
+   "kind": "AI 图像",
+   "slot": "work-7",
+   "hue": "teal",
+   "date": "2026-05",
+   "status": "实验归档",
+   "desc": "<p>同一角色在 12 组提示词与 4 个模型版本下的形象一致性对比。目标不是好看，是量化\"像同一个人\"的可控性：固定种子、渐进修改提示词、记录漂移点。</p><p>结论：发型与配饰是漂移重灾区，锁定它们的描述词后一致率显著上升。完整对照表在实验记录里。</p>",
+   "facts": [
+    [
+     "方法",
+     "固定种子 + 提示词逐项消融"
+    ],
+    [
+     "样本",
+     "12 组 × 4 版本 × 3 次重采样"
+    ],
+    [
+     "标注",
+     "人工双盲评分"
+    ],
+    [
+     "结论",
+     "一致率 41% → 87%"
+    ]
+   ],
+   "related": [
+    {
+     "page": "apps",
+     "icon": "IA",
+     "hue": "teal",
+     "b": "Image Atlas Pro",
+     "s": "来源证据链工具"
+    }
+   ]
+  },
+  {
+   "slug": "particle-soundfield",
+   "title": "粒子声场可视化",
+   "kind": "动画",
+   "slot": "work-8",
+   "hue": "green",
+   "date": "2026-04",
+   "status": "可运行",
+   "desc": "<p>程序化声场 2.x 的可视化外壳：把分层音效的能量包络映射到粒子束的密度与速度上，浏览器实时渲染。</p><p>这也是\"声波塔防\"的技术前身——先有了声音驱动粒子，才有了声音驱动敌人波次的想法。</p>",
+   "facts": [
+    [
+     "技术",
+     "Web Audio AnalyserNode + Canvas"
+    ],
+    [
+     "性能",
+     "1080p 下稳定 60fps"
+    ],
+    [
+     "输入",
+     "程序化声场 2.3 实时输出"
+    ],
+    [
+     "验证",
+     "三档设备帧率记录在案"
+    ]
+   ],
+   "related": [
+    {
+     "page": "apps",
+     "icon": "SFX",
+     "hue": "green",
+     "b": "程序化声场 2.3",
+     "s": "工具"
+    },
+    {
+     "page": "games",
+     "icon": "SF",
+     "hue": "green",
+     "b": "声波塔防 0.5",
+     "s": "可玩 Demo"
+    }
+   ]
+  },
+  {
+   "slug": "graph-editor-curves",
+   "title": "Graph Editor 曲线研究",
+   "kind": "动画",
+   "slot": "work-9",
+   "hue": "",
+   "date": "2026-06",
+   "status": "已归档",
+   "desc": "<p>为 S3 的 Graph Editor 做的缓动曲线对照研究：同一段位移动画在 9 条手工曲线下的观感差异，逐帧标注了过冲、迟滞与\"机械感\"出现的位置。</p>",
+   "facts": [
+    [
+     "工具",
+     "FableMotion Graph Editor"
+    ],
+    [
+     "样本",
+     "9 条曲线 × 3 种时长"
+    ],
+    [
+     "产出",
+     "曲线预设 5 条进入 S3"
+    ],
+    [
+     "验证",
+     "预设回放与研究稿逐帧一致"
+    ]
+   ],
+   "related": [
+    {
+     "page": "project",
+     "icon": "FM",
+     "hue": "",
+     "b": "FableMotion S3",
+     "s": "项目档案"
+    }
+   ]
+  },
+  {
+   "slug": "procedural-dungeon-materials",
+   "title": "程序化地牢材质测试",
+   "kind": "游戏画面",
+   "slot": "work-10",
+   "hue": "teal",
+   "date": "2026-03",
+   "status": "测试归档",
+   "desc": "<p>EMBERDEEP 地牢材质管线的早期测试：同一几何体上程序化石材、苔藓与湿度层的叠加效果。参数全部暴露给数据表，供关卡按深度调用。</p>",
+   "facts": [
+    [
+     "管线",
+     "三层程序化叠加"
+    ],
+    [
+     "参数",
+     "深度 × 湿度 × 年代三轴"
+    ],
+    [
+     "状态",
+     "已并入 0.8 材质系统"
+    ],
+    [
+     "验证",
+     "与实机渲染对照通过"
+    ]
+   ],
+   "related": [
+    {
+     "page": "games",
+     "icon": "VX",
+     "hue": "green",
+     "b": "EMBERDEEP 0.8",
+     "s": "可玩 Demo"
+    },
+    {
+     "work": "emberdeep-voxel-scene",
+     "icon": "VX",
+     "hue": "green",
+     "b": "EMBERDEEP Voxel 场景",
+     "s": "作品"
+    }
+   ]
+  },
+  {
+   "slug": "wargame-board-design",
+   "title": "战棋棋盘布局设计稿",
+   "kind": "游戏画面",
+   "slot": "work-11",
+   "hue": "",
+   "date": "2026-07",
+   "status": "设计归档",
+   "desc": "<p>回合制战棋原型 0.1 的棋盘布局推演：行动范围着色、威胁区叠加与镜头透视的三轮取舍。定稿采用 6×9 梯形透视棋盘——信息密度与可点击面积的平衡点。</p>",
+   "facts": [
+    [
+     "工具",
+     "自研棋盘编辑器"
+    ],
+    [
+     "迭代",
+     "三轮布局推演"
+    ],
+    [
+     "结论",
+     "6×9 梯形透视定稿"
+    ],
+    [
+     "验证",
+     "触控目标 ≥40px 全部达标"
+    ]
+   ],
+   "related": [
+    {
+     "page": "games",
+     "icon": "WB",
+     "hue": "green",
+     "b": "回合制战棋原型 0.1",
+     "s": "开发中"
+    }
+   ]
+  },
+  {
+   "slug": "boids-long-exposure",
+   "title": "Boids 轨迹长曝光",
+   "kind": "动画",
+   "slot": "work-12",
+   "hue": "green",
+   "date": "2026-06",
+   "status": "可复现",
+   "desc": "<p>把 Boids 沙盒 1200 帧的位置历史叠加成一张\"长曝光\"：群体分离-对齐-聚合三条规则在时间维度上留下的轨迹束。同一种子可逐帧复现。</p>",
+   "facts": [
+    [
+     "来源",
+     "Boids 沙盒 0.4 导出"
+    ],
+    [
+     "帧数",
+     "1200 帧叠加"
+    ],
+    [
+     "种子",
+     "bd-2214，可复现"
+    ],
+    [
+     "验证",
+     "导出与实时轨迹逐点一致"
+    ]
+   ],
+   "related": [
+    {
+     "page": "games",
+     "icon": "BD",
+     "hue": "teal",
+     "b": "Boids 星群沙盒 0.4",
+     "s": "可运行"
+    }
+   ]
+  },
+  {
+   "slug": "dungeon-gen-timeline",
+   "title": "地牢生成时间序列",
+   "kind": "游戏画面",
+   "slot": "work-13",
+   "hue": "teal",
+   "date": "2026-05",
+   "status": "测试归档",
+   "desc": "<p>同一种子下地牢生成器四个阶段的对照：房间播撒、走廊连通、主路径标记、装饰落位。用于回归测试——任何阶段的输出变化都会在对照表里现形。</p>",
+   "facts": [
+    [
+     "管线",
+     "四阶段生成器"
+    ],
+    [
+     "用途",
+     "生成回归基线"
+    ],
+    [
+     "种子",
+     "d3-7741 系列"
+    ],
+    [
+     "验证",
+     "阶段输出哈希锁定"
+    ]
+   ],
+   "related": [
+    {
+     "page": "games",
+     "icon": "DG",
+     "hue": "",
+     "b": "地牢生成可视化 0.2",
+     "s": "开发中"
+    },
+    {
+     "work": "emberdeep-voxel-scene",
+     "icon": "VX",
+     "hue": "green",
+     "b": "EMBERDEEP Voxel 场景",
+     "s": "作品"
+    }
+   ]
+  },
+  {
+   "slug": "voxel-sculpt-process",
+   "title": "体素雕刻过程记录",
+   "kind": "动画",
+   "slot": "work-14",
+   "hue": "",
+   "date": "2026-07",
+   "status": "进行中",
+   "desc": "<p>体素雕刻台上一件胸像从方块到成型的过程记录：对称轴锁定、逐层削减、材质试色。工具本身还在 0.3，这份记录同时也是它的功能验收样本。</p>",
+   "facts": [
+    [
+     "工具",
+     "体素雕刻台 0.3"
+    ],
+    [
+     "时长",
+     "47 分钟操作压缩"
+    ],
+    [
+     "状态",
+     "工具与作品同步迭代"
+    ],
+    [
+     "验证",
+     "操作流可完整重放"
+    ]
+   ],
+   "related": [
+    {
+     "page": "games",
+     "icon": "VS",
+     "hue": "blue",
+     "b": "体素雕刻台 0.3",
+     "s": "创作实验"
+    }
+   ]
+  },
+  {
+   "slug": "avatar-style-transfer",
+   "title": "AI 头像风格迁移矩阵",
+   "kind": "AI 图像",
+   "slot": "work-15",
+   "hue": "green",
+   "date": "2026-06",
+   "status": "实验归档",
+   "desc": "<p>一致性实验的续篇：固定角色特征，横轴换风格、纵轴换模型版本的迁移矩阵。结论与上一轮一致——发型与配饰锁定后，跨风格的角色可辨识度显著提升。</p>",
+   "facts": [
+    [
+     "方法",
+     "特征锁定 + 风格矩阵"
+    ],
+    [
+     "样本",
+     "4 风格 × 3 版本"
+    ],
+    [
+     "标注",
+     "双盲可辨识度评分"
+    ],
+    [
+     "结论",
+     "可辨识率 91%"
+    ]
+   ],
+   "related": [
+    {
+     "work": "ai-avatar-consistency",
+     "icon": "IA",
+     "hue": "teal",
+     "b": "AI 头像一致性实验",
+     "s": "作品"
+    }
+   ]
+  },
+  {
+   "slug": "material-upscale-bench",
+   "title": "材质 AI 上采样对照",
+   "kind": "AI 图像",
+   "slot": "work-16",
+   "hue": "teal",
+   "date": "2026-04",
+   "status": "测试归档",
+   "desc": "<p>地牢材质库从 256 到 1024 的三种上采样路径对照：传统插值、AI 超分、AI 超分 + 手工修补。石材细节保留率与瓦片接缝表现的量化记录。</p>",
+   "facts": [
+    [
+     "样本",
+     "36 张材质贴图"
+    ],
+    [
+     "路径",
+     "3 种上采样对照"
+    ],
+    [
+     "指标",
+     "细节保留 + 接缝评分"
+    ],
+    [
+     "结论",
+     "AI+修补 路线入库"
+    ]
+   ],
+   "related": [
+    {
+     "work": "procedural-dungeon-materials",
+     "icon": "VX",
+     "hue": "green",
+     "b": "程序化地牢材质测试",
+     "s": "作品"
+    }
+   ]
+  }
+ ],
+ "commentSeeds": {
+  "article:*": [
+   {
+    "site": true,
+    "who": "Randy Hopkins",
+    "when": "2026-07-20",
+    "text": "欢迎讨论。登录后即可发言，评论公开可见，你可以随时删除自己的评论。这里期待的是围绕文章内容的经验与勘误——我会定期回来逐条处理。"
+   }
+  ],
+  "work:*": [
+   {
+    "site": true,
+    "who": "Randy Hopkins",
+    "when": "2026-07-20",
+    "text": "关于这批视觉作品：全部由站内生成器按主题绘制，参数与种子都在源码里。构图与配色的讨论欢迎留在这里，评论公开可见。"
+   }
+  ],
+  "project:*": [
+   {
+    "site": true,
+    "who": "Randy Hopkins",
+    "when": "2026-07-20",
+    "text": "项目档案页的所有状态以实际测试记录为准。发现档案里有过期信息，欢迎在这里记一条——下次核对时我会以页面数据为准逐条处理。"
+   }
+  ],
+  "article:fablemotion-s3-timeline": [
+   {
+    "site": true,
+    "who": "Randy Hopkins",
+    "when": "2026-07-21",
+    "text": "补充：时间轴终版 UI 的取舍在 4.2 节新增了实测数据，之前争论的「关键帧吸附阈值」按 8px 定稿。"
+   }
+  ],
+  "game:*": [
+   {
+    "site": true,
+    "who": "Randy Hopkins",
+    "when": "2026-07-26",
+    "text": "每个游戏的详情页都开了讨论区。手感、bug、关卡建议都欢迎记在这里——评论公开可见，我会在下个版本的开发日志里回应。"
+   }
+  ]
+ },
+ "forumCategories": [
+  {
+   "id": "announce",
+   "name": "公告",
+   "desc": "站点与论坛的官方说明"
+  },
+  {
+   "id": "product",
+   "name": "产品讨论",
+   "desc": "FableMotion、扩展与工具的使用交流"
+  },
+  {
+   "id": "tech",
+   "name": "技术交流",
+   "desc": "实现细节、工程方法与实测数据"
+  },
+  {
+   "id": "meta",
+   "name": "站务反馈",
+   "desc": "问题报告与改进建议"
+  }
+ ],
+ "forumSeeds": [
+  {
+   "id": "t-announce",
+   "cat": "公告",
+   "pinned": true,
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-21",
+   "title": "论坛使用说明与版规",
+   "py": "ltsysmybg",
+   "text": "欢迎来到论坛。注册并登录后即可发主题与回帖，内容公开可见，你可以随时删除自己发布的内容。\n\n版规两条：讨论围绕站内项目与技术；尊重每一位真实署名的参与者，不要发布敏感个人信息。\n\n技术说明：论坛数据存储在站点后端（Supabase + 行级安全策略），后端不可达时论坛自动进入只读模式——历史内容照常可读，发帖入口暂时收起。计数一律真实，不伪造用户与热度。",
+   "replies": []
+  },
+  {
+   "id": "t-v63-changelog",
+   "cat": "公告",
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-24",
+   "title": "V63 更新日志：论坛上线、拼音首字母搜索与键盘导航",
+   "py": "gxrzltsxpyszmsjypdh",
+   "text": "本版三件事：① 论坛上线（就是你现在所在的地方——上线之初为本地演示，V68 起已接入真实后端）；② 搜索支持拼音首字母，如 dwjgjx → 单文件工具箱；③ g 系列两键导航与 ? 帮助面板。完整变更与验收数据见「单文件 App 的零构建工作流与天花板」一文的方法论——每一版都过几何矩阵与功能清单两道验收。",
+   "replies": []
+  },
+  {
+   "id": "t-fm-timeline",
+   "cat": "产品讨论",
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-21",
+   "title": "FableMotion S3 时间轴：你的工作流还缺什么？",
+   "py": "sjzndgzlhqsm",
+   "text": "S3 的时间轴终版 UI 定稿了（对应文章《从模块化到时间轴终版 UI》）。关键帧吸附按 8px 定稿、洋葱皮默认三帧。下一轮迭代我在排这些候选：曲线预设库、音频波形对齐、多轨道折叠。你的动画工作流里最缺哪个？直接回在这帖里当备忘。",
+   "replies": [
+    {
+     "site": true,
+     "who": "Randy Hopkins",
+     "when": "2026-07-22",
+     "text": "补充一条：曲线预设库已经进了草稿分支，Graph Editor 曲线研究那件作品就是它的视觉预研。"
+    }
+   ]
+  },
+  {
+   "id": "t-svg-assets",
+   "cat": "技术交流",
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-23",
+   "title": "生成式 SVG 素材系统：40 个槽位的做法与局限",
+   "py": "scsssclxtdzfyjx",
+   "text": "站内全部视觉素材来自一个确定性生成器：17 个母题函数 × 调色板 × 种子，输出 base64 SVG 进 data 映射。收益是零版权风险、体积可控、主题统一；局限也明确——它画不了实机截图，所以每个槽位都保留 data-asset-slot，未来逐项换成真图不动结构。这帖聊聊生成式素材在个人站的边界。",
+   "replies": []
+  },
+  {
+   "id": "t-regression",
+   "cat": "技术交流",
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-22",
+   "title": "单文件站点的回归验收方法交流",
+   "py": "dwjzddhgysffjl",
+   "text": "这个站每个版本都过两道验收：几何矩阵比对（10 断点 × 3 密度 × 全视图 × 明暗 × 面板态，逐元素 rect + 计算样式哈希）和功能清单（路由、面板、键盘、离线）。方法和脚本在《单文件 App 的零构建工作流与天花板》里有复盘。你们给纯前端项目做回归用什么思路？欢迎交流。",
+   "replies": []
+  },
+  {
+   "id": "t-mv3-ux",
+   "cat": "技术交流",
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-20",
+   "title": "MV3 动态域名授权弹窗，怎么做才不打断用户？",
+   "py": "dtymsqtczmzcbdcyh",
+   "text": "Image Atlas Pro 的授权流程重做过三版：从「装扩展时全量申请」改成「首次用到某域名时按需申请」。实测通过率上去了，但弹窗时机还是有争议——用户正在框选时弹授权最伤。文章《Chrome MV3 动态域名授权与用户激活》记录了取舍，这帖收集更好的时机方案。",
+   "replies": []
+  },
+  {
+   "id": "t-feedback",
+   "cat": "站务反馈",
+   "site": true,
+   "who": "Randy Hopkins",
+   "when": "2026-07-19",
+   "title": "站点问题与建议收集帖",
+   "py": "zdwtyjysjt",
+   "text": "发现排版错位、链接失效、文字错误，或者想要的功能，登录后直接记在这帖下面——它现在就是真正的反馈通道，我会在版本日志里逐条回应处理结果。",
+   "replies": [
+    {
+     "site": true,
+     "who": "Randy Hopkins",
+     "when": "2026-07-23",
+     "text": "自己先记一条：移动端 390px 以下，作品页瀑布流的列宽还可以再收 10px。下版处理。"
+    }
+   ]
+  }
+ ],
+ "gamesDetail": [
+  {
+   "slug": "emberdeep",
+   "title": "EMBERDEEP",
+   "kind": "可玩 Demo",
+   "slot": "game-4",
+   "hue": "green",
+   "ver": "0.8",
+   "status": "活跃开发 · 可玩 Demo",
+   "date": "2026-07-17",
+   "intro": "<p>Voxel Roguelike：体素地牢、火把光照、职业与技能树。0.8 版的主线是把旧存档迁移到新的职业系统——对应文章《职业技能树与旧存档迁移》里的全部实测。</p><p>Demo 可以直接在浏览器里玩到当前构建；不包装成商业发行，版本号如实反映完成度。</p>",
+   "log": [
+    [
+     "0.8",
+     "2026-07-17",
+     "职业技能树重构落地，旧存档迁移工具随版本内置"
+    ],
+    [
+     "0.7",
+     "2026-06-28",
+     "体素光照改为逐块烘焙，帧率稳定在 60"
+    ],
+    [
+     "0.6",
+     "2026-06-02",
+     "地牢生成从房间模板切换到图生成"
+    ]
+   ],
+   "issues": "移动端触控操作仍在设计；超大地图（>64³）在低端设备上生成耗时明显；音效占位。",
+   "facts": [
+    [
+     "形态",
+     "Voxel Roguelike"
+    ],
+    [
+     "版本",
+     "0.8"
+    ],
+    [
+     "引擎",
+     "自研 · Canvas/WebGL"
+    ],
+    [
+     "状态",
+     "活跃开发"
+    ],
+    [
+     "最后核对",
+     "2026-07-17"
+    ]
+   ]
+  },
+  {
+   "slug": "threejs-rubik",
+   "title": "Three.js 魔方",
+   "kind": "Web 3D",
+   "slot": "game-2",
+   "hue": "blue",
+   "ver": "1.0",
+   "status": "已完成 · 可玩",
+   "date": "2026-05-20",
+   "intro": "<p>Three.js 练手作：完整魔方求解交互，拖拽转层、打乱、还原动画。作为 Web 3D 系列的第一课，代码保持最小依赖。</p>",
+   "log": [
+    [
+     "1.0",
+     "2026-05-20",
+     "求解动画与移动端手势完成，画上句号"
+    ],
+    [
+     "0.9",
+     "2026-05-11",
+     "四元数旋转替换欧拉角，修复万向锁"
+    ]
+   ],
+   "issues": "不再新增功能；仅跟随浏览器兼容性做维护。",
+   "facts": [
+    [
+     "形态",
+     "Web 3D 交互"
+    ],
+    [
+     "版本",
+     "1.0"
+    ],
+    [
+     "依赖",
+     "Three.js"
+    ],
+    [
+     "状态",
+     "已完成"
+    ],
+    [
+     "最后核对",
+     "2026-05-20"
+    ]
+   ]
+  },
+  {
+   "slug": "pixel-dungeon-lab",
+   "title": "像素地牢实验",
+   "kind": "可玩 Demo",
+   "slot": "game-3",
+   "hue": "teal",
+   "ver": "0.5",
+   "status": "实验 · 可玩",
+   "date": "2026-06-15",
+   "intro": "<p>像素风地牢爬行实验：回合制移动、视野迷雾、火把照明。EMBERDEEP 的许多机制先在这里小规模验证。</p>",
+   "log": [
+    [
+     "0.5",
+     "2026-06-15",
+     "视野算法从射线改为阴影投射"
+    ],
+    [
+     "0.4",
+     "2026-05-30",
+     "房间生成器与走廊连通"
+    ]
+   ],
+   "issues": "平衡性未调；作为机制试验田长期保持实验状态。",
+   "facts": [
+    [
+     "形态",
+     "像素 Roguelike"
+    ],
+    [
+     "版本",
+     "0.5"
+    ],
+    [
+     "渲染",
+     "Canvas 2D"
+    ],
+    [
+     "状态",
+     "实验"
+    ],
+    [
+     "最后核对",
+     "2026-06-15"
+    ]
+   ]
+  },
+  {
+   "slug": "audio-tower-defense",
+   "title": "声波塔防",
+   "kind": "可玩 Demo",
+   "slot": "game-7",
+   "hue": "green",
+   "ver": "0.6",
+   "status": "开发中 · 可玩",
+   "date": "2026-07-02",
+   "intro": "<p>用 Web Audio 实时分析驱动的塔防：敌人沿波形地形行进，塔的射速与音频频段联动。程序化声场项目的可玩化延伸。</p>",
+   "log": [
+    [
+     "0.6",
+     "2026-07-02",
+     "频段→塔属性的映射表可视化调参"
+    ],
+    [
+     "0.5",
+     "2026-06-20",
+     "波形地形生成与寻路"
+    ]
+   ],
+   "issues": "Safari 的 AudioWorklet 兼容性待验证；关卡只有 3 个。",
+   "facts": [
+    [
+     "形态",
+     "音频塔防"
+    ],
+    [
+     "版本",
+     "0.6"
+    ],
+    [
+     "音频",
+     "Web Audio API"
+    ],
+    [
+     "状态",
+     "开发中"
+    ],
+    [
+     "最后核对",
+     "2026-07-02"
+    ]
+   ]
+  },
+  {
+   "slug": "boids-sandbox",
+   "title": "Boids 星群沙盒",
+   "kind": "Web 3D",
+   "slot": "game-8",
+   "hue": "teal",
+   "ver": "0.9",
+   "status": "可玩 · 打磨中",
+   "date": "2026-06-25",
+   "intro": "<p>三千个体的 Boids 群体模拟沙盒：分离/对齐/聚拢参数实时可调，轨迹长曝光模式一键出图（作品区那张就是它导出的）。</p>",
+   "log": [
+    [
+     "0.9",
+     "2026-06-25",
+     "GPU instancing 重写，个体数 300→3000"
+    ],
+    [
+     "0.8",
+     "2026-06-10",
+     "长曝光渲染模式"
+    ]
+   ],
+   "issues": "参数预设还没做保存；移动端默认降到 800 个体。",
+   "facts": [
+    [
+     "形态",
+     "群体模拟沙盒"
+    ],
+    [
+     "版本",
+     "0.9"
+    ],
+    [
+     "渲染",
+     "Three.js instancing"
+    ],
+    [
+     "状态",
+     "打磨中"
+    ],
+    [
+     "最后核对",
+     "2026-06-25"
+    ]
+   ]
+  },
+  {
+   "slug": "gravity-golf",
+   "title": "重力高尔夫",
+   "kind": "可玩 Demo",
+   "slot": "game-9",
+   "hue": "orange",
+   "ver": "0.7",
+   "status": "可玩 · 开发中",
+   "date": "2026-06-18",
+   "intro": "<p>行星引力场里打高尔夫：瞄准、蓄力、看弹道被多颗星体弯折。物理是自写的二体近似，误差在关卡尺度内可接受。</p>",
+   "log": [
+    [
+     "0.7",
+     "2026-06-18",
+     "弹道预览线与 12 个关卡"
+    ],
+    [
+     "0.6",
+     "2026-06-05",
+     "引力场叠加与回放"
+    ]
+   ],
+   "issues": "关卡编辑器只在开发构建里；手感参数仍在迭代。",
+   "facts": [
+    [
+     "形态",
+     "物理弹道解谜"
+    ],
+    [
+     "版本",
+     "0.7"
+    ],
+    [
+     "物理",
+     "自研二体近似"
+    ],
+    [
+     "状态",
+     "开发中"
+    ],
+    [
+     "最后核对",
+     "2026-06-18"
+    ]
+   ]
+  },
+  {
+   "slug": "dungeon-gen-viz",
+   "title": "地牢生成可视化",
+   "kind": "开发中",
+   "slot": "game-10",
+   "hue": "green",
+   "ver": "0.4",
+   "status": "开发中 · 可视化可用",
+   "date": "2026-07-10",
+   "intro": "<p>把 EMBERDEEP 的图生成算法逐步可视化：房间图、最小生成树、回环补边、走廊挖掘，每一步都能单步观看。既是调试工具也是教学演示。</p>",
+   "log": [
+    [
+     "0.4",
+     "2026-07-10",
+     "逐步播放与种子输入"
+    ],
+    [
+     "0.3",
+     "2026-06-30",
+     "MST 与回环补边可视化"
+    ]
+   ],
+   "issues": "导出 GIF 未做；大种子（>10⁶ 节点）会卡 UI 线程。",
+   "facts": [
+    [
+     "形态",
+     "算法可视化"
+    ],
+    [
+     "版本",
+     "0.4"
+    ],
+    [
+     "算法",
+     "图生成 + MST"
+    ],
+    [
+     "状态",
+     "开发中"
+    ],
+    [
+     "最后核对",
+     "2026-07-10"
+    ]
+   ]
+  },
+  {
+   "slug": "tactics-prototype",
+   "title": "回合制战棋原型",
+   "kind": "开发中",
+   "slot": "game-11",
+   "hue": "green",
+   "ver": "0.3",
+   "status": "原型 · 内部测试",
+   "date": "2026-07-05",
+   "intro": "<p>六边形棋盘的回合制战棋原型：移动范围、先攻序、地形加成。棋盘布局的设计稿在作品区，代码在验证棋规是否成立。</p>",
+   "log": [
+    [
+     "0.3",
+     "2026-07-05",
+     "先攻序与 AI 假人对战"
+    ],
+    [
+     "0.2",
+     "2026-06-22",
+     "移动/攻击范围计算"
+    ]
+   ],
+   "issues": "没有存档；AI 只会走最近路线；美术全部占位。",
+   "facts": [
+    [
+     "形态",
+     "回合制战棋"
+    ],
+    [
+     "版本",
+     "0.3"
+    ],
+    [
+     "棋盘",
+     "六边形网格"
+    ],
+    [
+     "状态",
+     "原型"
+    ],
+    [
+     "最后核对",
+     "2026-07-05"
+    ]
+   ]
+  },
+  {
+   "slug": "voxel-sculpt",
+   "title": "体素雕刻台",
+   "kind": "开发中",
+   "slot": "game-12",
+   "hue": "blue",
+   "ver": "0.5",
+   "status": "开发中 · 可试用",
+   "date": "2026-06-29",
+   "intro": "<p>浏览器里的体素雕刻工具：加减笔刷、镜像对称、调色板。为 EMBERDEEP 的角色与道具建模服务，导出格式与游戏管线打通。</p>",
+   "log": [
+    [
+     "0.5",
+     "2026-06-29",
+     "镜像对称与撤销栈"
+    ],
+    [
+     "0.4",
+     "2026-06-12",
+     "导出到 EMBERDEEP 体素格式"
+    ]
+   ],
+   "issues": "旋转手势与笔刷快捷键冲突待解；大模型（128³）内存占用偏高。",
+   "facts": [
+    [
+     "形态",
+     "创作工具（游戏向）"
+    ],
+    [
+     "版本",
+     "0.5"
+    ],
+    [
+     "导出",
+     "EMBERDEEP voxel"
+    ],
+    [
+     "状态",
+     "开发中"
+    ],
+    [
+     "最后核对",
+     "2026-06-29"
+    ]
+   ]
+  }
+ ]
+}

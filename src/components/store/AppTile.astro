@@ -1,0 +1,8 @@
+---
+/** 网格格子（T10.1）：StoreEntry 的 tile 形态（货架 / 列表网格视图） */
+import StoreEntry from './StoreEntry.astro';
+type P = Omit<import('astro/types').ComponentProps<typeof StoreEntry>, 'variant'>;
+const props = Astro.props as P;
+---
+
+<StoreEntry {...props} variant="tile" />

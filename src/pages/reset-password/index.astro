@@ -1,0 +1,83 @@
+---
+import Base from '@/layouts/Base.astro';
+import TurnstileField from '@/components/TurnstileField.astro';
+---
+
+<Base
+  title="找回密码"
+  description="通过注册邮箱重置 AZ Studio 账户密码。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '找回密码', path: '/reset-password/' },
+  ]}
+>
+  <div class="auth-wrap">
+    <section class="auth-card" aria-labelledby="reset-title">
+      <h1 id="reset-title" data-reset-title>
+        找回密码
+      </h1>
+      <div data-reset-request>
+        <p class="auth-card__lede">输入注册邮箱，我们会发送一封带重置链接的邮件。</p>
+        <form class="form" data-auth-form="reset-request" novalidate>
+          <div class="field">
+            <label for="reset-email">邮箱</label>
+            <input
+              id="reset-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              inputmode="email"
+              required
+            />
+            <p class="field__error" data-error-for="email"></p>
+          </div>
+          <TurnstileField action="recover" />
+          <p class="notice notice--error form-status" role="alert" data-form-status></p>
+          <button class="btn btn--primary btn--block" type="submit">
+            发送重置邮件
+          </button>
+        </form>
+      </div>
+      <div data-reset-update hidden>
+        <p class="auth-card__lede">
+          为账户 <strong data-reset-email></strong> 设置新密码。
+        </p>
+        <form class="form" data-auth-form="reset-update" novalidate>
+          <div class="field">
+            <label for="new-password">新密码</label>
+            <input
+              id="new-password"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              maxlength="72"
+              required
+            />
+            <p class="field__hint">至少 8 位，同时包含字母和数字。</p>
+            <p class="field__error" data-error-for="password"></p>
+          </div>
+          <div class="field">
+            <label for="new-password2">确认新密码</label>
+            <input id="new-password2" name="password2" type="password" autocomplete="new-password" required />
+            <p class="field__error" data-error-for="password2"></p>
+          </div>
+          <p class="notice notice--error form-status" role="alert" data-form-status></p>
+          <button class="btn btn--primary btn--block" type="submit">
+            保存新密码
+          </button>
+        </form>
+      </div>
+      <p class="notice notice--error" data-reset-expired hidden>
+        重置链接已失效或已在别的浏览器打开。请<a href="/reset-password/">重新发送重置邮件</a>。
+      </p>
+      <p class="auth-foot">
+        <a href="/login/">返回登录</a>
+      </p>
+    </section>
+  </div>
+  <script>
+    import '@/scripts/auth-pages';
+  </script>
+</Base>

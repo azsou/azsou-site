@@ -1,0 +1,10 @@
+---
+/** 骨架（DESIGN-SYSTEM §12）：与真实内容同尺寸的灰块；读屏忽略。 */
+interface Props {
+  kind?: 'text' | 'title' | 'icon' | 'card';
+  class?: string;
+}
+const { kind = 'text', class: cls } = Astro.props;
+---
+
+<span class:list={['skeleton', `skeleton--${kind}`, cls]} aria-hidden="true"></span>

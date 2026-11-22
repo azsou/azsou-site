@@ -1,0 +1,18 @@
+---
+/**
+ * Tooltip（DESIGN-SYSTEM §16，替代原生 title）：hover 300ms 延迟 / focus 立即；role="tooltip" + aria-describedby。
+ * 触发元素放在默认 slot，必须可聚焦。
+ */
+interface Props {
+  text: string;
+  id: string;
+}
+const { text, id } = Astro.props;
+---
+
+<span class="tip" data-tip-for={id}>
+  <slot />
+  <span class="tip__bubble" role="tooltip" id={id}>
+    {text}
+  </span>
+</span>

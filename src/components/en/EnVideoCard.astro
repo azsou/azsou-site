@@ -1,0 +1,38 @@
+---
+/** 英文版视频卡片（T7.6）：标题用平台原标题；不显示播放量 */
+import VideoThumb from '@/components/videos/VideoThumb.astro';
+import { CARD_SIZES } from '@/lib/videos';
+interface Props {
+  slug: string;
+  title: string;
+  channel: string;
+  duration?: string;
+  meta: string;
+  headingLevel?: 'h2' | 'h3';
+}
+const { slug, title, channel, duration, meta, headingLevel = 'h2' } = Astro.props;
+const H = headingLevel;
+---
+
+<article class="card video-card">
+  <div class="video-card__media">
+    <VideoThumb slug={slug} alt={`${title} video thumbnail`} sizes={CARD_SIZES} />
+    {duration && (
+      <span class="video-card__dur">
+        <span aria-hidden="true">{duration}</span>
+        <span class="visually-hidden">Duration {duration}</span>
+      </span>
+    )}
+  </div>
+  <div class="video-card__body">
+    <H class="card__title video-card__title">
+      <a class="card__link" href={`/en/videos/${slug}/`}>
+        {title}
+      </a>
+    </H>
+    <p class="video-card__meta">
+      <span>{channel}</span>
+      <span>{meta}</span>
+    </p>
+  </div>
+</article>

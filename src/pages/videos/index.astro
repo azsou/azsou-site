@@ -1,0 +1,27 @@
+---
+import VideoGrid from '@/components/videos/VideoGrid.astro';
+import { getVideos, videoItem } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { itemList } from '@/lib/seo';
+
+const all = (await getVideos()).map(videoItem);
+---
+
+<VideoGrid
+  title="视频"
+  description="精选 AI 编程、游戏开发（Godot / Unity / Unreal / Blender）、独立游戏与入门教程视频：官方频道、可公开嵌入，每个都配原创中文导读与要点。点击后才加载播放器，本站不转载视频。"
+  lede="精选官方频道的 AI 编程与游戏开发视频，每个都配原创中文导读。点击播放后才加载播放器。"
+  all={all}
+  items={all}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '视频', path: url.videos() },
+  ]}
+  schema={[
+    itemList(
+      '视频',
+      url.videos(),
+      all.map((v) => ({ name: v.title, path: v.url })),
+    ),
+  ]}
+/>

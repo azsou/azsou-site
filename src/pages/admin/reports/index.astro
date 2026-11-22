@@ -1,0 +1,61 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout
+  section="reports"
+  title="举报队列"
+  lede="处理用户举报：隐藏、锁定、警告、封禁或驳回；每个操作都会写入审计日志。"
+>
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="按状态筛选" data-status-filter>
+      <button type="button" data-value="open" aria-pressed="true">
+        待处理
+      </button>
+      <button type="button" data-value="resolved" aria-pressed="false">
+        已处理
+      </button>
+      <button type="button" data-value="dismissed" aria-pressed="false">
+        已驳回
+      </button>
+      <button type="button" data-value="all" aria-pressed="false">
+        全部
+      </button>
+    </div>
+    <div class="field">
+      <label for="rp-type">举报对象</label>
+      <select id="rp-type" data-type-filter>
+        <option value="">全部</option>
+        <option value="thread">主题</option>
+        <option value="reply">回复</option>
+        <option value="comment">评论</option>
+        <option value="profile">用户</option>
+        <option value="review">应用评价</option>
+      </select>
+    </div>
+  </div>
+  <div class="bulkbar glass" data-bulkbar hidden>
+    <span class="bulkbar__count" data-selected-count>
+      已选 0 项
+    </span>
+    <button class="btn btn--sm" type="button" data-bulk="dismiss">
+      批量驳回
+    </button>
+    <button class="btn btn--sm btn--primary" type="button" data-bulk="handle">
+      批量处理…
+    </button>
+  </div>
+  <div class="btn-row" data-select-row>
+    <label class="check">
+      <input type="checkbox" data-select-all />
+      <span>全选本页待处理举报</span>
+    </label>
+  </div>
+  <ul class="report-list" role="list" data-list aria-busy="true" aria-label="举报列表"></ul>
+  <nav class="pagination" aria-label="分页" data-pager></nav>
+  <p class="data-status" role="status" data-status></p>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/reports';
+</script>

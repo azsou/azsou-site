@@ -1,0 +1,28 @@
+---
+import AppCatalog from '@/components/apps/AppCatalog.astro';
+import { getCatalog } from '@/lib/content';
+import { paginate, pageUrl } from '@/lib/app-store';
+
+export async function getStaticPaths() {
+  const all = await getCatalog();
+  const { pages } = paginate(all, 1);
+  return Array.from({ length: pages - 1 }, (_, i) => ({ params: { page: String(i + 2) }, props: { all } }));
+}
+const { all } = Astro.props;
+const page = Number(Astro.params.page);
+---
+
+<AppCatalog
+  title="应用"
+  description={`AZ Studio 应用第 ${page} 页：AZ Studio 出品与精选的应用，可按平台、分类、价格筛选，查看版本、平台与更新日期。`}
+  lede="AZ Studio 出品与精选的应用，可按平台、分类与价格筛选。"
+  all={all}
+  items={all}
+  page={page}
+  base="/apps/"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '应用', path: '/apps/' },
+    { name: `第 ${page} 页`, path: pageUrl('/apps/', page) },
+  ]}
+/>

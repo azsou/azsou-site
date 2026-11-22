@@ -1,0 +1,117 @@
+---
+/**
+ * AI 工具列表（/ai/ 与 /ai/category/<分类>/ 共用）：分类标签页（静态链接，零 JS 可浏览）是唯一常驻的筛选，
+ * 价格 / 开源收进「更多筛选」弹层（T9.12，island）+ 瀑布流卡片。
+ * 筛选只隐藏 / 显示已渲染的卡片，状态写进查询串（?price=free&oss=1），可分享、可后退。
+ */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import AppTile from '@/components/store/AppTile.astro';
+import ListShell from '@/components/store/ListShell.astro';
+import { getTools } from '@/lib/content';
+import { fromTool, type StoreEntry } from '@/lib/store';
+import MoreFilters from '@/components/ui/MoreFilters.astro';
+import {
+  AI_CATEGORIES,
+  AI_CATEGORY_IDS,
+  PRICE_LABEL,
+  PRICE_MODELS,
+  type AiCategory,
+  type ToolItem,
+} from '@/lib/app-store';
+import { url } from '@/lib/routes';
+import type { Crumb } from '@/lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  lede: string;
+  all: ToolItem[];
+  items: ToolItem[];
+  crumbs: Crumb[];
+  category?: AiCategory;
+  schema?: Record<string, unknown>[];
+}
+const { title, description, lede, all, items, crumbs, category, schema = [] } = Astro.props;
+const prices = PRICE_MODELS.filter((p) => items.some((t) => t.price === p));
+const count = (c: AiCategory) => all.filter((t) => t.categories.includes(c)).length;
+const ossCount = items.filter((t) => t.openSource).length;
+// T10.8：卡片换成统一商店条目（同一份 HTML 网格 / 列表两种排版）；默认顺序 = 编辑推荐（工具没有真实更新日期）
+const entryBySlug = new Map<string, StoreEntry>((await getTools()).map((t) => [t.id, fromTool(t)]));
+---
+
+<Base title={title} description={description} crumbs={crumbs} schema={schema}>
+  <PageHead eyebrow="AI 工具" title={title} lede={lede} />
+
+  <ListShell
+    railLabel="分类"
+    railName="AI 工具分类"
+    rail={[
+      { label: '全部', href: url.ai(), count: all.length, current: !category },
+      ...AI_CATEGORY_IDS.map((c) => ({
+        label: AI_CATEGORIES[c],
+        href: url.aiCategory(c),
+        count: count(c),
+        current: category === c,
+      })),
+    ]}
+    status={`共 ${items.length} 个工具 · 只链接官方地址，本站不托管安装包`}
+    statusAttrs={{ 'data-ai-status': '' }}
+    sort="editor"
+  >
+    <div class="filter-bar" slot="before">
+      <MoreFilters>
+        <div class="ai-filter" data-ai-filter role="group" aria-label="更多筛选">
+          <div class="field">
+            <span class="field__label" id="af-price-label">
+              价格
+            </span>
+            <div class="segmented segmented--inline" role="group" aria-labelledby="af-price-label">
+              <button type="button" data-price="" aria-pressed="true" disabled>
+                全部
+              </button>
+              {prices.map((p) => (
+                <button type="button" data-price={p} aria-pressed="false" disabled>
+                  {PRICE_LABEL[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label class="ai-filter__oss">
+            <input type="checkbox" data-oss disabled />
+            只看开源（{ossCount}）
+          </label>
+        </div>
+      </MoreFilters>
+    </div>
+    <ul class="list-items" data-grid="tile" role="list" data-ai-grid data-list-items data-view="grid">
+      {items.map((t, i) => (
+        <li
+          data-tool={t.slug}
+          data-cats={t.categories.join(' ')}
+          data-price={t.price}
+          data-oss={t.openSource ? '1' : '0'}
+        >
+          <AppTile
+            entry={entryBySlug.get(t.slug)!}
+            headingLevel="h2"
+            eager={i < 15}
+            priority={i < 5}
+            fields={['category', 'pricing']}
+          />
+        </li>
+      ))}
+    </ul>
+    <p class="empty-state" data-ai-empty hidden>
+      没有符合条件的工具，换个筛选条件试试。
+    </p>
+  </ListShell>
+  <p class="muted mt-6 ai-note">
+    收录的都是第三方工具，信息核对于各自详情页注明的日期，价格与功能以官方网站为准。图标版权归各自所有者，仅用于识别。
+  </p>
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/ai/filter'));
+</script>

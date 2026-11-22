@@ -1,0 +1,76 @@
+---
+import Base from '@/layouts/Base.astro';
+import { itemList } from '@/lib/seo';
+import PageHead from '@/components/PageHead.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import Segmented from '@/components/Segmented.astro';
+import MoreFilters from '@/components/ui/MoreFilters.astro';
+import { getArticles } from '@/lib/content';
+import { TAGS } from '@/lib/tags';
+import { url } from '@/lib/routes';
+import AdSlot from '@/components/ads/AdSlot.astro';
+/** 列表间广告：每 6 篇之后一个（不在最后一篇之后），广告关闭时不输出 */
+const AD_EVERY = 6;
+const articles = await getArticles();
+/** T9.12 单套筛选：按篇数取前 4 个标签常驻在分段控件里，其余标签收进「更多筛选」（同样是跳到标签页的链接） */
+const PRIMARY_TAGS = 4;
+const tagCount = new Map<string, number>();
+for (const t of articles.flatMap((a) => a.data.tags)) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+const used = [...tagCount.keys()].sort((a, b) => tagCount.get(b)! - tagCount.get(a)!);
+const primary = used.slice(0, PRIMARY_TAGS);
+const rest = used.slice(PRIMARY_TAGS);
+---
+
+<Base
+  title="原创技术文章"
+  description="真实项目的开发实践、实测与复盘：FableMotion、浏览器扩展、游戏系统与单文件工作流。每篇标注最后核对日期。"
+  schema={[
+    itemList(
+      '原创技术文章',
+      '/articles/',
+      articles.map((g) => ({ name: g.data.title, path: url.article(g.id) })),
+    ),
+  ]}
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '文章', path: '/articles/' },
+  ]}
+>
+  <PageHead
+    eyebrow="文章"
+    title="原创技术文章"
+    lede="真实项目、实测结论和可复现教程。每篇都标注最后核对日期。"
+  >
+    <p>
+      <a href="/articles/rss.xml">订阅 RSS</a> · <a href={url.archive()}>按月归档</a>
+    </p>
+  </PageHead>
+  <div class="filter-bar">
+    <Segmented
+      label="按标签筛选"
+      items={[
+        { href: url.articles(), label: '全部', current: true },
+        ...primary.map((t) => ({ href: url.tag(t), label: TAGS[t]?.name ?? t })),
+      ]}
+    />
+    {rest.length > 0 && (
+      <MoreFilters>
+        <nav class="more-filters__links" aria-label="更多标签">
+          {rest.map((t) => (
+            <a class="chip" href={url.tag(t)}>
+              {TAGS[t]?.name ?? t} <span class="more-filters__count">{tagCount.get(t)}</span>
+            </a>
+          ))}
+        </nav>
+      </MoreFilters>
+    )}
+  </div>
+  <div class="grid" data-grid="media">
+    {articles.map((a, i) => (
+      <>
+        <ArticleCard article={a} />
+        {(i + 1) % AD_EVERY === 0 && i < articles.length - 1 && <AdSlot placement="list" />}
+      </>
+    ))}
+  </div>
+</Base>

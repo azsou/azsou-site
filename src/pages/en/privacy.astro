@@ -1,0 +1,221 @@
+---
+import { formatDate } from '@/lib/dates';
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { contactEmail, GITHUB_ISSUES, LEGAL_UPDATED } from '@/lib/contact';
+import { adsenseClient, ga4Id } from '@/lib/ads';
+const email = contactEmail(import.meta.env);
+const adsOn = !!adsenseClient(import.meta.env);
+const gaOn = !!ga4Id(import.meta.env);
+---
+
+<Base
+  title="Privacy policy"
+  description="What personal data AZ Studio (azsou.com) collects, why, where it is stored, which providers process it, and how you can access, export or delete it."
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Privacy policy', path: '/en/privacy/' },
+  ]}
+>
+  <PageHead
+    eyebrow="Site & legal"
+    title="Privacy policy"
+    lede={`Last updated: ${formatDate(LEGAL_UPDATED, 'en')}`}
+  />
+  <div class="prose mt-8">
+    <p>
+      This policy explains how azsou.com (“AZ Studio”, “we”), a personal developer site run by Randy Hopkins,
+      handles personal information when you browse, sign up, comment, write in the guestbook or subscribe. We
+      collect as little as we can and store hashes instead of originals wherever possible. The Chinese version
+      is at{' '}
+      <a href="/privacy/" hreflang="zh-CN">
+        /privacy/
+      </a>
+      ; both say the same thing.
+    </p>
+
+    <h2>Browsing</h2>
+    <ul>
+      <li>
+        <strong>Hosting logs</strong>: the site is hosted on Vercel, which logs technical data such as IP
+        address, time and browser type for security and troubleshooting under Vercel’s privacy policy.
+      </li>
+      <li>
+        <strong>Local storage</strong>: your browser keeps your theme choice, sign-in session, a short-lived
+        settings cache and an offline page cache. None of it is sent to third parties; see the{' '}
+        <a href="/en/cookies/">cookie policy</a>.
+      </li>
+      <li>
+        <strong>Search</strong> runs in your browser (a static Pagefind index); queries are not sent to a
+        server.
+      </li>
+      <li>
+        <strong>Videos</strong> show a locally hosted thumbnail; the YouTube player (youtube-nocookie.com)
+        loads only after you press play, and Google’s privacy policy applies from then on.
+      </li>
+    </ul>
+
+    <h2>Accounts, comments and the forum</h2>
+    <ul>
+      <li>
+        Sign-in (email and password, or GitHub / Google) is handled by Supabase Auth. Our database stores your
+        email, display name, avatar URL and role; passwords are kept only as hashes by the auth service.
+      </li>
+      <li>
+        Threads, replies, likes, bookmarks, reports and uploaded images are stored in Supabase (PostgreSQL and
+        storage) behind row-level security. Forum posts and comments are public — please do not post sensitive
+        personal details.
+      </li>
+      <li>
+        Moderator actions are written to an audit log to prevent abuse. Exports and admin lists do not include
+        emails.
+      </li>
+    </ul>
+
+    <h2>Guestbook and link exchange</h2>
+    <ul>
+      <li>
+        The guestbook stores only the nickname and message you type; entries are published after review.
+      </li>
+      <li>
+        Link-exchange requests store the site name, URL, description and any contact detail you choose to give
+        (admins only).
+      </li>
+      <li>
+        For rate limiting we store a keyed client digest that cannot be turned back into an IP address. We do
+        not store IPs.
+      </li>
+    </ul>
+
+    <h2>Email subscription</h2>
+    <ul>
+      <li>
+        We store your email, language and subscription status. Double opt-in: the confirmation link is valid
+        for 48 hours.
+      </li>
+      <li>Confirmation and unsubscribe tokens are stored only as SHA-256 hashes.</li>
+      <li>Every email has a one-click unsubscribe link.</li>
+      <li>
+        Mail is delivered by Resend or an SMTP provider configured by the site owner, only for delivery.
+      </li>
+    </ul>
+
+    <h2>Bot protection (Cloudflare Turnstile)</h2>
+    <p>
+      Sign-up, guestbook and subscription forms use Cloudflare Turnstile, which reads technical browser
+      signals to tell humans from bots under Cloudflare’s privacy policy. We only receive a one-time pass /
+      fail token.
+    </p>
+
+    <h2>Analytics and advertising (Google)</h2>
+    <p>
+      {gaOn
+        ? 'We use Google Analytics 4 to see which pages are read and where visitors come from. '
+        : 'No third-party analytics is currently enabled; if we enable Google Analytics 4 it will work as described here. '}
+      {adsOn
+        ? 'We show ads through Google AdSense to pay for hosting and the domain.'
+        : 'No ads are currently shown. If we start showing Google AdSense ads, they will work as described here and this date will change.'}
+    </p>
+    <ul>
+      <li>
+        Third-party vendors, including Google, use cookies (including the DoubleClick cookie) to serve ads
+        based on your visits to this and other websites. You can opt out of personalised advertising in
+        <a href="https://adssettings.google.com/" rel="noopener">
+          Google Ads Settings
+        </a>
+        , or opt out of some third-party vendors’ cookies at{' '}
+        <a href="https://www.aboutads.info/choices/" rel="noopener">
+          aboutads.info
+        </a>
+        .
+      </li>
+      <li>
+        See{' '}
+        <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">
+          how Google uses information from sites that use its services
+        </a>
+        .
+      </li>
+      <li>
+        We implement Google Consent Mode v2: for visitors in the EEA, the UK and Switzerland, ad storage, ad
+        user data, ad personalisation and analytics storage are all denied by default until you answer
+        Google’s certified consent message (AdSense “Privacy &amp; messaging”, IAB TCF). Elsewhere you can
+        turn ad and analytics cookies off at any time in
+        <a href="/en/cookies/#choices">cookie settings</a>.
+      </li>
+      <li>No ads appear on admin, sign-in, form, subscription or legal pages.</li>
+    </ul>
+
+    <h2>Who processes data for us</h2>
+    <p>We do not sell personal information. These providers process data only to run the site:</p>
+    <ul>
+      <li>Vercel (hosting and CDN), Supabase (auth, database, image storage), Cloudflare (Turnstile).</li>
+      <li>Resend or the owner’s SMTP provider (subscription email).</li>
+      <li>
+        Google (YouTube playback after you press play{gaOn && ', Google Analytics'}
+        {adsOn && ', AdSense and consent management'}).
+      </li>
+      <li>GitHub (optional sign-in, and hosting of the site’s source code).</li>
+    </ul>
+    <p>These providers may process data outside your country.</p>
+
+    <h2>Retention</h2>
+    <ul>
+      <li>Account and posts: until you delete them or close your account.</li>
+      <li>
+        Unconfirmed subscriptions expire after 48 hours; unsubscribed addresses keep only the unsubscribed
+        status.
+      </li>
+      <li>
+        Rate-limit digests: only within the rate-limit window, then purged. Audit logs: kept to handle abuse
+        and appeals.
+      </li>
+    </ul>
+
+    <h2>Your rights</h2>
+    <ul>
+      <li>
+        Edit your display name and avatar in <a href="/settings/">account settings</a>; delete your own posts;
+        unsubscribe.
+      </li>
+      <li>
+        To close your account, delete all data or get a copy, contact us below; we act within 30 days after
+        verifying it is you.
+      </li>
+      <li>
+        Withdraw consent in <a href="/en/cookies/#choices">cookie settings</a> or by clearing site data.
+      </li>
+    </ul>
+    <p>
+      Where local law (such as China’s PIPL, the GDPR or the CCPA) gives you more rights, we respect them.
+    </p>
+
+    <h2>Children</h2>
+    <p>The site is for developers and creators and is not directed at children under 14.</p>
+
+    <h2>Contact</h2>
+    <ul>
+      {email && (
+        <li>
+          Email: <a href={`mailto:${email}`}>{email}</a>
+        </li>
+      )}
+      <li>
+        GitHub:{' '}
+        <a href={GITHUB_ISSUES} rel="noopener">
+          azsou/azsou-site issues
+        </a>
+      </li>
+      <li>
+        More options on the <a href="/en/contact/">contact page</a>.
+      </li>
+    </ul>
+
+    <h2>Changes</h2>
+    <p>
+      When this policy changes we update the date at the top. See also the{' '}
+      <a href="/en/cookies/">cookie policy</a> and the
+      <a href="/en/ad-disclosure/">advertising &amp; affiliate disclosure</a>.
+    </p>
+  </div>
+</Base>

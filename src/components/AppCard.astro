@@ -1,0 +1,40 @@
+---
+import type { CatalogItem } from '@/lib/app-store';
+import { PLATFORM_LABEL } from '@/lib/app-store';
+import AppIcon from './apps/AppIcon.astro';
+import Status from './Status.astro';
+interface Props {
+  item: CatalogItem;
+  headingLevel?: 'h2' | 'h3';
+  /** 首屏内的卡片传 true：图标 eager + 同步解码（DESIGN-SYSTEM §19.3） */
+  eager?: boolean;
+  /** eager 时是否同时提高优先级（默认跟随 eager）；首屏靠下的行传 false，不与 LCP 抢带宽 */
+  priority?: boolean;
+}
+/*
+ * 与 src/scripts/apps/card.ts 的 renderCard() 输出同一套结构（目录筛选在浏览器里重新渲染卡片）。
+ * 评分 / 下载数一行由 island 填入真实数据；没有数据时保持空行（预留高度，不推动布局）。
+ */
+const { item, headingLevel = 'h2', eager = false, priority = eager } = Astro.props;
+const H = headingLevel;
+---
+
+<article class="card card--row card--hue app-card" data-app={item.slug} data-hue={item.hue}>
+  <AppIcon src={item.iconSrc} alt="" variants={item.iconVariants} eager={eager} priority={priority} />
+  <div class="card__body">
+    <H class="card__title">
+      <a class="card__link" href={item.url}>
+        {item.title}
+      </a>
+    </H>
+    <p class="card__text">{item.subtitle}</p>
+    <div class="card__meta">
+      <span>{item.categoryLabel}</span>
+      <span aria-hidden="true">·</span>
+      <span>{item.priceLabel}</span>
+      <Status cls={item.statusClass as 'active'} text={item.status} />
+    </div>
+    <p class="app-card__platforms">{item.platforms.map((p) => PLATFORM_LABEL[p]).join(' · ')}</p>
+    <p class="app-card__stats" data-card-stats></p>
+  </div>
+</article>

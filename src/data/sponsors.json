@@ -1,0 +1,5 @@
+{
+  "$comment": "赞助位（P8 T8.7）。enabled=false 时 SponsorSlot 不输出任何内容。只登记真实签约的赞助方，不放示例或虚构赞助商；每条需要 name、url（https）、line（一句话介绍）、until（到期日 YYYY-MM-DD，过期自动不显示）。",
+  "enabled": false,
+  "sponsors": []
+}

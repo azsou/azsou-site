@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-10-29T03:19:39.908Z",
+  "gotrue": "supabase/auth v2.197.0（本机，tests/db/gotrue.ts）",
+  "handoff_file": {
+    "dir_mode": "700",
+    "file_mode": "600",
+    "owner_uid_is_current": true,
+    "lines": 4
+  },
+  "run_id": "20261029T031937-65e220",
+  "attempt_id": "20261029T031937-65e220",
+  "results": [
+    {
+      "file": "user:sbtest-admin@example.com",
+      "outcome": "created"
+    },
+    {
+      "file": "user:sbtest-moderator@example.com",
+      "outcome": "created"
+    },
+    {
+      "file": "user:sbtest-user@example.com",
+      "outcome": "created"
+    },
+    {
+      "file": "user:sbtest-banned@example.com",
+      "outcome": "created"
+    }
+  ],
+  "login_with_handoff_password": [
+    {
+      "email": "sbtest-admin@example.com",
+      "status": 200
+    },
+    {
+      "email": "sbtest-moderator@example.com",
+      "status": 200
+    },
+    {
+      "email": "sbtest-user@example.com",
+      "status": 200
+    },
+    {
+      "email": "sbtest-banned@example.com",
+      "status": 200
+    }
+  ],
+  "save_login_calls_stub": [
+    {
+      "site": "ovvfwkmqlejcpatmfqcd.supabase.co",
+      "username": "sbtest-admin@example.com",
+      "password_len": 24
+    },
+    {
+      "site": "ovvfwkmqlejcpatmfqcd.supabase.co",
+      "username": "sbtest-moderator@example.com",
+      "password_len": 24
+    },
+    {
+      "site": "ovvfwkmqlejcpatmfqcd.supabase.co",
+      "username": "sbtest-user@example.com",
+      "password_len": 24
+    },
+    {
+      "site": "ovvfwkmqlejcpatmfqcd.supabase.co",
+      "username": "sbtest-banned@example.com",
+      "password_len": 24
+    }
+  ],
+  "shredded": true,
+  "vault_touched": false
+}

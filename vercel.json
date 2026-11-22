@@ -1,12 +1,149 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "astro",
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "trailingSlash": true,
   "headers": [
-    { "source": "/az-sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-    { "source": "/og/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-    { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    {
+      "source": "/(sw|az-sw)\\.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/_astro/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/og/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/art/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        }
+      ]
+    },
+    {
+      "source": "/((?!_astro/|pagefind/|cms/|api/cms/).*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'sha256-19qY2naDwt0IK72sVGVhl1EaoJbFUs/8Cl0Nbv7vCZA=' 'sha256-iv34lBaQJrKmvpC0nVbgMVjC3H/thsJ6z5mVr/QVu3w=' 'sha256-k5I6KgmlRxJT2Qy0Z96YhrV4FSEUgwU5iPt0FMpuciM=' 'sha256-ku+sK2fbN/PpMovTl1C1FMZ2XXwBcqncbCTgpHbR3S0=' 'sha256-rf0eB+uVNKL13TQxMyPUfLURW6Ve0PHSsOFoVVgty1c=' 'sha256-wElZfGfMtTlS8yNSv7p3uzOgdtrWEqsJ3hoee+Sl+b0=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com; worker-src 'self'; manifest-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+        }
+      ]
+    },
+    {
+      "source": "/pagefind/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "source": "/cms/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://avatars.githubusercontent.com https://raw.githubusercontent.com; font-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com http://localhost:8081; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/cms/config.yml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/yaml; charset=utf-8"
+        }
+      ]
+    }
   ],
-  "rewrites": [
-    { "source": "/((?!az-sw\\.js|og/|favicon\\.svg|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|rss\\.xml).*)", "destination": "/index.html" }
+  "redirects": [
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/forgot-password",
+      "destination": "/reset-password/",
+      "permanent": true
+    },
+    {
+      "source": "/project",
+      "destination": "/apps/fablemotion/",
+      "permanent": true
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/sitemap-index.xml",
+      "permanent": true
+    },
+    {
+      "source": "/forum/thread",
+      "destination": "/forum/t/",
+      "permanent": true
+    }
   ]
 }

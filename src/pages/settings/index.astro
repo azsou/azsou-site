@@ -1,0 +1,116 @@
+---
+import Base from '@/layouts/Base.astro';
+---
+
+<Base
+  title="账户设置"
+  description="管理你的 AZ Studio 账户：昵称、登录方式与密码。"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '账户设置', path: '/settings/' },
+  ]}
+>
+  <div class="auth-wrap">
+    <header class="page-head">
+      <h1>账户设置</h1>
+    </header>
+
+    <section class="auth-card" data-settings-signed-out aria-labelledby="settings-out-title">
+      <h2 id="settings-out-title">尚未登录</h2>
+      <p class="auth-card__lede">登录后可以修改昵称和密码。</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="/login/?next=/settings/">
+          登录
+        </a>
+        <a class="btn" href="/register/">
+          注册
+        </a>
+      </div>
+    </section>
+
+    <div data-settings-signed-in hidden>
+      <p class="notice notice--ok mt-4" data-welcome hidden role="status">
+        邮箱验证成功，欢迎加入 AZ Studio！
+      </p>
+
+      <section class="auth-card mt-4" aria-labelledby="profile-title">
+        <h2 id="profile-title">公开资料</h2>
+        <form class="form" data-auth-form="settings-name" novalidate>
+          <div class="field">
+            <label for="set-name">昵称</label>
+            <input
+              id="set-name"
+              name="displayName"
+              type="text"
+              autocomplete="nickname"
+              maxlength="40"
+              required
+            />
+            <p class="field__hint">1–40 个字符，显示在你的主题、回复和评论旁。</p>
+            <p class="field__error" data-error-for="displayName"></p>
+          </div>
+          <p class="notice notice--error form-status" role="alert" data-form-status></p>
+          <button class="btn btn--primary" type="submit">
+            保存昵称
+          </button>
+        </form>
+      </section>
+
+      <section class="auth-card" aria-labelledby="account-title">
+        <h2 id="account-title">账户</h2>
+        <dl class="kv">
+          <dt>邮箱</dt>
+          <dd data-acc-email>—</dd>
+          <dt>登录方式</dt>
+          <dd data-acc-provider>—</dd>
+          <dt>角色</dt>
+          <dd data-acc-role>—</dd>
+          <dt>注册时间</dt>
+          <dd data-acc-created>—</dd>
+        </dl>
+      </section>
+
+      <section class="auth-card" aria-labelledby="password-title" data-password-card>
+        <h2 id="password-title">修改密码</h2>
+        <form class="form" data-auth-form="settings-password" novalidate>
+          <input type="text" name="username" autocomplete="username" hidden data-username />
+          <div class="field">
+            <label for="set-password">新密码</label>
+            <input
+              id="set-password"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              maxlength="72"
+              required
+            />
+            <p class="field__hint">至少 8 位，同时包含字母和数字。</p>
+            <p class="field__error" data-error-for="password"></p>
+          </div>
+          <div class="field">
+            <label for="set-password2">确认新密码</label>
+            <input id="set-password2" name="password2" type="password" autocomplete="new-password" required />
+            <p class="field__error" data-error-for="password2"></p>
+          </div>
+          <p class="notice notice--error form-status" role="alert" data-form-status></p>
+          <button class="btn" type="submit">
+            更新密码
+          </button>
+        </form>
+      </section>
+
+      <section class="auth-card" aria-labelledby="session-title">
+        <h2 id="session-title">登录状态</h2>
+        <p class="auth-card__lede">退出后，这台设备上的登录信息会被清除。</p>
+        <button class="btn btn--danger" type="button" data-signout-btn>
+          退出登录
+        </button>
+      </section>
+    </div>
+  </div>
+  <script>
+    import '@/scripts/auth-pages';
+  </script>
+</Base>

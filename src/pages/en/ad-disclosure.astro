@@ -1,0 +1,84 @@
+---
+import { formatDate } from '@/lib/dates';
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { LEGAL_UPDATED } from '@/lib/contact';
+---
+
+<Base
+  title="Advertising & affiliate disclosure"
+  description="How AZ Studio shows ads, labels affiliate links and sponsored content, and keeps its conclusions independent of advertisers and sponsors."
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Advertising & affiliate disclosure', path: '/en/ad-disclosure/' },
+  ]}
+>
+  <PageHead
+    eyebrow="Site & legal"
+    title="Advertising & affiliate disclosure"
+    lede={`Last updated: ${formatDate(LEGAL_UPDATED, 'en')}`}
+  />
+  <div class="prose mt-8">
+    <p>
+      AZ Studio is a personal site; hosting, the domain and test devices are paid for by the author. To keep
+      it running the site may earn money in three ways — display ads, affiliate links and sponsorships. Here
+      are the rules for each, and what they
+      <strong>never</strong> change.
+    </p>
+    <h2>Display ads (Google AdSense)</h2>
+    <ul>
+      <li>
+        Ads are served automatically by Google AdSense. We do not pick advertisers or endorse their products.
+      </li>
+      <li>
+        Every ad unit is labelled “Advertisement”, set apart by a background, and has a reserved size so it
+        never pushes text around.
+      </li>
+      <li>
+        Ads appear only mid-article, in the article sidebar and between article list items — never on the home
+        page, near app or tool download areas, or on sign-in, form, subscription, admin or legal pages.
+      </li>
+      <li>
+        Ads are kept at least 150 px away from any download or “go” button. We never ask you to click ads.
+      </li>
+      <li>Only long articles (about 1,500 characters or more) carry ads.</li>
+    </ul>
+    <h2>Affiliate links</h2>
+    <ul>
+      <li>
+        Some articles may contain affiliate links: if you buy through them the site may earn a commission at
+        no extra cost to you.
+      </li>
+      <li>
+        Such articles show a “Contains affiliate links” label at the top, and the links carry{' '}
+        <code>rel="sponsored nofollow"</code>.
+      </li>
+      <li>
+        Recommendations depend only on real use and testing; when a free or open-source option is better, we
+        say so.
+      </li>
+    </ul>
+    <h2>Sponsorships</h2>
+    <ul>
+      <li>
+        Sponsored content is labelled “Sponsored” with the sponsor’s name; sidebar sponsor slots are labelled
+        too.
+      </li>
+      <li>Sponsors cannot review or change conclusions, remove criticism, or buy ratings or rankings.</li>
+      <li>There are currently no sponsorships. Any future ones will be listed here.</li>
+    </ul>
+    <h2>What never changes</h2>
+    <ul>
+      <li>
+        Ratings, download counts and reviews come only from real users; where there is no data, the field
+        stays empty.
+      </li>
+      <li>Third-party software links go only to official channels; we never host or repackage installers.</li>
+      <li>Test setups, versions and last-checked dates stay on every review.</li>
+    </ul>
+    <p>
+      Spotted an unlabelled commercial link or a badly placed ad? Tell us via the{' '}
+      <a href="/en/contact/">contact page</a>.
+    </p>
+  </div>
+</Base>

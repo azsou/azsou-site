@@ -1,0 +1,61 @@
+---
+import { formatDate } from '@/lib/dates';
+/** 英文版视频列表（T7.6）：官方频道视频，标题用平台原标题；不显示播放量 */
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import EnVideoCard from '@/components/en/EnVideoCard.astro';
+import { getVideos } from '@/lib/content';
+import { VIDEO_CATEGORY_IDS, publishedDate } from '@/lib/videos';
+import { EN_VIDEO_CATEGORY } from '@/lib/i18n-labels';
+import { itemList } from '@/lib/seo';
+
+const videos = (await getVideos()).filter((v) => v.data.en);
+const groups = VIDEO_CATEGORY_IDS.map((c) => ({
+  id: c,
+  name: EN_VIDEO_CATEGORY[c],
+  items: videos.filter((v) => v.data.categories[0] === c),
+})).filter((g) => g.items.length);
+---
+
+<Base
+  title="Videos"
+  description={`${videos.length} official talks, launch films and tutorials on AI coding and game development, each with a short original summary. Players load only when you click.`}
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Videos', path: '/en/videos/' },
+  ]}
+  schema={[
+    itemList(
+      'Videos',
+      '/en/videos/',
+      videos.map((v) => ({ name: v.data.originalTitle, path: `/en/videos/${v.id}/` })),
+    ),
+  ]}
+>
+  <PageHead
+    eyebrow="Curated"
+    title="Videos"
+    lede="Official videos from the channels that made them, with a short summary written for this site. Nothing is re-uploaded, and no view counts are shown."
+  />
+  {groups.map((g) => (
+    <section class="section" aria-labelledby={`h-${g.id}`}>
+      <div class="section__head">
+        <h2 id={`h-${g.id}`}>
+          {g.name} <span class="section__count">{g.items.length}</span>
+        </h2>
+      </div>
+      <div class="video-grid">
+        {g.items.map((v) => (
+          <EnVideoCard
+            headingLevel="h3"
+            slug={v.id}
+            title={v.data.originalTitle}
+            channel={v.data.channel.name}
+            duration={v.data.duration}
+            meta={v.data.published ? formatDate(publishedDate(v.data.published), 'en') : ''}
+          />
+        ))}
+      </div>
+    </section>
+  ))}
+</Base>

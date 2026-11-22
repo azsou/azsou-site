@@ -1,0 +1,32 @@
+---
+import { formatDate } from '@/lib/dates';
+import type { Article } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { excerpt } from '@/lib/escape';
+interface Props {
+  article: Article;
+  headingLevel?: 'h2' | 'h3';
+}
+const { article, headingLevel = 'h2' } = Astro.props;
+const H = headingLevel;
+const d = article.data;
+---
+
+<article class="card">
+  <div class="card__body">
+    <div class="card__meta">
+      <span class="badge">{d.badge}</span>
+      <span>{d.category}</span>
+    </div>
+    <H class="card__title">
+      <a class="card__link" href={url.article(article.id)}>
+        {d.title}
+      </a>
+    </H>
+    <p class="card__text">{excerpt(article.body ?? '', 90)}</p>
+    <div class="card__meta">
+      <time datetime={d.date}>{formatDate(d.date)}</time>
+      <span>{d.readingMinutes} 分钟</span>
+    </div>
+  </div>
+</article>

@@ -1,0 +1,86 @@
+---
+/**
+ * 按钮（T9.7，DESIGN-SYSTEM §11 / §16；P10h 扩展层级与类型强调色）：
+ * variant primary 实心品牌 / tonal 淡底强调 / secondary 中性灰底 / outline 描边 / ghost 幽灵 / text 文字 / icon 图标 /
+ * danger / success（淡底；solid=true 变实心）；tone = app / ai / game 时用该类型的强调色（徽标、主操作同色）。有 href 渲染 <a>，否则 <button>。
+ * loading 时 aria-busy（宽度不变、中间 spinner）；disabled 的链接用 aria-disabled 且去掉 href。
+ * 图标按钮必须给 label（无可见文字）。
+ */
+import Icon from '@/components/Icon.astro';
+import type { IconName } from '@/lib/lucide';
+interface Props {
+  variant?: 'primary' | 'tonal' | 'secondary' | 'outline' | 'ghost' | 'text' | 'icon' | 'danger' | 'success';
+  /** 类型强调色（应用 / AI 工具 / 游戏）：给 tonal / primary 换成该类型的颜色 */
+  tone?: 'app' | 'ai' | 'game';
+  /** 淡底变体（tonal / danger / success / tone）改为实心 */
+  solid?: boolean;
+  /** 圆角矩形（后台 / 工具条） */
+  rect?: boolean;
+  size?: 'md' | 'sm' | 'lg';
+  href?: string;
+  type?: 'button' | 'submit' | 'reset';
+  icon?: IconName;
+  trailing?: IconName;
+  label?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  class?: string;
+  [k: string]: unknown;
+}
+const {
+  variant = 'secondary',
+  size = 'md',
+  tone,
+  solid = false,
+  rect = false,
+  href,
+  type = 'button',
+  icon,
+  trailing,
+  label,
+  disabled,
+  loading,
+  class: cls,
+  ...rest
+} = Astro.props;
+// tone 优先：primary + tone = 该类型实心；tonal + tone = 该类型淡底
+const toned = tone && (variant === 'primary' || variant === 'tonal');
+const classes = [
+  'btn',
+  toned && `btn--${tone}`,
+  toned && variant === 'primary' && 'btn--solid',
+  !toned && variant !== 'secondary' && `btn--${variant}`,
+  solid && 'btn--solid',
+  rect && 'btn--rect',
+  size !== 'md' && `btn--${size}`,
+  cls,
+];
+const iconSize = size === 'sm' ? 16 : 20;
+---
+
+{href && !disabled ? (
+  <a class:list={classes} href={href} aria-label={label} aria-busy={loading ? 'true' : undefined} {...rest}>
+    {icon && <Icon name={icon} size={iconSize} />}
+    <slot />
+    {trailing && <Icon name={trailing} size={iconSize} />}
+  </a>
+) : href ? (
+  <a class:list={classes} aria-disabled="true" aria-label={label} role="link" {...rest}>
+    {icon && <Icon name={icon} size={iconSize} />}
+    <slot />
+    {trailing && <Icon name={trailing} size={iconSize} />}
+  </a>
+) : (
+  <button
+    class:list={classes}
+    type={type}
+    disabled={disabled}
+    aria-label={label}
+    aria-busy={loading ? 'true' : undefined}
+    {...rest}
+  >
+    {icon && <Icon name={icon} size={iconSize} />}
+    <slot />
+    {trailing && <Icon name={trailing} size={iconSize} />}
+  </button>
+)}

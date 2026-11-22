@@ -1,0 +1,110 @@
+---
+/**
+ * 商店条目（P10 T10.1）：应用 / AI 工具 / 游戏共用一套标记，三种形态——
+ *  - row：列表行（图标 56 + 名称 / 开发者 / 元数据 + 主操作），列表页「列表」视图与窄栏；
+ *  - tile：网格格子（图标 72 + 1 行名称 + 1 行元数据 + 主操作），货架与列表页「网格」视图；
+ *  - mini：排行 / 侧栏（排名数字 + 图标 40 + 名称 + 1 行元数据，无按钮）。
+ * 整张可点（名称链接的 ::after 铺满）；主操作是第二个链接，叠在上面。只显示真实元数据（src/lib/store.ts），不显示评分。
+ * 列表页用同一份 HTML 在网格 / 列表之间切换：父级 [data-view="list"] 下 tile 按 row 排版（store.css）。
+ */
+import '@/styles/store.css';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import GeoIcon from '@/components/GeoIcon.astro';
+import { formatDate } from '@/lib/dates';
+import { metaParts, sortAttrs, type MetaKey, type StoreEntry } from '@/lib/store';
+
+interface Props {
+  entry: StoreEntry;
+  variant?: 'row' | 'tile' | 'mini';
+  /** 排行名次（mini） */
+  rank?: number;
+  headingLevel?: 'h2' | 'h3' | 'h4';
+  /** 首屏条目：图标 eager */
+  eager?: boolean;
+  /** eager 时是否高优先级（只给最前面几张） */
+  priority?: boolean;
+  /** 元数据显示哪些字段（按顺序；没有值的自动省略） */
+  fields?: readonly (MetaKey | 'category')[];
+  /** 列表页筛选用的分类值（data-filter-value） */
+  filterValue?: string;
+}
+const {
+  entry: e,
+  variant = 'tile',
+  rank,
+  headingLevel: H = 'h3',
+  eager = false,
+  priority = false,
+  fields,
+  filterValue,
+} = Astro.props;
+const iconSize = variant === 'mini' ? 'sm' : variant === 'row' ? 'md' : 'lg';
+const defaultFields: Record<string, readonly (MetaKey | 'category')[]> = {
+  tile: ['category', 'version'],
+  row: ['category', 'version', 'updatedAt', 'platforms', 'pricing'],
+  mini: ['category'],
+};
+const parts = metaParts(e, fields ?? defaultFields[variant], (d) => formatDate(d));
+const byline = e.developer ?? e.subtitle;
+---
+
+<article
+  class={`entry entry--${variant}`}
+  data-entry={e.slug}
+  data-type={e.type}
+  data-filter-value={filterValue}
+  data-cats={e.categories.join(' ')}
+  {...sortAttrs(e)}
+>
+  {rank !== undefined && (
+    <span class="entry__rank" aria-hidden="true">
+      {rank}
+    </span>
+  )}
+  <span class="entry__icon">
+    {e.icon ? (
+      <AppIcon
+        src={e.icon.src}
+        alt=""
+        variants={e.icon.variants}
+        size={iconSize}
+        eager={eager}
+        priority={priority}
+      />
+    ) : (
+      <GeoIcon seed={e.href} hue={e.hue} size={iconSize} />
+    )}
+  </span>
+  <div class="entry__body">
+    <H class="entry__title">
+      <a class="entry__link" href={e.href}>
+        {rank !== undefined && <span class="visually-hidden">第 {rank} 名：</span>}
+        {e.title}
+      </a>
+    </H>
+    {variant !== 'mini' && <p class="entry__by">{byline}</p>}
+    <p class="entry__meta">
+      <span class={`entry__type entry__type--${e.type}`}>{e.typeLabel}</span>
+      {parts.length > 0 && (
+        <span class="entry__facts">
+          {parts.map((p, i) => (
+            <>
+              <span class="entry__fact">{i < parts.length - 1 ? `${p} ·` : p}</span>
+              {i < parts.length - 1 && ' '}
+            </>
+          ))}
+        </span>
+      )}
+    </p>
+  </div>
+  {variant !== 'mini' && (
+    <a
+      class="entry__action"
+      href={e.action.href}
+      aria-label={`${e.action.label}：${e.title}`}
+      data-outbound={e.action.outbound ? '' : undefined}
+    >
+      {e.action.label}
+    </a>
+  )}
+</article>

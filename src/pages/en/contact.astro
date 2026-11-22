@@ -1,0 +1,60 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { contactEmail, GITHUB_ISSUES } from '@/lib/contact';
+const email = contactEmail(import.meta.env);
+---
+
+<Base
+  title="Contact"
+  description="How to reach AZ Studio for bug reports, corrections, privacy and data requests, collaborations and link exchanges, and which channel fits each."
+  crumbs={[
+    { name: 'Home', path: '/en/' },
+    { name: 'Contact', path: '/en/contact/' },
+  ]}
+>
+  <PageHead
+    eyebrow="Contact"
+    title="Contact AZ Studio"
+    lede="One person runs this site — picking the right channel gets you a faster answer."
+  />
+  <div class="prose mt-8">
+    {email && (
+      <>
+        <h2>Email</h2>
+        <p>
+          <a href={`mailto:${email}`}>{email}</a> — for collaborations and privacy or data requests. Replies
+          usually within 3 working days.
+        </p>
+      </>
+    )}
+    <h2>Bugs and corrections</h2>
+    <p>
+      Open an issue on{' '}
+      <a href={GITHUB_ISSUES} rel="noopener">
+        GitHub
+      </a>{' '}
+      or post in the
+      <a href="/forum/t/t-feedback/">site feedback thread</a> (Chinese forum, English welcome).
+    </p>
+    <h2>Privacy and data requests</h2>
+    <p>
+      To close your account or delete or export your data,{' '}
+      {email
+        ? 'email us'
+        : 'open a GitHub issue (do not put personal details in it; we will arrange a private channel)'}
+      with your display name. We act within 30 days after verifying it is you. See the{' '}
+      <a href="/en/privacy/">privacy policy</a>.
+    </p>
+    <h2>Collaboration and link exchange</h2>
+    <p>
+      Link-exchange requests go through the <a href="/links/">links page</a> (contact details are visible to
+      admins only). Short notes are welcome in the <a href="/guestbook/">guestbook</a>.
+    </p>
+    <h2>What we don’t do</h2>
+    <ul>
+      <li>Paid removal of reviews, bought ratings or rankings, or unlabelled advertorials.</li>
+      <li>Cracks, keys or unofficial installers for third-party software.</li>
+    </ul>
+  </div>
+</Base>

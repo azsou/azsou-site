@@ -1,0 +1,34 @@
+{
+  "$description": "字阶 9 档 / 字重 3 档 / 字体栈 —— DESIGN-SYSTEM §2、§22.1。size 单位 px（生成为 rem）；sizeBase 为 < 600 宽时的字号。",
+  "font": {
+    "sans": "-apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif",
+    "mono": "ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Noto Sans Mono CJK SC', monospace"
+  },
+  "weight": { "regular": 400, "semibold": 600, "bold": 700 },
+  "scale": {
+    "display": {
+      "size": 48,
+      "sizeBase": 34,
+      "lh": 1.2,
+      "lhEn": 1.1,
+      "weight": "bold",
+      "tracking": "-0.02em"
+    },
+    "title-1": {
+      "size": 32,
+      "sizeBase": 28,
+      "lh": 1.25,
+      "lhEn": 1.2,
+      "weight": "bold",
+      "tracking": "-0.01em"
+    },
+    "title-2": { "size": 22, "lh": 1.35, "lhEn": 1.27, "weight": "semibold", "tracking": "0" },
+    "title-3": { "size": 17, "lh": 1.41, "lhEn": 1.29, "weight": "semibold", "tracking": "0" },
+    "headline": { "size": 15, "lh": 1.47, "lhEn": 1.33, "weight": "semibold", "tracking": "0" },
+    "body": { "size": 17, "lh": 1.76, "lhEn": 1.53, "weight": "regular", "tracking": "0" },
+    "body-sm": { "size": 15, "lh": 1.6, "lhEn": 1.47, "weight": "regular", "tracking": "0" },
+    "meta": { "size": 13, "lh": 1.54, "lhEn": 1.38, "weight": "regular", "tracking": "0" },
+    "caption": { "size": 12, "lh": 1.5, "lhEn": 1.33, "weight": "semibold", "tracking": "0.01em" }
+  },
+  "minSize": 12
+}

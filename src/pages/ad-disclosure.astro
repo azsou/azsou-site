@@ -1,0 +1,73 @@
+---
+import { formatDate } from '@/lib/dates';
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import { LEGAL_UPDATED } from '@/lib/contact';
+---
+
+<Base
+  title="广告与联盟披露"
+  description="AZ Studio 如何展示广告、如何标注联盟链接与赞助内容，以及编辑独立性的承诺：广告和赞助都不影响评测结论。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '广告与联盟披露', path: '/ad-disclosure/' },
+  ]}
+>
+  <PageHead eyebrow="站点与合规" title="广告与联盟披露" lede={`最后更新：${formatDate(LEGAL_UPDATED)}`} />
+  <div class="prose mt-8">
+    <p>
+      AZ Studio
+      是个人站点，服务器、域名与测试设备都由作者自费。为了让站点长期运行，本站可能通过三种方式获得收入：展示广告、联盟链接与赞助。本页说明每一种方式的规则，以及它们
+      <strong>不会</strong>改变什么。
+    </p>
+
+    <h2>一、展示广告（Google AdSense）</h2>
+    <ul>
+      <li>广告由 Google AdSense 自动投放，本站不挑选具体广告主，也不为广告内容背书。</li>
+      <li>每个广告位都标注「广告」，与正文用底色区分，并预留固定尺寸，不会在加载时推挤正文。</li>
+      <li>
+        广告只出现在文章正文中段、文章侧栏与文章列表之间；首页、应用与工具的下载区域、登录注册、表单、订阅、后台与法律说明页不放广告。
+      </li>
+      <li>
+        广告与任何下载、跳转按钮至少相隔 150 像素，避免误点。我们不会用「点击广告支持本站」之类的话引导点击。
+      </li>
+      <li>只有正文足够长（约 1500 字以上）的文章才放广告，短文不放。</li>
+      <li>
+        Google 对广告 Cookie 的使用与你的选择方式，见<a href="/cookies/">Cookie 政策</a>与
+        <a href="/privacy/">隐私政策</a>。
+      </li>
+    </ul>
+
+    <h2>二、联盟链接</h2>
+    <ul>
+      <li>部分文章可能包含联盟链接：你通过链接购买时，本站可能获得一笔佣金，你支付的价格不变。</li>
+      <li>
+        含联盟链接的文章在文首显示「含联盟链接」标识；这些链接带有
+        <code>rel="sponsored nofollow"</code> 属性，告诉搜索引擎这是商业链接。
+      </li>
+      <li>是否推荐某个产品，只取决于作者的实际使用与测试；有更合适的免费或开源方案时，我们照样推荐。</li>
+    </ul>
+
+    <h2>三、赞助</h2>
+    <ul>
+      <li>赞助内容会在标题附近明确标注「赞助内容」及赞助方名称；侧栏赞助位同样标注「赞助」。</li>
+      <li>赞助方不能审阅或修改结论，不能要求删除负面评价，也不能购买评分或排名。</li>
+      <li>目前本站没有任何赞助合作。将来有时，会在这里列出。</li>
+    </ul>
+
+    <h2>四、不会改变的事</h2>
+    <ul>
+      <li>应用与工具页的评分和下载计数只来自访客的评价与点击。</li>
+      <li>第三方软件只链接官方渠道（官网、官方商店、GitHub Release），不托管、不改包。</li>
+      <li>
+        评测与对比照常写明测试所用的系统、版本与最后核对日期，详见<a href="/editorial/">编辑规范</a>。
+      </li>
+    </ul>
+
+    <h2>五、问题与反馈</h2>
+    <p>
+      如果你发现未标注的商业链接、广告位置不当，或认为某篇内容受到了商业影响，请通过
+      <a href="/contact/">联系页</a>告诉我们，我们会核实并在<a href="/changelog/">更新日志</a>中说明处理结果。
+    </p>
+  </div>
+</Base>

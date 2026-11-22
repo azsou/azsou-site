@@ -1,0 +1,18 @@
+---
+/** 内联错误条（DESIGN-SYSTEM §12）：danger 12% 底 + 图标 + 文案 + 可选「重试」（slot）。不用 alert()。 */
+import Icon from '@/components/Icon.astro';
+interface Props {
+  text: string;
+  hidden?: boolean;
+  id?: string;
+}
+const { text, hidden, id } = Astro.props;
+---
+
+<div class="error-bar" role="alert" hidden={hidden} id={id}>
+  <Icon name="alert-circle" />
+  <span class="error-bar__text" data-error-text>
+    {text}
+  </span>
+  <slot />
+</div>

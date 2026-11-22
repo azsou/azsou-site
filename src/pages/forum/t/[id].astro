@@ -1,0 +1,91 @@
+---
+import { formatDate } from '@/lib/dates';
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
+import { forum, type ForumSeed } from '@/lib/content';
+import { url } from '@/lib/routes';
+import { ogFor } from '@/lib/og-routes';
+import { forumPosting } from '@/lib/seo';
+import { excerpt, textToHtml } from '@/lib/escape';
+import { initials } from '@/scripts/render';
+
+export function getStaticPaths() {
+  return forum.seeds.map((t) => ({ params: { id: t.id }, props: { t } }));
+}
+const { t } = Astro.props as { t: ForumSeed };
+const cat = forum.categories.find((c) => c.id === t.category)!;
+const path = url.forumThread(t.id);
+---
+
+<Base
+  image={ogFor('forum', t.id)}
+  searchType="thread"
+  title={`${t.title} · 论坛`}
+  description={excerpt(t.body, 120)}
+  type="article"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+    { name: cat.name, path: url.forumCategory(cat.id) },
+    { name: t.title, path },
+  ]}
+  schema={[
+    forumPosting({ title: t.title, body: t.body, path, date: t.date, author: t.author, replies: t.replies }),
+  ]}
+>
+  <article class="thread" data-thread-page data-mode="seed" data-thread-id={t.id}>
+    <header class="page-head">
+      <p class="eyebrow thread__cat" data-cat>
+        <a href={url.forumCategory(cat.id)}>{cat.name}</a>
+        {t.pinned && <span class="badge">置顶</span>}
+      </p>
+      <h1>{t.title}</h1>
+      <div class="article-meta">
+        <span>{t.author}</span>
+        {t.site && <span class="badge">作者</span>}
+        <time datetime={t.date}>{formatDate(t.date)}</time>
+      </div>
+    </header>
+    <div class="panel prose" set:html={textToHtml(t.body)} />
+    <div class="thread-actions" data-thread-actions></div>
+    <section class="discussion panel" aria-labelledby="h-replies">
+      <div class="section__head">
+        <h2 id="h-replies">回复</h2>
+        <span class="muted" data-count>
+          {t.replies.length} 条回复
+        </span>
+      </div>
+      <ul class="list-reset" role="list" data-list>
+        {t.replies.map((r) => (
+          <li class="comment" data-source="seed">
+            <span class="avatar" aria-hidden="true">
+              {initials(r.author)}
+            </span>
+            <div>
+              <div class="comment__head">
+                <b>{r.author}</b>
+                {r.site && <span class="badge">作者</span>}
+                <time datetime={r.date}>{formatDate(r.date)}</time>
+              </div>
+              <div class="comment__body" set:html={textToHtml(r.body)} />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div class="btn-row list-more">
+        <button class="btn" type="button" data-more hidden>
+          加载更多回复
+        </button>
+      </div>
+      <div class="composer-box" data-composer></div>
+    </section>
+    <p class="data-status" data-status role="status">
+      正在加载回复…
+    </p>
+  </article>
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/community/thread'));
+</script>

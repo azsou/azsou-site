@@ -1,0 +1,18 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+---
+
+<AdminLayout section="users" title="用户详情" lede="资料、角色、封禁与发布的内容。">
+  <a slot="actions" class="btn btn--sm" href="/admin/users/">
+    返回用户列表
+  </a>
+  <div data-user aria-busy="true">
+    <p class="data-status" role="status" data-status>
+      正在加载…
+    </p>
+  </div>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/user-view';
+</script>

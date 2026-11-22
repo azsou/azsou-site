@@ -1,0 +1,133 @@
+---
+/**
+ * 下载中转页 /go/<app>/<platform>/：外链提示 + 校验值 + 真实计数（app_count_download，数据库负责去重 / 限流 / 爬虫过滤）。
+ * noindex、不进 sitemap；这里永远不放广告（下载按钮附近不放任何易误点的内容）。
+ * 没有 JS 时「继续前往」是普通链接，照样能下载（只是不计数）。
+ */
+import '@/styles/community.css';
+import Base from '@/layouts/Base.astro';
+import AppIcon from '@/components/apps/AppIcon.astro';
+import { getApps, getTools, type App, type Tool } from '@/lib/content';
+import { LINK_TYPE_LABEL, PLATFORM_LABEL, hostOf } from '@/lib/app-store';
+import { url } from '@/lib/routes';
+
+/** 应用与 AI 工具共用一个中转页与计数（slug 在两个集合之间唯一，见 tests/unit/content.test.ts） */
+export async function getStaticPaths() {
+  const entries: { entry: App | Tool; kind: 'app' | 'tool' }[] = [
+    ...(await getApps()).map((entry) => ({ entry, kind: 'app' as const })),
+    ...(await getTools()).map((entry) => ({ entry, kind: 'tool' as const })),
+  ];
+  return entries.flatMap(({ entry, kind }) =>
+    entry.data.platforms.map((p) => ({
+      params: { app: entry.id, platform: p.os },
+      props: { app: entry, kind, os: p.os },
+    })),
+  );
+}
+const { app, kind, os } = Astro.props as { app: App | Tool; kind: 'app' | 'tool'; os: string };
+const d = app.data;
+const back = kind === 'app' ? url.app(app.id) : url.tool(app.id);
+const p = d.platforms.find((x) => x.os === os)!;
+const host = p.url ? hostOf(p.url) : '';
+const third = d.developer.type === 'third-party';
+---
+
+<Base
+  title={`下载 ${d.title}（${PLATFORM_LABEL[p.os]}）`}
+  description={`即将离开 AZ Studio，前往 ${d.title} 的${LINK_TYPE_LABEL[p.linkType]}。`}
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    kind === 'app' ? { name: '应用', path: url.apps() } : { name: 'AI 工具', path: url.ai() },
+    { name: d.title, path: back },
+    { name: `下载 · ${PLATFORM_LABEL[p.os]}`, path: url.go(app.id, p.os) },
+  ]}
+>
+  <section class="go-page panel" data-go-page data-app={app.id} data-os={p.os}>
+    <div class="go-page__head">
+      <AppIcon src={d.icon.src} variants={d.icon.variants} alt="" size="md" eager />
+      <div>
+        <p class="eyebrow">
+          {PLATFORM_LABEL[p.os]} · {LINK_TYPE_LABEL[p.linkType]}
+        </p>
+        <h1 class="go-page__title">{d.title}</h1>
+        <p class="muted">
+          {p.version ? `版本 ${p.version}` : '版本随官方更新'}
+          {p.size && ` · ${p.size}`}
+          {p.arch && ` · ${p.arch}`}
+        </p>
+      </div>
+    </div>
+
+    {p.url ? (
+      <>
+        <p class="notice notice--info mt-6" role="note">
+          你即将离开 AZ Studio，前往 <b>{host}</b>
+          {`${third ? `（第三方开发者 ${d.developer.name} 的官方渠道）` : '（作者发布的渠道）'}。本站${p.linkType === 'direct' ? '只提供跳转与校验值' : '不托管安装包'}，请确认地址后再下载。`}
+        </p>
+        <div class="btn-row mt-4">
+          <a class="btn btn--primary" href={p.url} rel="nofollow noopener" data-go>
+            继续前往 {host}
+          </a>
+          <a class="btn" href={back}>
+            {kind === 'app' ? '返回应用页' : '返回工具页'}
+          </a>
+        </div>
+        <p class="data-status mt-4" data-go-status role="status"></p>
+        <dl class="info-table mt-4">
+          <div>
+            <dt>目标地址</dt>
+            <dd class="go-page__url">{p.url}</dd>
+          </div>
+          {p.requirements && (
+            <div>
+              <dt>系统要求</dt>
+              <dd>{p.requirements}</dd>
+            </div>
+          )}
+          {p.sha256 && (
+            <div>
+              <dt>SHA-256</dt>
+              <dd>
+                <code class="go-page__hash" data-sha>
+                  {p.sha256}
+                </code>
+                <button type="button" class="act" data-copy-sha>
+                  复制
+                </button>
+              </dd>
+            </div>
+          )}
+          <div>
+            <dt>累计下载</dt>
+            <dd data-go-count>—</dd>
+          </div>
+        </dl>
+        {p.sha256 && (
+          <p class="muted mt-4">
+            下载完成后可以核对校验值：Windows 用 <code>certutil -hashfile 文件名 SHA256</code>，macOS / Linux
+            用<code>shasum -a 256 文件名</code>。
+          </p>
+        )}
+      </>
+    ) : (
+      <>
+        <p class="notice mt-6" role="note">
+          {p.availability === 'coming-soon'
+            ? `${d.title} 的${PLATFORM_LABEL[p.os]}版本即将推出。安装包公布后，这里会显示来源与校验值；可以订阅本站 RSS 获取上线通知。`
+            : `开发者暂未提供 ${d.title} 的${PLATFORM_LABEL[p.os]}下载地址。地址公布后，这里会显示来源与校验值。`}
+        </p>
+        <div class="btn-row mt-6">
+          <a class="btn btn--primary" href={back}>
+            {kind === 'app' ? '返回应用页' : '返回工具页'}
+          </a>
+        </div>
+      </>
+    )}
+  </section>
+</Base>
+
+<script>
+  // 中转页很轻：立即加载计数脚本（用户可能马上点「继续前往」）
+  if (document.querySelector('[data-go]')) void import('@/scripts/apps/go');
+</script>

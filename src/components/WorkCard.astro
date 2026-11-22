@@ -1,0 +1,31 @@
+---
+import { formatDate } from '@/lib/dates';
+import type { Work } from '@/lib/content';
+import { url } from '@/lib/routes';
+import Art from './Art.astro';
+interface Props {
+  work: Work;
+  headingLevel?: 'h2' | 'h3';
+}
+const { work, headingLevel = 'h2' } = Astro.props;
+const H = headingLevel;
+const d = work.data;
+---
+
+<article class="card card--media" data-hue={d.hue}>
+  <div class="card__media card__media--4x3">
+    <Art slot={d.art} />
+  </div>
+  <div class="card__body">
+    <H class="card__title">
+      <a class="card__link" href={url.work(work.id)}>
+        {d.title}
+      </a>
+    </H>
+    <div class="card__meta">
+      <span class="badge">{d.kind}</span>
+      <span>{formatDate(d.date)}</span>
+      <span>{d.status}</span>
+    </div>
+  </div>
+</article>

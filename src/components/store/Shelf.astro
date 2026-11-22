@@ -1,0 +1,57 @@
+---
+/**
+ * 货架（P10 T10.4）：标题 +「更多」+ 条目。≥ 900 是 2 行网格（第 3 行起隐藏，去「更多」看全部）；
+ * < 900 是 2 行横滑（scroll-snap，滚动区可聚焦，键盘方向键可滚，Tab 到条目时浏览器自动滚入）。
+ * 条目用 <li> 包 AppTile / AppMini / 其它卡片（slot）。区块是否渲染由页面决定（没有条目就不放这个货架）。
+ */
+import '@/styles/store.css';
+import Icon from '@/components/Icon.astro';
+interface Props {
+  id: string;
+  title: string;
+  /** 排序依据的如实说明（如「按编辑推荐顺序」） */
+  note?: string;
+  more?: { href: string; label?: string };
+  /** tile = 竖排格子；mini = 排行条目；card = 媒体卡（文章 / 视频）；chip = 平台 / 分类入口；
+   *  stack = 竖排列表（详情页侧栏导流区，T10.13：不横滑、不截断、不是滚动区） */
+  kind?: 'tile' | 'mini' | 'card' | 'chip' | 'stack' | 'row';
+  /** 有序（排行榜）时用 <ol> */
+  ordered?: boolean;
+  /** P10h：货架类型强调色（标题标记）——应用 / AI 工具 / 游戏 */
+  accent?: 'app' | 'ai' | 'game';
+  /** 额外类名（首页分栏布局用） */
+  class?: string;
+}
+const { id, title, note, more, kind = 'tile', ordered = false, accent, class: cls } = Astro.props;
+const headingId = `h-${id}`;
+const List = ordered ? 'ol' : 'ul';
+---
+
+<section
+  class:list={['section shelf', `shelf--${kind}`, cls]}
+  aria-labelledby={headingId}
+  data-section={id}
+  data-accent={accent}
+>
+  <div class="section__head shelf__head">
+    <div class="shelf__titles">
+      <h2 id={headingId}>{title}</h2>
+      {note && <p class="shelf__note">{note}</p>}
+    </div>
+    {more && (
+      <a class="shelf__more" href={more.href} aria-label={`${more.label ?? '更多'}：${title}`}>
+        {more.label ?? '更多'}
+        <Icon name="chevron-right" size={16} class="icon--trail" />
+      </a>
+    )}
+  </div>
+  <List
+    class={`shelf__track shelf__track--${kind}`}
+    role="list"
+    tabindex={kind === 'stack' ? undefined : '0'}
+    aria-label={title}
+    data-shelf
+  >
+    <slot />
+  </List>
+</section>

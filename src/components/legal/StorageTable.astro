@@ -1,0 +1,39 @@
+---
+import { KIND_LABEL, STORAGE_ITEMS } from '@/lib/cookies';
+interface Props {
+  lang?: 'zh' | 'en';
+}
+const { lang = 'zh' } = Astro.props;
+const en = lang === 'en';
+---
+
+<!-- 窄屏横向滚动：可聚焦区域（键盘可滚动，axe scrollable-region-focusable） -->
+<section class="table-wrap" tabindex="0" aria-label={en ? 'Storage table' : '存储清单'}>
+  <table>
+    <caption class="visually-hidden">
+      {en ? 'Cookies and local storage used by this site' : '本站使用的 Cookie 与本地存储'}
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">{en ? 'Name' : '名称'}</th>
+        <th scope="col">{en ? 'Type' : '类别'}</th>
+        <th scope="col">{en ? 'Where' : '位置'}</th>
+        <th scope="col">{en ? 'Purpose' : '用途'}</th>
+        <th scope="col">{en ? 'Lifetime' : '有效期'}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {STORAGE_ITEMS.map((i) => (
+        <tr>
+          <td>
+            <code>{i.name}</code>
+          </td>
+          <td>{KIND_LABEL[lang][i.kind]}</td>
+          <td>{i.where[lang]}</td>
+          <td>{i.purpose[lang]}</td>
+          <td>{i.lifetime[lang]}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</section>

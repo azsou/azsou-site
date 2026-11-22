@@ -1,0 +1,56 @@
+[
+  {
+    "title": "FableMotion S3",
+    "icon": "FM",
+    "hue": "accent",
+    "change": "S2.9 → S3",
+    "kind": "修复",
+    "note": "修复时间轴交互与导出",
+    "date": "2026-07-19"
+  },
+  {
+    "title": "EMBERDEEP 0.8",
+    "icon": "VX",
+    "hue": "green",
+    "change": "0.7 → 0.8",
+    "kind": "重构",
+    "note": "职业系统与存档迁移",
+    "date": "2026-07-19"
+  },
+  {
+    "title": "Image Atlas 4.2",
+    "icon": "IA",
+    "hue": "teal",
+    "change": "4.1 → 4.2",
+    "kind": "权限",
+    "note": "权限与识别引擎更新",
+    "date": "2026-07-18"
+  },
+  {
+    "title": "Capture Kit 0.6",
+    "icon": "REC",
+    "hue": "blue",
+    "change": "0.5 → 0.6",
+    "kind": "增强",
+    "note": "录制与帧扫描增强",
+    "date": "2026-07-18"
+  },
+  {
+    "title": "单文件工具箱",
+    "icon": "1F",
+    "hue": "orange",
+    "change": "9 → 12 Apps",
+    "kind": "新增",
+    "note": "新增 3 个工具",
+    "date": "2026-07-17"
+  },
+  {
+    "title": "Three.js 魔方",
+    "icon": "3D",
+    "hue": "blue",
+    "change": "0.9 → 1.0",
+    "kind": "验证",
+    "note": "交互与公式验证更新",
+    "date": "2026-07-17"
+  }
+]

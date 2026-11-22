@@ -1,0 +1,138 @@
+---
+/**
+ * 视频列表（/videos/ 与 /videos/category/<分类>/ 共用）：分类标签页（静态链接，零 JS 可浏览）是唯一常驻的筛选，
+ * 时长 / 频道收进「更多筛选」弹层（T9.12，island）+ 卡片网格。
+ * 筛选只隐藏 / 显示已渲染的卡片，状态写进查询串（?len=short&ch=godot-engine），可分享、可后退。
+ */
+import Base from '@/layouts/Base.astro';
+// 在 Base（global.css 声明 @layer 顺序）之后引入：分类标签 / 分段按钮 / 状态行样式与 /ai/ 共用
+import '@/styles/apps.css';
+import PageHead from '@/components/PageHead.astro';
+import MoreFilters from '@/components/ui/MoreFilters.astro';
+import VideoCard from './VideoCard.astro';
+import {
+  CARD_SIZES,
+  LENGTHS,
+  LENGTH_LABEL,
+  VIDEO_CATEGORIES,
+  VIDEO_CATEGORY_IDS,
+  thumbSrcset,
+  type VideoCategory,
+  type VideoItem,
+} from '@/lib/videos';
+import { url } from '@/lib/routes';
+import type { Crumb } from '@/lib/seo';
+
+interface Props {
+  title: string;
+  description: string;
+  lede: string;
+  all: VideoItem[];
+  items: VideoItem[];
+  crumbs: Crumb[];
+  category?: VideoCategory;
+  schema?: Record<string, unknown>[];
+}
+const { title, description, lede, all, items, crumbs, category, schema = [] } = Astro.props;
+const curated = items.filter((v) => !v.owner);
+const mine = items.filter((v) => v.owner);
+const count = (c: VideoCategory) => all.filter((v) => v.categories.includes(c)).length;
+const lengths = LENGTHS.filter((l) => curated.some((v) => v.length === l));
+const channels = [...new Map(curated.map((v) => [v.channel, v.channelName])).entries()].sort((a, b) =>
+  a[1].localeCompare(b[1]),
+);
+---
+
+<Base
+  title={title}
+  description={description}
+  crumbs={crumbs}
+  schema={schema}
+  preloadSrcset={
+    curated[0]
+      ? {
+          srcset: thumbSrcset(curated[0].slug, 'avif'),
+          type: 'image/avif',
+          sizes: CARD_SIZES,
+        }
+      : undefined
+  }
+>
+  <PageHead eyebrow="视频" title={title} lede={lede} />
+
+  <div class="filter-bar">
+    <nav class="chip-nav video-tabs" aria-label="视频分类">
+      <a class="chip" href={url.videos()} aria-current={!category ? 'page' : undefined}>
+        全部 <span class="chip__n">{all.length}</span>
+      </a>
+      {VIDEO_CATEGORY_IDS.map((c) => (
+        <a class="chip" href={url.videoCategory(c)} aria-current={category === c ? 'page' : undefined}>
+          {VIDEO_CATEGORIES[c]} <span class="chip__n">{count(c)}</span>
+        </a>
+      ))}
+    </nav>
+    <MoreFilters>
+      <div class="video-filter" data-video-filter role="group" aria-label="更多筛选">
+        <div class="field">
+          <span class="field__label" id="vf-len-label">
+            时长
+          </span>
+          <div class="segmented segmented--inline" role="group" aria-labelledby="vf-len-label">
+            <button type="button" data-len="" aria-pressed="true" disabled>
+              全部
+            </button>
+            {lengths.map((l) => (
+              <button type="button" data-len={l} aria-pressed="false" disabled>
+                {LENGTH_LABEL[l]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div class="field video-filter__ch">
+          <label class="field__label" for="vf-ch">
+            频道
+          </label>
+          <select id="vf-ch" data-ch disabled>
+            <option value="">全部频道</option>
+            {channels.map(([k, name]) => (
+              <option value={k}>{name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </MoreFilters>
+  </div>
+
+  {mine.length > 0 && (
+    <section class="section" aria-labelledby="h-mine">
+      <h2 id="h-mine">我的视频</h2>
+      <div class="video-grid grid mt-4" data-grid="media">
+        {mine.map((v) => (
+          <VideoCard item={v} headingLevel="h3" />
+        ))}
+      </div>
+    </section>
+  )}
+
+  <p class="catalog-status muted" data-video-status role="status">
+    共 {curated.length} 个视频 · 点击后才加载播放器
+  </p>
+
+  <div class="video-grid grid" data-grid="media" data-video-grid>
+    {curated.map((v, i) => (
+      <VideoCard item={v} eager={i === 0} />
+    ))}
+  </div>
+  <p class="empty-state" data-video-empty hidden>
+    没有符合条件的视频，换个筛选条件试试。
+  </p>
+
+  <p class="muted mt-6 video-note">
+    视频版权归原作者所有。本站精选可公开嵌入的官方频道视频，配原创中文导读；播放时由视频平台提供服务，本站不下载、不转载，也不显示或保存播放量。
+  </p>
+</Base>
+
+<script>
+  import { whenIdle } from '@/scripts/idle';
+  whenIdle(() => import('@/scripts/videos/filter'));
+</script>

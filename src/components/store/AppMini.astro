@@ -1,0 +1,8 @@
+---
+/** 排行 / 侧栏条目（T10.1）：StoreEntry 的 mini 形态 */
+import StoreEntry from './StoreEntry.astro';
+type P = Omit<import('astro/types').ComponentProps<typeof StoreEntry>, 'variant'>;
+const props = Astro.props as P;
+---
+
+<StoreEntry {...props} variant="mini" />

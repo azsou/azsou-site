@@ -1,0 +1,57 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageHead from '@/components/PageHead.astro';
+import Art from '@/components/Art.astro';
+import ForumThreadList from '@/components/ForumThreadList.astro';
+import { forum } from '@/lib/content';
+import { url } from '@/lib/routes';
+---
+
+<Base
+  title="论坛"
+  description="AZ Studio 论坛：公告、产品讨论、技术交流与站务反馈。围绕站内项目与技术，计数一律真实。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '论坛', path: '/forum/' },
+  ]}
+>
+  <PageHead eyebrow="社区" title="论坛" lede="讨论围绕站内项目与技术；尊重每一位真实署名的参与者。">
+    <div class="btn-row mt-4">
+      <a class="btn btn--primary" href={url.forumNew()}>
+        发新主题
+      </a>
+      <a class="btn" href={url.search()}>
+        搜索论坛
+      </a>
+    </div>
+  </PageHead>
+  <section aria-labelledby="h-cats">
+    <h2 id="h-cats" class="visually-hidden">
+      分类
+    </h2>
+    <div class="grid forum-cats" data-grid="media" data-forum-cats>
+      {forum.categories.map((c, i) => (
+        <article class="card" data-cat={c.id}>
+          <div class="card__media">
+            <Art slot={c.art} eager={i < 2} />
+          </div>
+          <div class="card__body">
+            <h3 class="card__title">
+              <a class="card__link" href={url.forumCategory(c.id)}>
+                {c.name}
+              </a>
+            </h3>
+            <p class="card__text">{c.desc}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+  <section class="section" aria-labelledby="h-latest">
+    <div class="section__head">
+      <h2 id="h-latest">全部主题</h2>
+      <a href="/forum/rss.xml">RSS</a>
+    </div>
+    <ForumThreadList />
+  </section>
+</Base>

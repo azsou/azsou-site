@@ -1,0 +1,57 @@
+---
+/**
+ * /_kit/prose/ 正文样张（T9.14，DESIGN-QA Q2）：标准 Markdown 元素各一遍，1440 / 390 × 深浅截图基线。
+ * 只在非生产构建输出；noindex。
+ */
+import Base from '@/layouts/Base.astro';
+import { enhanceProse } from '@/lib/prose';
+
+export function getStaticPaths() {
+  return process.env.VERCEL_ENV === 'production' ? [] : [{ params: { kit: '_kit' } }];
+}
+
+const sample = enhanceProse(`
+<p>正文段落：AZ Studio 的文章用 17px / 1.8 行高，段距 1em。中英混排时，像 Claude Code、Node.js 22 和 <a href="/articles/">站内链接</a> 这样的词不会被从中间断开。<em>强调</em>用 600 字重而不是伪斜体，<strong>加粗</strong>保持 700。</p>
+<h2>二级标题：代码与键盘</h2>
+<p>行内代码 <code>npm run build</code>，快捷键 <kbd>Ctrl</kbd> + <kbd>K</kbd> 打开搜索。</p>
+<pre><code>// 代码块横向滚动，不折行
+export function enhanceProse(html: string, lang: 'zh' | 'en' = 'zh'): string {
+  return html.replace(/&lt;table\\b/g, '&lt;div class="table-wrap"&gt;&lt;table'); // 一行很长的注释，用来验证横向滚动而不是折行显示
+}</code></pre>
+<h3>三级标题不小于正文</h3>
+<blockquote><p>引用块：左侧 3px 竖线，文字用次级颜色。好的界面让人意识不到它的存在。</p></blockquote>
+<ul><li>无序列表第一项</li><li>第二项，包含 <code>inline code</code></li></ul>
+<ol><li>有序列表</li><li>第二步</li></ol>
+<ul class="contains-task-list"><li><input type="checkbox" checked disabled> 已完成的任务</li><li><input type="checkbox" disabled> 待办任务</li></ul>
+<table><thead><tr><th>平台</th><th>版本</th><th>大小（MB）</th></tr></thead><tbody><tr><td>Windows</td><td>1.4.2</td><td>86.4</td></tr><tr><td>网页版</td><td>1.4.2</td><td>—</td></tr><tr><td>macOS（Apple Silicon 与 Intel 通用二进制）</td><td>1.4.0</td><td>112.0</td></tr></tbody></table>
+<hr>
+<figure><img src="/og/s/articles.png" width="1200" height="630" alt="站点分享图示例" loading="lazy"><figcaption>图 1：figure 与 figcaption，说明文字居中。</figcaption></figure>
+<p>脚注示例<sup><a href="#fn1" id="fnref1">1</a></sup>。</p>
+<section class="footnotes"><ol><li id="fn1">脚注内容，字号 14，次级颜色。<a href="#fnref1" aria-label="回到正文">↩︎</a></li></ol></section>
+`);
+---
+
+<Base
+  title="正文样张"
+  description="AZ Studio 正文排版样张（开发用）"
+  noindex
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '组件目录', path: '/_kit/' },
+    { name: '正文样张', path: '/_kit/prose/' },
+  ]}
+>
+  <div class="shell page">
+    <article>
+      <header class="page-head article-head">
+        <p class="eyebrow">设计系统 · 正文</p>
+        <h1>正文排版样张：标题、代码、表格与脚注</h1>
+      </header>
+      <div class="prose" set:html={sample} />
+    </article>
+  </div>
+</Base>
+
+<script>
+  import '@/scripts/prose-copy';
+</script>
