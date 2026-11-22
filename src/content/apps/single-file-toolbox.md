@@ -42,7 +42,7 @@
       "alt": "单文件工具箱 概念图：手机上的工具网格",
       "device": "phone",
       "width": 704,
-      "height": 1502,
+      "height": 1520,
       "illustrative": true
     }
   ],
