@@ -250,11 +250,13 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+let bulking = false;
 async function bulk(kind: string, only?: string[]) {
   const ids = only ?? sel.ids();
-  if (!ids.length) return;
+  if (!ids.length || bulking) return;
   const repo = adminRepo();
   const t = state.type as ContentType;
+  bulking = true;
   try {
     let n = 0;
     if (kind in BULK_VERB) {
@@ -292,6 +294,8 @@ async function bulk(kind: string, only?: string[]) {
     await load();
   } catch (e) {
     toast(errorText(e, '操作失败'), 'error');
+  } finally {
+    bulking = false;
   }
 }
 bar

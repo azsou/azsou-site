@@ -1,9 +1,9 @@
 ---
 {
   "title": "单文件工具箱",
-  "subtitle": "下载即用的单文件工具集",
-  "tagline": "下载即用的单文件工具集",
-  "summary": "单文件实用工具合集，目前收录 12 个：每个工具下载后直接运行，无需安装。",
+  "subtitle": "单文件实用工具合集",
+  "tagline": "单文件实用工具合集",
+  "summary": "这个工具箱收录了 12 款单文件工具。这里可以查看版本记录和界面概念图，本站暂未提供下载地址。",
   "icon": {
     "src": "/apps/icons/single-file-toolbox.png",
     "placeholder": false,
@@ -67,7 +67,7 @@
   "featured": false,
   "updated": "2026-07-17",
   "version": "12 Apps",
-  "status": "可用",
+  "status": "暂未开放下载",
   "statusClass": "stable",
   "order": 4,
   "pinyin": "dwjgjx",
@@ -83,11 +83,11 @@
   ],
   "en": {
     "title": "Single-File Toolbox",
-    "subtitle": "Download-and-run single-file tools",
-    "summary": "A collection of practical tools that run straight after download."
+    "subtitle": "A collection of single-file tools",
+    "summary": "This collection contains 12 single-file tools. This site does not yet offer a public download."
   }
 }
 ---
 
-<p>下载后直接运行的实用工具集合。</p>
-<p>当前状态：<strong>12 Apps · 可用</strong>。本页截图为概念图，安装包公布后会在这里提供下载；版本历史、运行环境与已知问题会随开发补充。</p>
+<p>本页收录 12 款单文件工具的项目信息。截图是界面概念图，不是正式版本的截图。</p>
+<p><strong>本站暂未开放下载。</strong> 你可以先查看下方的版本记录。</p>

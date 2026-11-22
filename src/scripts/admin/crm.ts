@@ -85,10 +85,15 @@ export function notesBlock(type: NoteTarget, id: string, meId: string | null, is
       }),
     );
   };
+  let seq = 0;
   const load = async () => {
+    const my = ++seq;
     try {
-      paint(await crm().notes(type, id));
+      const items = await crm().notes(type, id);
+      if (my !== seq) return;
+      paint(items);
     } catch {
+      if (my !== seq) return;
       wrap.replaceChildren(h('p', { class: 'muted', text: '备注功能需要数据库迁移 0017。' }));
     }
   };

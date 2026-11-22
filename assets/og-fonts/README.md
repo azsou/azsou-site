@@ -3,12 +3,12 @@
 全部是 Noto Sans CJK（© 2014-2021 Adobe，SIL Open Font License 1.1，全文见同目录 `LICENSE`）的子集，
 只在构建期给 OG 分享图用，不在网页里加载。来源、哈希、内部名与许可结论见 `SOURCE.md`。
 
-| 文件 | 内部家族（name 16 → 1） | usWeightClass | 用途 |
-| --- | --- | --- | --- |
-| `NotoSansSC-Regular.subset.otf` | Noto Sans SC | 400 | 页面 OG（`src/lib/og.ts`）+ 素材 OG |
-| `NotoSansSC-Bold.subset.otf` | Noto Sans SC | 700 | 页面 OG + 素材 OG |
-| `NotoSansSC-Black.subset.otf` | Noto Sans SC（name 1 为 Noto Sans SC Black） | 900 | 素材 OG（`src/pages/og/art/[slot].png.ts`） |
-| `NotoSansMonoCJKsc-Regular.subset.otf` | Noto Sans Mono CJK SC | 400 | 素材 OG 等宽标签 |
+| 文件                                   | 内部家族（name 16 → 1）                      | usWeightClass | 用途                                        |
+| -------------------------------------- | -------------------------------------------- | ------------- | ------------------------------------------- |
+| `NotoSansSC-Regular.subset.otf`        | Noto Sans SC                                 | 400           | 页面 OG（`src/lib/og.ts`）+ 素材 OG         |
+| `NotoSansSC-Bold.subset.otf`           | Noto Sans SC                                 | 700           | 页面 OG + 素材 OG                           |
+| `NotoSansSC-Black.subset.otf`          | Noto Sans SC（name 1 为 Noto Sans SC Black） | 900           | 素材 OG（`src/pages/og/art/[slot].png.ts`） |
+| `NotoSansMonoCJKsc-Regular.subset.otf` | Noto Sans Mono CJK SC                        | 400           | 素材 OG 等宽标签                            |
 
 Regular / Bold 覆盖 ASCII、常用标点、GB2312 一级字与站内内容出现的全部字符。
 Black / Mono 覆盖 ASCII、常用标点与 `public/art/*.svg` 文字运行里出现的全部字符。
