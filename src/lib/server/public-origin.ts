@@ -32,20 +32,3 @@ export function publicOrigin(request: Request): string {
 export function originAllowed(request: Request, reqOrigin: string): boolean {
   return candidates(request).includes(reqOrigin);
 }
-
-const clean = (s: string | null) => (s ?? '-').replace(/[^\w.:/-]/g, '?').slice(0, 80);
-
-/**
- * 临时诊断：同源检查不通过时，把双方看到的值带在提示里（只含请求自己的头，经过清洗，不含密钥）。
- * 定位完成后去掉。
- */
-export function originMsg(base: string, request: Request): string {
-  const h = request.headers;
-  const parts = [
-    `origin=${clean(h.get('origin'))}`,
-    `xfh=${clean(h.get('x-forwarded-host'))}`,
-    `host=${clean(h.get('host'))}`,
-    `url=${clean(request.url)}`,
-  ];
-  return `${base}（${parts.join(' ')}）`;
-}
