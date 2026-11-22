@@ -11,6 +11,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { checkGuestbook, checkLink, SUBMIT_KINDS, ticketPayload, type SubmitKind } from '../community-forms';
 import { verifyTurnstile } from './turnstile';
 import { resolveSecret } from './guarded-auth';
+import { publicOrigin } from './public-origin';
 
 /** 本地开发 / CI 用的票据密钥（E2E 的 global-setup 把同一个值写进测试库） */
 export const COMMUNITY_TEST_SECRET = 'az-local-community-ticket-secret';
@@ -93,7 +94,7 @@ export async function handleCommunitySubmit(
   if (!kind || !SUBMIT_KINDS.includes(kind as SubmitKind))
     return json(404, { error_code: 'not_found', msg: '未知操作' });
   if (request.method !== 'POST') return json(405, { error_code: 'method_not_allowed', msg: '只支持 POST' });
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request.url);
   const reqOrigin = request.headers.get('origin');
   if (reqOrigin && reqOrigin !== origin) return json(403, { error_code: 'bad_origin', msg: '来源不正确' });
 
