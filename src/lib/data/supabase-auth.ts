@@ -248,6 +248,8 @@ export function createSupabaseAuth(cfg: SupabaseAuthConfig): AuthProvider {
       const token = await accessToken();
       if (!token) throw new AuthError('登录已过期，请重新打开重置邮件里的链接。', 'session_not_found', 401);
       const u = await call('user', { method: 'PUT', body: { password }, token });
+      // 改密成功后让其他设备的会话失效（当前设备不受影响）；这一步失败不影响改密结果
+      await call('logout?scope=others', { token }).catch(() => undefined);
       const s = cfg.store.get();
       if (s && u) {
         const user = toAuthUser(u) ?? s.user;
