@@ -4,6 +4,7 @@
  */
 import { AuthError, checkLength, getRepository, LIMITS, type OAuthProvider, type Profile } from '@/lib/data';
 import { navigateSameOrigin, safeNext } from '@/lib/safe-next';
+import { captchaError } from '@/lib/turnstile-hint';
 import { PROFILE_KEY } from './user-menu';
 
 const repo = getRepository();
@@ -157,11 +158,12 @@ function turnstileFor(form: HTMLFormElement) {
           callback: (t2: string) => {
             token = t2;
             fieldError(form, 'turnstile', null);
+            if (hint) hint.textContent = '';
           },
           'expired-callback': () => (token = ''),
-          'error-callback': () => {
+          'error-callback': (code: unknown) => {
             token = '';
-            if (hint) hint.textContent = '人机验证加载失败，请刷新页面重试。';
+            captchaError(hint, code, false, () => api?.reset(id));
           },
         });
       })
