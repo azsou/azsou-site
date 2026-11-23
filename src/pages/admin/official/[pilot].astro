@@ -1,0 +1,79 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
+
+// Emit exactly one pilot page for the existing allowlisted test or local build, none for production.
+export function getStaticPaths() {
+  const target = classifySupabaseUrl(supabaseConfig().url)?.target;
+  return target === 'test' || target === 'local' ? [{ params: { pilot: 'article-draft' } }] : [];
+}
+---
+
+<AdminLayout
+  section="official"
+  title="文章草稿编辑器"
+  lede="仅站长可用。这里保存私有草稿，不改动访客看到的文章。"
+  require="admin"
+>
+  <div class="form" data-article-draft-editor>
+    <form id="draft-open-form" class="panel form" aria-labelledby="draft-open-heading" autocomplete="off">
+      <h2 id="draft-open-heading">打开或新建</h2>
+      <div class="field">
+        <label for="draft-slug">文章标识</label>
+        <input
+          id="draft-slug"
+          type="text"
+          class="input"
+          maxlength="80"
+          placeholder="例如 studio-notes"
+          aria-describedby="draft-slug-help"
+          autocapitalize="none"
+          spellcheck="false"
+          required
+          disabled
+        />
+        <p id="draft-slug-help" class="field__hint">使用小写字母、数字和连字符。新标识在首次保存后才建稿。</p>
+      </div>
+      <div class="btn-row">
+        <button id="draft-open" type="submit" class="btn btn--primary" disabled>打开草稿</button>
+        <button id="draft-close" type="button" class="btn" hidden>关闭草稿</button>
+      </div>
+    </form>
+    <p id="draft-status" class="form-status" role="status" aria-live="polite" aria-atomic="true"></p>
+    <form
+      id="draft-edit-form"
+      class="panel form"
+      aria-labelledby="draft-edit-heading"
+      autocomplete="off"
+      hidden
+    >
+      <h2 id="draft-edit-heading">写作区</h2>
+      <p id="draft-version" class="field__hint"></p>
+      <div class="field">
+        <label for="draft-title">文章标题</label>
+        <input id="draft-title" class="input" type="text" required disabled />
+      </div>
+      <div class="field">
+        <label for="draft-source">正文源文本</label>
+        <textarea id="draft-source" rows="12" aria-describedby="draft-source-help" disabled></textarea>
+        <p id="draft-source-help" class="field__hint">
+          按原文保存，不执行 HTML。目录、标签等其他字段保持原值。
+        </p>
+      </div>
+      <div class="btn-row">
+        <button id="draft-save" type="submit" class="btn btn--primary" disabled>保存私有草稿</button>
+        <button id="draft-reload" type="button" class="btn" disabled>重新读取</button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/article-draft-editor';
+</script>
+
+<style>
+  [data-article-draft-editor] [hidden] {
+    display: none;
+  }
+</style>

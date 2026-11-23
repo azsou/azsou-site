@@ -1,12 +1,13 @@
 ---
 /**
  * 官方内容（应用 / 游戏 / 文章 / 作品 / 论坛种子等）只在 Git 里维护：这里是只读清单，
- * 每条链接到 GitHub 的编辑页与历史；后台不写任何官方内容（没有 CMS 写入）。
+ * 每条链接到 GitHub 的编辑页与历史；隔离环境可另开文章草稿，不会修改这份已发布清单。
  */
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { getApps, getArticles, getGames, getWorks } from '@/lib/content';
 import { url } from '@/lib/routes';
 import { REPO, githubEdit, githubHistory } from '@/lib/site';
+import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 
 const [apps, games, articles, works] = await Promise.all([getApps(), getGames(), getArticles(), getWorks()]);
 const groups = [
@@ -49,12 +50,23 @@ const dataFiles = [
   { path: 'src/pages/changelog.astro', label: '更新日志' },
   { path: 'src/pages/roadmap.astro', label: '路线图' },
 ];
+const target = classifySupabaseUrl(supabaseConfig().url)?.target;
+const draftPilot = target === 'test' || target === 'local';
 const total = groups.reduce((n, g) => n + g.items.length, 0);
 ---
 
 <AdminLayout section="official" title="官方内容" lede={`共 ${total} 篇；修改沿用仓库审核发布流程。`}>
+  <Fragment slot="actions">
+    {draftPilot && (
+      <span data-nav-role="admin" hidden>
+        <a class="btn btn--outline" href="/admin/official/article-draft/">
+          写文章草稿
+        </a>
+      </span>
+    )}
+  </Fragment>
   <p class="notice notice--info">
-    后台不直接修改官方内容（没有 CMS 写入），这样每次改动都有版本记录与预览站。编辑链接指向{' '}
+    下方清单是已发布内容，只读。编辑链接指向{' '}
     <code>{REPO.branch}</code> 分支；文件格式见 <code>src/content.config.ts</code>。
   </p>
   <div data-official>
@@ -267,6 +279,7 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
         padding: 0;
         border: 0;
       }
+      .admin[data-section='official'] .x { }
       .admin[data-section='official'] [data-official-row] .cell-title {
         display: flex;
         align-items: center;
