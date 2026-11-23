@@ -32,11 +32,17 @@ export function getStaticPaths() {
           required
           disabled
         />
-        <p id="draft-slug-help" class="field__hint">使用小写字母、数字和连字符。新标识在首次保存后才建稿。</p>
+        <p id="draft-slug-help" class="field__hint">
+          使用小写字母、数字和连字符。新标识在首次保存后才建稿。
+        </p>
       </div>
       <div class="btn-row">
-        <button id="draft-open" type="submit" class="btn btn--primary" disabled>打开草稿</button>
-        <button id="draft-close" type="button" class="btn" hidden>关闭草稿</button>
+        <button id="draft-open" type="submit" class="btn btn--primary" disabled>
+          打开草稿
+        </button>
+        <button id="draft-close" type="button" class="btn" hidden>
+          关闭草稿
+        </button>
       </div>
     </form>
     <p id="draft-status" class="form-status" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -61,8 +67,12 @@ export function getStaticPaths() {
         </p>
       </div>
       <div class="btn-row">
-        <button id="draft-save" type="submit" class="btn btn--primary" disabled>保存私有草稿</button>
-        <button id="draft-reload" type="button" class="btn" disabled>重新读取</button>
+        <button id="draft-save" type="submit" class="btn btn--primary" disabled>
+          保存私有草稿
+        </button>
+        <button id="draft-reload" type="button" class="btn" disabled>
+          重新读取
+        </button>
       </div>
     </form>
   </div>
