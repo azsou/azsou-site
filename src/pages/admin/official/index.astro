@@ -66,8 +66,8 @@ const total = groups.reduce((n, g) => n + g.items.length, 0);
     )}
   </Fragment>
   <p class="notice notice--info">
-    下方清单是已发布内容，只读。编辑链接指向 <code>{REPO.branch}</code> 分支；文件格式见{' '}
-    <code>src/content.config.ts</code>。
+    已发布清单：后台不直接修改官方内容（没有 CMS 写入）。试点只存私有草稿，不发布。编辑链接指向{' '}
+    <code>{REPO.branch}</code> 分支；文件格式见 <code>src/content.config.ts</code>。
   </p>
   <div data-official>
     <!-- official-controls:start -->
