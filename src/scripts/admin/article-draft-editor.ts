@@ -3,6 +3,7 @@ import { adminApiFor, type ArticleDraftFields } from '@/lib/data/admin-repo';
 import { ForbiddenError, NotSignedInError, SchemaMissingError } from '@/lib/data/types';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 import { matchesImport, readImportPacket } from './article-import-packet';
+import { attachPrivateMediaPreview } from './private-media-preview';
 import { formDialog, initAdmin, isAdminRole } from './shell';
 
 const validSlug = (s: string) => s.length <= 80 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s);
@@ -32,6 +33,7 @@ async function init() {
   }
   const api = port;
   const owner = me.id;
+  attachPrivateMediaPreview(root, repo.auth, owner);
   const picker = find<HTMLFormElement>('open-form');
   const form = find<HTMLFormElement>('edit-form');
   const slug = find<HTMLInputElement>('slug');
