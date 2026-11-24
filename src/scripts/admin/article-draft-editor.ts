@@ -2,6 +2,7 @@ import { getRepository } from '@/lib/data';
 import { adminApiFor, type ArticleDraftFields } from '@/lib/data/admin-repo';
 import { ForbiddenError, NotSignedInError, SchemaMissingError } from '@/lib/data/types';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
+import { matchesImport, readImportPacket } from './article-import-packet';
 import { formDialog, initAdmin, isAdminRole } from './shell';
 
 const validSlug = (s: string) => s.length <= 80 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(s);
@@ -41,13 +42,18 @@ async function init() {
   const close = find<HTMLButtonElement>('close');
   const save = find<HTMLButtonElement>('save');
   const reload = find<HTMLButtonElement>('reload');
+  const file = find<HTMLInputElement>('import-file');
+  const hash = find<HTMLInputElement>('import-hash');
+  const check = find<HTMLButtonElement>('import-check');
+  let staged: Awaited<ReturnType<typeof readImportPacket>> | null = null;
   let doc: OpenDraft | null = null;
   let baseTitle = '';
   let baseBody = '';
   let active = true;
   let busy = false;
   let needsRead = false;
-  const dirty = () => doc !== null && (title.value !== baseTitle || body.value !== baseBody);
+  const dirty = () =>
+    doc !== null && (staged !== null || title.value !== baseTitle || body.value !== baseBody);
 
   function paint() {
     const editing = active && doc !== null;
@@ -57,7 +63,9 @@ async function init() {
     close.disabled = busy || !active;
     form.hidden = !editing;
     title.disabled = body.disabled = !editing;
-    title.readOnly = body.readOnly = busy || needsRead;
+    title.readOnly = body.readOnly = busy || needsRead || staged !== null;
+    file.disabled = hash.disabled = !editing || busy || needsRead || dirty();
+    check.disabled = file.disabled || !file.files?.length || !/^[a-f0-9]{64}$/.test(hash.value);
     save.disabled = !editing || busy || needsRead || !dirty() || !title.value.trim();
     reload.disabled = !editing || busy;
     const changed = dirty() ? ' · 本页有未保存修改' : '';
@@ -70,6 +78,8 @@ async function init() {
   }
 
   function show(value: OpenDraft | null) {
+    staged = null;
+    file.value = hash.value = '';
     doc = value;
     needsRead = false;
     slug.value = value?.slug ?? '';
@@ -145,17 +155,62 @@ async function init() {
     }
   }
 
+  async function compareFile() {
+    const current = doc;
+    const input = file.files?.[0];
+    if (!allowed() || !current || !input || busy || needsRead || dirty() || check.disabled) return;
+    const fingerprint = hash.value;
+    busy = true;
+    paint();
+    note.textContent = '正在核对文件与数据库中的草稿…';
+    try {
+      let packet: Awaited<ReturnType<typeof readImportPacket>>;
+      try {
+        packet = await readImportPacket(input, current.slug, fingerprint);
+      } catch {
+        if (allowed()) note.textContent = '文件名、指纹或格式不符；未写入。';
+        return;
+      }
+      if (!allowed() || doc !== current) return;
+      const latest = await api.read(current.slug);
+      if (!allowed() || doc !== current) return;
+      if ((latest?.itemId ?? null) !== current.itemId || (latest?.revision ?? 0) !== current.revision) {
+        needsRead = true;
+        note.textContent = '草稿状态已变化；请重新读取。未写入。';
+        return;
+      }
+      if (latest) {
+        note.textContent = matchesImport(latest, packet)
+          ? `全部字段和正文一致，第 ${latest.revision} 版；未写入。`
+          : '同一标识已有不同草稿；不覆盖，未写入。';
+        return;
+      }
+      staged = packet;
+      title.value = packet.fields.title;
+      body.value = packet.bodySource;
+      note.textContent = '14 个字段和正文已就绪，尚未写入。请核对标题，再保存私有草稿。';
+    } catch (e) {
+      if (allowed()) failed(e, false);
+    } finally {
+      busy = false;
+      paint();
+    }
+  }
+
   async function persist() {
     if (!allowed() || !doc || busy || needsRead || !dirty() || !title.value.trim()) return;
     const current = doc;
     const nextTitle = title.value === baseTitle ? current.fields.title : title.value.trim();
-    const fields = { ...current.fields, title: nextTitle };
-    const bodySource = body.value === baseBody ? current.bodySource : body.value;
+    const packet = staged;
+    if (packet && (current.itemId !== null || current.revision !== 0 || packet.slug !== current.slug)) return;
+    const fields = packet?.fields ?? { ...current.fields, title: nextTitle };
+    const bodySource = packet?.bodySource ?? (body.value === baseBody ? current.bodySource : body.value);
     busy = true;
     paint();
     note.textContent = '正在保存私有草稿…';
     try {
-      const input = { slug: current.slug, expectedRevision: current.revision, fields, bodySource };
+      const expectedRevision = packet ? 0 : current.revision;
+      const input = { slug: current.slug, expectedRevision, fields, bodySource };
       const receipt = await api.save(input);
       if (!allowed()) return;
       if (current.itemId && current.itemId !== receipt.itemId) throw new Error('Unexpected draft identity');
@@ -177,6 +232,8 @@ async function init() {
     e.preventDefault();
     void persist();
   });
+  check.addEventListener('click', () => void compareFile());
+  file.addEventListener('change', paint);
   picker.addEventListener('input', paint);
   form.addEventListener('input', () => {
     if (!doc || busy || needsRead || !allowed()) return;
