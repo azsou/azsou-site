@@ -1,5 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
@@ -231,4 +231,152 @@ test('未登录和版主均不能编辑，也不发草稿读写请求', async ({
   await expect(page.locator('[data-admin-body]')).toBeVisible();
   await expect(page.getByRole('link', { name: '写文章草稿' })).toHaveCount(0);
   expect(calls).toEqual([]);
+});
+
+// Synthetic data only. Do not commit source articles, migration payloads or database exports.
+const sampleBody = '\r\n<h2 id="sample-heading">合成章节</h2>\r\n<p>仅供测试。</p>\r\n';
+function sampleFields() {
+  return {
+    title: '合成导入测试',
+    category: '合成分类',
+    badge: '示例',
+    author: '测试编辑部',
+    date: '2025-01-01',
+    lastChecked: '2025-01-02',
+    readingMinutes: 2,
+    toc: ['合成章节'],
+    tags: ['one', 'two'],
+    forumThread: 'example-seed',
+    ogImage: '/og/fixture.png',
+    art: null,
+    pinyin: 'hc',
+    order: 3,
+  };
+}
+
+function sampleFile(slug: string, fields: Record<string, unknown> = sampleFields()) {
+  const entries = Object.keys(fields)
+    .sort()
+    .map((k) => [k, fields[k]]);
+  const data = {
+    p_body_source: sampleBody,
+    p_expected_revision: 0,
+    p_fields: Object.fromEntries(entries),
+    p_slug: slug,
+  };
+  const buffer = Buffer.from(JSON.stringify(data), 'utf8');
+  return { buffer, digest: createHash('sha256').update(buffer).digest('hex') };
+}
+
+async function selectImport(page: Page, key: string, sample = sampleFile(key), digest = sample.digest) {
+  const details = page.getByText('从文件导入一篇私稿', { exact: true });
+  const input = page.getByLabel('单篇导入文件');
+  if (!(await input.isVisible())) await details.click();
+  await input.setInputFiles({ name: `${key}.json`, mimeType: 'application/json', buffer: sample.buffer });
+  await page.getByLabel('核对单上的 SHA-256').fill(digest);
+  await page.getByRole('button', { name: '核对导入文件', exact: true }).click();
+}
+
+async function revisionCounts(key: string) {
+  const sql = `select a.id, a.draft_revision, a.published_revision, count(r.revision)::int as revisions
+    from private.cms_article_items a left join private.cms_article_revisions r on r.item_id = a.id
+    where a.slug = $1 group by a.id`;
+  return (await db!.pool.query(sql, [key])).rows;
+}
+
+test('导入单篇只在保存时写入，刷新后再次核对全字段不增加版本', async ({ page, signIn }) => {
+  const key = newKey();
+  const seen = writes(page);
+  await asUser(page, signIn);
+  await page.goto(`${editor}#${key}`);
+  const c = controls(page);
+  await expect(c.status).toContainText('首次保存后才会建立');
+  await selectImport(page, key);
+  await expect(c.status).toContainText('14 个字段和正文已就绪，尚未写入');
+  await expect(c.title).toHaveValue(sampleFields().title);
+  await expect(c.body).toHaveValue(sampleBody.replaceAll('\r\n', '\n'));
+  expect(await revisionCounts(key)).toEqual([]);
+  expect(seen).toHaveLength(0);
+  await c.save.click();
+  await expect(c.status).toContainText('草稿已保存，第 1 版。未发布。');
+  const after = await revisionCounts(key);
+  expect(after).toEqual([
+    { id: expect.any(String), draft_revision: 1, published_revision: null, revisions: 1 },
+  ]);
+  const stored = {
+    fields: sampleFields(),
+    draft_revision: 1,
+    published_revision: null,
+    body_source: sampleBody,
+    saved_by: U.ada,
+  };
+  expect(await rows(key)).toEqual([stored]);
+  await page.reload();
+  await expect(c.status).toContainText('已读取第 1 版');
+  await selectImport(page, key);
+  await expect(c.status).toContainText('全部字段和正文一致，第 1 版；未写入');
+  await expect(c.save).toBeDisabled();
+  expect(seen).toHaveLength(1);
+  expect(await revisionCounts(key)).toEqual(after);
+  expect(await rows(key)).toEqual([stored]);
+});
+
+test('同名且标题正文相同但标签已变：不覆盖旧稿', async ({ page, signIn }) => {
+  const key = newKey();
+  const fields = { ...sampleFields(), tags: ['two', 'one'] };
+  await seed(key, fields, sampleBody);
+  const before = await revisionCounts(key);
+  const seen = writes(page);
+  await asUser(page, signIn);
+  await page.goto(`${editor}#${key}`);
+  const c = controls(page);
+  await expect(c.status).toContainText('已读取第 1 版');
+  await selectImport(page, key);
+  await expect(c.status).toContainText('已有不同草稿；不覆盖，未写入');
+  await expect(c.save).toBeDisabled();
+  expect(seen).toHaveLength(0);
+  expect(await revisionCounts(key)).toEqual(before);
+  expect((await rows(key))[0].fields).toEqual(fields);
+});
+
+test('错误指纹、错标识或非试点字段：文件预检不写库', async ({ page, signIn }) => {
+  const key = newKey();
+  const file = sampleFile(key);
+  const seen = writes(page);
+  await asUser(page, signIn);
+  await page.goto(`${editor}#${key}`);
+  const c = controls(page);
+  await expect(c.status).toContainText('首次保存后才会建立');
+  const cases = [
+    { file, digest: '0'.repeat(64) },
+    { file: sampleFile(`${key}-other`) },
+    { file: sampleFile(key, { ...sampleFields(), extra: '不得丢掉' }) },
+  ];
+  for (const entry of cases) {
+    await selectImport(page, key, entry.file, entry.digest ?? entry.file.digest);
+    await expect(c.status).toContainText('指纹或格式不符；未写入');
+    await expect(c.save).toBeDisabled();
+    await expect(page.getByRole('button', { name: '核对导入文件', exact: true })).toBeEnabled();
+  }
+  expect(seen).toHaveLength(0);
+  expect(await revisionCounts(key)).toEqual([]);
+});
+
+test('核对后另一会话已先建稿：本次保存不更新其版本', async ({ page, signIn }) => {
+  const key = newKey();
+  await asUser(page, signIn);
+  await page.goto(`${editor}#${key}`);
+  const c = controls(page);
+  await expect(c.status).toContainText('首次保存后才会建立');
+  await selectImport(page, key);
+  await expect(c.status).toContainText('尚未写入');
+  await seed(key, { title: '另一份合成草稿' }, '先保存的正文');
+  const before = await revisionCounts(key);
+  const seen = writes(page);
+  await c.save.click();
+  await expect(c.status).toContainText('版本冲突');
+  await expect(c.save).toBeDisabled();
+  expect(seen).toHaveLength(1);
+  expect(await revisionCounts(key)).toEqual(before);
+  expect((await rows(key))[0].body_source).toBe('先保存的正文');
 });
