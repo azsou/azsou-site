@@ -643,5 +643,146 @@ describe.skipIf(process.env.CI !== 'true')(
         expect(await audit(slug)).toEqual(before);
       }
     });
+
+    // SB09/SB10 canary: use the parent suite's guarded database, rather than a second DB with the same tag.
+    describe('release readback over local PostgREST', () => {
+      const publicSlug = 'sb09-release-check-8ce16f5f';
+      const stateRpc = 'az_cms_read_article_release_state';
+      const publicRpc = 'az_cms_read_published_article_canary';
+      let server: ChildProcess | undefined;
+      let origin: string;
+
+      beforeAll(async () => {
+        if (!BIN || process.env.GITHUB_ACTIONS !== 'true') throw new Error('Local CI PostgREST required');
+        const host = new URL(ADMIN_URL).hostname;
+        if (!['localhost', '127.0.0.1', '[::1]'].includes(host)) throw new Error('Loopback DB required');
+        const expected = `azsou_test_cmsarticle_${process.pid}`;
+        const actual = await db.pool.query<{ name: string }>('select current_database() as name');
+        if (db.name !== expected || actual.rows[0]?.name !== expected) throw new Error('Wrong fixture');
+        const path = join(ROOT, 'db/pilots/article-release-readback.sql');
+        // With tests alone, start the real server without the two readers; do not skip, stub or fake replies.
+        if (existsSync(path)) await db.pool.query(readFileSync(path, 'utf8'));
+        const port = await freePort();
+        server = await startPostgrest(db.name, port);
+        origin = `http://127.0.0.1:${port}`;
+      });
+
+      afterAll(() => {
+        server?.kill();
+      });
+
+      async function readRpc(name: typeof stateRpc | typeof publicRpc, slug: string, uid?: string) {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        // No Authorization header at all for the visitor; a signed local fixture only for named roles.
+        if (uid !== undefined) headers.Authorization = `Bearer ${tok(uid)}`;
+        const response = await fetch(`${origin}/rpc/${name}`, {
+          method: 'POST',
+          headers,
+          redirect: 'error',
+          cache: 'no-store',
+          body: JSON.stringify({ p_slug: slug }),
+        });
+        const data: unknown = await response.json();
+        return { status: response.status, data };
+      }
+
+      it('reopens station state without confusing a newer draft with the revision sent to review', async () => {
+        const slug = 'ci-readback-station';
+        expect(await readRpc(stateRpc, slug, U.ada)).toEqual({ status: 200, data: [] });
+        const id = await putDraft(slug, 0);
+        const state = (
+          draft: number,
+          gen: number,
+          phase: string,
+          reviewed: number | null,
+          live: number | null,
+        ) => ({
+          status: 200,
+          data: [
+            {
+              item_id: id,
+              draft_revision: draft,
+              release_version: gen,
+              phase,
+              reviewed_revision: reviewed,
+              published_revision: live,
+            },
+          ],
+        });
+        expect(await readRpc(stateRpc, slug, U.ada)).toEqual(state(1, 0, 'draft', null, null));
+        ok(await change(slug, 'submit_review', 1, 0, 601));
+        expect(await readRpc(stateRpc, slug, U.ada)).toEqual(state(1, 1, 'review', 1, null));
+        await putDraft(slug, 1);
+        expect(await readRpc(stateRpc, slug, U.ada)).toEqual(state(2, 1, 'review', 1, null));
+        ok(await change(slug, 'submit_review', 2, 1, 602));
+        ok(await change(slug, 'publish', 2, 2, 603));
+        expect(await readRpc(stateRpc, slug, U.ada)).toEqual(state(2, 3, 'published', null, 2));
+        expect(await audit(slug)).toHaveLength(3);
+      });
+
+      it('returns only the explicitly published canary revision and no row after withdrawal or restore', async () => {
+        const absent = { status: 200, data: [] };
+        const live = (n: number) => ({
+          status: 200,
+          data: [{ slug: publicSlug, revision: n, title: `CI article ${n}`, body_text: ciBody(n) }],
+        });
+        const guest = () => readRpc(publicRpc, publicSlug);
+        expect(await guest()).toEqual(absent);
+        await putDraft(publicSlug, 0);
+        expect(await guest()).toEqual(absent);
+        ok(await change(publicSlug, 'submit_review', 1, 0, 611));
+        expect(await guest()).toEqual(absent);
+        ok(await change(publicSlug, 'publish', 1, 1, 612));
+        expect(await guest()).toEqual(live(1));
+        await putDraft(publicSlug, 1);
+        expect(await guest()).toEqual(live(1));
+        ok(await change(publicSlug, 'submit_review', 2, 2, 613));
+        expect(await guest()).toEqual(live(1));
+        expect(await readRpc(publicRpc, publicSlug, U.alice)).toEqual(live(1));
+        ok(await change(publicSlug, 'withdraw', 2, 3, 614));
+        expect(await guest()).toEqual(absent);
+        ok(await change(publicSlug, 'restore_review', 2, 4, 615));
+        expect(await guest()).toEqual(absent);
+        ok(await change(publicSlug, 'publish', 2, 5, 616));
+        expect(await guest()).toEqual(live(2));
+        expect(await audit(publicSlug)).toHaveLength(6);
+      });
+
+      it('gives the station state only to an unrestricted admin, with no grants on private tables', async () => {
+        const slug = 'ci-readback-permissions';
+        await putDraft(slug, 0);
+        expect(await readRpc(stateRpc, slug)).toMatchObject({ status: 401, data: { code: '42501' } });
+        for (const uid of [U.alice, U.mia, U.carol]) {
+          expect(await readRpc(stateRpc, slug, uid)).toMatchObject({ status: 403, data: { code: '42501' } });
+        }
+        expect(await readRpc(stateRpc, slug, U.ada)).toMatchObject({
+          status: 200,
+          data: [{ phase: 'draft' }],
+        });
+        const grants = await db.pool.query<{ any_access: boolean }>(
+          `select bool_or(has_table_privilege(w.r,t.n,'SELECT,INSERT,UPDATE,DELETE')) as any_access
+             from (values ('anon'::name),('authenticated'::name)) as w(r)
+             cross join (values ('private.cms_article_items'::text),('private.cms_article_revisions'),('private.cms_article_release_events')) as t(n)`,
+        );
+        expect(grants.rows).toEqual([{ any_access: false }]);
+        expect(await audit(slug)).toHaveLength(0);
+      });
+
+      it('never widens the pilot to a different legitimately published article, even for station callers', async () => {
+        const slug = 'ci-readback-not-the-canary';
+        await putDraft(slug, 0);
+        ok(await change(slug, 'submit_review', 1, 0, 631));
+        ok(await change(slug, 'publish', 1, 1, 632));
+        expect(await readRpc(stateRpc, slug, U.ada)).toMatchObject({
+          status: 200,
+          data: [{ published_revision: 1 }],
+        });
+        for (const uid of [undefined, U.alice, U.ada]) {
+          expect(await readRpc(publicRpc, slug, uid)).toEqual({ status: 200, data: [] });
+          expect(await readRpc(publicRpc, 'ci-readback-unknown', uid)).toEqual({ status: 200, data: [] });
+        }
+        expect(await audit(slug)).toHaveLength(2);
+      });
+    });
   },
 );
