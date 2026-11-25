@@ -107,6 +107,28 @@ export function getStaticPaths() {
         </button>
       </div>
     </form>
+    <section class="panel form" data-article-release aria-labelledby="release-heading" hidden>
+      <h2 id="release-heading">发布</h2>
+      <p class="field__hint" data-release-summary></p>
+      <div class="btn-row">
+        <button type="button" class="btn" data-release-action="submit_review" disabled>
+          送审当前版本
+        </button>
+        <button type="button" class="btn btn--primary" data-release-action="publish" disabled>
+          发布已审版本
+        </button>
+        <button type="button" class="btn" data-release-action="withdraw" disabled>
+          下架
+        </button>
+        <button type="button" class="btn" data-release-action="restore_review" disabled>
+          恢复为待审
+        </button>
+        <button type="button" class="btn" data-release-refresh disabled>
+          重新读取状态
+        </button>
+      </div>
+      <p class="form-status" role="status" aria-live="polite" aria-atomic="true" data-release-status></p>
+    </section>
   </div>
 </AdminLayout>
 

@@ -1,0 +1,42 @@
+---
+import Base from '@/layouts/Base.astro';
+import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
+
+// 只在测试或本机构建里输出一页验收页，生产构建不输出。
+export function getStaticPaths() {
+  const target = classifySupabaseUrl(supabaseConfig().url)?.target;
+  return target === 'test' || target === 'local' ? [{ params: { probe: 'article-release-check' } }] : [];
+}
+---
+
+<Base title="文章发布验收" description="测试环境：以访客身份读取已发布的验收文章。" noindex noAds>
+  <section class="panel form" data-article-release-check aria-labelledby="release-check-heading">
+    <h1 id="release-check-heading">文章发布验收</h1>
+    <p class="field__hint">这里不登录、不缓存，只读取一篇验收文章。站长发布后能读到，下架后读不到。</p>
+    <div class="btn-row">
+      <button type="button" class="btn" data-check-read>
+        重新读取
+      </button>
+    </div>
+    <p class="form-status" role="status" aria-live="polite" aria-atomic="true" data-check-status></p>
+    <article hidden data-check-result>
+      <h2 data-check-title></h2>
+      <p class="field__hint" data-check-version></p>
+      <pre data-check-body></pre>
+    </article>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/preview/article-release-check';
+</script>
+
+<style>
+  [data-article-release-check] [hidden] {
+    display: none;
+  }
+  [data-check-body] {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+</style>

@@ -3,6 +3,7 @@ import { adminApiFor, type ArticleDraftFields } from '@/lib/data/admin-repo';
 import { ForbiddenError, NotSignedInError, SchemaMissingError } from '@/lib/data/types';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 import { matchesImport, readImportPacket } from './article-import-packet';
+import { mountArticleRelease } from './article-release-panel';
 import { attachPrivateMediaPreview } from './private-media-preview';
 import { formDialog, initAdmin, isAdminRole } from './shell';
 
@@ -34,6 +35,7 @@ async function init() {
   const api = port;
   const owner = me.id;
   attachPrivateMediaPreview(root, repo.auth, owner);
+  const release = mountArticleRelease(root, { repo, onForbidden: () => retire() });
   const picker = find<HTMLFormElement>('open-form');
   const form = find<HTMLFormElement>('edit-form');
   const slug = find<HTMLInputElement>('slug');
@@ -73,6 +75,9 @@ async function init() {
     const changed = dirty() ? ' · 本页有未保存修改' : '';
     version.textContent = doc ? `${doc.slug} · 草稿版本 ${doc.revision}${changed}` : '';
     form.setAttribute('aria-busy', String(busy));
+    release.sync(
+      editing && doc ? { slug: doc.slug, revision: doc.revision, dirty: dirty(), busy, needsRead } : null,
+    );
   }
 
   function address(value: string) {
