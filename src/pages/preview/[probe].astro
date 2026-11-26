@@ -9,7 +9,16 @@ export function getStaticPaths() {
 }
 ---
 
-<Base title="文章发布验收" description="测试环境：以访客身份读取已发布的验收文章。" noindex noAds>
+<Base
+  title="文章发布验收"
+  description="测试环境：以访客身份读取已发布的验收文章。"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '文章发布验收', path: '/preview/article-release-check/' },
+  ]}
+  noindex
+  noAds
+>
   <section class="panel form" data-article-release-check aria-labelledby="release-check-heading">
     <h1 id="release-check-heading">文章发布验收</h1>
     <p class="field__hint">这里不登录、不缓存，只读取一篇验收文章。站长发布后能读到，下架后读不到。</p>
