@@ -644,6 +644,48 @@ describe.skipIf(process.env.CI !== 'true')(
       }
     });
 
+    it('lists only published article identities across draft, review, withdrawal and restored review', async () => {
+      const floor = 'zz-sb10-catalog-0';
+      const alpha = 'zz-sb10-catalog-alpha';
+      const beta = 'zz-sb10-catalog-beta';
+      const hidden = 'zz-sb10-catalog-hidden';
+      const tracked = new Set([alpha, beta, hidden]);
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      const page = async (cursor: string | null, limit: number) => {
+        const rows = ok(await run(db.pool, { role: 'anon' }, query, [cursor, limit]));
+        expect(rows.length).toBeLessThanOrEqual(limit);
+        for (const row of rows) expect(Object.keys(row).sort()).toEqual(['revision', 'slug', 'title']);
+        // Other tests share this disposable database. Scope membership, not the raw page-size check.
+        return rows.filter((row) => tracked.has(String(row.slug)));
+      };
+      const a = { slug: alpha, revision: 1, title: 'CI article 1' };
+      const b = { slug: beta, revision: 2, title: 'CI catalog beta' };
+      // Make a real anonymous call before creating any fixture rows. A missing RPC is an error, not [].
+      expect(await page(null, 8)).toEqual([]);
+      await putDraft(alpha, 0);
+      await putDraft(hidden, 0);
+      ok(await change(alpha, 'submit_review', 1, 0, 901));
+      expect(await page(floor, 8)).toEqual([]);
+      ok(await change(alpha, 'publish', 1, 1, 902));
+      await putDraft(beta, 0);
+      const bFields = { ...(await validationFields(beta)), title: b.title };
+      await saveValidationRevision(beta, 1, bFields, ciBody(2));
+      ok(await change(beta, 'submit_review', 2, 0, 903));
+      ok(await change(beta, 'publish', 2, 1, 904));
+      expect(await page(floor, 8)).toEqual([a, b]);
+      expect(await page(floor, 1)).toEqual([a]);
+      expect(await page(alpha, 1)).toEqual([b]);
+      const privateFields = { ...(await validationFields(alpha)), title: 'CI private alpha v2' };
+      await saveValidationRevision(alpha, 1, privateFields, 'CI private alpha body v2');
+      expect(await page(floor, 8)).toEqual([a, b]);
+      ok(await change(alpha, 'submit_review', 2, 2, 905));
+      expect(await page(floor, 8)).toEqual([a, b]);
+      ok(await change(alpha, 'withdraw', 2, 3, 906));
+      expect(await page(floor, 8)).toEqual([b]);
+      ok(await change(alpha, 'restore_review', 2, 4, 907));
+      expect(await page(floor, 8)).toEqual([b]);
+    });
+
     // SB09/SB10 canary: use the parent suite's guarded database, rather than a second DB with the same tag.
     describe('release readback over local PostgREST', () => {
       const publicSlug = 'sb09-release-check-8ce16f5f';
