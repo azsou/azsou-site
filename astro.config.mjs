@@ -138,6 +138,7 @@ export default defineConfig({
       i18n: { defaultLocale: 'zh', locales: { zh: 'zh-CN', en: 'en' } },
       filter: (page) => {
         const path = new URL(page).pathname;
+        if (path === '/articles/published/') return false;
         // /forum/t/ 是数据库主题的外壳（?id=…，由 /forum/sitemap-threads.xml 列出）；/forum/t/t-xxx/ 种子主题照常收录
         return path !== '/forum/t/' && !THIN_TAGS.has(path) && !NOINDEX.some((p) => path.startsWith(p));
       },
