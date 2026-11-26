@@ -1,6 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { U } from '../db/fixtures';
@@ -36,6 +36,9 @@ test.beforeAll(async () => {
   for (const file of ['article-drafts.sql', 'article-release.sql', 'article-release-readback.sql']) {
     await db.pool.query(readFileSync(join(ROOT, 'db/pilots', file), 'utf8'));
   }
+  // Tests must still run without the SB10 reader on the test-first baseline.
+  const publicReadPilot = join(ROOT, 'db/pilots/article-public-read.sql');
+  if (existsSync(publicReadPilot)) await db.pool.query(readFileSync(publicReadPilot, 'utf8'));
   const port = await freePort();
   child = await startPostgrest(db.name, port);
   origin = `http://127.0.0.1:${port}`;
@@ -267,4 +270,121 @@ test('非站长和访客不能调用发布接口；非验收文章即使已发�
   await transition(key, 'publish', 1, 1);
   expect(await events(key)).toHaveLength(2);
   expect(await visitorRead(key)).toEqual([]);
+});
+
+// SB10: one non-canary URL, a real local published reader, and no signed-in browser session.
+test('SB10：同一文章地址随发布、下架和恢复显示正确版本', async ({ page, baseURL }) => {
+  if (!baseURL || new URL(baseURL).hostname !== '127.0.0.1') throw new Error('Local article site required');
+  const slug = `sb10-e2e-${randomUUID()}`;
+  const url = new URL('/articles/published/', baseURL);
+  url.searchParams.set('slug', slug);
+  const target = url.href;
+  const reader = '/rest/v1/rpc/az_cms_read_published_article';
+  const wrongReaders = new Set([
+    '/rest/v1/rpc/az_cms_read_article_draft',
+    '/rest/v1/rpc/az_cms_read_article_release_state',
+    '/rest/v1/rpc/az_cms_read_published_article_canary',
+  ]);
+  const fallbackRequests: string[] = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (wrongReaders.has(path)) fallbackRequests.push(path);
+  });
+  const main = page.getByRole('main');
+  const status = main.locator('[data-article-public-status]');
+  const edition = (revision: number) => ({
+    slug,
+    revision,
+    title: `SB10 合成标题 ${revision}`,
+    body_text: `SB10 合成正文 ${revision}：字面量 <em>标记</em>。`,
+  });
+  const v1 = edition(1);
+  const v2 = edition(2);
+  await forwardRest(page, origin);
+
+  // Fail at the missing local page on the baseline, not after a timeout waiting for its RPC.
+  const shell = await page.request.get(target, { maxRedirects: 0 });
+  try {
+    expect(shell.status(), 'SB10: the public article page must exist').toBe(200);
+  } finally {
+    await shell.dispose();
+  }
+
+  async function openArticle() {
+    const [reply, navigation] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith(reader) && r.request().method() === 'POST'),
+      page.goto(target, { waitUntil: 'domcontentloaded' }),
+    ]);
+    expect(navigation?.status()).toBe(200);
+    await expect(page).toHaveURL(target);
+    expect(reply.request().postDataJSON()).toEqual({ p_slug: slug });
+    expect(Object.keys(await reply.request().allHeaders())).not.toContain('authorization');
+    return reply;
+  }
+
+  async function noTrace(item: typeof v1) {
+    await expect(main).not.toContainText(item.title);
+    await expect(main).not.toContainText(`SB10 合成正文 ${item.revision}`);
+  }
+
+  async function check(live: typeof v1 | null) {
+    const reply = await openArticle();
+    expect(reply.status()).toBe(200);
+    expect(await reply.json()).toEqual(live ? [live] : []);
+    if (live) {
+      await expect(main.getByRole('heading', { level: 1, name: live.title, exact: true })).toBeVisible();
+      await expect(main.getByText(live.body_text, { exact: true })).toBeVisible();
+    } else {
+      await expect(status).toBeVisible();
+      await expect(status).toContainText('尚未发布');
+    }
+    for (const item of [v1, v2]) {
+      if (item !== live) await noTrace(item);
+    }
+  }
+
+  await check(null);
+  await seed(slug, releaseFields(v1.title), v1.body_text);
+  await check(null);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i);
+  await transition(slug, 'submit_review', 1, 0);
+  await check(null);
+  await transition(slug, 'publish', 1, 1);
+  await check(v1);
+  expect(await visitorRead(slug)).toEqual([]);
+
+  const saved = await run(
+    db!.pool,
+    { role: 'authenticated', uid: U.ada },
+    'select * from public.az_cms_save_article_draft($1, 1, $2::jsonb, $3)',
+    [slug, JSON.stringify(releaseFields(v2.title)), v2.body_text],
+    { commit: true },
+  );
+  expect(saved).toMatchObject({ ok: true, rows: [{ revision: 2 }] });
+  await check(v1);
+  await transition(slug, 'submit_review', 2, 2);
+  await check(v1);
+  await transition(slug, 'withdraw', 2, 3);
+  await check(null);
+  await transition(slug, 'restore_review', 2, 4);
+  await check(null);
+  await transition(slug, 'publish', 2, 5);
+  await check(v2);
+
+  // Only this last read is simulated: an outage must not redisplay content or look like an unpublished row.
+  await page.route(`**${reader}`, (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    return route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: '{}',
+    });
+  });
+  expect((await openArticle()).status()).toBe(503);
+  await expect(status).toBeVisible();
+  await expect(status).toContainText('读取失败');
+  await noTrace(v1);
+  await noTrace(v2);
+  expect(fallbackRequests).toEqual([]);
 });
