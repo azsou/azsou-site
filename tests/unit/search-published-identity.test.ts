@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { mergeHits, type SearchHit, type SearchItem } from '@/lib/search';
 
 const route = (slug: string) => `/articles/published/?slug=${slug}`;
-const article = (slug: string): SearchItem => ({ type: 'article', title: `合成文章 ${slug}`, url: route(slug) });
+const article = (slug: string): SearchItem => ({
+  type: 'article',
+  title: `合成文章 ${slug}`,
+  url: route(slug),
+});
 const preview = (url: string, text: string): SearchHit => ({
   type: 'article',
   title: '合成文章',
