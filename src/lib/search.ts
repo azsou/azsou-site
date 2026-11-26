@@ -194,6 +194,24 @@ export const normalizeUrl = (u: string) => {
   }
 };
 
+const publishedArticlePath = '/articles/published/';
+
+// Only a recognized internal CMS detail uses its slug for identity; other URLs keep the old pathname key.
+function resultIdentity(hit: SearchHit): string {
+  const path = normalizeUrl(hit.url);
+  if (hit.type !== 'article' || path !== publishedArticlePath) return path;
+  const root = 'https://azsou.com';
+  const href = hit.url;
+  const detail = `${publishedArticlePath}?`;
+  if (!href.startsWith(detail) && !href.startsWith(`${root}${detail}`)) return path;
+  const slugs = new URL(href, root).searchParams.getAll('slug');
+  const [slug] = slugs;
+  if (slugs.length !== 1 || !slug || slug.length > 80 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    return path;
+  }
+  return `${publishedArticlePath}?slug=${slug}`;
+}
+
 /**
  * 合并：站内索引里标题 / 拼音的强命中（≥ 50 分）在最前 → Pagefind 全文结果 → 其余站内命中（摘要包含）。
  * 同一 URL 只出现一次（保留排在前面的那条，并补上 Pagefind 摘要）。
@@ -217,10 +235,10 @@ export function mergeHits(
   const out: SearchHit[] = [];
   const seen = new Map<string, SearchHit>();
   const push = (h: SearchHit) => {
-    const key = normalizeUrl(h.url);
+    const key = resultIdentity(h);
     const prev = seen.get(key);
     if (prev) {
-      if (!prev.excerpt && h.excerpt) prev.excerpt = h.excerpt;
+      if (!prev.excerpt && h.excerpt) prev.excerpt = h.excerpt = h.excerpt;
       return;
     }
     seen.set(key, h);
