@@ -238,7 +238,7 @@ export function mergeHits(
     const key = resultIdentity(h);
     const prev = seen.get(key);
     if (prev) {
-      if (!prev.excerpt && h.excerpt) prev.excerpt = h.excerpt = h.excerpt;
+      if (!prev.excerpt && h.excerpt) prev.excerpt = h.excerpt;
       return;
     }
     seen.set(key, h);
