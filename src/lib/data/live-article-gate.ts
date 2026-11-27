@@ -19,3 +19,20 @@ export function liveArticleGate(input: {
   }
   return { open: false };
 }
+
+// Shown only on closed pilot pages outside production, so a closed gate can be explained from the page itself.
+export function liveGateDiagnostic(input: {
+  hostname: string;
+  dev: boolean;
+  vercelEnv: string | undefined;
+}): string | null {
+  if (input.vercelEnv === 'production' || liveArticleGate(input).open) return null;
+  const env =
+    input.vercelEnv === undefined
+      ? '未设置'
+      : /^[a-z]{1,20}$/.test(input.vercelEnv)
+        ? input.vercelEnv
+        : '异常';
+  const match = input.hostname === LIVE_PREVIEW_HOST ? '是' : '否';
+  return `诊断：环境=${env}；主机匹配=${match}；主机=${input.hostname.slice(0, 100)}`;
+}
