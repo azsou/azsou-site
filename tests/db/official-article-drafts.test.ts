@@ -689,6 +689,96 @@ describe.skipIf(process.env.CI !== 'true')(
       expect(await page(floor, 8)).toEqual([b]);
     });
 
+    it('returns no rows for limits outside the inclusive one-to-fifty bound', async () => {
+      const slug = '000-sb10-catalog-limit';
+      const cursor = slug.slice(0, -1);
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      await seedLive(slug, 910);
+      const valid = ok(await run(db.pool, { role: 'anon' }, query, [cursor, 1]));
+      expect(valid).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      for (const limit of [0, 51, null, -1]) {
+        expect(ok(await run(db.pool, { role: 'anon' }, query, [cursor, limit]))).toEqual([]);
+      }
+    });
+
+    it('uses a null cursor for the first C-ordered row and rejects an invalid cursor', async () => {
+      // '0' is the smallest valid slug under C collation, independent of other fixture rows.
+      const slug = '0';
+      const lastZero = '0'.repeat(80);
+      const next = `${'0'.repeat(79)}1`;
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      const page = async (cursor: string | null) =>
+        ok(await run(db.pool, { role: 'anon' }, query, [cursor, 1]));
+      await seedLive(slug, 920);
+      await seedLive(next, 922);
+      expect(await page(null)).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      expect(await page(lastZero)).toEqual([{ slug: next, revision: 1, title: 'CI article 1' }]);
+      // Each invalid cursor sorts below a published row: an empty result cannot be a coincidental last page.
+      for (const cursor of ['', '!invalid', `${lastZero}0`]) expect(await page(cursor)).toEqual([]);
+    });
+
+    it('shows a republished article once at its latest published revision and title', async () => {
+      const slug = 'zz-sb10-catalog-v2';
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      await seedLive(slug, 930);
+      const v2Fields = { ...(await validationFields(slug)), title: 'CI catalog v2' };
+      await saveValidationRevision(slug, 1, v2Fields, ciBody(2));
+      ok(await change(slug, 'submit_review', 2, 2, 932));
+      ok(await change(slug, 'publish', 2, 3, 933));
+      const rows = ok(await run(db.pool, { role: 'anon' }, query, [slug.slice(0, -1), 50]));
+      expect(rows.filter((row) => row.slug === slug)).toEqual([
+        { slug, revision: 2, title: 'CI catalog v2' },
+      ]);
+    });
+
+    it('omits an article while withdrawn and after restoring it to review', async () => {
+      const slug = 'zz-sb10-catalog-withdrawn';
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      await seedLive(slug, 940);
+      const own = async () => {
+        const rows = ok(await run(db.pool, { role: 'anon' }, query, [slug.slice(0, -1), 50]));
+        return rows.filter((row) => row.slug === slug);
+      };
+      expect(await own()).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      ok(await change(slug, 'withdraw', 1, 2, 942));
+      expect(await own()).toEqual([]);
+      ok(await change(slug, 'restore_review', 1, 3, 943));
+      expect(await own()).toEqual([]);
+    });
+
+    it('orders C-collated slugs ascending without duplicates across two one-row pages', async () => {
+      const first = 'zz-sb10-page-10';
+      const second = 'zz-sb10-page-2';
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      await seedLive(first, 950);
+      await seedLive(second, 960);
+      const page = async (cursor: string) => ok(await run(db.pool, { role: 'anon' }, query, [cursor, 1]));
+      const a = await page('zz-sb10-page-0');
+      const b = await page(first);
+      expect(a).toEqual([{ slug: first, revision: 1, title: 'CI article 1' }]);
+      expect(b).toEqual([{ slug: second, revision: 1, title: 'CI article 1' }]);
+      expect(await page('zz-sb10-page-0')).toEqual(a);
+      expect(await page(first)).toEqual(b);
+      expect(new Set([...a, ...b].map((row) => row.slug)).size).toBe(2);
+    });
+
+    it('allows authenticated callers the same rows but rejects service_role execution', async () => {
+      const slug = 'zz-sb10-role-item';
+      const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
+      await seedLive(slug, 970);
+      const args = [slug.slice(0, -1), 50];
+      const guest = ok(await run(db.pool, { role: 'anon' }, query, args));
+      const auth = ok(await run(db.pool, { role: 'authenticated', uid: U.alice }, query, args));
+      const station = ok(await run(db.pool, admin, query, args));
+      expect(auth).toEqual(guest);
+      expect(station).toEqual(guest);
+      expect(auth.filter((row) => row.slug === slug)).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      const denied = await run(db.pool, { role: 'superuser' }, query, args, {
+        before: ['set local role service_role'],
+      });
+      expect(denied).toMatchObject({ ok: false, code: '42501' });
+    });
+
     // SB09/SB10 canary: use the parent suite's guarded database, rather than a second DB with the same tag.
     describe('release readback over local PostgREST', () => {
       const publicSlug = 'sb09-release-check-8ce16f5f';
