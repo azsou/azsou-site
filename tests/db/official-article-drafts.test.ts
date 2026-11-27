@@ -296,6 +296,9 @@ describe.skipIf(process.env.CI !== 'true')(
       if (id.rows[0]?.name !== expected) throw new Error('Unexpected SB09 database');
       // Without the new file, exercise the absent interface: never skip or substitute a fake implementation.
       if (existsSync(releasePilot)) await db.pool.query(readFileSync(releasePilot, 'utf8'));
+      for (const file of ['article-public-read.sql', 'article-public-catalog.sql']) {
+        await db.pool.query(readFileSync(join(ROOT, 'db/pilots', file), 'utf8'));
+      }
     });
 
     function ciBody(n: number) {
