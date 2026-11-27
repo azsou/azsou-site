@@ -1,4 +1,3 @@
-import { JSDOM } from 'jsdom';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DetailPage from '@/pages/articles/live/[slug].astro';
@@ -38,7 +37,39 @@ async function render(page: Parameters<AstroContainer['renderToResponse']>[0], u
     ...(slug === undefined ? {} : { params: { slug } }),
   });
   const html = await response.text();
-  return { response, html, doc: new JSDOM(html).window.document };
+  return { response, html, view: view(html) };
+}
+
+const decode = (text: string) =>
+  text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+
+// Reads only what the first HTML response contains inside <main>; no scripts run.
+function view(html: string) {
+  const start = html.indexOf('<main');
+  const end = html.indexOf('</main>');
+  const main = start >= 0 && end > start ? html.slice(start, end) : '';
+  const first = (pattern: RegExp) => {
+    const match = pattern.exec(main);
+    return match ? decode(match[1]!) : null;
+  };
+  return {
+    hasMain: main !== '',
+    h1: first(/<h1[^>]*>([\s\S]*?)<\/h1>/),
+    pre: first(/<pre[^>]*>([\s\S]*?)<\/pre>/),
+    text: decode(main.replace(/<[^>]*>/g, '')),
+    alert: /role="alert"/.test(main),
+    list: /<ul[\s>]/.test(main),
+    rawBold: /<b[\s>]/.test(main),
+    links: [...main.matchAll(/<a href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => ({
+      href: decode(m[1]!),
+      text: decode(m[2]!),
+    })),
+  };
 }
 
 const row = (slug: string, title = slug) => ({ slug, revision: 1, title });
@@ -50,18 +81,15 @@ afterEach(() => {
 describe('本机试点：已发布文章列表页', () => {
   it('首份 HTML 就有标题和链接，文字被转义，只读公开目录', async () => {
     const calls = backend(() => json([row('alpha', '甲 <b>x</b>'), row('beta', '乙')]));
-    const { response, doc, html } = await render(IndexPage, `${LOCAL}/articles/live/`);
+    const { response, view: page, html } = await render(IndexPage, `${LOCAL}/articles/live/`);
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('x-robots-tag')).toContain('noindex');
-    expect(doc.querySelector('main h1')?.textContent).toBe('已发布文章（本机试点）');
-    const links = [...doc.querySelectorAll('main ul a')];
-    expect(links.map((a) => a.getAttribute('href'))).toEqual([
-      '/articles/live/alpha/',
-      '/articles/live/beta/',
-    ]);
-    expect(links.map((a) => a.textContent)).toEqual(['甲 <b>x</b>', '乙']);
-    expect(doc.querySelector('main b')).toBeNull();
+    expect(page.hasMain).toBe(true);
+    expect(page.h1).toBe('已发布文章（本机试点）');
+    expect(page.links.map((a) => a.href)).toEqual(['/articles/live/alpha/', '/articles/live/beta/']);
+    expect(page.links.map((a) => a.text)).toEqual(['甲 <b>x</b>', '乙']);
+    expect(page.rawBold).toBe(false);
     expect(html).not.toContain('<b>x</b>');
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url).toMatch(REST);
@@ -74,31 +102,31 @@ describe('本机试点：已发布文章列表页', () => {
     const rows = Array.from({ length: 20 }, (_, i) => row(`a${String(i + 1).padStart(2, '0')}`));
     const first = backend(() => json(rows));
     const page = await render(IndexPage, `${LOCAL}/articles/live/`);
-    expect(page.doc.querySelector('main a[href^="/articles/live/?after="]')?.getAttribute('href')).toBe(
-      '/articles/live/?after=a20',
-    );
+    expect(
+      page.view.links.filter((a) => a.href.startsWith('/articles/live/?after=')).map((a) => a.href),
+    ).toEqual(['/articles/live/?after=a20']);
     expect(first).toHaveLength(1);
     vi.unstubAllGlobals();
     const second = backend(() => json([row('a21')]));
     const next = await render(IndexPage, `${LOCAL}/articles/live/?after=a20`);
     expect(next.response.status).toBe(200);
     expect(second[0]!.body).toEqual({ p_after_slug: 'a20', p_limit: 20 });
-    expect(next.doc.querySelector('main a[href^="/articles/live/?after="]')).toBeNull();
+    expect(next.view.links.filter((a) => a.href.startsWith('/articles/live/?after='))).toEqual([]);
   });
 
   it('空页是 200，读取失败是 503，两者不混淆', async () => {
     backend(() => json([]));
     const empty = await render(IndexPage, `${LOCAL}/articles/live/`);
     expect(empty.response.status).toBe(200);
-    expect(empty.doc.querySelector('main')?.textContent).toContain('本页没有已发布文章。');
+    expect(empty.view.text).toContain('本页没有已发布文章。');
     for (const failure of [json({ message: 'down' }, 503), json([{ slug: 'alpha' }]), new Error('network')]) {
       vi.unstubAllGlobals();
       backend(() => failure);
       const failed = await render(IndexPage, `${LOCAL}/articles/live/`);
       expect(failed.response.status).toBe(503);
-      expect(failed.doc.querySelector('main [role="alert"]')).not.toBeNull();
-      expect(failed.doc.querySelector('main ul')).toBeNull();
-      expect(failed.doc.querySelector('main')?.textContent).not.toContain('本页没有已发布文章。');
+      expect(failed.view.alert).toBe(true);
+      expect(failed.view.list).toBe(false);
+      expect(failed.view.text).not.toContain('本页没有已发布文章。');
     }
   });
 
@@ -118,14 +146,15 @@ describe('本机试点：已发布文章详情页', () => {
   it('首份 HTML 就有标题、版本和正文，正文只作文本', async () => {
     const body = '第一行\n<script>window.x = 1</script>';
     const calls = backend(() => json([{ slug: 'alpha', revision: 2, title: '甲', body_text: body }]));
-    const { response, doc, html } = await render(DetailPage, `${LOCAL}/articles/live/alpha/`, 'alpha');
+    const { response, view: page, html } = await render(DetailPage, `${LOCAL}/articles/live/alpha/`, 'alpha');
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('x-robots-tag')).toContain('noindex');
-    expect(doc.querySelector('main h1')?.textContent).toBe('甲');
-    expect(doc.querySelector('main')?.textContent).toContain('已发布第 2 版');
-    expect(doc.querySelector('main pre')?.textContent).toBe(body);
-    expect(doc.querySelectorAll('script')).toHaveLength(0);
+    expect(page.hasMain).toBe(true);
+    expect(page.h1).toBe('甲');
+    expect(page.text).toContain('已发布第 2 版');
+    expect(page.pre).toBe(body);
+    expect(html).not.toContain('<script');
     expect(html).not.toContain('<script>window.x');
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url).toMatch(REST);
@@ -138,8 +167,8 @@ describe('本机试点：已发布文章详情页', () => {
     backend(() => json([]));
     const absent = await render(DetailPage, `${LOCAL}/articles/live/alpha/`, 'alpha');
     expect(absent.response.status).toBe(404);
-    expect(absent.doc.querySelector('main h1')?.textContent).toBe('文章不存在或已下架');
-    expect(absent.doc.querySelector('main pre')).toBeNull();
+    expect(absent.view.h1).toBe('文章不存在或已下架');
+    expect(absent.view.pre).toBeNull();
     const broken = [
       json({ message: 'down' }, 500),
       json([{ slug: 'alpha', revision: 1, title: '甲' }]),
@@ -151,8 +180,8 @@ describe('本机试点：已发布文章详情页', () => {
       backend(() => failure);
       const failed = await render(DetailPage, `${LOCAL}/articles/live/alpha/`, 'alpha');
       expect(failed.response.status).toBe(503);
-      expect(failed.doc.querySelector('main [role="alert"]')).not.toBeNull();
-      expect(failed.doc.querySelector('main pre')).toBeNull();
+      expect(failed.view.alert).toBe(true);
+      expect(failed.view.pre).toBeNull();
       expect(failed.html).not.toContain('串了');
     }
   });
