@@ -1,7 +1,7 @@
 ---
 // Pilot fixture only (local host or the fixed preview host). Not the canonical article routes.
 import { listPublishedArticles, validPublicArticleSlug } from '@/lib/data/published-article';
-import { liveArticleGate } from '@/lib/data/live-article-gate';
+import { liveArticleGate, liveGateDiagnostic } from '@/lib/data/live-article-gate';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 
 export const prerender = false;
@@ -29,6 +29,13 @@ if (!gate.open) {
     status = 503;
   }
 }
+const diagnostic = gate.open
+  ? null
+  : liveGateDiagnostic({
+      hostname: Astro.url.hostname,
+      dev: import.meta.env.DEV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
 Astro.response.status = status;
 Astro.response.headers.set('Cache-Control', 'no-store');
 Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
@@ -46,7 +53,10 @@ const after = articles.length === limit ? articles[articles.length - 1]?.slug : 
     <main>
       <h1>已发布文章（本机试点）</h1>
       {status === 404 ? (
-        <p>未找到页面。</p>
+        <>
+          <p>未找到页面。</p>
+          {diagnostic && <p>{diagnostic}</p>}
+        </>
       ) : status === 400 ? (
         <p>分页标识无效。</p>
       ) : status === 503 ? (

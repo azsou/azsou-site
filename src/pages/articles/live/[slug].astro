@@ -1,6 +1,6 @@
 ---
 import { readPublishedArticle, validPublicArticleSlug } from '@/lib/data/published-article';
-import { liveArticleGate } from '@/lib/data/live-article-gate';
+import { liveArticleGate, liveGateDiagnostic } from '@/lib/data/live-article-gate';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 
 export const prerender = false;
@@ -28,6 +28,13 @@ if (!gate.open || !validPublicArticleSlug(slug)) {
     status = 503;
   }
 }
+const diagnostic = gate.open
+  ? null
+  : liveGateDiagnostic({
+      hostname: Astro.url.hostname,
+      dev: import.meta.env.DEV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
 Astro.response.status = status;
 Astro.response.headers.set('Cache-Control', 'no-store');
 Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
@@ -54,7 +61,10 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
           <pre>{article.bodyText}</pre>
         </article>
       ) : (
-        <h1>文章不存在或已下架</h1>
+        <>
+          <h1>文章不存在或已下架</h1>
+          {diagnostic && <p>{diagnostic}</p>}
+        </>
       )}
     </main>
   </body>
