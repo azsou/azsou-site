@@ -1,6 +1,7 @@
 ---
-// Local development fixture only. These files are a proposal, not canonical article routes.
+// Pilot fixture only (local host or the fixed preview host). Not the canonical article routes.
 import { listPublishedArticles, validPublicArticleSlug } from '@/lib/data/published-article';
+import { liveArticleGate } from '@/lib/data/live-article-gate';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 
 export const prerender = false;
@@ -10,15 +11,19 @@ const input = Astro.url.searchParams.getAll('after');
 const cursor = input.length === 0 ? null : input.length === 1 ? (input[0] ?? '') : '';
 let status = 200;
 let articles: Awaited<ReturnType<typeof listPublishedArticles>> = [];
-const localHost = ['127.0.0.1', 'localhost', '[::1]'].includes(Astro.url.hostname);
-if (!import.meta.env.DEV || !localHost) {
+const gate = liveArticleGate({
+  hostname: Astro.url.hostname,
+  dev: import.meta.env.DEV,
+  vercelEnv: process.env.VERCEL_ENV,
+});
+if (!gate.open) {
   status = 404;
 } else if (cursor !== null && !validPublicArticleSlug(cursor)) {
   status = 400;
 } else {
   try {
     const config = supabaseConfig();
-    if (classifySupabaseUrl(config.url)?.target !== 'local') status = 503;
+    if (classifySupabaseUrl(config.url)?.target !== gate.target) status = 503;
     else articles = await listPublishedArticles(config, cursor, limit);
   } catch {
     status = 503;

@@ -1,19 +1,24 @@
 ---
 import { readPublishedArticle, validPublicArticleSlug } from '@/lib/data/published-article';
+import { liveArticleGate } from '@/lib/data/live-article-gate';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
 
 export const prerender = false;
 
 const slug = Astro.params.slug ?? '';
-const localHost = ['127.0.0.1', 'localhost', '[::1]'].includes(Astro.url.hostname);
+const gate = liveArticleGate({
+  hostname: Astro.url.hostname,
+  dev: import.meta.env.DEV,
+  vercelEnv: process.env.VERCEL_ENV,
+});
 let article: Awaited<ReturnType<typeof readPublishedArticle>> = null;
 let status = 200;
-if (!import.meta.env.DEV || !localHost || !validPublicArticleSlug(slug)) {
+if (!gate.open || !validPublicArticleSlug(slug)) {
   status = 404;
 } else {
   try {
     const config = supabaseConfig();
-    if (classifySupabaseUrl(config.url)?.target !== 'local') status = 503;
+    if (classifySupabaseUrl(config.url)?.target !== gate.target) status = 503;
     else {
       const localFetch: typeof fetch = (input, init) => fetch(input, { ...init, redirect: 'error' });
       article = await readPublishedArticle(config, slug, localFetch);
