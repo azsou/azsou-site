@@ -76,6 +76,7 @@ const row = (slug: string, title = slug) => ({ slug, revision: 1, title });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('本机试点：已发布文章列表页', () => {
@@ -196,5 +197,81 @@ describe('本机试点：已发布文章详情页', () => {
     expect(remote.response.status).toBe(404);
     expect(remote.html).not.toContain('不应出现');
     expect(calls).toHaveLength(0);
+  });
+});
+
+const PREVIEW_HOST = 'azsou-site-git-feat-sb03-article-draft-pilot-azsous-projects.vercel.app';
+const PREVIEW = `https://${PREVIEW_HOST}`;
+const TEST_REST =
+  /^https:\/\/ovvfwkmqlejcpatmfqcd\.supabase\.co\/rest\/v1\/rpc\/(az_cms_read_published_article|az_cms_list_published_articles)$/;
+
+function previewEnv(vercelEnv = 'preview', url = 'https://ovvfwkmqlejcpatmfqcd.supabase.co') {
+  vi.stubEnv('VERCEL_ENV', vercelEnv);
+  vi.stubEnv('PUBLIC_SUPABASE_URL', url);
+  vi.stubEnv('PUBLIC_SUPABASE_KEY', 'sb_publishable_preview-test-not-a-secret');
+}
+
+describe('固定预览部署：只读测试库的公开目录和正文', () => {
+  it('列表页在固定预览域名返回 200，只读测试库，响应头不缓存且不收录', async () => {
+    previewEnv();
+    const calls = backend(() => json([row('alpha', '甲'), row('beta', '乙')]));
+    const { response, view: page } = await render(IndexPage, `${PREVIEW}/articles/live/`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('x-robots-tag')).toContain('noindex');
+    expect(page.links.map((a) => a.href)).toEqual(['/articles/live/alpha/', '/articles/live/beta/']);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toMatch(TEST_REST);
+    expect(calls[0]!.init).toMatchObject({ method: 'POST', credentials: 'omit', redirect: 'error' });
+  });
+
+  it('列表为空是 200，详情页首份 HTML 就有正文', async () => {
+    previewEnv();
+    backend(() => json([]));
+    const empty = await render(IndexPage, `${PREVIEW}/articles/live/`);
+    expect(empty.response.status).toBe(200);
+    expect(empty.view.text).toContain('本页没有已发布文章。');
+    vi.unstubAllGlobals();
+    const calls = backend(() => json([{ slug: 'alpha', revision: 3, title: '甲', body_text: '正文一' }]));
+    const detail = await render(DetailPage, `${PREVIEW}/articles/live/alpha/`, 'alpha');
+    expect(detail.response.status).toBe(200);
+    expect(detail.response.headers.get('cache-control')).toBe('no-store');
+    expect(detail.view.h1).toBe('甲');
+    expect(detail.view.pre).toBe('正文一');
+    expect(calls[0]!.url).toMatch(TEST_REST);
+  });
+
+  it('其它域名、非预览环境一律 404，且不读取后端', async () => {
+    const cases: Array<[string, string]> = [
+      [PREVIEW_HOST, 'production'],
+      [PREVIEW_HOST, 'development'],
+      ['azsou-site-abc123-azsous-projects.vercel.app', 'preview'],
+      ['azsou.com', 'preview'],
+      [`${PREVIEW_HOST}.evil.example`, 'preview'],
+    ];
+    for (const [host, vercelEnv] of cases) {
+      previewEnv(vercelEnv);
+      const calls = backend(() => json([{ slug: 'alpha', revision: 1, title: '甲', body_text: '不应出现' }]));
+      const list = await render(IndexPage, `https://${host}/articles/live/`);
+      const detail = await render(DetailPage, `https://${host}/articles/live/alpha/`, 'alpha');
+      expect(list.response.status).toBe(404);
+      expect(detail.response.status).toBe(404);
+      expect(detail.html).not.toContain('不应出现');
+      expect(calls).toHaveLength(0);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('固定预览域名但数据库地址不是测试库时是 503，不读取后端', async () => {
+    for (const url of ['http://127.0.0.1:54321', 'https://example.supabase.co']) {
+      previewEnv('preview', url);
+      const calls = backend(() => json([]));
+      const list = await render(IndexPage, `${PREVIEW}/articles/live/`);
+      const detail = await render(DetailPage, `${PREVIEW}/articles/live/alpha/`, 'alpha');
+      expect(list.response.status).toBe(503);
+      expect(detail.response.status).toBe(503);
+      expect(calls).toHaveLength(0);
+      vi.unstubAllGlobals();
+    }
   });
 });
