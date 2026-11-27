@@ -821,6 +821,64 @@ describe.skipIf(process.env.CI !== 'true')(
         return { status: response.status, data };
       }
 
+      it('returns the same published revision from the catalog and detail over anonymous HTTP', async () => {
+        const floor = 'zzzz-sb10-http-0';
+        const slug = 'zzzz-sb10-http-alpha';
+        const control = 'zzzz-sb10-http-beta';
+        const listRpc = 'az_cms_list_published_articles';
+        const detailRpc = 'az_cms_read_published_article';
+        const post = async (
+          name: typeof listRpc | typeof detailRpc,
+          args: Record<string, string | number | null>,
+        ) => {
+          // origin is the guarded, loopback-only PostgREST fixture above, not a hosted /rest/v1 gateway.
+          const reply = await fetch(`${origin}/rpc/${name}`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            credentials: 'omit',
+            redirect: 'error',
+            cache: 'no-store',
+            body: JSON.stringify(args),
+          });
+          expect(reply.status).toBe(200);
+          expect(reply.headers.get('content-type')).toMatch(/^application\/json\b/i);
+          const rows: unknown = await reply.json();
+          return rows;
+        };
+        const page = (cursor: string) => post(listRpc, { p_after_slug: cursor, p_limit: 1 });
+        const identity = (s: string, n: number) => ({ slug: s, revision: n, title: `CI article ${n}` });
+        const beta = identity(control, 1);
+        const verify = async (revision: 1 | 2 | null) => {
+          const alpha = revision === null ? null : identity(slug, revision);
+          expect(await page(floor)).toEqual([alpha ?? beta]);
+          expect(await page(slug)).toEqual([beta]);
+          const expected =
+            revision === null ? [] : [{ ...identity(slug, revision), body_text: ciBody(revision) }];
+          expect(await post(detailRpc, { p_slug: slug })).toEqual(expected);
+        };
+
+        await seedLive(control, 1001);
+        // A null cursor on the wire must serve the same first row as the verified SQL contract.
+        const firstSql = ok(
+          await run(db.pool, { role: 'anon' }, 'select * from public.az_cms_list_published_articles(null,1)'),
+        );
+        expect(firstSql).toHaveLength(1);
+        expect(await post(listRpc, { p_after_slug: null, p_limit: 1 })).toEqual(firstSql);
+        await verify(null);
+        await seedLive(slug, 1003);
+        await verify(1);
+        await putDraft(slug, 1);
+        await verify(1);
+        ok(await change(slug, 'submit_review', 2, 2, 1005));
+        await verify(1);
+        ok(await change(slug, 'publish', 2, 3, 1006));
+        await verify(2);
+        ok(await change(slug, 'withdraw', 2, 4, 1007));
+        await verify(null);
+        ok(await change(slug, 'restore_review', 2, 5, 1008));
+        await verify(null);
+      });
+
       it('reopens station state without confusing a newer draft with the revision sent to review', async () => {
         const slug = 'ci-readback-station';
         expect(await readRpc(stateRpc, slug, U.ada)).toEqual({ status: 200, data: [] });
