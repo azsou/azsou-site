@@ -305,6 +305,9 @@ describe.skipIf(process.env.CI !== 'true')(
       return `<p>SB09 synthetic revision ${n}.</p>`;
     }
 
+    // SB12：putDraft 写入的固定元数据；公开目录和详情必须原样带出，摘要在发布门禁有来源前恒为 null。
+    const CI_META = { date: '2026-01-01', author: 'Fixture', category: 'CI', badge: 'CI', summary: null };
+
     async function putDraft(slug: string, base: number, issue?: 'no-author' | 'disclosure') {
       const meta: Record<string, unknown> = {
         title: `CI article ${base + 1}`,
@@ -657,12 +660,22 @@ describe.skipIf(process.env.CI !== 'true')(
       const page = async (cursor: string | null, limit: number) => {
         const rows = ok(await run(db.pool, { role: 'anon' }, query, [cursor, limit]));
         expect(rows.length).toBeLessThanOrEqual(limit);
-        for (const row of rows) expect(Object.keys(row).sort()).toEqual(['revision', 'slug', 'title']);
+        for (const row of rows)
+          expect(Object.keys(row).sort()).toEqual([
+            'author',
+            'badge',
+            'category',
+            'date',
+            'revision',
+            'slug',
+            'summary',
+            'title',
+          ]);
         // Other tests share this disposable database. Scope membership, not the raw page-size check.
         return rows.filter((row) => tracked.has(String(row.slug)));
       };
-      const a = { slug: alpha, revision: 1, title: 'CI article 1' };
-      const b = { slug: beta, revision: 2, title: 'CI catalog beta' };
+      const a = { slug: alpha, revision: 1, title: 'CI article 1', ...CI_META };
+      const b = { slug: beta, revision: 2, title: 'CI catalog beta', ...CI_META };
       // Make a real anonymous call before creating any fixture rows. A missing RPC is an error, not [].
       expect(await page(null, 8)).toEqual([]);
       await putDraft(alpha, 0);
@@ -695,7 +708,7 @@ describe.skipIf(process.env.CI !== 'true')(
       const query = 'select * from public.az_cms_list_published_articles($1::text,$2::integer)';
       await seedLive(slug, 910);
       const valid = ok(await run(db.pool, { role: 'anon' }, query, [cursor, 1]));
-      expect(valid).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      expect(valid).toEqual([{ slug, revision: 1, title: 'CI article 1', ...CI_META }]);
       for (const limit of [0, 51, null, -1]) {
         expect(ok(await run(db.pool, { role: 'anon' }, query, [cursor, limit]))).toEqual([]);
       }
@@ -711,8 +724,8 @@ describe.skipIf(process.env.CI !== 'true')(
         ok(await run(db.pool, { role: 'anon' }, query, [cursor, 1]));
       await seedLive(slug, 920);
       await seedLive(next, 922);
-      expect(await page(null)).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
-      expect(await page(lastZero)).toEqual([{ slug: next, revision: 1, title: 'CI article 1' }]);
+      expect(await page(null)).toEqual([{ slug, revision: 1, title: 'CI article 1', ...CI_META }]);
+      expect(await page(lastZero)).toEqual([{ slug: next, revision: 1, title: 'CI article 1', ...CI_META }]);
       // Each invalid cursor sorts below a published row: an empty result cannot be a coincidental last page.
       for (const cursor of ['', '!invalid', `${lastZero}0`]) expect(await page(cursor)).toEqual([]);
     });
@@ -727,7 +740,7 @@ describe.skipIf(process.env.CI !== 'true')(
       ok(await change(slug, 'publish', 2, 3, 933));
       const rows = ok(await run(db.pool, { role: 'anon' }, query, [slug.slice(0, -1), 50]));
       expect(rows.filter((row) => row.slug === slug)).toEqual([
-        { slug, revision: 2, title: 'CI catalog v2' },
+        { slug, revision: 2, title: 'CI catalog v2', ...CI_META },
       ]);
     });
 
@@ -739,7 +752,7 @@ describe.skipIf(process.env.CI !== 'true')(
         const rows = ok(await run(db.pool, { role: 'anon' }, query, [slug.slice(0, -1), 50]));
         return rows.filter((row) => row.slug === slug);
       };
-      expect(await own()).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      expect(await own()).toEqual([{ slug, revision: 1, title: 'CI article 1', ...CI_META }]);
       ok(await change(slug, 'withdraw', 1, 2, 942));
       expect(await own()).toEqual([]);
       ok(await change(slug, 'restore_review', 1, 3, 943));
@@ -755,8 +768,8 @@ describe.skipIf(process.env.CI !== 'true')(
       const page = async (cursor: string) => ok(await run(db.pool, { role: 'anon' }, query, [cursor, 1]));
       const a = await page('zz-sb10-page-0');
       const b = await page(first);
-      expect(a).toEqual([{ slug: first, revision: 1, title: 'CI article 1' }]);
-      expect(b).toEqual([{ slug: second, revision: 1, title: 'CI article 1' }]);
+      expect(a).toEqual([{ slug: first, revision: 1, title: 'CI article 1', ...CI_META }]);
+      expect(b).toEqual([{ slug: second, revision: 1, title: 'CI article 1', ...CI_META }]);
       expect(await page('zz-sb10-page-0')).toEqual(a);
       expect(await page(first)).toEqual(b);
       expect(new Set([...a, ...b].map((row) => row.slug)).size).toBe(2);
@@ -772,7 +785,9 @@ describe.skipIf(process.env.CI !== 'true')(
       const station = ok(await run(db.pool, admin, query, args));
       expect(auth).toEqual(guest);
       expect(station).toEqual(guest);
-      expect(auth.filter((row) => row.slug === slug)).toEqual([{ slug, revision: 1, title: 'CI article 1' }]);
+      expect(auth.filter((row) => row.slug === slug)).toEqual([
+        { slug, revision: 1, title: 'CI article 1', ...CI_META },
+      ]);
       const denied = await run(db.pool, { role: 'superuser' }, query, args, {
         before: ['set local role service_role'],
       });
@@ -846,7 +861,12 @@ describe.skipIf(process.env.CI !== 'true')(
           return rows;
         };
         const page = (cursor: string) => post(listRpc, { p_after_slug: cursor, p_limit: 1 });
-        const identity = (s: string, n: number) => ({ slug: s, revision: n, title: `CI article ${n}` });
+        const identity = (s: string, n: number) => ({
+          slug: s,
+          revision: n,
+          title: `CI article ${n}`,
+          ...CI_META,
+        });
         const beta = identity(control, 1);
         const verify = async (revision: 1 | 2 | null) => {
           const alpha = revision === null ? null : identity(slug, revision);
