@@ -1,0 +1,143 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
+
+// Emit exactly one pilot page for the existing allowlisted test or local build, none for production.
+export function getStaticPaths() {
+  const target = classifySupabaseUrl(supabaseConfig().url)?.target;
+  return target === 'test' || target === 'local' ? [{ params: { pilot: 'article-draft' } }] : [];
+}
+---
+
+<AdminLayout
+  section="official"
+  title="文章草稿编辑器"
+  lede="仅站长可用。保存私有草稿，并在下方送审、发布或下架。"
+  require="admin"
+>
+  <div class="form" data-article-draft-editor>
+    <form id="draft-open-form" class="panel form" aria-labelledby="draft-open-heading" autocomplete="off">
+      <h2 id="draft-open-heading">打开或新建</h2>
+      <div class="field">
+        <label for="draft-slug">文章标识</label>
+        <input
+          id="draft-slug"
+          type="text"
+          class="input"
+          maxlength="80"
+          placeholder="例如 studio-notes"
+          aria-describedby="draft-slug-help"
+          autocapitalize="none"
+          spellcheck="false"
+          required
+          disabled
+        />
+        <p id="draft-slug-help" class="field__hint">
+          使用小写字母、数字和连字符。新标识在首次保存后才建稿。
+        </p>
+      </div>
+      <div class="btn-row">
+        <button id="draft-open" type="submit" class="btn btn--primary" disabled>
+          打开草稿
+        </button>
+        <button id="draft-close" type="button" class="btn" hidden>
+          关闭草稿
+        </button>
+      </div>
+    </form>
+    <p id="draft-status" class="form-status" role="status" aria-live="polite" aria-atomic="true"></p>
+    <form
+      id="draft-edit-form"
+      class="panel form"
+      aria-labelledby="draft-edit-heading"
+      autocomplete="off"
+      hidden
+    >
+      <h2 id="draft-edit-heading">写作区</h2>
+      <p id="draft-version" class="field__hint"></p>
+      <div class="field">
+        <label for="draft-title">文章标题</label>
+        <input id="draft-title" class="input" type="text" required disabled />
+      </div>
+      <div class="field">
+        <label for="draft-source">正文源文本</label>
+        <textarea id="draft-source" rows="12" aria-describedby="draft-source-help" disabled></textarea>
+        <p id="draft-source-help" class="field__hint">
+          按原文保存，不执行 HTML。目录、标签等其他字段保持原值。
+        </p>
+      </div>
+      <details>
+        <summary>从文件导入一篇私稿</summary>
+        <div class="form">
+          <p class="field__hint">先核对文件。空标识才可保存；已有稿只比对，不覆盖。不发布。</p>
+          <div class="field">
+            <label for="draft-import-file">单篇导入文件</label>
+            <input
+              id="draft-import-file"
+              type="file"
+              class="input"
+              accept=".json,application/json"
+              disabled
+            />
+          </div>
+          <div class="field">
+            <label for="draft-import-hash">核对单上的 SHA-256</label>
+            <input
+              id="draft-import-hash"
+              type="text"
+              class="input"
+              maxlength="64"
+              spellcheck="false"
+              disabled
+            />
+          </div>
+          <div class="btn-row">
+            <button id="draft-import-check" type="button" class="btn" disabled>
+              核对导入文件
+            </button>
+          </div>
+        </div>
+      </details>
+      <div class="btn-row">
+        <button id="draft-save" type="submit" class="btn btn--primary" disabled>
+          保存私有草稿
+        </button>
+        <button id="draft-reload" type="button" class="btn" disabled>
+          重新读取
+        </button>
+      </div>
+    </form>
+    <section class="panel form" data-article-release aria-labelledby="release-heading" hidden>
+      <h2 id="release-heading">发布</h2>
+      <p class="field__hint" data-release-summary></p>
+      <div class="btn-row">
+        <button type="button" class="btn" data-release-action="submit_review" disabled>
+          送审当前版本
+        </button>
+        <button type="button" class="btn btn--primary" data-release-action="publish" disabled>
+          发布已审版本
+        </button>
+        <button type="button" class="btn" data-release-action="withdraw" disabled>
+          下架
+        </button>
+        <button type="button" class="btn" data-release-action="restore_review" disabled>
+          恢复为待审
+        </button>
+        <button type="button" class="btn" data-release-refresh disabled>
+          重新读取状态
+        </button>
+      </div>
+      <p class="form-status" role="status" aria-live="polite" aria-atomic="true" data-release-status></p>
+    </section>
+  </div>
+</AdminLayout>
+
+<script>
+  import '@/scripts/admin/article-draft-editor';
+</script>
+
+<style>
+  [data-article-draft-editor] [hidden] {
+    display: none;
+  }
+</style>

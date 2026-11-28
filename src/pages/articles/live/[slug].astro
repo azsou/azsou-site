@@ -1,0 +1,73 @@
+---
+import { readPublishedArticle, validPublicArticleSlug } from '@/lib/data/published-article';
+import { liveArticleGate, liveGateDiagnostic } from '@/lib/data/live-article-gate';
+import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+const gate = liveArticleGate({
+  hostname: Astro.url.hostname,
+  dev: import.meta.env.DEV,
+  vercelEnv: process.env.VERCEL_ENV,
+  gitRef: process.env.VERCEL_GIT_COMMIT_REF,
+});
+let article: Awaited<ReturnType<typeof readPublishedArticle>> = null;
+let status = 200;
+if (!gate.open || !validPublicArticleSlug(slug)) {
+  status = 404;
+} else {
+  try {
+    const config = supabaseConfig();
+    if (classifySupabaseUrl(config.url)?.target !== gate.target) status = 503;
+    else {
+      const localFetch: typeof fetch = (input, init) => fetch(input, { ...init, redirect: 'error' });
+      article = await readPublishedArticle(config, slug, localFetch);
+      if (article === null) status = 404;
+    }
+  } catch {
+    status = 503;
+  }
+}
+const diagnostic = gate.open
+  ? null
+  : liveGateDiagnostic({
+      hostname: Astro.url.hostname,
+      dev: import.meta.env.DEV,
+      vercelEnv: process.env.VERCEL_ENV,
+      gitRef: process.env.VERCEL_GIT_COMMIT_REF,
+    });
+Astro.response.status = status;
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{article?.title ?? '文章详情'}</title>
+  </head>
+  <body>
+    <main>
+      {status === 503 ? (
+        <>
+          <h1>文章服务暂不可用</h1>
+          <p role="alert">本次未能读取文章。</p>
+        </>
+      ) : article ? (
+        <article>
+          <h1>{article.title}</h1>
+          <p>已发布第 {article.revision} 版</p>
+          <pre>{article.bodyText}</pre>
+        </article>
+      ) : (
+        <>
+          <h1>文章不存在或已下架</h1>
+          {diagnostic && <p>{diagnostic}</p>}
+        </>
+      )}
+    </main>
+  </body>
+</html>

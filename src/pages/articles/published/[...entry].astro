@@ -1,0 +1,52 @@
+---
+import Base from '@/layouts/Base.astro';
+import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
+
+// This is a static test/local shell only. Production builds emit no route here.
+// The undefined rest param is the root of /articles/published/; it does not add
+// a sibling /articles/[slug]/ route and therefore does not replace Git content.
+export function getStaticPaths() {
+  const target = classifySupabaseUrl(supabaseConfig().url)?.target;
+  return target === 'test' || target === 'local' ? [{ params: { entry: undefined } }] : [];
+}
+---
+
+<Base
+  title="文章详情"
+  description="查看当前已发布的文章标题、版本和正文。"
+  canonical="/articles/published/"
+  crumbs={[
+    { name: '首页', path: '/' },
+    { name: '文章', path: '/articles/' },
+    { name: '文章详情', path: '/articles/published/' },
+  ]}
+  noindex
+  noAds
+>
+  <section class="panel form" data-published-article aria-labelledby="published-article-heading">
+    <h1 id="published-article-heading" data-article-public-title>
+      文章详情
+    </h1>
+    <p class="form-status" role="status" aria-live="polite" aria-atomic="true" data-article-public-status>
+      文章链接缺少有效标识。
+    </p>
+    <div hidden data-article-public-result>
+      <p class="field__hint" data-article-public-version></p>
+      <div class="prose" data-article-public-body></div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import '@/scripts/articles/published-article';
+</script>
+
+<style>
+  [data-published-article] [hidden] {
+    display: none;
+  }
+  [data-article-public-body] {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+</style>
