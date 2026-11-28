@@ -3,6 +3,8 @@ import { listPublishedArticles } from '@/lib/data/published-article';
 import { DataUnavailableError } from '@/lib/data/types';
 
 const config = { url: 'http://127.0.0.1:47311', key: 'sb10-fixture-only' };
+// SB12：目录行固定带五项公开元数据（可为 null）；旧三列形状由 published-article-metadata.test.ts 负责拒绝。
+const none = { date: null, author: null, category: null, badge: null, summary: null };
 
 type FakeReply = { status?: number; ok?: boolean; body?: unknown; jsonError?: Error };
 
@@ -27,13 +29,13 @@ describe('公开文章目录读取', () => {
   it('读取普通页和空页，只提交固定公开请求', async () => {
     const page = fake({
       body: [
-        { slug: 'alpha', revision: 2, title: '甲' },
-        { slug: 'beta-two', revision: 1, title: '乙' },
+        { slug: 'alpha', revision: 2, title: '甲', ...none },
+        { slug: 'beta-two', revision: 1, title: '乙', ...none },
       ],
     });
     await expect(listPublishedArticles(config, null, 2, page.fetchImpl)).resolves.toEqual([
-      { slug: 'alpha', revision: 2, title: '甲' },
-      { slug: 'beta-two', revision: 1, title: '乙' },
+      { slug: 'alpha', revision: 2, title: '甲', ...none },
+      { slug: 'beta-two', revision: 1, title: '乙', ...none },
     ]);
     expect(page.calls).toHaveLength(1);
     expect(page.calls[0]!.url).toBe('http://127.0.0.1:47311/rest/v1/rpc/az_cms_list_published_articles');
@@ -74,7 +76,7 @@ describe('公开文章目录读取', () => {
         config,
         null,
         5,
-        fake({ body: [{ slug: 'alpha', revision: 1, title: '' }] }).fetchImpl,
+        fake({ body: [{ slug: 'alpha', revision: 1, title: '', ...none }] }).fetchImpl,
       ),
     ).rejects.toBeInstanceOf(DataUnavailableError);
     await expect(
@@ -82,7 +84,7 @@ describe('公开文章目录读取', () => {
         config,
         null,
         5,
-        fake({ body: [{ slug: 'alpha', revision: 1, title: '甲', private_field: 'no' }] }).fetchImpl,
+        fake({ body: [{ slug: 'alpha', revision: 1, title: '甲', ...none, private_field: 'no' }] }).fetchImpl,
       ),
     ).rejects.toBeInstanceOf(DataUnavailableError);
   });
@@ -103,12 +105,12 @@ describe('公开文章目录读取', () => {
 
     for (const body of [
       [
-        { slug: 'beta', revision: 1, title: '乙' },
-        { slug: 'beta', revision: 2, title: '重复' },
+        { slug: 'beta', revision: 1, title: '乙', ...none },
+        { slug: 'beta', revision: 2, title: '重复', ...none },
       ],
       [
-        { slug: 'beta', revision: 1, title: '乙' },
-        { slug: 'alpha', revision: 1, title: '甲' },
+        { slug: 'beta', revision: 1, title: '乙', ...none },
+        { slug: 'alpha', revision: 1, title: '甲', ...none },
       ],
     ]) {
       await expect(

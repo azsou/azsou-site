@@ -72,7 +72,9 @@ function view(html: string) {
   };
 }
 
-const row = (slug: string, title = slug) => ({ slug, revision: 1, title });
+// SB12：公开目录与详情固定带五项公开元数据（可为 null）；旧形状应被读取器拒绝，见下方故障用例。
+const none = { date: null, author: null, category: null, badge: null, summary: null };
+const row = (slug: string, title = slug) => ({ slug, revision: 1, title, ...none });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -146,7 +148,9 @@ describe('本机试点：已发布文章列表页', () => {
 describe('本机试点：已发布文章详情页', () => {
   it('首份 HTML 就有标题、版本和正文，正文只作文本', async () => {
     const body = '第一行\n<script>window.x = 1</script>';
-    const calls = backend(() => json([{ slug: 'alpha', revision: 2, title: '甲', body_text: body }]));
+    const calls = backend(() =>
+      json([{ slug: 'alpha', revision: 2, title: '甲', ...none, body_text: body }]),
+    );
     const { response, view: page, html } = await render(DetailPage, `${LOCAL}/articles/live/alpha/`, 'alpha');
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
@@ -173,7 +177,7 @@ describe('本机试点：已发布文章详情页', () => {
     const broken = [
       json({ message: 'down' }, 500),
       json([{ slug: 'alpha', revision: 1, title: '甲' }]),
-      json([{ slug: 'beta', revision: 1, title: '乙', body_text: '串了' }]),
+      json([{ slug: 'beta', revision: 1, title: '乙', ...none, body_text: '串了' }]),
       new Error('network'),
     ];
     for (const failure of broken) {
@@ -188,7 +192,9 @@ describe('本机试点：已发布文章详情页', () => {
   });
 
   it('非法标识和非本机访问在读取前返回 404', async () => {
-    const calls = backend(() => json([{ slug: 'alpha', revision: 1, title: '甲', body_text: '不应出现' }]));
+    const calls = backend(() =>
+      json([{ slug: 'alpha', revision: 1, title: '甲', ...none, body_text: '不应出现' }]),
+    );
     for (const slug of ['Bad_Slug', 'a-', 'x'.repeat(81)]) {
       const bad = await render(DetailPage, `${LOCAL}/articles/live/${slug}/`, slug);
       expect(bad.response.status).toBe(404);
@@ -237,7 +243,9 @@ describe('预览部署：只读测试库的公开目录和正文', () => {
     expect(empty.response.status).toBe(200);
     expect(empty.view.text).toContain('本页没有已发布文章。');
     vi.unstubAllGlobals();
-    const calls = backend(() => json([{ slug: 'alpha', revision: 3, title: '甲', body_text: '正文一' }]));
+    const calls = backend(() =>
+      json([{ slug: 'alpha', revision: 3, title: '甲', ...none, body_text: '正文一' }]),
+    );
     const detail = await render(DetailPage, `${PREVIEW}/articles/live/alpha/`, 'alpha');
     expect(detail.response.status).toBe(200);
     expect(detail.response.headers.get('cache-control')).toBe('no-store');
@@ -257,7 +265,9 @@ describe('预览部署：只读测试库的公开目录和正文', () => {
     ];
     for (const [vercelEnv, gitRef] of cases) {
       previewEnv(vercelEnv, gitRef);
-      const calls = backend(() => json([{ slug: 'alpha', revision: 1, title: '甲', body_text: '不应出现' }]));
+      const calls = backend(() =>
+        json([{ slug: 'alpha', revision: 1, title: '甲', ...none, body_text: '不应出现' }]),
+      );
       const list = await render(IndexPage, `${PREVIEW}/articles/live/`);
       const detail = await render(DetailPage, `${PREVIEW}/articles/live/alpha/`, 'alpha');
       expect(list.response.status).toBe(404);
