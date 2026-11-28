@@ -1,5 +1,5 @@
 ---
-// Pilot fixture only (local host or the fixed preview host). Not the canonical article routes.
+// Pilot fixture only (local host, or the preview deployment of this branch). Not the canonical article routes.
 import { listPublishedArticles, validPublicArticleSlug } from '@/lib/data/published-article';
 import { liveArticleGate, liveGateDiagnostic } from '@/lib/data/live-article-gate';
 import { classifySupabaseUrl, supabaseConfig } from '@/lib/supabase-config';
@@ -15,6 +15,7 @@ const gate = liveArticleGate({
   hostname: Astro.url.hostname,
   dev: import.meta.env.DEV,
   vercelEnv: process.env.VERCEL_ENV,
+  gitRef: process.env.VERCEL_GIT_COMMIT_REF,
 });
 if (!gate.open) {
   status = 404;
@@ -35,6 +36,7 @@ const diagnostic = gate.open
       hostname: Astro.url.hostname,
       dev: import.meta.env.DEV,
       vercelEnv: process.env.VERCEL_ENV,
+      gitRef: process.env.VERCEL_GIT_COMMIT_REF,
     });
 Astro.response.status = status;
 Astro.response.headers.set('Cache-Control', 'no-store');

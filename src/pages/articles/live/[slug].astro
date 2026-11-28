@@ -10,6 +10,7 @@ const gate = liveArticleGate({
   hostname: Astro.url.hostname,
   dev: import.meta.env.DEV,
   vercelEnv: process.env.VERCEL_ENV,
+  gitRef: process.env.VERCEL_GIT_COMMIT_REF,
 });
 let article: Awaited<ReturnType<typeof readPublishedArticle>> = null;
 let status = 200;
@@ -34,6 +35,7 @@ const diagnostic = gate.open
       hostname: Astro.url.hostname,
       dev: import.meta.env.DEV,
       vercelEnv: process.env.VERCEL_ENV,
+      gitRef: process.env.VERCEL_GIT_COMMIT_REF,
     });
 Astro.response.status = status;
 Astro.response.headers.set('Cache-Control', 'no-store');
